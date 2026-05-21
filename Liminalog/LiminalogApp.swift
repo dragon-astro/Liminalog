@@ -1,17 +1,12 @@
-//
-//  LiminalogApp.swift
-//  Liminalog
-//
-//  Created by Ryuga on 2026/05/21.
-//
-
 import SwiftUI
+import SwiftData
 
 @main
 struct LiminalogApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            RootTabView()
         }
+        .modelContainer(for: [Category.self, Chapter.self, VisibilityPreset.self])
     }
 }
