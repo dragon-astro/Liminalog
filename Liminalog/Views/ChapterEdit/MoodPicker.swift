@@ -32,3 +32,11 @@ struct MoodPicker: View {
         }
     }
 }
+
+#Preview("Mood Picker") {
+    @Previewable @State var mood: String? = "🔥"
+
+    Form {
+        MoodPicker(selection: $mood)
+    }
+}

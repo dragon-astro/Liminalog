@@ -9,6 +9,8 @@ final class Chapter {
     var endTime: Date?
     var note: String?
     var mood: String?
+    var locationName: String?
+    var isPublic: Bool = true
     var createdAt: Date
 
     var isActive: Bool { endTime == nil }
@@ -29,6 +31,8 @@ final class Chapter {
         self.endTime = nil
         self.note = nil
         self.mood = nil
+        self.locationName = nil
+        self.isPublic = true
         self.createdAt = Date()
     }
 }

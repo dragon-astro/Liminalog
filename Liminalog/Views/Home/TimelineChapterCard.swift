@@ -2,6 +2,7 @@ import SwiftUI
 
 struct TimelineChapterCard: View {
     let chapter: Chapter
+    var matchedPlan: PlanBlock? = nil
     let onTap: () -> Void
 
     var body: some View {
@@ -65,6 +66,12 @@ struct TimelineChapterCard: View {
                         Text(mood)
                             .font(.caption)
                     }
+
+                    if let location = chapter.locationName {
+                        Label(location, systemImage: "mappin.and.ellipse")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -72,6 +79,15 @@ struct TimelineChapterCard: View {
                     RoundedRectangle(cornerRadius: 12)
                         .fill(Color(.secondarySystemGroupedBackground))
                 )
+                .overlay(alignment: .trailing) {
+                    if let matchedPlan {
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(matchedPlan.category?.color ?? Color(.systemGray3))
+                            .frame(width: 4)
+                            .padding(.vertical, 8)
+                            .padding(.trailing, 4)
+                    }
+                }
             }
             .buttonStyle(.plain)
         }

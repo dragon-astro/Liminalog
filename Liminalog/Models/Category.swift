@@ -7,7 +7,9 @@ final class Category {
     var id: UUID
     var name: String
     var colorHex: String
+    var icon: String?
     var sortOrder: Int
+    var usageCount: Int = 0
     var isDefault: Bool
     var createdAt: Date
 
@@ -15,13 +17,15 @@ final class Category {
     var chapters: [Chapter]
 
     var color: Color { Color(hex: colorHex) }
-    var usageCount: Int { chapters.count }
+    var totalUsageCount: Int { max(usageCount, chapters.count) }
 
-    init(name: String, colorHex: String, sortOrder: Int = 0, isDefault: Bool = false) {
+    init(name: String, colorHex: String, icon: String? = nil, sortOrder: Int = 0, isDefault: Bool = false) {
         self.id = UUID()
         self.name = name
         self.colorHex = colorHex
+        self.icon = icon
         self.sortOrder = sortOrder
+        self.usageCount = 0
         self.isDefault = isDefault
         self.createdAt = Date()
         self.chapters = []

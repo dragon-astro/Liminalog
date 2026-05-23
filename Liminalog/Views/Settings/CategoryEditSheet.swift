@@ -8,6 +8,9 @@ struct CategoryEditSheet: View {
 
     @State private var name: String = ""
     @State private var color: Color = .blue
+    @State private var icon: String = "circle.fill"
+
+    private let icons = ["book.closed.fill", "briefcase.fill", "sparkles", "cup.and.saucer.fill", "tram.fill", "moon.fill", "fork.knife", "figure.run", "gamecontroller.fill", "music.note", "heart.fill", "paintpalette.fill"]
 
     var isNew: Bool { category == nil }
 
@@ -22,6 +25,24 @@ struct CategoryEditSheet: View {
                     ColorPicker("カテゴリカラー", selection: $color, supportsOpacity: false)
                 }
 
+                Section("アイコン") {
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 6), spacing: 10) {
+                        ForEach(icons, id: \.self) { symbol in
+                            Button {
+                                icon = symbol
+                            } label: {
+                                Image(systemName: symbol)
+                                    .font(.headline)
+                                    .frame(width: 40, height: 40)
+                                    .foregroundStyle(icon == symbol ? .white : color)
+                                    .background(RoundedRectangle(cornerRadius: 10).fill(icon == symbol ? color : color.opacity(0.12)))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+
                 Section {
                     HStack {
                         Spacer()
@@ -29,6 +50,10 @@ struct CategoryEditSheet: View {
                             Circle()
                                 .fill(color)
                                 .frame(width: 48, height: 48)
+                                .overlay {
+                                    Image(systemName: icon)
+                                        .foregroundStyle(.white)
+                                }
                             Text(name.isEmpty ? "カテゴリ名" : name)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
@@ -56,6 +81,7 @@ struct CategoryEditSheet: View {
                 if let cat = category {
                     name = cat.name
                     color = cat.color
+                    icon = cat.icon ?? "circle.fill"
                 }
             }
         }
@@ -66,9 +92,9 @@ struct CategoryEditSheet: View {
         guard !trimmed.isEmpty else { return }
 
         if let cat = category {
-            store.updateCategory(cat, name: trimmed, colorHex: color.hexString)
+            store.updateCategory(cat, name: trimmed, colorHex: color.hexString, icon: icon)
         } else {
-            store.addCategory(name: trimmed, colorHex: color.hexString)
+            store.addCategory(name: trimmed, colorHex: color.hexString, icon: icon)
         }
         dismiss()
     }

@@ -16,4 +16,24 @@ extension Date {
     var shortTime: String {
         formatted(date: .omitted, time: .shortened)
     }
+
+    var japaneseYearMonth: String {
+        formatted(.dateTime.locale(Locale(identifier: "ja_JP")).year().month(.wide))
+    }
+
+    var japaneseMonthDayWeekday: String {
+        formatted(.dateTime.locale(Locale(identifier: "ja_JP")).month(.wide).day().weekday(.wide))
+    }
+}
+
+extension Calendar {
+    static var japanese: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.locale = Locale(identifier: "ja_JP")
+        calendar.firstWeekday = 1
+        calendar.timeZone = .current
+        return calendar
+    }
+
+    static let japaneseShortWeekdaySymbols = ["日", "月", "火", "水", "木", "金", "土"]
 }

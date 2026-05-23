@@ -6,9 +6,48 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		A10000082FBECFB600C94B4E /* LiminalogWidgetExtension.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = A10000022FBECFB600C94B4E /* LiminalogWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		A100000A2FBECFB600C94B4E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4253979E2FBECFB600C94B4E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A10000032FBECFB600C94B4E;
+			remoteInfo = LiminalogWidgetExtension;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		A10000072FBECFB600C94B4E /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				A10000082FBECFB600C94B4E /* LiminalogWidgetExtension.appex in Embed App Extensions */,
+			);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		425397A62FBECFB600C94B4E /* Liminalog.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Liminalog.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A10000022FBECFB600C94B4E /* LiminalogWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = LiminalogWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		A100000E2FBECFB600C94B4E /* Exceptions for "LiminalogWidget" folder in "LiminalogWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = A10000032FBECFB600C94B4E /* LiminalogWidgetExtension */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		425397A82FBECFB600C94B4E /* Liminalog */ = {
@@ -16,10 +55,25 @@
 			path = Liminalog;
 			sourceTree = "<group>";
 		};
+		A10000012FBECFB600C94B4E /* LiminalogWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				A100000E2FBECFB600C94B4E /* Exceptions for "LiminalogWidget" folder in "LiminalogWidgetExtension" target */,
+			);
+			path = LiminalogWidget;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		425397A32FBECFB600C94B4E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A10000052FBECFB600C94B4E /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -33,6 +87,7 @@
 			isa = PBXGroup;
 			children = (
 				425397A82FBECFB600C94B4E /* Liminalog */,
+				A10000012FBECFB600C94B4E /* LiminalogWidget */,
 				425397A72FBECFB600C94B4E /* Products */,
 			);
 			sourceTree = "<group>";
@@ -41,6 +96,7 @@
 			isa = PBXGroup;
 			children = (
 				425397A62FBECFB600C94B4E /* Liminalog.app */,
+				A10000022FBECFB600C94B4E /* LiminalogWidgetExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -55,10 +111,12 @@
 				425397A22FBECFB600C94B4E /* Sources */,
 				425397A32FBECFB600C94B4E /* Frameworks */,
 				425397A42FBECFB600C94B4E /* Resources */,
+				A10000072FBECFB600C94B4E /* Embed App Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				A10000092FBECFB600C94B4E /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				425397A82FBECFB600C94B4E /* Liminalog */,
@@ -69,6 +127,28 @@
 			productName = Liminalog;
 			productReference = 425397A62FBECFB600C94B4E /* Liminalog.app */;
 			productType = "com.apple.product-type.application";
+		};
+		A10000032FBECFB600C94B4E /* LiminalogWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A100000B2FBECFB600C94B4E /* Build configuration list for PBXNativeTarget "LiminalogWidgetExtension" */;
+			buildPhases = (
+				A10000042FBECFB600C94B4E /* Sources */,
+				A10000052FBECFB600C94B4E /* Frameworks */,
+				A10000062FBECFB600C94B4E /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				A10000012FBECFB600C94B4E /* LiminalogWidget */,
+			);
+			name = LiminalogWidgetExtension;
+			packageProductDependencies = (
+			);
+			productName = LiminalogWidgetExtension;
+			productReference = A10000022FBECFB600C94B4E /* LiminalogWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -81,6 +161,9 @@
 				LastUpgradeCheck = 2650;
 				TargetAttributes = {
 					425397A52FBECFB600C94B4E = {
+						CreatedOnToolsVersion = 26.5;
+					};
+					A10000032FBECFB600C94B4E = {
 						CreatedOnToolsVersion = 26.5;
 					};
 				};
@@ -100,12 +183,20 @@
 			projectRoot = "";
 			targets = (
 				425397A52FBECFB600C94B4E /* Liminalog */,
+				A10000032FBECFB600C94B4E /* LiminalogWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		425397A42FBECFB600C94B4E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A10000062FBECFB600C94B4E /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -122,7 +213,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A10000042FBECFB600C94B4E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		A10000092FBECFB600C94B4E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A10000032FBECFB600C94B4E /* LiminalogWidgetExtension */;
+			targetProxy = A100000A2FBECFB600C94B4E /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		425397AF2FBECFB800C94B4E /* Debug */ = {
@@ -256,6 +362,7 @@
 				DEVELOPMENT_TEAM = 7834TP2P53;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -288,6 +395,7 @@
 				DEVELOPMENT_TEAM = 7834TP2P53;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -300,6 +408,64 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = app.YasudaRyuga.Liminalog;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		A100000C2FBECFB600C94B4E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 7834TP2P53;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = LiminalogWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.5;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.YasudaRyuga.Liminalog.LiminalogWidgetExtension;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		A100000D2FBECFB600C94B4E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 7834TP2P53;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = LiminalogWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.5;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.YasudaRyuga.Liminalog.LiminalogWidgetExtension;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
@@ -327,6 +493,15 @@
 			buildConfigurations = (
 				425397B22FBECFB800C94B4E /* Debug */,
 				425397B32FBECFB800C94B4E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A100000B2FBECFB600C94B4E /* Build configuration list for PBXNativeTarget "LiminalogWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A100000C2FBECFB600C94B4E /* Debug */,
+				A100000D2FBECFB600C94B4E /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

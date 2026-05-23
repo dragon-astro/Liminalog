@@ -12,6 +12,8 @@ struct ChapterEditSheet: View {
     @State private var endTime: Date? = nil
     @State private var note: String = ""
     @State private var mood: String? = nil
+    @State private var locationName: String = ""
+    @State private var isPublic: Bool = true
     @State private var selectedCategory: Category? = nil
     @State private var categories: [Category] = []
     @State private var showDeleteConfirm = false
@@ -59,8 +61,18 @@ struct ChapterEditSheet: View {
                         .lineLimit(3...6)
                 }
 
+                Section("場所") {
+                    TextField("場所名を追加...", text: $locationName)
+                }
+
                 Section("気分") {
                     MoodPicker(selection: $mood)
+                }
+
+                Section("公開設定") {
+                    Toggle(isOn: $isPublic) {
+                        Label(isPublic ? "友達に見せる" : "自分だけ", systemImage: isPublic ? "eye" : "eye.slash")
+                    }
                 }
 
                 Section {
@@ -97,6 +109,8 @@ struct ChapterEditSheet: View {
         endTime = chapter.endTime
         note = chapter.note ?? ""
         mood = chapter.mood
+        locationName = chapter.locationName ?? ""
+        isPublic = chapter.isPublic
         selectedCategory = chapter.category
         categories = store.allCategories()
     }
@@ -108,7 +122,9 @@ struct ChapterEditSheet: View {
             endTime: endTime,
             category: selectedCategory,
             note: note,
-            mood: mood
+            mood: mood,
+            locationName: locationName,
+            isPublic: isPublic
         )
         dismiss()
     }
