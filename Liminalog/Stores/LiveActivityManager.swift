@@ -15,11 +15,16 @@ final class LiveActivityManager {
             categories: categories
         )
 
-        if let activity = Activity<LiminalogActivityAttributes>.activities.first {
+        let activities = Activity<LiminalogActivityAttributes>.activities
+        if !activities.isEmpty {
             if state.isRecording {
-                await activity.update(ActivityContent(state: state, staleDate: nil))
+                for activity in activities {
+                    await activity.update(ActivityContent(state: state, staleDate: nil))
+                }
             } else {
-                await activity.end(ActivityContent(state: state, staleDate: nil), dismissalPolicy: .immediate)
+                for activity in activities {
+                    await activity.end(ActivityContent(state: state, staleDate: nil), dismissalPolicy: .immediate)
+                }
             }
             return
         }
