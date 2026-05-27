@@ -13,7 +13,14 @@ enum SharedModelContainer {
             do {
                 return try localOnly()
             } catch {
-                fatalError("Failed to create local ModelContainer: \(error)")
+                NSLog("Liminalog: falling back to in-memory ModelContainer because local ModelContainer failed: \(String(describing: error))")
+                do {
+                    return try inMemory()
+                } catch {
+                    let message = "Liminalog: failed to create any ModelContainer: \(String(describing: error))"
+                    NSLog("%@", message)
+                    return try! inMemory()
+                }
             }
         }
     }()
@@ -51,7 +58,18 @@ enum SharedModelContainer {
         let configuration = ModelConfiguration(
             "Local",
             schema: schema,
-            isStoredInMemoryOnly: false
+            isStoredInMemoryOnly: false,
+            cloudKitDatabase: .none
+        )
+        return try ModelContainer(for: schema, configurations: [configuration])
+    }
+
+    static func inMemory() throws -> ModelContainer {
+        let configuration = ModelConfiguration(
+            "InMemory",
+            schema: schema,
+            isStoredInMemoryOnly: true,
+            cloudKitDatabase: .none
         )
         return try ModelContainer(for: schema, configurations: [configuration])
     }

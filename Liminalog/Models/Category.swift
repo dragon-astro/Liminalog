@@ -13,10 +13,10 @@ final class Category {
     var createdAt: Date = Date()
 
     @Relationship(deleteRule: .nullify, inverse: \Chapter.category)
-    var chapters: [Chapter] = []
+    var chapters: [Chapter]? = []
 
     @Relationship(deleteRule: .nullify, inverse: \PlanBlock.category)
-    var plans: [PlanBlock] = []
+    var plans: [PlanBlock]? = []
 
     var color: Color { Color(hex: colorHex) }
 
