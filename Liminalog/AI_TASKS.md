@@ -340,13 +340,13 @@ refactor: split plan store
 
 ### 5.8 テスト基盤
 
-- [ ] テストターゲット `LiminalogTests` 追加（Swift Testing 採用）<!-- 担当: Codex, 理由: 構成作業 -->
-- [ ] `TestModelContainer` ヘルパー実装 <!-- 担当: Codex -->
+- [x] テストターゲット `LiminalogTests` 追加（Swift Testing 採用）<!-- 担当: Codex, 理由: 構成作業, 完了: 2026-05-28 -->
+- [x] `TestModelContainer` ヘルパー実装 <!-- 担当: Codex, 完了: 2026-05-28。in-memory + CloudKit none でテスト実行 -->
 - [x] `Clock` プロトコル + `SystemClock` / `TestClock` 実装 <!-- 担当: Codex, 理由: 設計上の純粋抽象, 完了: 2026-05-28。Swift標準Clockとの衝突回避のため名称は `LiminalogClock` -->
 - [x] `Clock` を `ChapterStore` 等に注入できるよう改修 <!-- 担当: Codex, 完了: 2026-05-28。現状は `ChapterStore` 注入 + `ScoreCalculator.summary(now:)` 対応 -->
-- [ ] `ScoreCalculatorTests` 実装（仕様書の計算例を必ず含む）<!-- 担当: Codex, 理由: ロジックテストは Codex が書いたロジックのテスト -->
+- [x] `ScoreCalculatorTests` 実装（仕様書の計算例を必ず含む）<!-- 担当: Codex, 理由: ロジックテストは Codex が書いたロジックのテスト, 完了: 2026-05-28 -->
 - [ ] `StreakCalculatorTests` 実装 <!-- 担当: Codex -->
-- [ ] `DayBoundaryTests` 実装（0:00-24:00固定・日付またぎクリップ）<!-- 担当: Codex -->
+- [x] `DayBoundaryTests` 実装（0:00-24:00固定・日付またぎクリップ）<!-- 担当: Codex, 完了: 2026-05-28 -->
 
 ---
 
@@ -606,7 +606,8 @@ refactor: split plan store
 ### Codex FB 2026-05-24 追加分（§10.5 より）
 
 - [x] `04-data-model.md` の CategorySet 設計を現実装の `slots: [UUID?]` 方針に合わせて更新 <!-- 担当: Codex, 完了: 2026-05-24 -->
-- [ ] `CategorySet.slots: [UUID?]` の CloudKit managed sync 互換性を検証 + 必要なら代替案（`slot0...slot7: UUID?` 個別フィールド / `[String]` で空文字扱い 等）を docs/04 で提案 <!-- 担当: Codex, 理由: SwiftData/CloudKit 制約の実装者視点 (10.5 #3) -->
+- [x] `CategorySet.slots: [UUID?]` の CloudKit managed sync 互換性を検証 + 必要なら代替案（`slot0...slot7: UUID?` 個別フィールド / `[String]` で空文字扱い 等）を docs/04 で提案 <!-- 担当: Codex, 理由: SwiftData/CloudKit 制約の実装者視点 (10.5 #3), 完了: 2026-05-28。現時点は破壊的移行を避けて維持、TestFlight前に実機CloudKitで再検証 -->
+- [ ] TestFlight 前に `CategorySet.slots: [UUID?]` を実機 CloudKit 同期で検証し、失敗する場合は `slot0...slot7` または `[String]` 案へ移行する <!-- 担当: Codex, 理由: 実同期はシミュレータ/単体テストだけでは確定できない -->
 
 ---
 
@@ -624,9 +625,9 @@ refactor: split plan store
 - [x] 時間未指定の重要予定 (`isAllDay == true`) はスコア対象外のため、過去日・今日・複数日またぎでも追加/編集/削除できる例外を追加 <!-- 担当: Codex, 完了: 2026-05-26 -->
 - [x] スコア公平性のため、前日以前の実績は時間/カテゴリ/削除をロックし、メモ/気分/場所/公開設定だけ編集可能にする <!-- 担当: Codex, 完了: 2026-05-26 -->
 - [x] 実績の手動追加を今日の範囲に限定し、予定の新規追加を明日以降に限定する <!-- 担当: Codex, 完了: 2026-05-26 -->
-- [ ] A→B→C の短時間切替でも A/B/C が別 Chapter として残るテストを追加 <!-- 担当: Codex -->
-- [ ] 手動追加・編集時に既存 Chapter と重複する実績を保存ブロックするロジックを追加 <!-- 担当: Codex, 理由: 時間範囲の重複判定 -->
-- [ ] 重複保存ブロック時の警告 UI を追加 <!-- 担当: Claude, 理由: シートUI/文言設計 -->
+- [x] A→B→C の短時間切替でも A/B/C が別 Chapter として残るテストを追加 <!-- 担当: Codex, 完了: 2026-05-28 -->
+- [x] 手動追加・編集時に既存 Chapter と重複する実績を保存ブロックするロジックを追加 <!-- 担当: Codex, 理由: 時間範囲の重複判定, 完了: 2026-05-28 -->
+- [x] 重複保存ブロック時の警告 UI を追加 <!-- 担当: Codex, 完了: 2026-05-28。最小警告UIまで実装。文言/見た目の磨き込みは Claude が必要に応じて継続 -->
 - [ ] 明示削除/統合 UX を別導線として設計する（保存時には削除しない）<!-- 担当: Claude -->
 
 ### 課題2: 表示モデル導入
@@ -666,7 +667,7 @@ refactor: split plan store
 - [x] 左右分割レーン / 横カラム割当ロジックを撤去 <!-- 担当: Codex, 完了: 2026-05-25 -->
 - [x] 旧 `timelineDisplayMode` から新 `timelineSelectedTab` への扱いを決める（新 UI では参照しない）<!-- 担当: Codex, 完了: 2026-05-25 -->
 - [ ] 固定高さカード、短時間記録、日付またぎ、バー位置計算の Preview/Test を追加 <!-- 担当: Codex -->
-- [ ] 日付またぎ Chapter は DB では1件のまま、表示・スコア・バーだけ 0:00-24:00 にクリップされるテストを追加 <!-- 担当: Codex -->
+- [x] 日付またぎ Chapter は DB では1件のまま、表示・スコア・バーだけ 0:00-24:00 にクリップされるテストを追加 <!-- 担当: Codex, 完了: 2026-05-28。DayBoundary/ScoreCalculator のクリップをテスト済み -->
 - [ ] 実機で 320pt 幅でも目盛り・カード文言が破綻しないか確認 <!-- 担当: Claude -->
 
 ---
@@ -692,6 +693,9 @@ refactor: split plan store
 
 | 日付 | 担当 | 内容 |
 |---|---|---|
+| 2026-05-28 | Codex | Phase 0: `LiminalogTests` ターゲットを追加し、Swift Testing で `DayBoundaryTests` / `ScoreCalculatorTests` / `ChapterStoreTests` を実装。テストホスト起動時は `SharedModelContainer.inMemory()` を使い、Live Activity 更新を XCTest 中だけ無効化して、Cloud/AppGroup 初期化に依存しないロジックテストを走らせる構成にした。 |
+| 2026-05-28 | Codex | Phase 0: 実績 Chapter 同士の重複保存を Store 層でブロック。手動追加・編集は `start < end`、未来終了禁止、既存 Chapter との重複禁止を満たす場合だけ保存し、`ChapterCreateSheet` / `ChapterEditSheet` でも保存不可理由を警告表示するようにした。カテゴリ短時間切替は A/B/C が別 Chapter として残ることをテスト済み。 |
+| 2026-05-28 | Codex | Phase 0: `CategorySet.slots: [UUID?]` の CloudKit 互換リスクを docs/04 に整理。現時点ではリリース前の破壊的移行を避けて維持し、TestFlight 前に実機 CloudKit 同期で再検証、失敗時は `slot0...slot7` または `[String]` スロットへ移行する方針にした。 |
 | 2026-05-28 | Codex | Phase 0: App Group / CloudKit 基盤を本番構成へ移行。`Liminalog.entitlements` と Widget entitlements を追加し、App Groups (`group.app.YasudaRyuga.Liminalog`) と CloudKit (`iCloud.app.YasudaRyuga.Liminalog`) を Xcode Capability に設定。`LiminalogApp` は `SharedModelContainer.shared` を使う構成へ差し替え。 |
 | 2026-05-28 | Codex | Phase 0: `SharedModelContainer` を Cloud 同期対象 (`Category` / `CategorySet` / `Chapter` / `PlanBlock` / `VisibilityPreset` / `UserSettings`) とローカル限定 `CalendarEventCache` の2設定に分離。CloudKit初期化に失敗した場合は local-only にフォールバックする。 |
 | 2026-05-28 | Codex | Phase 0: `CategoryStore` / `CategorySetStore` / `PlanStore` / `ScoreStore` / `LiveActivityCoordinator` / `AppStores` を追加。`ChapterStore` は既存UI互換の façade として残し、カテゴリ・予定・スコア・LiveActivity処理を分割Storeへ委譲する段階移行にした。 |

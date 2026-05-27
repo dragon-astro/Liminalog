@@ -116,6 +116,9 @@ struct ChapterCreateSheet: View {
         if startTime >= endTime {
             return "終了時刻は開始時刻より後にしてください。"
         }
+        if store.hasChapterOverlap(startTime: startTime, endTime: endTime) {
+            return "既存の実績と時間が重なっています。"
+        }
         if !store.canCreateChapter(startTime: startTime, endTime: endTime) {
             return "実績の追加は今日の現在時刻までの範囲だけ可能です。"
         }
@@ -134,7 +137,7 @@ struct ChapterCreateSheet: View {
 
     private func save() {
         guard let selectedCategory else { return }
-        store.addChapter(
+        guard store.addChapter(
             category: selectedCategory,
             startTime: startTime,
             endTime: endTime,
@@ -142,7 +145,7 @@ struct ChapterCreateSheet: View {
             mood: mood,
             locationName: locationName,
             isPublic: isPublic
-        )
+        ) else { return }
         dismiss()
     }
 }

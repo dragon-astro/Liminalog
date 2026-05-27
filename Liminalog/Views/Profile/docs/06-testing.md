@@ -373,14 +373,14 @@ GitHub Actions で push 時に:
 ## 11. テスト導入ロードマップ
 
 ### Step 1: 基盤（Phase 1 移行中）
-- [ ] LiminalogTests ターゲット追加
-- [ ] Swift Testing 採用
-- [ ] TestModelContainer / TestClock ヘルパー作成
-- [ ] ScoreCalculatorTests を最初に書く（既存ロジックの仕様確定）
+- [x] LiminalogTests ターゲット追加
+- [x] Swift Testing 採用
+- [x] TestModelContainer / TestClock ヘルパー作成
+- [x] ScoreCalculatorTests を最初に書く（既存ロジックの仕様確定）
 
 ### Step 2: ロジック層完備（Phase 1 完了時）
-- [ ] StreakCalculator / DayBoundary / CategorySlotResolver のテスト
-- [ ] ChapterStore の主要 mutation テスト
+- [~] StreakCalculator / DayBoundary / CategorySlotResolver のテスト（DayBoundary は実装済み）
+- [~] ChapterStore の主要 mutation テスト（カテゴリ短時間切替・重複保存ブロックは実装済み）
 - [ ] ActiveChapterResolutionTests
 - [ ] SeedCoordinatorTests
 - [ ] DashboardPeriodQueryTests

@@ -62,6 +62,10 @@ struct ChapterEditSheet: View {
                         Label("前日以前の実績はスコア公平性のため、時間とカテゴリを変更できません。メモ・気分・場所は後から編集できます。", systemImage: "lock.fill")
                             .font(.caption)
                             .foregroundStyle(.secondary)
+                    } else if let validationMessage {
+                        Label(validationMessage, systemImage: "exclamationmark.triangle.fill")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
                     }
                 }
 
@@ -106,6 +110,7 @@ struct ChapterEditSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("保存") { save() }
                         .fontWeight(.semibold)
+                        .disabled(!canSave)
                 }
             }
             .confirmationDialog("チャプターを削除しますか？", isPresented: $showDeleteConfirm, titleVisibility: .visible) {
@@ -133,8 +138,22 @@ struct ChapterEditSheet: View {
         store.isChapterTimeLocked(chapter)
     }
 
+    private var canSave: Bool {
+        guard !isTimeLocked else { return true }
+        let validationEnd = endTime ?? Date()
+        return startTime < validationEnd
+            && validationEnd <= Date()
+            && !store.hasChapterOverlap(startTime: startTime, endTime: validationEnd, excluding: chapter.id)
+    }
+
+    private var validationMessage: String? {
+        guard !isTimeLocked, !canSave else { return nil }
+        return chapterValidationMessage
+    }
+
     private func save() {
-        store.saveChapter(
+        guard canSave else { return }
+        guard store.saveChapter(
             chapter,
             startTime: startTime,
             endTime: endTime,
@@ -143,7 +162,21 @@ struct ChapterEditSheet: View {
             mood: mood,
             locationName: locationName,
             isPublic: isPublic
-        )
+        ) else { return }
         dismiss()
+    }
+
+    private var chapterValidationMessage: String {
+        let validationEnd = endTime ?? Date()
+        if startTime >= validationEnd {
+            return "終了時刻は開始時刻より後にしてください。"
+        }
+        if validationEnd > Date() {
+            return "実績の終了時刻は現在時刻以前にしてください。"
+        }
+        if store.hasChapterOverlap(startTime: startTime, endTime: validationEnd, excluding: chapter.id) {
+            return "既存の実績と時間が重なっています。"
+        }
+        return "この時間では保存できません。"
     }
 }

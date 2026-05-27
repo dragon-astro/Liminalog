@@ -170,6 +170,7 @@ public final class CategorySet {
 - 現実装に合わせて `slots: [UUID?]` を採用する。index 0...7 が Home の 4列×2行に対応し、`nil` は空きスロット
 - 理由: 仕様変更により「使用頻度順」ではなく「ユーザーが位置を決めるグリッド」になったため
 - 注意: CloudKit managed sync で optional UUID 配列が問題になる場合は `slot0...slot7: UUID?` または `[String]` + 空文字扱いへ移行する
+- 2026-05-28 時点の判断: Phase 0 中に `slots` を破壊的に移行すると CategorySet UI/seed/既存データへの影響が大きい。まず現実装を維持し、TestFlight 前に実機 CloudKit 同期で検証する。同期エラー・欠損・順序崩れが出た場合だけ、`slot0...slot7` 案へ移す
 - `categoryIDs` から `slots` への変更は開発中は DB リセットでよい。本番リリース後は VersionedSchema の migration が必要
 
 ### 2.5 UserSettings（新規）

@@ -131,6 +131,7 @@
 - 実績 Chapter 同士の重複は原則禁止する
 - 通常のカテゴリ切替では active Chapter を最大1件に保ち、重複を作らない
 - 手動追加・編集で既存 Chapter と重なる場合は、保存前に警告し、まずは保存をブロックする
+- 2026-05-28 実装: `ChapterStore.canCreateChapter` / `saveChapter` が重複を検出し、`ChapterCreateSheet` / `ChapterEditSheet` は保存不可理由を表示して閉じない
 - 将来的に必要になれば、編集UXとして「重なった部分を置き換える」を追加検討する
 - 自動で勝手にマージ・削除・切り詰めは行わない
 
@@ -426,6 +427,7 @@ struct TimelineEntry: Identifiable {
 ## 10. テスト観点
 
 - カテゴリ切替で Chapter が削除されない
+- A→B→C の短時間切替でも A/B/C が別 Chapter として残る
 - 1分未満の Chapter も実績カードとして表示される
 - 日付またぎ Chapter は DB では1件のまま、表示だけ対象日の 0:00-24:00 にクリップされる
 - 実績 Chapter 同士の重複は手動追加・編集時に検出され、保存前にブロックされる

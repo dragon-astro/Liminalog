@@ -48,6 +48,21 @@ final class ChapterStore {
             && endTime <= today.dayEnd
             && startTime < endTime
             && endTime <= now
+            && !hasChapterOverlap(startTime: startTime, endTime: endTime, now: now)
+    }
+
+    func hasChapterOverlap(startTime: Date, endTime: Date, excluding chapterID: UUID? = nil, now: Date = Date()) -> Bool {
+        guard startTime < endTime else { return false }
+        let descriptor = FetchDescriptor<Chapter>(
+            predicate: #Predicate { $0.startTime < endTime },
+            sortBy: [SortDescriptor(\.startTime)]
+        )
+        let candidates = (try? modelContext.fetch(descriptor)) ?? []
+        return candidates.contains { chapter in
+            guard chapter.id != chapterID else { return false }
+            let candidateEnd = chapter.endTime ?? now
+            return candidateEnd > startTime
+        }
     }
 
     // MARK: - Active Chapter
@@ -206,6 +221,13 @@ final class ChapterStore {
             // 前日以前の実績はスコア公平性のため、時間とカテゴリを固定する。
             // 振り返り用のメモ/気分/場所/公開設定だけ後から編集可能。
         } else {
+            let validationEnd = endTime ?? clock.now
+            guard startTime < validationEnd,
+                  validationEnd <= clock.now,
+                  !hasChapterOverlap(startTime: startTime, endTime: validationEnd, excluding: chapter.id, now: clock.now)
+            else {
+                return false
+            }
             chapter.startTime = startTime
             chapter.endTime = endTime
             chapter.category = category

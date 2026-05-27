@@ -9,6 +9,7 @@ final class LiveActivityCoordinator {
     }
 
     func update(activeChapter: Chapter?, categorySet: CategorySet?) {
+        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
         guard #available(iOS 16.2, *) else { return }
 
         let gridCategories = categorySet.map { categorySetStore.assignedCategories(for: $0) } ?? []
