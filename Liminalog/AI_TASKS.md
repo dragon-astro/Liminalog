@@ -878,6 +878,7 @@ refactor: split plan store
 | 2026-05-28 | Codex | Phase 1 Widget を実装。`RecordingGridWidget` を追加し、Small は4枠・Medium は8枠で選択中 CategorySet のスロットを表示。`StartChapterIntent` からアプリを開かず記録開始/カテゴリ切替ができるようにし、Widget 側は App Group の SwiftData store を最小モデルで読む。既存 `LiminalogStatusWidget` は Bundle から外し、Widget は記録開始のための実用UIへ置き換え |
 | 2026-05-28 | Codex | CategorySet 操作の残タスクを実装。`CategorySettingsView` でセット並び替え、`CategorySetEditSheet` でスロット同士のドラッグ&ドロップ交換、Home の空きスロット tap から該当セット編集を開く導線を追加。選択中 CategorySet は `@AppStorage` に加えて `UserSettings.enabledCategorySetID` にも保存し、Widget の初期表示と同期する |
 | 2026-05-28 | Codex | Profile/Settings の Phase 1 最小再設計を実装。`ProfileView` からスコア・カテゴリ管理など分析/設定要素を外し、プロフィール画像フォールバック、ニックネーム、bio、連続日数、累計記録時間、友達数の自己表現画面へ変更。右上 ☰ から `SettingsView` を開き、カテゴリ管理・カレンダー表示・公開系プレースホルダー・アプリ情報へ隔離。解放コレクションと日記カードは UI 枠のみ実装し、実データ接続はアンロック/DayDigest 実装後に行う |
+| 2026-05-28 | Codex | Widget / Dynamic Island の見切れとカテゴリ操作の重さに対応。`RecordingGridWidget` は systemSmall 用に余白・アイコン・文字サイズ・セル高さを圧縮し、Dynamic Island expanded 下段には最大4カテゴリの `StartChapterIntent` ボタンを表示してアプリを開かず切替可能にした。`CategoryGrid` は `@Query` のカテゴリ/セットを直接使ってスワイプ中の再fetchを避け、セット選択保存時の Widget reload を抑制。`CategorySettingsView` もカテゴリセット行のカテゴリ解決を Store fetch ではなく既存 `@Query` から行うようにした |
 
 ---
 

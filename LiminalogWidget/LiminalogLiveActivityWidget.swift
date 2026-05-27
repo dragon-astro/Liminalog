@@ -1,3 +1,4 @@
+import AppIntents
 import ActivityKit
 import SwiftUI
 import WidgetKit
@@ -24,7 +25,7 @@ struct LiminalogLiveActivityWidget: Widget {
                 }
 
                 DynamicIslandExpandedRegion(.bottom) {
-                    LiveActivityDetailStrip(state: context.state)
+                    LiveActivityCategoryControls(state: context.state)
                 }
             } compactLeading: {
                 CategoryIcon(state: context.state, size: 22)
@@ -34,6 +35,8 @@ struct LiminalogLiveActivityWidget: Widget {
                         .font(.caption2.monospacedDigit().weight(.semibold))
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: 42)
+                        .minimumScaleFactor(0.65)
+                        .lineLimit(1)
                 }
             } minimal: {
                 CategoryIcon(state: context.state, size: 18)
@@ -54,11 +57,13 @@ private struct LiveActivityLockScreenView: View {
                 Text(state.categoryName ?? "記録中")
                     .font(.headline)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.75)
 
                 Text(state.categorySetName)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.75)
             }
 
             Spacer()
@@ -84,32 +89,81 @@ private struct CurrentCategoryBadge: View {
                 Text(state.categoryName ?? "記録中")
                     .font(.caption.weight(.bold))
                     .lineLimit(1)
+                    .minimumScaleFactor(0.7)
 
-                Text(state.categorySetName)
-                    .font(.caption2)
+                Text("記録中")
+                    .font(.caption2.weight(.medium))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
         }
+        .frame(maxWidth: 128, alignment: .leading)
     }
 }
 
-private struct LiveActivityDetailStrip: View {
+private struct LiveActivityCategoryControls: View {
     let state: LiminalogActivityAttributes.ContentState
 
     var body: some View {
-        HStack(spacing: 8) {
-            Label(state.categorySetName, systemImage: "square.grid.2x2")
-                .lineLimit(1)
+        if state.categories.isEmpty {
+            HStack(spacing: 8) {
+                Label(state.categorySetName, systemImage: "square.grid.2x2")
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
 
-            Spacer(minLength: 8)
+                Spacer(minLength: 8)
 
-            Label(state.isPublic ? "公開" : "非公開", systemImage: state.isPublic ? "eye" : "eye.slash")
-                .lineLimit(1)
+                Label(state.isPublic ? "公開" : "非公開", systemImage: state.isPublic ? "eye" : "eye.slash")
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .padding(.top, 2)
+        } else {
+            HStack(spacing: 8) {
+                ForEach(state.categories) { category in
+                    Button(intent: StartChapterIntent(categoryID: category.id.uuidString)) {
+                        DynamicIslandCategoryButton(
+                            category: category,
+                            isActive: category.id == state.activeCategoryID
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .center)
         }
-        .font(.caption2.weight(.semibold))
-        .foregroundStyle(.secondary)
-        .padding(.top, 2)
+    }
+}
+
+private struct DynamicIslandCategoryButton: View {
+    let category: LiminalogActivityAttributes.IslandCategory
+    let isActive: Bool
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ZStack {
+                Circle()
+                    .fill(Color(hex: category.colorHex).opacity(isActive ? 1 : 0.24))
+                    .frame(width: 20, height: 20)
+                Image(systemName: category.icon ?? "circle.fill")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(isActive ? .white : Color(hex: category.colorHex))
+            }
+
+            Text(category.name)
+                .font(.caption2.weight(isActive ? .bold : .semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.55)
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 4)
+        .frame(maxWidth: 72)
+        .background(
+            Capsule()
+                .fill(Color(hex: category.colorHex).opacity(isActive ? 0.22 : 0.1))
+        )
     }
 }
 

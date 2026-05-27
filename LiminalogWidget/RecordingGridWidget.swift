@@ -339,34 +339,47 @@ private struct RecordingGridView: View {
     }
 
     private var columns: [GridItem] {
-        Array(repeating: GridItem(.flexible(), spacing: 8), count: family == .systemSmall ? 2 : 4)
+        Array(repeating: GridItem(.flexible(), spacing: gridSpacing), count: family == .systemSmall ? 2 : 4)
+    }
+
+    private var gridSpacing: CGFloat {
+        family == .systemSmall ? 6 : 8
+    }
+
+    private var contentPadding: CGFloat {
+        family == .systemSmall ? 10 : 14
+    }
+
+    private var contentSpacing: CGFloat {
+        family == .systemSmall ? 7 : 10
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: contentSpacing) {
             header
 
             if let message = entry.message {
                 emptyState(message)
             } else {
-                LazyVGrid(columns: columns, spacing: 8) {
+                LazyVGrid(columns: columns, spacing: gridSpacing) {
                     ForEach(Array(visibleCells.enumerated()), id: \.offset) { _, category in
                         if let category {
                             Button(intent: StartChapterIntent(categoryID: category.id.uuidString)) {
                                 RecordingGridCell(
                                     category: category,
-                                    isActive: category.id == entry.activeCategoryID
+                                    isActive: category.id == entry.activeCategoryID,
+                                    isCompact: family == .systemSmall
                                 )
                             }
                             .buttonStyle(.plain)
                         } else {
-                            RecordingGridEmptyCell()
+                            RecordingGridEmptyCell(isCompact: family == .systemSmall)
                         }
                     }
                 }
             }
         }
-        .padding(14)
+        .padding(contentPadding)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .containerBackground(.background, for: .widget)
     }
@@ -374,12 +387,13 @@ private struct RecordingGridView: View {
     private var header: some View {
         HStack(spacing: 6) {
             Image(systemName: "square.grid.2x2")
-                .font(.caption.weight(.bold))
+                .font((family == .systemSmall ? Font.caption2 : Font.caption).weight(.bold))
                 .foregroundStyle(.secondary)
 
             Text(entry.categorySetName)
-                .font(.caption.weight(.semibold))
+                .font((family == .systemSmall ? Font.caption2 : Font.caption).weight(.semibold))
                 .lineLimit(1)
+                .minimumScaleFactor(0.7)
 
             Spacer(minLength: 0)
         }
@@ -403,33 +417,42 @@ private struct RecordingGridView: View {
 private struct RecordingGridCell: View {
     let category: WidgetCategory
     let isActive: Bool
+    let isCompact: Bool
+
+    private var iconSize: CGFloat {
+        isCompact ? 26 : 34
+    }
+
+    private var activeRingSize: CGFloat {
+        isCompact ? 31 : 40
+    }
 
     var body: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: isCompact ? 3 : 6) {
             ZStack {
                 Circle()
                     .fill(Color(liminalogHex: category.colorHex).opacity(isActive ? 1 : 0.18))
-                    .frame(width: 34, height: 34)
+                    .frame(width: iconSize, height: iconSize)
 
                 if isActive {
                     Circle()
                         .stroke(Color(liminalogHex: category.colorHex), lineWidth: 2.2)
-                        .frame(width: 40, height: 40)
+                        .frame(width: activeRingSize, height: activeRingSize)
                 }
 
                 Image(systemName: category.icon ?? "circle.fill")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.system(size: isCompact ? 12 : 15, weight: .semibold))
                     .foregroundStyle(isActive ? .white : Color(liminalogHex: category.colorHex))
             }
 
             Text(category.name)
-                .font(.caption2.weight(isActive ? .semibold : .regular))
+                .font(.system(size: isCompact ? 9 : 11, weight: isActive ? .semibold : .regular))
                 .foregroundStyle(isActive ? Color(liminalogHex: category.colorHex) : .primary)
                 .lineLimit(1)
-                .minimumScaleFactor(0.72)
+                .minimumScaleFactor(0.6)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 7)
+        .frame(height: isCompact ? 48 : 62)
         .background(
             RoundedRectangle(cornerRadius: 10)
                 .fill(isActive ? Color(liminalogHex: category.colorHex).opacity(0.12) : Color.secondary.opacity(0.08))
@@ -438,17 +461,19 @@ private struct RecordingGridCell: View {
 }
 
 private struct RecordingGridEmptyCell: View {
+    let isCompact: Bool
+
     var body: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: isCompact ? 3 : 6) {
             Circle()
                 .strokeBorder(Color.secondary.opacity(0.25), style: StrokeStyle(lineWidth: 1.2, dash: [3, 3]))
-                .frame(width: 34, height: 34)
+                .frame(width: isCompact ? 26 : 34, height: isCompact ? 26 : 34)
 
             Text(" ")
-                .font(.caption2)
+                .font(.system(size: isCompact ? 9 : 11))
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 7)
+        .frame(height: isCompact ? 48 : 62)
         .background(
             RoundedRectangle(cornerRadius: 10)
                 .fill(Color.secondary.opacity(0.05))

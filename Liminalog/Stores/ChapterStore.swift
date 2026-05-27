@@ -385,7 +385,7 @@ final class ChapterStore {
         settings.enabledCategorySetID = id
         settings.updatedAt = clock.now
         try? modelContext.save()
-        markChanged()
+        markChanged(reloadWidgets: false)
     }
 
     // MARK: - Maintenance

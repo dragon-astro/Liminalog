@@ -11,6 +11,10 @@ struct CategorySettingsView: View {
     @State private var editingCategory: Category? = nil
     @State private var editingSet: CategorySet? = nil
 
+    private var categoryByID: [UUID: Category] {
+        Dictionary(uniqueKeysWithValues: categories.map { ($0.id, $0) })
+    }
+
     var body: some View {
         List {
             Section {
@@ -33,7 +37,7 @@ struct CategorySettingsView: View {
                             }
 
                             HStack(spacing: 6) {
-                                ForEach(store.assignedCategories(for: set)) { category in
+                                ForEach(assignedCategories(for: set)) { category in
                                     Image(systemName: category.icon ?? "circle.fill")
                                         .font(.caption)
                                         .foregroundStyle(category.color)
@@ -123,6 +127,12 @@ struct CategorySettingsView: View {
                 Image(systemName: "plus.circle.fill")
             }
             .accessibilityLabel("\(title)を追加")
+        }
+    }
+
+    private func assignedCategories(for set: CategorySet) -> [Category] {
+        CategorySet.normalize(set.slots).compactMap { id in
+            id.flatMap { categoryByID[$0] }
         }
     }
 }

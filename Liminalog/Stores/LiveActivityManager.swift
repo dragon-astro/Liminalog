@@ -8,10 +8,11 @@ final class LiveActivityManager {
     private init() {}
 
     @available(iOS 16.2, *)
-    func update(activeChapter: Chapter?, categorySetName: String) async {
+    func update(activeChapter: Chapter?, categorySetName: String, categories: [Category]) async {
         let state = makeState(
             activeChapter: activeChapter,
-            categorySetName: categorySetName
+            categorySetName: categorySetName,
+            categories: categories
         )
 
         if let activity = Activity<LiminalogActivityAttributes>.activities.first {
@@ -39,25 +40,38 @@ final class LiveActivityManager {
     }
 
     @available(iOS 16.2, *)
-    private func makeState(activeChapter: Chapter?, categorySetName: String) -> LiminalogActivityAttributes.ContentState {
+    private func makeState(activeChapter: Chapter?, categorySetName: String, categories: [Category]) -> LiminalogActivityAttributes.ContentState {
+        let islandCategories = categories.prefix(4).map {
+            LiminalogActivityAttributes.IslandCategory(
+                id: $0.id,
+                name: $0.name,
+                colorHex: $0.colorHex,
+                icon: $0.icon
+            )
+        }
+
         guard let activeChapter, let category = activeChapter.category else {
             return LiminalogActivityAttributes.ContentState(
+                activeCategoryID: nil,
                 categoryName: nil,
                 colorHex: "#8E8E93",
                 icon: nil,
                 startedAt: nil,
                 isPublic: true,
-                categorySetName: categorySetName
+                categorySetName: categorySetName,
+                categories: islandCategories
             )
         }
 
         return LiminalogActivityAttributes.ContentState(
+            activeCategoryID: category.id,
             categoryName: category.name,
             colorHex: category.colorHex,
             icon: category.icon,
             startedAt: activeChapter.startTime,
             isPublic: activeChapter.isPublic,
-            categorySetName: categorySetName
+            categorySetName: categorySetName,
+            categories: islandCategories
         )
     }
 }

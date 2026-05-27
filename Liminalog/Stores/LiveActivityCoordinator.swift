@@ -13,9 +13,11 @@ final class LiveActivityCoordinator {
         guard #available(iOS 16.2, *) else { return }
 
         Task {
+            let categories = categorySet.map { categorySetStore.assignedCategories(for: $0) } ?? []
             await LiveActivityManager.shared.update(
                 activeChapter: activeChapter,
-                categorySetName: categorySet?.name ?? "カテゴリ"
+                categorySetName: categorySet?.name ?? "カテゴリ",
+                categories: categories
             )
         }
     }

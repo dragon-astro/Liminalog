@@ -1,22 +1,28 @@
 import SwiftUI
+import SwiftData
 
 struct CategoryGrid: View {
     @Environment(ChapterStore.self) private var store
     @AppStorage("activeCategorySetID") private var activeSetIDString: String = ""
     @AppStorage("homeCategoryGridExpanded") private var isExpanded = true
+    @Query(sort: \CategorySet.sortOrder) private var categorySets: [CategorySet]
+    @Query(sort: \Category.sortOrder) private var categories: [Category]
 
-    @State private var categorySets: [CategorySet] = []
     @State private var selectedSetID: UUID?
     @State private var activeID: UUID? = nil
     @State private var editingSetFromEmptySlot: CategorySet? = nil
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 10), count: 4)
 
+    private var categoryByID: [UUID: Category] {
+        Dictionary(uniqueKeysWithValues: categories.map { ($0.id, $0) })
+    }
+
     var body: some View {
         if categorySets.isEmpty {
             emptyState
-                .onAppear { refresh() }
-                .onChange(of: store.revision) { _, _ in refresh() }
+                .onAppear { syncSelection() }
+                .onChange(of: categorySets.map(\.id)) { _, _ in syncSelection() }
         } else {
             VStack(spacing: 8) {
                 headerBar
@@ -37,15 +43,20 @@ struct CategoryGrid: View {
                 }
             }
             .animation(.easeInOut(duration: 0.22), value: isExpanded)
-            .onAppear { refresh() }
+            .onAppear { syncSelection() }
             .onChange(of: store.activeChapter?.category?.id) { _, newID in
                 activeID = newID
             }
             .onChange(of: store.revision) { _, _ in
-                refresh()
+                activeID = store.activeChapter?.category?.id
+            }
+            .onChange(of: categorySets.map(\.id)) { _, _ in
+                syncSelection()
             }
             .onChange(of: selectedSetID) { _, newID in
-                activeSetIDString = newID?.uuidString ?? ""
+                let newString = newID?.uuidString ?? ""
+                guard activeSetIDString != newString else { return }
+                activeSetIDString = newString
                 store.setEnabledCategorySetID(newID)
             }
             .sheet(item: $editingSetFromEmptySlot) { set in
@@ -88,7 +99,7 @@ struct CategoryGrid: View {
     // MARK: - Grid page
 
     private func gridPage(set: CategorySet) -> some View {
-        let cells = store.slottedCategories(for: set)
+        let cells = slottedCategories(for: set)
         return LazyVGrid(columns: columns, spacing: 10) {
             ForEach(0..<CategorySet.slotCount, id: \.self) { index in
                 if let category = cells[index] {
@@ -158,8 +169,7 @@ struct CategoryGrid: View {
 
     // MARK: - Sync
 
-    private func refresh() {
-        categorySets = store.categorySets()
+    private func syncSelection() {
         activeID = store.activeChapter?.category?.id
 
         // 復元: AppStorageから前回の選択を読み取り、存在すれば適用
@@ -168,6 +178,12 @@ struct CategoryGrid: View {
             selectedSetID = storedID
         } else if selectedSetID == nil || !categorySets.contains(where: { $0.id == selectedSetID }) {
             selectedSetID = categorySets.first?.id
+        }
+    }
+
+    private func slottedCategories(for set: CategorySet) -> [Category?] {
+        CategorySet.normalize(set.slots).map { id in
+            id.flatMap { categoryByID[$0] }
         }
     }
 }
