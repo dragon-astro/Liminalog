@@ -866,19 +866,19 @@ private struct TimelineTimeRail: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            ZStack(alignment: .topTrailing) {
+            ZStack {
                 if showsStartTime {
                     Text(entry.clippedStart.shortTime)
                         .timelineBoundaryTimeStyle()
                         .frame(width: 42, height: 14, alignment: .trailing)
-                        .offset(y: -3.5)
+                        .position(x: 21, y: topBoundaryY)
                 }
 
                 if showsEndTime {
                     Text(entry.clippedEnd.shortTime)
                         .timelineBoundaryTimeStyle()
                         .frame(width: 42, height: 14, alignment: .trailing)
-                        .offset(y: height - 10.5)
+                        .position(x: 21, y: bottomBoundaryY)
                 }
             }
             .frame(width: 42, height: height)
@@ -887,24 +887,21 @@ private struct TimelineTimeRail: View {
                 Rectangle()
                     .fill(lineColor)
                     .frame(width: lineWidth)
-                    .frame(maxHeight: .infinity)
-                    .padding(.top, connectsToPrevious ? 0 : 3.5)
-                    .padding(.bottom, connectsToNext ? 0 : 3.5)
+                    .frame(height: lineHeight)
+                    .position(x: 4, y: lineMidY)
 
-                VStack(spacing: 0) {
-                    if showsStartTime {
-                        Circle()
-                            .fill(startMarkerColor)
-                            .frame(width: 7, height: 7)
-                    } else {
-                        Color.clear.frame(width: 7, height: 7)
-                    }
-                    Spacer(minLength: 0)
+                if showsStartTime {
                     Circle()
-                        .strokeBorder(endMarkerColor, lineWidth: entry.kind.isGap ? 1.4 : 1.6)
-                        .background(Circle().fill(Color(.systemGroupedBackground)))
+                        .fill(startMarkerColor)
                         .frame(width: 7, height: 7)
+                        .position(x: 4, y: topBoundaryY)
                 }
+
+                Circle()
+                    .strokeBorder(endMarkerColor, lineWidth: entry.kind.isGap ? 1.4 : 1.6)
+                    .background(Circle().fill(Color(.systemGroupedBackground)))
+                    .frame(width: 7, height: 7)
+                    .position(x: 4, y: bottomBoundaryY)
             }
             .frame(width: 8, height: height)
         }
@@ -917,6 +914,30 @@ private struct TimelineTimeRail: View {
             return Color(.separator)
         }
         return entry.isActive || isHighlighted ? entry.color : entry.color.opacity(0.78)
+    }
+
+    private var topBoundaryY: CGFloat {
+        TimelineCardMetrics.rowVerticalPadding
+    }
+
+    private var bottomBoundaryY: CGFloat {
+        height - TimelineCardMetrics.rowVerticalPadding
+    }
+
+    private var lineStartY: CGFloat {
+        connectsToPrevious ? 0 : topBoundaryY
+    }
+
+    private var lineEndY: CGFloat {
+        connectsToNext ? height : bottomBoundaryY
+    }
+
+    private var lineHeight: CGFloat {
+        max(lineEndY - lineStartY, 0)
+    }
+
+    private var lineMidY: CGFloat {
+        lineStartY + lineHeight / 2
     }
 
     private var lineColor: Color {
