@@ -28,13 +28,13 @@ struct LiminalogLiveActivityWidget: Widget {
                     LiveActivityCategoryControls(state: context.state)
                 }
             } compactLeading: {
-                CategoryIcon(state: context.state, size: 22)
+                CategoryIcon(state: context.state, size: 18)
             } compactTrailing: {
                 if let startedAt = context.state.startedAt {
                     Text(timerInterval: startedAt...Date.distantFuture, countsDown: false)
-                        .font(.caption2.monospacedDigit().weight(.semibold))
+                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
                         .foregroundStyle(.secondary)
-                        .frame(maxWidth: 42)
+                        .frame(maxWidth: 34)
                         .minimumScaleFactor(0.65)
                         .lineLimit(1)
                 }
@@ -82,22 +82,22 @@ private struct CurrentCategoryBadge: View {
     let state: LiminalogActivityAttributes.ContentState
 
     var body: some View {
-        HStack(spacing: 8) {
-            CategoryIcon(state: state, size: 28)
+        HStack(spacing: 6) {
+            CategoryIcon(state: state, size: 22)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(state.categoryName ?? "記録中")
-                    .font(.caption.weight(.bold))
+                    .font(.caption2.weight(.bold))
                     .lineLimit(1)
-                    .minimumScaleFactor(0.7)
+                    .minimumScaleFactor(0.6)
 
                 Text("記録中")
-                    .font(.caption2.weight(.medium))
+                    .font(.system(size: 9, weight: .medium))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
         }
-        .frame(maxWidth: 128, alignment: .leading)
+        .frame(maxWidth: 94, alignment: .leading)
     }
 }
 
@@ -121,7 +121,7 @@ private struct LiveActivityCategoryControls: View {
             .foregroundStyle(.secondary)
             .padding(.top, 2)
         } else {
-            HStack(spacing: 8) {
+            HStack(spacing: 12) {
                 ForEach(state.categories) { category in
                     Button(intent: StartChapterIntent(categoryID: category.id.uuidString)) {
                         DynamicIslandCategoryButton(
@@ -133,6 +133,7 @@ private struct LiveActivityCategoryControls: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.horizontal, 18)
         }
     }
 }
@@ -142,28 +143,24 @@ private struct DynamicIslandCategoryButton: View {
     let isActive: Bool
 
     var body: some View {
-        HStack(spacing: 4) {
-            ZStack {
+        ZStack {
+            Circle()
+                .fill(Color(hex: category.colorHex).opacity(isActive ? 1 : 0.22))
+                .frame(width: 30, height: 30)
+
+            if isActive {
                 Circle()
-                    .fill(Color(hex: category.colorHex).opacity(isActive ? 1 : 0.24))
-                    .frame(width: 20, height: 20)
-                Image(systemName: category.icon ?? "circle.fill")
-                    .font(.system(size: 9, weight: .bold))
-                    .foregroundStyle(isActive ? .white : Color(hex: category.colorHex))
+                    .stroke(Color(hex: category.colorHex).opacity(0.95), lineWidth: 2)
+                    .frame(width: 36, height: 36)
             }
 
-            Text(category.name)
-                .font(.caption2.weight(isActive ? .bold : .semibold))
-                .lineLimit(1)
-                .minimumScaleFactor(0.55)
+            Image(systemName: category.icon ?? "circle.fill")
+                .font(.system(size: 13, weight: .bold))
+                .foregroundStyle(isActive ? .white : Color(hex: category.colorHex))
         }
-        .padding(.horizontal, 6)
-        .padding(.vertical, 4)
-        .frame(maxWidth: 72)
-        .background(
-            Capsule()
-                .fill(Color(hex: category.colorHex).opacity(isActive ? 0.22 : 0.1))
-        )
+        .frame(width: 40, height: 40)
+        .contentShape(Circle())
+        .accessibilityLabel(category.name)
     }
 }
 

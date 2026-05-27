@@ -881,6 +881,7 @@ refactor: split plan store
 | 2026-05-28 | Codex | Widget / Dynamic Island の見切れとカテゴリ操作の重さに対応。`RecordingGridWidget` は systemSmall 用に余白・アイコン・文字サイズ・セル高さを圧縮し、Dynamic Island expanded 下段には最大4カテゴリの `StartChapterIntent` ボタンを表示してアプリを開かず切替可能にした。`CategoryGrid` は `@Query` のカテゴリ/セットを直接使ってスワイプ中の再fetchを避け、セット選択保存時の Widget reload を抑制。`CategorySettingsView` もカテゴリセット行のカテゴリ解決を Store fetch ではなく既存 `@Query` から行うようにした |
 | 2026-05-28 | Codex | Widget/Live Activity の追従仕様を調整。`RecordingGridWidget` は個別設定で固定する方式をやめ、`UserSettings.enabledCategorySetID` の「現在選択中テーブル」を常に表示する Static Widget に変更。テーブル切替時は全Widgetではなく `RecordingGridWidget` の timeline だけを reload する。Widget の `StartChapterIntent` から記録を開始した場合も Widget extension 側で Live Activity を request/update し、アプリ起動時にも active chapter から Live Activity を同期する。カテゴリセット並び替え/スロット編集の説明テキストはUIから削除 |
 | 2026-05-28 | Codex | Widget の角丸見切れ対策と Dynamic Island 更新を追加。`RecordingGridWidget` は Medium で8枠が収まるようにセル高・余白・アイコンサイズを再調整し、Large family も追加して8枠を余裕表示できるようにした。Live Activity 更新は最初の1件だけでなく存在する全 Activity に最新 state を流す形にして、Dynamic Island 内ボタン押下後に現在ステータスが押したカテゴリへ更新されやすいようにした |
+| 2026-05-28 | Codex | 直前修正の認識違いを補正。見切れ対象は Widget ではなく Dynamic Island だったため、`RecordingGridWidget` のサイズ/large family 変更は元の Small/Medium 構成へ戻した。Dynamic Island は expanded 下段のカテゴリ操作を文字付きカプセルからアイコン円形ボタンへ変更し、compact 表示もアイコン/タイマー幅を縮めて左右の角丸に干渉しにくくした。Live Activity の `ContentState` に `updatedAt` を追加し、Widget/Dynamic Island の AppIntent 押下ごとに別 state として ActivityKit へ流れるようにしてリアルタイム反映を強めた |
 
 ---
 

@@ -64,7 +64,8 @@ final class LiveActivityManager {
                 startedAt: nil,
                 isPublic: true,
                 categorySetName: categorySetName,
-                categories: islandCategories
+                categories: islandCategories,
+                updatedAt: Date()
             )
         }
 
@@ -76,7 +77,8 @@ final class LiveActivityManager {
             startedAt: activeChapter.startTime,
             isPublic: activeChapter.isPublic,
             categorySetName: categorySetName,
-            categories: islandCategories
+            categories: islandCategories,
+            updatedAt: Date()
         )
     }
 }

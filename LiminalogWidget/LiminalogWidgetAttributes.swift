@@ -18,6 +18,7 @@ struct LiminalogActivityAttributes: ActivityAttributes {
         var isPublic: Bool
         var categorySetName: String
         var categories: [IslandCategory]
+        var updatedAt: Date
 
         var isRecording: Bool {
             categoryName != nil && startedAt != nil
