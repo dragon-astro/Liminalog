@@ -14,9 +14,16 @@ struct ChapterCreateSheet: View {
     @State private var categories: [Category] = []
 
     init(initialDate: Date = Date()) {
-        let start = initialDate
+        let now = Date()
+        let dayStart = Calendar.current.startOfDay(for: now)
+        var start = min(max(initialDate, dayStart), now)
+        var end = min(Calendar.current.date(byAdding: .minute, value: 30, to: start) ?? start, now)
+        if end <= start {
+            start = max(dayStart, Calendar.current.date(byAdding: .minute, value: -30, to: now) ?? dayStart)
+            end = now
+        }
         _startTime = State(initialValue: start)
-        _endTime = State(initialValue: Calendar.current.date(byAdding: .minute, value: 30, to: start) ?? start)
+        _endTime = State(initialValue: end)
     }
 
     var body: some View {
@@ -36,9 +43,15 @@ struct ChapterCreateSheet: View {
                     DatePicker("開始", selection: $startTime, in: todayRange, displayedComponents: [.date, .hourAndMinute])
                     DatePicker("終了", selection: $endTime, in: endTimeRange, displayedComponents: [.date, .hourAndMinute])
 
-                    Label("実績の手動追加は今日の範囲だけ可能です。前日以前の時間はスコア公平性のため追加できません。", systemImage: "lock.fill")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    if let validationMessage {
+                        Label(validationMessage, systemImage: "exclamationmark.triangle.fill")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    } else {
+                        Text("実績の手動追加は今日の現在時刻までの範囲で保存できます。")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
 
                 Section("メモ") {
@@ -94,6 +107,19 @@ struct ChapterCreateSheet: View {
     private var canSave: Bool {
         guard selectedCategory != nil else { return false }
         return store.canCreateChapter(startTime: startTime, endTime: endTime)
+    }
+
+    private var validationMessage: String? {
+        if selectedCategory == nil {
+            return "カテゴリを選択してください。"
+        }
+        if startTime >= endTime {
+            return "終了時刻は開始時刻より後にしてください。"
+        }
+        if !store.canCreateChapter(startTime: startTime, endTime: endTime) {
+            return "実績の追加は今日の現在時刻までの範囲だけ可能です。"
+        }
+        return nil
     }
 
     private func clampToToday() {

@@ -282,11 +282,12 @@ struct TimelineView: View {
 
     private func handleGapTap(_ entry: TimelineEntry) {
         guard canCreateGap(entry) else { return }
-        gapStartDate = entry.clippedStart
         switch selectedTab {
         case .actual:
+            gapStartDate = defaultChapterStart(for: entry)
             showingChapterCreate = true
         case .plan:
+            gapStartDate = entry.clippedStart
             showingPlanCreate = true
         }
     }
@@ -294,10 +295,13 @@ struct TimelineView: View {
     private func canCreateGap(_ entry: TimelineEntry) -> Bool {
         switch entry.kind {
         case .gap(.actual):
+            let current = Date()
+            guard entry.clippedStart < current else { return false }
+            let start = defaultChapterStart(for: entry)
             return allowsChapterCreation
                 && store.canCreateChapter(
-                    startTime: entry.clippedStart,
-                    endTime: min(entry.clippedEnd, Date())
+                    startTime: start,
+                    endTime: min(entry.clippedEnd, current)
                 )
         case .gap(.plan):
             return allowsPlanCreation && store.canCreatePlan(startTime: entry.clippedStart, isAllDay: false)
@@ -327,6 +331,12 @@ struct TimelineView: View {
             return !store.isPlanScheduleLocked(plan)
         }
         return false
+    }
+
+    private func defaultChapterStart(for entry: TimelineEntry) -> Date {
+        let current = Date()
+        let latestValidStart = Calendar.current.date(byAdding: .minute, value: -1, to: current) ?? current
+        return max(dayStart, min(entry.clippedStart, latestValidStart))
     }
 
 }
