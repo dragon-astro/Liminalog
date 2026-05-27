@@ -268,13 +268,13 @@ refactor: split plan store
 
 ### 5.1 基盤準備
 
-- [ ] App Group ID を確定（候補: `group.app.YasudaRyuga.Liminalog`）<!-- 担当: 要ユーザー判断, 理由: Bundle ID 確定が前提 -->
-- [ ] CloudKit Container 作成（候補: `iCloud.app.YasudaRyuga.Liminalog`）<!-- 担当: 要ユーザー判断 -->
-- [ ] Xcode Capability: App Groups を App / Widget 両方に追加 <!-- 担当: Codex, 理由: Xcode 設定の機械作業 -->
-- [ ] Xcode Capability: iCloud (CloudKit) を App に追加 <!-- 担当: Codex -->
-- [~] `SharedModelContainer` を実装（App Group URL + CloudKit Private DB）<!-- 担当: Codex, 理由: 既存 ModelContainer の置換・ボイラープレート, 進捗: 2026-05-28 helper実装・ビルド確認済。本番差し替えは App Group / CloudKit ID と Capability 確定後 -->
-- [ ] `LiminalogApp.modelContainer` を `SharedModelContainer.shared` に差し替え <!-- 担当: Codex, 理由: 既存実装の機械置換 -->
-- [ ] `CalendarEventCache` 用に第2の `ModelConfiguration`（ローカル限定）を追加 <!-- 担当: Codex -->
+- [x] App Group ID を確定（候補: `group.app.YasudaRyuga.Liminalog`）<!-- 担当: Codex, 完了: 2026-05-28 ユーザーの「さっきの方針で進めて」を受け候補IDで確定 -->
+- [~] CloudKit Container 作成（候補: `iCloud.app.YasudaRyuga.Liminalog`）<!-- 担当: Codex, 進捗: 2026-05-28 entitlements / ModelConfiguration は設定済。Apple Developer 側の実体確認は実機署名時に必要 -->
+- [x] Xcode Capability: App Groups を App / Widget 両方に追加 <!-- 担当: Codex, 理由: Xcode 設定の機械作業, 完了: 2026-05-28 -->
+- [x] Xcode Capability: iCloud (CloudKit) を App に追加 <!-- 担当: Codex, 完了: 2026-05-28 -->
+- [x] `SharedModelContainer` を実装（App Group URL + CloudKit Private DB）<!-- 担当: Codex, 理由: 既存 ModelContainer の置換・ボイラープレート, 完了: 2026-05-28 -->
+- [x] `LiminalogApp.modelContainer` を `SharedModelContainer.shared` に差し替え <!-- 担当: Codex, 理由: 既存実装の機械置換, 完了: 2026-05-28 -->
+- [x] `CalendarEventCache` 用に第2の `ModelConfiguration`（ローカル限定）を追加 <!-- 担当: Codex, 完了: 2026-05-28 -->
 
 ### 5.2 0:00固定 DayBoundary 導入
 
@@ -288,14 +288,14 @@ refactor: split plan store
 > 既存 `ChapterStore` (378行・8ドメイン混在) を `docs/03 §3` の方針で分割する。
 > **典型的な「Codex で実装」のタスク**: 大規模再構成・ゼロベース思考が要。
 
-- [ ] `CategoryStore` 切り出し（CRUD + Query + seedDefaultCategories）<!-- 担当: Codex, 理由: 既存God Storeの責務分離・大規模リファクタ -->
-- [ ] `CategorySetStore` 切り出し <!-- 担当: Codex -->
-- [ ] `PlanStore` 切り出し <!-- 担当: Codex -->
-- [ ] `ScoreStore` 切り出し（scoreSummary / streakCount / totalScore）<!-- 担当: Codex -->
-- [ ] `LiveActivityCoordinator` 切り出し（既存 LiveActivityManager と統合）<!-- 担当: Codex -->
-- [ ] `ChapterStore` は Chapter 専用に縮小（CRUD・activeChapter・カテゴリ切替時は削除しない）<!-- 担当: Codex -->
-- [ ] `AppStores` 集約ハブを実装 <!-- 担当: Codex, 理由: 新規ボイラープレート -->
-- [ ] `RootTabView` で `AppStores.bootstrap()` に切り替え <!-- 担当: Claude, 理由: 既存ビュー側との整合性 -->
+- [x] `CategoryStore` 切り出し（CRUD + Query + seedDefaultCategories）<!-- 担当: Codex, 理由: 既存God Storeの責務分離・大規模リファクタ, 完了: 2026-05-28 -->
+- [x] `CategorySetStore` 切り出し <!-- 担当: Codex, 完了: 2026-05-28 -->
+- [x] `PlanStore` 切り出し <!-- 担当: Codex, 完了: 2026-05-28 -->
+- [x] `ScoreStore` 切り出し（scoreSummary / streakCount / totalScore）<!-- 担当: Codex, 完了: 2026-05-28 -->
+- [x] `LiveActivityCoordinator` 切り出し（既存 LiveActivityManager と統合）<!-- 担当: Codex, 完了: 2026-05-28 -->
+- [~] `ChapterStore` は Chapter 専用に縮小（CRUD・activeChapter・カテゴリ切替時は削除しない）<!-- 担当: Codex, 進捗: 2026-05-28 外向きAPI互換の façade として残し、カテゴリ/予定/スコア/LiveActivity は分割Storeへ委譲。完全なChapter専用化はUIの@Query移行後 -->
+- [x] `AppStores` 集約ハブを実装 <!-- 担当: Codex, 理由: 新規ボイラープレート, 完了: 2026-05-28 -->
+- [x] `RootTabView` で `AppStores.bootstrap()` に切り替え <!-- 担当: Codex, 理由: Store基盤移行と一体で実施, 完了: 2026-05-28 -->
 
 ### 5.4 @Query 主軸への移行
 
@@ -692,6 +692,12 @@ refactor: split plan store
 
 | 日付 | 担当 | 内容 |
 |---|---|---|
+| 2026-05-28 | Codex | Phase 0: App Group / CloudKit 基盤を本番構成へ移行。`Liminalog.entitlements` と Widget entitlements を追加し、App Groups (`group.app.YasudaRyuga.Liminalog`) と CloudKit (`iCloud.app.YasudaRyuga.Liminalog`) を Xcode Capability に設定。`LiminalogApp` は `SharedModelContainer.shared` を使う構成へ差し替え。 |
+| 2026-05-28 | Codex | Phase 0: `SharedModelContainer` を Cloud 同期対象 (`Category` / `CategorySet` / `Chapter` / `PlanBlock` / `VisibilityPreset` / `UserSettings`) とローカル限定 `CalendarEventCache` の2設定に分離。CloudKit初期化に失敗した場合は local-only にフォールバックする。 |
+| 2026-05-28 | Codex | Phase 0: `CategoryStore` / `CategorySetStore` / `PlanStore` / `ScoreStore` / `LiveActivityCoordinator` / `AppStores` を追加。`ChapterStore` は既存UI互換の façade として残し、カテゴリ・予定・スコア・LiveActivity処理を分割Storeへ委譲する段階移行にした。 |
+| 2026-05-28 | Codex | Phase 0: `RootTabView` を `AppStores.bootstrap()` 経由に変更。既存ビューへは従来通り `ChapterStore` を environment 注入するため、UI側の大規模変更なしでStore分割を導入。 |
+| 2026-05-28 | Codex | 検証: App Group / CloudKit entitlement 追加後、および Store 分割後に `xcodebuild -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17,OS=26.5' build` 成功。起動中の iPhone 17 Pro シミュレータへ install + launch も成功（pid: 62989）。 |
+| 2026-05-28 | User/Codex | クラッシュ修正: `SharedModelContainer.shared` の Cloud/AppGroup 初期化失敗時に `assertionFailure` が Debug で即クラッシュしていた。`assertionFailure` をやめ、ログ出力後に local-only ModelContainer へフォールバックするよう変更。`xcodebuild` 成功、simulator install + launch 成功（pid: 63689）。 |
 | 2026-05-28 | Codex | Git安全運用ルールを §3.6 に追加。`main` を安定版・復元ポイント、作業は `codex/*` / `claude/*` ブランチで進める方針、コミット/pushのタイミング、禁止操作、現在の復元ポイント `4b2c838` と remote を明記。 |
 | 2026-05-28 | Codex | Phase 0 safe scope: `DayBoundary` を追加し、`ScoreCalculator` / `ChapterStore` の日付境界を 0:00-24:00 固定に寄せた。日付またぎはDB分割せず、表示・集計側でクリップする方針を崩さない。 |
 | 2026-05-28 | Codex | Phase 0 safe scope: SwiftDataモデルのCloudKit互換下準備として全 `@Model` にデフォルト値/空initを追加し、`Chapter` / `PlanBlock` に `visibilityScope` / `updatedAt` 等を追加。`UserSettings` / `CalendarEventCache` / `VisibilityScope` / `VersionedSchema` 骨格も追加。 |

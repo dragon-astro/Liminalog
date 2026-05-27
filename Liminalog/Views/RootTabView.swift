@@ -3,11 +3,12 @@ import SwiftData
 
 struct RootTabView: View {
     @Environment(\.modelContext) private var modelContext
-    @State private var store: ChapterStore?
+    @State private var appStores: AppStores?
 
     var body: some View {
         Group {
-            if let store {
+            if let appStores {
+                let store = appStores.chapterStore
                 TabView {
                     Tab("今日", systemImage: "clock.fill") {
                         HomeView()
@@ -32,12 +33,9 @@ struct RootTabView: View {
         }
         .environment(\.locale, Locale(identifier: "ja_JP"))
         .task {
-            guard store == nil else { return }
-            let initializedStore = ChapterStore(modelContext: modelContext)
-            SeedCoordinator.ensureUserSettings(in: modelContext)
-            SeedCoordinator.consolidateBuiltInVisibilityPresets(in: modelContext)
-            initializedStore.pruneShortChapters()
-            initializedStore.seedDefaultCategorySetsIfNeeded()
+            guard appStores == nil else { return }
+            let initializedStores = AppStores(modelContext: modelContext)
+            let initializedStore = initializedStores.bootstrap()
             #if DEBUG
             // Preview/デモ用 seed は明示フラグがあるときだけ投入する。
             // 実機 DEBUG で通常データへ勝手に混ざらないようにする。
@@ -53,7 +51,7 @@ struct RootTabView: View {
                 initializedStore.seedDevSampleChaptersIfNeeded()
             }
             #endif
-            store = initializedStore
+            appStores = initializedStores
         }
     }
 }

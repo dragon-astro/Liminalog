@@ -6,33 +6,32 @@ import SwiftData
 final class ChapterStore {
     private var modelContext: ModelContext
     private let clock: any LiminalogClock
+    private let categoryStore: CategoryStore
+    private let categorySetStore: CategorySetStore
+    private let planStore: PlanStore
+    private let scoreStore: ScoreStore
+    private let liveActivityCoordinator: LiveActivityCoordinator
     var revision = 0
-
-    private let defaultCategorySpecs: [(name: String, hex: String, icon: String)] = [
-        ("勉強", "#2F80ED", "book.closed.fill"),
-        ("仕事", "#6C5CE7", "briefcase.fill"),
-        ("趣味", "#EB5757", "sparkles"),
-        ("休憩", "#27AE60", "cup.and.saucer.fill"),
-        ("移動", "#F2994A", "tram.fill"),
-        ("睡眠", "#9B51E0", "moon.fill"),
-    ]
 
     init(modelContext: ModelContext, clock: any LiminalogClock = SystemClock()) {
         self.modelContext = modelContext
         self.clock = clock
+        let categoryStore = CategoryStore(modelContext: modelContext)
+        self.categoryStore = categoryStore
+        self.categorySetStore = CategorySetStore(modelContext: modelContext, categoryStore: categoryStore)
+        self.planStore = PlanStore(modelContext: modelContext, clock: clock)
+        self.scoreStore = ScoreStore(modelContext: modelContext, clock: clock)
+        self.liveActivityCoordinator = LiveActivityCoordinator(categorySetStore: categorySetStore)
     }
 
     // MARK: - Edit locks
 
     func isPlanScheduleLocked(_ plan: PlanBlock, now: Date = Date()) -> Bool {
-        !plan.isAllDay && DayBoundary.dayStart(for: plan.startTime) <= DayBoundary.dayStart(for: now)
+        planStore.isScheduleLocked(plan, now: now)
     }
 
     func canCreatePlan(startTime: Date, isAllDay: Bool = false, now: Date = Date()) -> Bool {
-        if isAllDay {
-            return true
-        }
-        return DayBoundary.dayStart(for: startTime) > DayBoundary.dayStart(for: now)
+        planStore.canCreate(startTime: startTime, isAllDay: isAllDay, now: now)
     }
 
     func isChapterTimeLocked(_ chapter: Chapter, now: Date = Date()) -> Bool {
@@ -181,27 +180,20 @@ final class ChapterStore {
 
     /// 8件のスロット配列を返す。空きスロットは `nil`。配列 index がそのままグリッド位置。
     func slottedCategories(for set: CategorySet) -> [Category?] {
-        let indexed = Dictionary(uniqueKeysWithValues: allCategories().map { ($0.id, $0) })
-        return set.slots.map { id in id.flatMap { indexed[$0] } }
+        categorySetStore.slottedCategories(for: set)
     }
 
     /// 割り当て済みカテゴリだけを順序保ったまま返す（Live Activity 等の表示用）
     func assignedCategories(for set: CategorySet) -> [Category] {
-        slottedCategories(for: set).compactMap { $0 }
+        categorySetStore.assignedCategories(for: set)
     }
 
     func allCategories() -> [Category] {
-        let descriptor = FetchDescriptor<Category>(
-            sortBy: [SortDescriptor(\.sortOrder)]
-        )
-        return (try? modelContext.fetch(descriptor)) ?? []
+        categoryStore.allCategories()
     }
 
     func categorySets() -> [CategorySet] {
-        let descriptor = FetchDescriptor<CategorySet>(
-            sortBy: [SortDescriptor(\.sortOrder)]
-        )
-        return (try? modelContext.fetch(descriptor)) ?? []
+        categorySetStore.categorySets()
     }
 
     // MARK: - Chapter edits
@@ -259,73 +251,34 @@ final class ChapterStore {
     // MARK: - Plans
 
     func plannedBlocks(on date: Date) -> [PlanBlock] {
-        let boundary = DayBoundary(date: date)
-        return plannedBlocks(from: boundary.dayStart, to: boundary.dayEnd)
+        planStore.plannedBlocks(on: date)
     }
 
     func plannedBlocks(from start: Date, to end: Date) -> [PlanBlock] {
-        let descriptor = FetchDescriptor<PlanBlock>(
-            predicate: #Predicate { $0.startTime < end && $0.endTime > start },
-            sortBy: [SortDescriptor(\.startTime)]
-        )
-        return (try? modelContext.fetch(descriptor)) ?? []
+        planStore.plannedBlocks(from: start, to: end)
     }
 
     func allPlannedBlocks() -> [PlanBlock] {
-        let descriptor = FetchDescriptor<PlanBlock>(
-            sortBy: [SortDescriptor(\.startTime)]
-        )
-        return (try? modelContext.fetch(descriptor)) ?? []
+        planStore.allPlannedBlocks()
     }
 
     @discardableResult
     func addPlanBlock(category: Category?, title: String, startTime: Date, endTime: Date, isAllDay: Bool = false, isImportant: Bool = false, note: String? = nil, isPublic: Bool = true) -> Bool {
-        guard canCreatePlan(startTime: startTime, isAllDay: isAllDay, now: clock.now) else { return false }
-        let plan = PlanBlock(
-            category: category,
-            title: title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? (category?.name ?? "予定") : title,
-            startTime: startTime,
-            endTime: max(endTime, startTime.addingTimeInterval(60)),
-            isAllDay: isAllDay,
-            isImportant: isImportant,
-            note: note.flatMap { $0.isEmpty ? nil : $0 },
-            isPublic: isPublic
-        )
-        plan.updatedAt = clock.now
-        modelContext.insert(plan)
-        try? modelContext.save()
+        guard planStore.addPlanBlock(category: category, title: title, startTime: startTime, endTime: endTime, isAllDay: isAllDay, isImportant: isImportant, note: note, isPublic: isPublic) else { return false }
         revision += 1
         return true
     }
 
     @discardableResult
     func savePlanBlock(_ plan: PlanBlock, category: Category?, title: String, startTime: Date, endTime: Date, isAllDay: Bool, isImportant: Bool, note: String?, isPublic: Bool) -> Bool {
-        if isPlanScheduleLocked(plan, now: clock.now) {
-            // 今日以前の時間つき予定はスコア公平性のため、内容・カテゴリ・時間を固定する。
-            // 重要フラグはカレンダー俯瞰の表示だけに関わるため、後から切り替え可能。
-            plan.isImportant = isImportant
-        } else {
-            guard canCreatePlan(startTime: startTime, isAllDay: isAllDay, now: clock.now) else { return false }
-            plan.category = category
-            plan.title = title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? (category?.name ?? "予定") : title
-            plan.startTime = startTime
-            plan.endTime = max(endTime, startTime.addingTimeInterval(60))
-            plan.isAllDay = isAllDay
-            plan.isImportant = isImportant
-        }
-        plan.note = note.flatMap { $0.isEmpty ? nil : $0 }
-        plan.isPublic = isPublic
-        plan.updatedAt = clock.now
-        try? modelContext.save()
+        guard planStore.savePlanBlock(plan, category: category, title: title, startTime: startTime, endTime: endTime, isAllDay: isAllDay, isImportant: isImportant, note: note, isPublic: isPublic) else { return false }
         revision += 1
         return true
     }
 
     @discardableResult
     func deletePlanBlock(_ plan: PlanBlock) -> Bool {
-        guard !isPlanScheduleLocked(plan, now: clock.now) else { return false }
-        modelContext.delete(plan)
-        try? modelContext.save()
+        guard planStore.deletePlanBlock(plan) else { return false }
         revision += 1
         return true
     }
@@ -333,85 +286,55 @@ final class ChapterStore {
     // MARK: - Score
 
     func scoreSummary(on date: Date) -> ScoreSummary {
-        ScoreCalculator.summary(date: date, plans: plannedBlocks(on: date), chapters: chapters(on: date), now: clock.now)
+        scoreStore.scoreSummary(on: date)
     }
 
     func streakCount(endingAt date: Date = Date()) -> Int {
-        let calendar = Calendar.current
-        var count = 0
-        for offset in 0..<365 {
-            guard let target = calendar.date(byAdding: .day, value: -offset, to: date) else { break }
-            let summary = scoreSummary(on: target)
-            guard summary.plannedDuration > 0, summary.totalScore >= 60 else { break }
-            count += 1
-        }
-        return count
+        scoreStore.streakCount(endingAt: date)
     }
 
     func totalScore(days: Int = 365) -> Int {
-        let calendar = Calendar.current
-        return (0..<days).reduce(0) { partial, offset in
-            guard let target = calendar.date(byAdding: .day, value: -offset, to: clock.now) else { return partial }
-            let summary = scoreSummary(on: target)
-            return partial + Int(summary.totalScore.rounded())
-        }
+        scoreStore.totalScore(days: days)
     }
 
     // MARK: - Category management
 
     func addCategory(name: String, colorHex: String, icon: String? = nil) {
-        let all = allCategories()
-        let nextOrder = (all.map(\.sortOrder).max() ?? -1) + 1
-        let cat = Category(name: name, colorHex: colorHex, icon: icon, sortOrder: nextOrder)
-        modelContext.insert(cat)
-        try? modelContext.save()
-        revision += 1
+        if categoryStore.addCategory(name: name, colorHex: colorHex, icon: icon) {
+            revision += 1
+        }
     }
 
     func updateCategory(_ category: Category, name: String, colorHex: String, icon: String? = nil) {
-        category.name = name
-        category.colorHex = colorHex
-        category.icon = icon
-        try? modelContext.save()
-        revision += 1
+        if categoryStore.updateCategory(category, name: name, colorHex: colorHex, icon: icon) {
+            revision += 1
+        }
     }
 
     func deleteCategory(_ category: Category) {
-        // カテゴリが含まれるすべてのセットから、該当スロットを空きに戻す（位置は維持）
-        for set in categorySets() where set.slots.contains(category.id) {
-            set.slots = set.slots.map { $0 == category.id ? nil : $0 }
+        if categoryStore.deleteCategory(category) {
+            revision += 1
         }
-        modelContext.delete(category)
-        try? modelContext.save()
-        revision += 1
     }
 
     // MARK: - Category sets
 
     func addCategorySet(name: String, slots: [UUID?]) {
-        let nextOrder = (categorySets().map(\.sortOrder).max() ?? -1) + 1
-        let set = CategorySet(
-            name: name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "セット \(nextOrder + 1)" : name,
-            sortOrder: nextOrder,
-            slots: slots
-        )
-        modelContext.insert(set)
-        try? modelContext.save()
-        revision += 1
+        if categorySetStore.addCategorySet(name: name, slots: slots) {
+            revision += 1
+        }
     }
 
     func updateCategorySet(_ set: CategorySet, name: String, slots: [UUID?]) {
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        set.name = trimmed.isEmpty ? set.name : trimmed
-        set.slots = CategorySet.normalize(slots)
-        try? modelContext.save()
-        revision += 1
+        if categorySetStore.updateCategorySet(set, name: name, slots: slots) {
+            revision += 1
+        }
     }
 
     func deleteCategorySet(_ set: CategorySet) {
-        modelContext.delete(set)
-        try? modelContext.save()
-        revision += 1
+        if categorySetStore.deleteCategorySet(set) {
+            revision += 1
+        }
     }
 
     // MARK: - Maintenance
@@ -442,42 +365,15 @@ final class ChapterStore {
     // MARK: - Seed defaults
 
     func seedDefaultCategoriesIfNeeded() {
-        let existing = allCategories()
-        let existingNames = Set(existing.map(\.name))
-        var didInsert = false
-
-        for (index, spec) in defaultCategorySpecs.enumerated() where !existingNames.contains(spec.name) {
-            let cat = Category(name: spec.name, colorHex: spec.hex, icon: spec.icon, sortOrder: index, isDefault: true)
-            modelContext.insert(cat)
-            didInsert = true
+        if categoryStore.seedDefaultCategoriesIfNeeded() {
+            revision += 1
         }
-
-        guard didInsert else { return }
-        try? modelContext.save()
-        revision += 1
     }
 
     func seedDefaultCategorySetsIfNeeded() {
-        seedDefaultCategoriesIfNeeded()
-        guard categorySets().isEmpty else { return }
-
-        let categories = allCategories()
-        let byName = Dictionary(uniqueKeysWithValues: categories.map { ($0.name, $0) })
-
-        // 平日: スロット位置を意図的に固定（左上から「主に使う順」）。空きを2つ残す。
-        // 0: 勉強, 1: 仕事, 2: 移動, 3: 休憩 / 4: 睡眠, 5: 趣味, 6: 空, 7: 空
-        let weekdayNames: [String?] = ["勉強", "仕事", "移動", "休憩", "睡眠", "趣味", nil, nil]
-        let weekdaySlots = weekdayNames.map { name in name.flatMap { byName[$0]?.id } }
-
-        // 休日: 睡眠と趣味中心。空きを3つ残す。
-        // 0: 睡眠, 1: 趣味, 2: 休憩, 3: 勉強 / 4: 移動, 5: 空, 6: 空, 7: 空
-        let holidayNames: [String?] = ["睡眠", "趣味", "休憩", "勉強", "移動", nil, nil, nil]
-        let holidaySlots = holidayNames.map { name in name.flatMap { byName[$0]?.id } }
-
-        modelContext.insert(CategorySet(name: "平日", sortOrder: 0, slots: weekdaySlots))
-        modelContext.insert(CategorySet(name: "休日", sortOrder: 1, slots: holidaySlots))
-        try? modelContext.save()
-        revision += 1
+        if categorySetStore.seedDefaultCategorySetsIfNeeded() {
+            revision += 1
+        }
     }
 
     func seedPreviewPlansIfNeeded() {
@@ -714,16 +610,6 @@ final class ChapterStore {
     }
 
     private func updateLiveActivity(categorySet: CategorySet? = nil) {
-        if #available(iOS 16.2, *) {
-            let set = categorySet ?? categorySets().first
-            let gridCategories = set.map { assignedCategories(for: $0) } ?? []
-            Task {
-                await LiveActivityManager.shared.update(
-                    activeChapter: activeChapter,
-                    categorySetName: set?.name ?? "カテゴリ",
-                    categories: gridCategories
-                )
-            }
-        }
+        liveActivityCoordinator.update(activeChapter: activeChapter, categorySet: categorySet ?? categorySets().first)
     }
 }
