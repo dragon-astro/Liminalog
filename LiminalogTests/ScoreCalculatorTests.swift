@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 import Testing
 @testable import Liminalog
 
@@ -53,3 +54,43 @@ struct ScoreCalculatorTests {
     }
 }
 
+@MainActor
+@Suite("ScoreStore")
+struct ScoreStoreTests {
+    @Test("60点以上の日だけストリークとして連続カウントする")
+    func streakCountStopsAtFirstMissingOrLowScoreDay() throws {
+        let calendar = Calendar.current
+        let todayNoon = try #require(calendar.date(from: DateComponents(year: 2026, month: 5, day: 28, hour: 12)))
+        let clock = MutableTestClock(now: todayNoon)
+        let container = try TestModelContainer.make()
+        let context = container.mainContext
+        let category = Category(name: "勉強", colorHex: "#3B82F6")
+        context.insert(category)
+
+        let today = calendar.startOfDay(for: todayNoon)
+        for offset in 0...1 {
+            let day = try #require(calendar.date(byAdding: .day, value: -offset, to: today))
+            let start = try #require(calendar.date(byAdding: .hour, value: 9, to: day))
+            let end = try #require(calendar.date(byAdding: .hour, value: 1, to: start))
+            context.insert(PlanBlock(category: category, title: "勉強", startTime: start, endTime: end))
+            let chapter = Chapter(category: category, startTime: start)
+            chapter.endTime = end
+            context.insert(chapter)
+        }
+
+        let twoDaysAgo = try #require(calendar.date(byAdding: .day, value: -2, to: today))
+        let unmatchedStart = try #require(calendar.date(byAdding: .hour, value: 9, to: twoDaysAgo))
+        let unmatchedEnd = try #require(calendar.date(byAdding: .hour, value: 1, to: unmatchedStart))
+        let otherCategory = Category(name: "仕事", colorHex: "#8B5CF6")
+        context.insert(otherCategory)
+        context.insert(PlanBlock(category: category, title: "勉強", startTime: unmatchedStart, endTime: unmatchedEnd))
+        let unmatchedChapter = Chapter(category: otherCategory, startTime: unmatchedStart)
+        unmatchedChapter.endTime = unmatchedEnd
+        context.insert(unmatchedChapter)
+        try context.save()
+
+        let store = ChapterStore(modelContext: context, clock: clock)
+
+        #expect(store.streakCount(endingAt: todayNoon) == 2)
+    }
+}

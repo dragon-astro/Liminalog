@@ -379,11 +379,11 @@ GitHub Actions で push 時に:
 - [x] ScoreCalculatorTests を最初に書く（既存ロジックの仕様確定）
 
 ### Step 2: ロジック層完備（Phase 1 完了時）
-- [~] StreakCalculator / DayBoundary / CategorySlotResolver のテスト（DayBoundary は実装済み）
-- [~] ChapterStore の主要 mutation テスト（カテゴリ短時間切替・重複保存ブロックは実装済み）
-- [ ] ActiveChapterResolutionTests
-- [ ] SeedCoordinatorTests
-- [ ] DashboardPeriodQueryTests
+- [x] StreakCalculator / DayBoundary / CategorySlotResolver のテスト（現実装では `ScoreStore.streakCount` と CategorySet 解決を対象）
+- [~] ChapterStore の主要 mutation テスト（カテゴリ短時間切替・重複保存ブロック・active 収束は実装済み）
+- [x] ActiveChapterResolutionTests
+- [x] SeedCoordinatorTests
+- [x] DashboardPeriodQueryTests
 
 ### Step 3: Preview 整備（Phase 1 完了時）
 - [ ] 全画面に最低1つ Preview

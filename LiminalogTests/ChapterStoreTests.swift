@@ -63,12 +63,87 @@ struct ChapterStoreTests {
         #expect(chapters[2].endTime == nil)
         #expect(chapters.map { $0.category?.name } == ["勉強", "仕事", "休憩"])
     }
-}
 
-private final class MutableTestClock: LiminalogClock, @unchecked Sendable {
-    var now: Date
+    @Test("同じカテゴリを再タップしても新規Chapterを作らず他のactiveだけ閉じる")
+    func sameCategoryRetapKeepsMatchingActiveAndClosesOthers() throws {
+        let calendar = Calendar.liminalogTest
+        let now = try #require(calendar.date(from: DateComponents(year: 2026, month: 5, day: 28, hour: 10)))
+        let clock = MutableTestClock(now: now)
+        let container = try TestModelContainer.make()
+        let context = container.mainContext
+        let study = Category(name: "勉強", colorHex: "#3B82F6")
+        let work = Category(name: "仕事", colorHex: "#8B5CF6")
+        context.insert(study)
+        context.insert(work)
+        let kept = Chapter(category: study, startTime: try #require(calendar.date(from: DateComponents(year: 2026, month: 5, day: 28, hour: 8))))
+        let stray = Chapter(category: work, startTime: try #require(calendar.date(from: DateComponents(year: 2026, month: 5, day: 28, hour: 9))))
+        context.insert(kept)
+        context.insert(stray)
+        try context.save()
 
-    init(now: Date) {
-        self.now = now
+        let store = ChapterStore(modelContext: context, clock: clock)
+        store.startChapter(category: study)
+
+        let chapters = try context.fetch(FetchDescriptor<Chapter>(sortBy: [SortDescriptor(\.startTime)]))
+        #expect(chapters.count == 2)
+        #expect(chapters.first { $0.id == kept.id }?.endTime == nil)
+        #expect(chapters.first { $0.id == stray.id }?.endTime == now)
+        #expect(store.activeChapter?.category?.id == study.id)
+    }
+
+    @Test("別カテゴリへ切り替えると全activeを閉じて新しいactiveを1件だけ作る")
+    func differentCategorySwitchConvergesToSingleActive() throws {
+        let calendar = Calendar.liminalogTest
+        let now = try #require(calendar.date(from: DateComponents(year: 2026, month: 5, day: 28, hour: 10)))
+        let clock = MutableTestClock(now: now)
+        let container = try TestModelContainer.make()
+        let context = container.mainContext
+        let study = Category(name: "勉強", colorHex: "#3B82F6")
+        let work = Category(name: "仕事", colorHex: "#8B5CF6")
+        let rest = Category(name: "休憩", colorHex: "#22C55E")
+        [study, work, rest].forEach { context.insert($0) }
+        let activeA = Chapter(category: study, startTime: try #require(calendar.date(from: DateComponents(year: 2026, month: 5, day: 28, hour: 8))))
+        let activeB = Chapter(category: work, startTime: try #require(calendar.date(from: DateComponents(year: 2026, month: 5, day: 28, hour: 9))))
+        context.insert(activeA)
+        context.insert(activeB)
+        try context.save()
+
+        let store = ChapterStore(modelContext: context, clock: clock)
+        store.startChapter(category: rest)
+
+        let chapters = try context.fetch(FetchDescriptor<Chapter>(sortBy: [SortDescriptor(\.startTime)]))
+        let activeChapters = chapters.filter { $0.endTime == nil }
+        #expect(chapters.count == 3)
+        #expect(activeChapters.count == 1)
+        #expect(activeChapters.first?.category?.id == rest.id)
+        #expect(chapters.first { $0.id == activeA.id }?.endTime == now)
+        #expect(chapters.first { $0.id == activeB.id }?.endTime == now)
+    }
+
+    @Test("CategorySetのスロット順と空きスロットを保ってカテゴリを解決する")
+    func categorySetSlotsResolveInGridOrder() throws {
+        let container = try TestModelContainer.make()
+        let context = container.mainContext
+        let study = Category(name: "勉強", colorHex: "#3B82F6")
+        let work = Category(name: "仕事", colorHex: "#8B5CF6")
+        let rest = Category(name: "休憩", colorHex: "#22C55E")
+        [study, work, rest].forEach { context.insert($0) }
+        let set = CategorySet(
+            name: "テスト",
+            slots: [rest.id, nil, study.id, work.id]
+        )
+        context.insert(set)
+        try context.save()
+
+        let store = ChapterStore(modelContext: context)
+        let slotted = store.slottedCategories(for: set)
+        let assigned = store.assignedCategories(for: set)
+
+        #expect(slotted.count == CategorySet.slotCount)
+        #expect(slotted[0]?.id == rest.id)
+        #expect(slotted[1] == nil)
+        #expect(slotted[2]?.id == study.id)
+        #expect(slotted[3]?.id == work.id)
+        #expect(assigned.map(\.id) == [rest.id, study.id, work.id])
     }
 }

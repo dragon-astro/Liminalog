@@ -24,3 +24,11 @@ extension Calendar {
         return calendar
     }
 }
+
+final class MutableTestClock: LiminalogClock, @unchecked Sendable {
+    var now: Date
+
+    init(now: Date) {
+        self.now = now
+    }
+}

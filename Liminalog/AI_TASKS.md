@@ -345,8 +345,12 @@ refactor: split plan store
 - [x] `Clock` プロトコル + `SystemClock` / `TestClock` 実装 <!-- 担当: Codex, 理由: 設計上の純粋抽象, 完了: 2026-05-28。Swift標準Clockとの衝突回避のため名称は `LiminalogClock` -->
 - [x] `Clock` を `ChapterStore` 等に注入できるよう改修 <!-- 担当: Codex, 完了: 2026-05-28。現状は `ChapterStore` 注入 + `ScoreCalculator.summary(now:)` 対応 -->
 - [x] `ScoreCalculatorTests` 実装（仕様書の計算例を必ず含む）<!-- 担当: Codex, 理由: ロジックテストは Codex が書いたロジックのテスト, 完了: 2026-05-28 -->
-- [ ] `StreakCalculatorTests` 実装 <!-- 担当: Codex -->
+- [x] `StreakCalculatorTests` 実装 <!-- 担当: Codex, 完了: 2026-05-28。現実装では独立 `StreakCalculator` ではなく `ScoreStore.streakCount` を対象にテスト -->
 - [x] `DayBoundaryTests` 実装（0:00-24:00固定・日付またぎクリップ）<!-- 担当: Codex, 完了: 2026-05-28 -->
+- [x] `ActiveChapterResolutionTests` 相当を追加（同カテゴリ再タップ・複数 active 収束）<!-- 担当: Codex, 完了: 2026-05-28 -->
+- [x] `SeedCoordinatorTests` 実装（UserSettings / builtIn VisibilityPreset の重複統合）<!-- 担当: Codex, 完了: 2026-05-28 -->
+- [x] `CategorySlotResolverTests` 相当を追加（CategorySet のスロット順・空きスロット保持）<!-- 担当: Codex, 完了: 2026-05-28 -->
+- [x] `DashboardPeriodQueryTests` 相当を追加（today/week/month/year の期間境界）<!-- 担当: Codex, 完了: 2026-05-28 -->
 
 ---
 
@@ -693,6 +697,7 @@ refactor: split plan store
 
 | 日付 | 担当 | 内容 |
 |---|---|---|
+| 2026-05-28 | Codex | Phase 0: テスト網を拡張。active Chapter 複数件の収束、同カテゴリ再タップ継続、CategorySet スロット順解決、`SeedCoordinator` の UserSettings / built-in VisibilityPreset 重複統合、`ScoreStore.streakCount`、Dashboard 期間境界を Swift Testing で検証。Dashboard の期間計算は `DashboardPeriod.dateInterval(containing:)` に切り出し、UI 表示は維持した。 |
 | 2026-05-28 | Codex | Phase 0: `LiminalogTests` ターゲットを追加し、Swift Testing で `DayBoundaryTests` / `ScoreCalculatorTests` / `ChapterStoreTests` を実装。テストホスト起動時は `SharedModelContainer.inMemory()` を使い、Live Activity 更新を XCTest 中だけ無効化して、Cloud/AppGroup 初期化に依存しないロジックテストを走らせる構成にした。 |
 | 2026-05-28 | Codex | Phase 0: 実績 Chapter 同士の重複保存を Store 層でブロック。手動追加・編集は `start < end`、未来終了禁止、既存 Chapter との重複禁止を満たす場合だけ保存し、`ChapterCreateSheet` / `ChapterEditSheet` でも保存不可理由を警告表示するようにした。カテゴリ短時間切替は A/B/C が別 Chapter として残ることをテスト済み。 |
 | 2026-05-28 | Codex | Phase 0: `CategorySet.slots: [UUID?]` の CloudKit 互換リスクを docs/04 に整理。現時点ではリリース前の破壊的移行を避けて維持し、TestFlight 前に実機 CloudKit 同期で再検証、失敗時は `slot0...slot7` または `[String]` スロットへ移行する方針にした。 |

@@ -38,27 +38,8 @@ struct DashboardView: View {
     }
 
     private var chapters: [Chapter] {
-        let calendar = Calendar.current
-        let now = Date()
-        let start: Date
-        let end: Date
-
-        switch period {
-        case .today:
-            start = calendar.startOfDay(for: now)
-            end = calendar.date(byAdding: .day, value: 1, to: start) ?? now
-        case .week:
-            start = calendar.date(byAdding: .day, value: -6, to: calendar.startOfDay(for: now)) ?? now
-            end = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: now)) ?? now
-        case .month:
-            start = calendar.date(from: calendar.dateComponents([.year, .month], from: now)) ?? now
-            end = calendar.date(byAdding: .month, value: 1, to: start) ?? now
-        case .year:
-            start = calendar.date(from: calendar.dateComponents([.year], from: now)) ?? now
-            end = calendar.date(byAdding: .year, value: 1, to: start) ?? now
-        }
-
-        return store.chapters(from: start, to: end)
+        let interval = period.dateInterval(containing: Date())
+        return store.chapters(from: interval.start, to: interval.end)
     }
 }
 
@@ -117,19 +98,42 @@ enum DashboardPeriod: String, CaseIterable, Identifiable {
     }
 
     var displayRange: String {
-        let calendar = Calendar.current
-        let now = Date()
+        displayRange(at: Date())
+    }
 
+    func dateInterval(containing date: Date, calendar: Calendar = .current) -> DateInterval {
         switch self {
         case .today:
-            return now.japaneseMonthDayWeekday
+            let start = calendar.startOfDay(for: date)
+            let end = calendar.date(byAdding: .day, value: 1, to: start) ?? date
+            return DateInterval(start: start, end: end)
         case .week:
-            let start = calendar.date(byAdding: .day, value: -6, to: calendar.startOfDay(for: now)) ?? now
-            return "\(start.japaneseMonthDay) 〜 \(now.japaneseMonthDay)"
+            let todayStart = calendar.startOfDay(for: date)
+            let start = calendar.date(byAdding: .day, value: -6, to: todayStart) ?? todayStart
+            let end = calendar.date(byAdding: .day, value: 1, to: todayStart) ?? date
+            return DateInterval(start: start, end: end)
         case .month:
-            return now.japaneseYearMonth
+            let start = calendar.date(from: calendar.dateComponents([.year, .month], from: date)) ?? date
+            let end = calendar.date(byAdding: .month, value: 1, to: start) ?? date
+            return DateInterval(start: start, end: end)
         case .year:
-            return now.japaneseYear
+            let start = calendar.date(from: calendar.dateComponents([.year], from: date)) ?? date
+            let end = calendar.date(byAdding: .year, value: 1, to: start) ?? date
+            return DateInterval(start: start, end: end)
+        }
+    }
+
+    func displayRange(at date: Date, calendar: Calendar = .current) -> String {
+        switch self {
+        case .today:
+            return date.japaneseMonthDayWeekday
+        case .week:
+            let interval = dateInterval(containing: date, calendar: calendar)
+            return "\(interval.start.japaneseMonthDay) 〜 \(date.japaneseMonthDay)"
+        case .month:
+            return date.japaneseYearMonth
+        case .year:
+            return date.japaneseYear
         }
     }
 }
