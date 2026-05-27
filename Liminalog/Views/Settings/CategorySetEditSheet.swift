@@ -49,7 +49,7 @@ struct CategorySetEditSheet: View {
                             .monospacedDigit()
                     }
                 } footer: {
-                    Text("スロットをタップしてカテゴリを割り当てたり外したりできます。位置はホームのカテゴリグリッドにそのまま反映されます。")
+                    Text("タップでカテゴリを割り当て、ドラッグでスロット同士を入れ替えます。位置はホームとWidgetのカテゴリグリッドにそのまま反映されます。")
                         .font(.caption2)
                 }
             }
@@ -84,6 +84,12 @@ struct CategorySetEditSheet: View {
             slotMenu(at: index, currentCategory: category)
         } label: {
             SlotCellLabel(index: index, category: category)
+        }
+        .draggable(String(index))
+        .dropDestination(for: String.self) { items, _ in
+            guard let source = items.first.flatMap(Int.init), source != index else { return false }
+            moveSlot(from: source, to: index)
+            return true
         }
         .accessibilityLabel(category.map { "スロット\(index + 1): \($0.name)" } ?? "スロット\(index + 1): 空き")
     }
@@ -146,6 +152,13 @@ struct CategorySetEditSheet: View {
     private func assign(_ id: UUID?, to index: Int) {
         var next = slots
         next[index] = id
+        slots = next
+    }
+
+    private func moveSlot(from source: Int, to destination: Int) {
+        guard slots.indices.contains(source), slots.indices.contains(destination) else { return }
+        var next = slots
+        next.swapAt(source, destination)
         slots = next
     }
 

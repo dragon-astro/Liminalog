@@ -201,8 +201,8 @@ DashboardView の Picker.tap → period が変わる
 | 項目 | 状態 |
 |------|------|
 | App Groups | **設定済** (`group.app.YasudaRyuga.Liminalog`) |
-| App ↔ Widget の SwiftData 共有 | **土台あり**（App Group ModelContainer。Widget 側の本格読み込みは未実装） |
-| WidgetKit のインタラクティブ記録グリッド | **未実装**（LiminalogStatusWidget は静的文言のみ） |
+| App ↔ Widget の SwiftData 共有 | **実装済**（App Group ModelContainer。Widget 側は最小共有モデルで同じストアを読む） |
+| WidgetKit のインタラクティブ記録グリッド | **実装済**（RecordingGridWidget + StartChapterIntent。LiminalogStatusWidget はBundleから退役） |
 | Live Activity | **実装済** — Dynamic Island / Lock Screen 対応 |
 | Live Activity への状態伝達 | アプリ側 `LiveActivityManager.update(...)` から `Activity.update(...)` で push |
 | カテゴリデータの Live Activity への同梱 | **廃止済**。`ContentState` にカテゴリ配列は持たせない |
@@ -273,12 +273,15 @@ Liminalog/
     └── Settings/
         ├── CategoryEditSheet.swift
         ├── CategorySettingsView.swift
-        └── CategorySetEditSheet.swift
+        ├── CategorySetEditSheet.swift
+        └── SettingsView.swift
 
 LiminalogWidget/
 ├── Info.plist
 ├── LiminalogLiveActivityWidget.swift
-├── LiminalogStatusWidget.swift
+├── LiminalogStatusWidget.swift     (Bundle からは外して保持)
+├── RecordingGridWidget.swift
+├── WidgetSharedModels.swift
 ├── LiminalogWidgetAttributes.swift  (LiminalogActivityAttributes と重複)
 └── LiminalogWidgetBundle.swift
 ```

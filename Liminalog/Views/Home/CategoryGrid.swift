@@ -8,6 +8,7 @@ struct CategoryGrid: View {
     @State private var categorySets: [CategorySet] = []
     @State private var selectedSetID: UUID?
     @State private var activeID: UUID? = nil
+    @State private var editingSetFromEmptySlot: CategorySet? = nil
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 10), count: 4)
 
@@ -45,6 +46,10 @@ struct CategoryGrid: View {
             }
             .onChange(of: selectedSetID) { _, newID in
                 activeSetIDString = newID?.uuidString ?? ""
+                store.setEnabledCategorySetID(newID)
+            }
+            .sheet(item: $editingSetFromEmptySlot) { set in
+                CategorySetEditSheet(categorySet: set)
             }
         }
     }
@@ -95,7 +100,13 @@ struct CategoryGrid: View {
                         activeID = category.id
                     }
                 } else {
-                    EmptyGridSlot()
+                    Button {
+                        editingSetFromEmptySlot = set
+                    } label: {
+                        EmptyGridSlot()
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("空きスロットにカテゴリを割り当て")
                 }
             }
         }
@@ -183,6 +194,5 @@ private struct EmptyGridSlot: View {
             RoundedRectangle(cornerRadius: 14)
                 .fill(Color(.secondarySystemGroupedBackground).opacity(0.45))
         )
-        .accessibilityHidden(true)
     }
 }

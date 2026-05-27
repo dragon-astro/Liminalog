@@ -50,10 +50,15 @@ struct CategorySettingsView: View {
                         store.deleteCategorySet(categorySets[index])
                     }
                 }
+                .onMove { source, destination in
+                    store.moveCategorySets(from: source, to: destination)
+                }
             } header: {
                 sectionHeader(title: "カテゴリセット") {
                     showAddSetSheet = true
                 }
+            } footer: {
+                Text("編集モードでドラッグすると、ホームとWidgetで使うカテゴリセットの順番を変更できます。")
             }
 
             Section {

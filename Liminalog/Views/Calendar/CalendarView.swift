@@ -233,8 +233,27 @@ private enum CalendarPlanLabelStyle: String, CaseIterable, Identifiable {
     }
 }
 
-private struct CalendarSettingsSheet: View {
+struct CalendarSettingsSheet: View {
     @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            CalendarSettingsContent()
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button {
+                            dismiss()
+                        } label: {
+                            Image(systemName: "chevron.left")
+                        }
+                    }
+                }
+        }
+        .presentationDetents([.large])
+    }
+}
+
+struct CalendarSettingsContent: View {
     @AppStorage("calendarTimedPlanLabelStyle") private var timedPlanLabelStyleRaw = CalendarPlanLabelStyle.background.rawValue
     @AppStorage("calendarAllDayPlanLabelStyle") private var allDayPlanLabelStyleRaw = CalendarPlanLabelStyle.background.rawValue
     @AppStorage("calendarMultiDayPlanLabelStyle") private var multiDayPlanLabelStyleRaw = CalendarPlanLabelStyle.background.rawValue
@@ -244,57 +263,45 @@ private struct CalendarSettingsSheet: View {
     @AppStorage("calendarStrikePastPlans") private var strikePastPlans = false
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section("予定") {
-                    CalendarLabelStyleSettingRow(
-                        title: "時刻指定",
-                        selectionRaw: $timedPlanLabelStyleRaw,
-                        fontSize: planTitleFontSize,
-                        isBold: planTitleBold,
-                        sampleTime: "9:30"
-                    )
+        Form {
+            Section("予定") {
+                CalendarLabelStyleSettingRow(
+                    title: "時刻指定",
+                    selectionRaw: $timedPlanLabelStyleRaw,
+                    fontSize: planTitleFontSize,
+                    isBold: planTitleBold,
+                    sampleTime: "9:30"
+                )
 
-                    CalendarLabelStyleSettingRow(
-                        title: "終日",
-                        selectionRaw: $allDayPlanLabelStyleRaw,
-                        fontSize: planTitleFontSize,
-                        isBold: planTitleBold,
-                        sampleTime: nil
-                    )
+                CalendarLabelStyleSettingRow(
+                    title: "終日",
+                    selectionRaw: $allDayPlanLabelStyleRaw,
+                    fontSize: planTitleFontSize,
+                    isBold: planTitleBold,
+                    sampleTime: nil
+                )
 
-                    CalendarLabelStyleSettingRow(
-                        title: "複数日",
-                        selectionRaw: $multiDayPlanLabelStyleRaw,
-                        fontSize: planTitleFontSize,
-                        isBold: planTitleBold,
-                        sampleTime: nil
-                    )
-                }
-
-                Section("フォント") {
-                    CalendarFontSizeSlider(value: $planTitleFontSize)
-                    Toggle("太字", isOn: $planTitleBold)
-                }
-
-                Section("過去の予定") {
-                    Toggle("半透明に表示", isOn: $dimPastPlans)
-                    Toggle("打ち消し線を入れる", isOn: $strikePastPlans)
-                }
+                CalendarLabelStyleSettingRow(
+                    title: "複数日",
+                    selectionRaw: $multiDayPlanLabelStyleRaw,
+                    fontSize: planTitleFontSize,
+                    isBold: planTitleBold,
+                    sampleTime: nil
+                )
             }
-            .navigationTitle("表示形式")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "chevron.left")
-                    }
-                }
+
+            Section("フォント") {
+                CalendarFontSizeSlider(value: $planTitleFontSize)
+                Toggle("太字", isOn: $planTitleBold)
+            }
+
+            Section("過去の予定") {
+                Toggle("半透明に表示", isOn: $dimPastPlans)
+                Toggle("打ち消し線を入れる", isOn: $strikePastPlans)
             }
         }
-        .presentationDetents([.large])
+        .navigationTitle("表示形式")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 

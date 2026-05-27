@@ -368,9 +368,9 @@ public enum LiminalogTypography {
 - [ ] revision カウンタを段階的に削除し `@Query` へ移行
 
 ### Step 4: ウィジェット改修
-- [ ] `RecordingGridWidget` + `StartChapterIntent` 実装
-- [ ] `LiminalogStatusWidget` を退役（or グリッド統合）
-- [~] `LiveActivityAttributes` から categories を削除し、ウィジェット側で SwiftData 読み込みに変更（2026-05-28 Codex: categories 削除は完了。Widget の SwiftData 読み込み/RecordingGrid は Phase 1 残）
+- [x] `RecordingGridWidget` + `StartChapterIntent` 実装（2026-05-28 Codex）
+- [x] `LiminalogStatusWidget` を退役（or グリッド統合）（2026-05-28 Codex: Bundle から外し RecordingGridWidget をメイン化）
+- [x] `LiveActivityAttributes` から categories を削除し、ウィジェット側で SwiftData 読み込みに変更（2026-05-28 Codex: Live Activity は軽量化、RecordingGridWidget は App Group SwiftData を読む）
 
 ### Step 5: UI Package 化
 - [ ] `LiminalogUI` Swift Package を作成、共通コンポーネント抽出

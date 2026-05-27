@@ -4,7 +4,7 @@ import WidgetKit
 @main
 struct LiminalogWidgetBundle: WidgetBundle {
     var body: some Widget {
-        LiminalogStatusWidget()
+        RecordingGridWidget()
         LiminalogLiveActivityWidget()
     }
 }

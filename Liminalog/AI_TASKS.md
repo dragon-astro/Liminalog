@@ -361,12 +361,12 @@ refactor: split plan store
 
 ### 6.1 ウィジェット記録グリッド
 
-- [ ] `RecordingGridWidget` の Provider / Entry 設計 <!-- 担当: 未定, 理由: プラン必要 — Claude プラン → Codex レビュー -->
-- [ ] `StartChapterIntent` (AppIntent) 実装 <!-- 担当: Codex, 理由: AppIntent + 並行制御 + 共有ストア書き込み -->
-- [ ] `SelectCategorySetIntent` (configurable widget) 実装 <!-- 担当: Codex -->
-- [ ] `RecordingGridView` (Widget UI) 実装 <!-- 担当: Claude, 理由: SwiftUI / アプリ側 CategoryGrid との視覚整合性 -->
+- [x] `RecordingGridWidget` の Provider / Entry 設計 <!-- 担当: Codex, 完了: 2026-05-28。App Group SwiftData を読む `RecordingGridProvider` / `RecordingGridEntry` を追加 -->
+- [x] `StartChapterIntent` (AppIntent) 実装 <!-- 担当: Codex, 理由: AppIntent + 並行制御 + 共有ストア書き込み, 完了: 2026-05-28。Widget 側で active Chapter を収束し、同カテゴリは継続・別カテゴリは直前を終了して新規開始 -->
+- [x] `SelectCategorySetIntent` (configurable widget) 実装 <!-- 担当: Codex, 完了: 2026-05-28。`CategorySetEntity` / `EntityQuery` で Widget 設定からカテゴリセットを選べる -->
+- [x] `RecordingGridView` (Widget UI) 実装 <!-- 担当: Codex, 完了: 2026-05-28。systemSmall は4枠、systemMedium は8枠を表示。アプリ側 CategoryGrid に近いアイコン/色/active ハイライトで構成 -->
 - [x] アプリ側 mutation 後の `WidgetCenter.shared.reloadAllTimelines()` 呼び出し統一 <!-- 担当: Codex, 理由: 副作用の差し込み箇所が多い・抜け漏れ防止, 完了: 2026-05-28。`ChapterStore.markChanged()` に集約し、テスト実行中は Widget reload を抑制 -->
-- [ ] `LiminalogStatusWidget` の退役（または記録グリッドへ統合）<!-- 担当: Claude, 理由: 既存ウィジェットUIの判断 -->
+- [x] `LiminalogStatusWidget` の退役（または記録グリッドへ統合）<!-- 担当: Codex, 完了: 2026-05-28。Bundle から外し、`RecordingGridWidget` をメインWidgetに変更。ファイルは履歴参照用に残置 -->
 
 ### 6.2 公開設定 UI（Phase 1 最小版）
 
@@ -392,21 +392,21 @@ refactor: split plan store
 - [x] `CategoryGrid` を 8 スロット固定描画 + 空きスロット placeholder <!-- 担当: Claude, 完了: 2026-05-24 -->
 - [x] 選択中 CategorySet の `@AppStorage` 永続化 <!-- 担当: Claude, 完了: 2026-05-24 -->
 - [x] `Category.usageCount` 削除 <!-- 担当: Claude, 完了: 2026-05-24 -->
-- [ ] CategorySet の並び替え UI（ドラッグでソート）<!-- 担当: Claude, 理由: 既存設定UIの整合性 -->
-- [ ] スロットのドラッグ&ドロップ並び替え（現状はタップで配置）<!-- 担当: Claude, 理由: SwiftUI ジェスチャ -->
-- [ ] 空きスロットを Home 画面からタップして即割り当て（UX改善案）<!-- 担当: 未定 -->
+- [x] CategorySet の並び替え UI（ドラッグでソート）<!-- 担当: Codex, 完了: 2026-05-28 -->
+- [x] スロットのドラッグ&ドロップ並び替え（現状はタップで配置）<!-- 担当: Codex, 完了: 2026-05-28 -->
+- [x] 空きスロットを Home 画面からタップして即割り当て（UX改善案）<!-- 担当: Codex, 完了: 2026-05-28 -->
 
 ### 6.4 プロフィール画面再設計 + 設定画面切り出し
 
 > 現状 `ProfileView` の中に雑多に並んでいる情報・設定を、SNS準拠の自己表現プロフィール + ☰ ハンバーガー隔離の設定画面に分離する。
 > 情報設計は `docs/09-profile-design.md`。具体的なUIは実装裁量。
 
-- [ ] `ProfileView` 再設計（docs/09 の情報設計に従う・UI最適化は実装側裁量）<!-- 担当: Claude, 理由: SwiftUI整合性 -->
-- [ ] アイデンティティゾーン実装（プロフィール画像 + ニックネーム + bio + 主要スタッツ 🔥連続/⏱累計/👥友達数）<!-- 担当: Claude -->
-- [ ] 解放コレクション表示（ハイライト風・docs/09 §3.2）<!-- 担当: Claude, 依存: アンロックシステム実装 -->
-- [ ] 日記カードグリッド表示（DayDigest アーカイブ・docs/09 §3.3）<!-- 担当: Claude, 依存: DayDigest 機能 -->
-- [ ] `SettingsView` 新規作成 + プロフィール右上 ☰ から開く（docs/09 §6 参照）<!-- 担当: Claude, 理由: プロフィール本体から設定項目を隔離 -->
-- [ ] 友達ビュー対応（同レイアウト・read-only・公開設定フィルタ・docs/09 §7）<!-- 担当: Claude, 依存: Phase 3 友達機能 -->
+- [x] `ProfileView` 再設計（docs/09 の情報設計に従う・UI最適化は実装側裁量）<!-- 担当: Codex, 完了: 2026-05-28 -->
+- [x] アイデンティティゾーン実装（プロフィール画像 + ニックネーム + bio + 主要スタッツ 連続/累計/友達数）<!-- 担当: Codex, 完了: 2026-05-28 -->
+- [~] 解放コレクション表示（ハイライト風・docs/09 §3.2）<!-- 担当: Codex, 2026-05-28: プレースホルダーのみ実装。実データはアンロックシステム実装後に接続 -->
+- [~] 日記カードグリッド表示（DayDigest アーカイブ・docs/09 §3.3）<!-- 担当: Codex, 2026-05-28: 最近の記録日/空状態プレースホルダーでUI枠のみ実装。DayDigest生成後に実カードへ差し替え -->
+- [x] `SettingsView` 新規作成 + プロフィール右上 ☰ から開く（docs/09 §6 参照）<!-- 担当: Codex, 完了: 2026-05-28 -->
+- [-] 友達ビュー対応（同レイアウト・read-only・公開設定フィルタ・docs/09 §7）<!-- Phase 3 友達機能へ移動: ユーザーモデル/公開フィルタ未実装のため -->
 - [-] 1日の始まり時間 Picker を `SettingsView` に追加 <!-- 撤回: 現行仕様では 0:00-24:00 固定。可変境界は超低優先度の将来検討 -->
 
 ---
@@ -697,6 +697,9 @@ refactor: split plan store
 
 | 日付 | 担当 | 内容 |
 |---|---|---|
+| 2026-05-28 | Codex | Phase 1: `RecordingGridWidget` を追加。Widget Extension 側に最小の SwiftData 共有モデルと App Group 用 ModelContainer を置き、`RecordingGridProvider` がカテゴリセット/カテゴリ/active Chapter を読む。systemSmall は4枠、systemMedium は8枠表示。 |
+| 2026-05-28 | Codex | Phase 1: `StartChapterIntent` / `SelectCategorySetIntent` を実装。Widget 設定でカテゴリセットを選択でき、カテゴリボタンから App Group SwiftData に直接 Chapter を書き込む。書き込み時は active Chapter を収束し、同カテゴリは継続、別カテゴリは直前を終了して新規開始する。 |
+| 2026-05-28 | Codex | Phase 1: `LiminalogWidgetBundle` のメインWidgetを静的な `LiminalogStatusWidget` から `RecordingGridWidget` へ変更。`CategoryGrid` の選択セットは `UserSettings.enabledCategorySetID` にも保存し、Widget 側のデフォルト表示セットとアプリ側の普段使いセットが揃うようにした。 |
 | 2026-05-28 | Codex | Phase 0/1 bridge: `LiminalogActivityAttributes.ContentState.categories` と Widget 側の `IslandCategory` を削除し、Live Activity は現在カテゴリ・カテゴリセット名・公開状態だけを渡す形へ整理。Dynamic Island 下段はカテゴリ配列ではなくセット名/公開状態の軽い情報表示に変更した。 |
 | 2026-05-28 | Codex | Phase 1: `ChapterStore.markChanged()` を追加し、Chapter/Category/Plan 系 mutation 後の `revision` 更新と `WidgetCenter.shared.reloadAllTimelines()` を一箇所に集約。Widget 記録グリッド本体は未実装だが、アプリ側変更を Widget Timeline に反映する土台は完了。XCTest 中は reload を抑制する。 |
 | 2026-05-28 | Codex | Phase 0: テスト網を拡張。active Chapter 複数件の収束、同カテゴリ再タップ継続、CategorySet スロット順解決、`SeedCoordinator` の UserSettings / built-in VisibilityPreset 重複統合、`ScoreStore.streakCount`、Dashboard 期間境界を Swift Testing で検証。Dashboard の期間計算は `DashboardPeriod.dateInterval(containing:)` に切り出し、UI 表示は維持した。 |
@@ -872,6 +875,9 @@ refactor: split plan store
 | 2026-05-26 | Claude | docs/09 と AI_TASKS の「アバター」表記を「プロフィール画像」へ統一。未設定時はニックネーム頭文字フォールバック、Memoji等のキャラクターアバターは前提としない旨を docs/09 §3.1 に追記 |
 | 2026-05-28 | Codex | 今日のタイムラインに表示される実績が、開始日が前日以前という理由で編集ロックされる問題を修正。`ChapterStore.isChapterTimeLocked` を「開始日 < 今日」判定から「今日 0:00-24:00 に重なっていない実績だけロック」へ変更し、DBを日付分割しない日付またぎ Chapter でも今日に重なる間は時間/カテゴリ/削除を編集可能にした。docs/08 の編集ロック仕様にも同ルールを追記 |
 | 2026-05-28 | Codex | 今日の未記録カードから `ChapterCreateSheet` を開いた際、ギャップが現在時刻に接していると開始=終了になり保存不可/ロックに見える問題を修正。未記録ギャップの実績追加は保存可能な開始時刻へ補正し、上部 `+` からの手動追加も初期値を「現在までの直近30分」に変更。追加シートの常時ロック文言をやめ、保存不可理由だけ警告表示するようにした。docs/08 の空白カード仕様にも補正ルールを追記 |
+| 2026-05-28 | Codex | Phase 1 Widget を実装。`RecordingGridWidget` を追加し、Small は4枠・Medium は8枠で選択中 CategorySet のスロットを表示。`StartChapterIntent` からアプリを開かず記録開始/カテゴリ切替ができるようにし、Widget 側は App Group の SwiftData store を最小モデルで読む。既存 `LiminalogStatusWidget` は Bundle から外し、Widget は記録開始のための実用UIへ置き換え |
+| 2026-05-28 | Codex | CategorySet 操作の残タスクを実装。`CategorySettingsView` でセット並び替え、`CategorySetEditSheet` でスロット同士のドラッグ&ドロップ交換、Home の空きスロット tap から該当セット編集を開く導線を追加。選択中 CategorySet は `@AppStorage` に加えて `UserSettings.enabledCategorySetID` にも保存し、Widget の初期表示と同期する |
+| 2026-05-28 | Codex | Profile/Settings の Phase 1 最小再設計を実装。`ProfileView` からスコア・カテゴリ管理など分析/設定要素を外し、プロフィール画像フォールバック、ニックネーム、bio、連続日数、累計記録時間、友達数の自己表現画面へ変更。右上 ☰ から `SettingsView` を開き、カテゴリ管理・カレンダー表示・公開系プレースホルダー・アプリ情報へ隔離。解放コレクションと日記カードは UI 枠のみ実装し、実データ接続はアンロック/DayDigest 実装後に行う |
 
 ---
 

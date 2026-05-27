@@ -57,6 +57,22 @@ final class CategorySetStore {
     }
 
     @discardableResult
+    func moveCategorySets(from source: IndexSet, to destination: Int) -> Bool {
+        var sets = categorySets()
+        let moving = source.map { sets[$0] }
+        for index in source.sorted(by: >) {
+            sets.remove(at: index)
+        }
+        let adjustedDestination = destination - source.filter { $0 < destination }.count
+        sets.insert(contentsOf: moving, at: min(max(adjustedDestination, 0), sets.count))
+        for (index, set) in sets.enumerated() {
+            set.sortOrder = index
+        }
+        try? modelContext.save()
+        return true
+    }
+
+    @discardableResult
     func seedDefaultCategorySetsIfNeeded() -> Bool {
         var didChange = categoryStore.seedDefaultCategoriesIfNeeded()
         guard categorySets().isEmpty else { return didChange }

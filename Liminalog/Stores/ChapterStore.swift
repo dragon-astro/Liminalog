@@ -369,6 +369,25 @@ final class ChapterStore {
         }
     }
 
+    func moveCategorySets(from source: IndexSet, to destination: Int) {
+        if categorySetStore.moveCategorySets(from: source, to: destination) {
+            markChanged()
+        }
+    }
+
+    func setEnabledCategorySetID(_ id: UUID?) {
+        let descriptor = FetchDescriptor<UserSettings>()
+        let settings = (try? modelContext.fetch(descriptor).first) ?? UserSettings()
+        if settings.modelContext == nil {
+            modelContext.insert(settings)
+        }
+        guard settings.enabledCategorySetID != id else { return }
+        settings.enabledCategorySetID = id
+        settings.updatedAt = clock.now
+        try? modelContext.save()
+        markChanged()
+    }
+
     // MARK: - Maintenance
 
     /// 前日以前の1分未満完了チャプターを削除する。

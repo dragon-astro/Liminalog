@@ -1,0 +1,489 @@
+import AppIntents
+import SwiftData
+import SwiftUI
+import WidgetKit
+
+private enum WidgetDataError: LocalizedError {
+    case invalidCategoryID
+    case categoryNotFound
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidCategoryID:
+            "カテゴリIDが正しくありません"
+        case .categoryNotFound:
+            "カテゴリが見つかりません"
+        }
+    }
+}
+
+struct WidgetCategory: Identifiable, Hashable {
+    let id: UUID
+    let name: String
+    let colorHex: String
+    let icon: String?
+}
+
+struct WidgetCategorySet: Identifiable, Hashable {
+    let id: UUID
+    let name: String
+}
+
+private enum RecordingWidgetStore {
+    static let appGroupID = "group.app.YasudaRyuga.Liminalog"
+
+    static var cloudSchema: Schema {
+        Schema([
+            Category.self,
+            CategorySet.self,
+            Chapter.self,
+            PlanBlock.self,
+            VisibilityPreset.self,
+            UserSettings.self
+        ])
+    }
+
+    static var localCacheSchema: Schema {
+        Schema([CalendarEventCache.self])
+    }
+
+    static var schema: Schema {
+        Schema([
+            Category.self,
+            CategorySet.self,
+            Chapter.self,
+            PlanBlock.self,
+            VisibilityPreset.self,
+            UserSettings.self,
+            CalendarEventCache.self
+        ])
+    }
+
+    static func makeContainer() throws -> ModelContainer {
+        let cloudConfiguration = ModelConfiguration(
+            "Cloud",
+            schema: cloudSchema,
+            groupContainer: .identifier(appGroupID),
+            cloudKitDatabase: .none
+        )
+
+        let localCacheConfiguration = ModelConfiguration(
+            "LocalCache",
+            schema: localCacheSchema,
+            groupContainer: .identifier(appGroupID),
+            cloudKitDatabase: .none
+        )
+
+        return try ModelContainer(
+            for: schema,
+            configurations: [cloudConfiguration, localCacheConfiguration]
+        )
+    }
+
+    static func categorySets() throws -> [WidgetCategorySet] {
+        let context = ModelContext(try makeContainer())
+        let descriptor = FetchDescriptor<CategorySet>(
+            sortBy: [
+                SortDescriptor(\.sortOrder),
+                SortDescriptor(\.createdAt)
+            ]
+        )
+        return try context.fetch(descriptor).map {
+            WidgetCategorySet(id: $0.id, name: $0.name)
+        }
+    }
+
+    static func entry(categorySetID: UUID? = nil) -> RecordingGridEntry {
+        do {
+            let context = ModelContext(try makeContainer())
+            let categories = try context.fetch(FetchDescriptor<Category>(
+                sortBy: [
+                    SortDescriptor(\.sortOrder),
+                    SortDescriptor(\.createdAt)
+                ]
+            ))
+            let categoryByID = Dictionary(uniqueKeysWithValues: categories.map { ($0.id, $0) })
+
+            let sets = try context.fetch(FetchDescriptor<CategorySet>(
+                sortBy: [
+                    SortDescriptor(\.sortOrder),
+                    SortDescriptor(\.createdAt)
+                ]
+            ))
+            let settings = try context.fetch(FetchDescriptor<UserSettings>()).first
+            let requestedID = categorySetID ?? settings?.enabledCategorySetID
+            let selectedSet = requestedID.flatMap { id in sets.first { $0.id == id } }
+                ?? sets.first { $0.isDefault }
+                ?? sets.first
+
+            let active = try context.fetch(FetchDescriptor<Chapter>())
+                .filter { $0.endTime == nil }
+                .sorted { $0.startTime > $1.startTime }
+                .first
+
+            guard let selectedSet else {
+                return RecordingGridEntry(
+                    date: Date(),
+                    categorySetID: nil,
+                    categorySetName: "カテゴリ",
+                    cells: Array(repeating: nil, count: CategorySet.slotCount),
+                    activeCategoryID: active?.category?.id,
+                    message: "カテゴリセットがありません"
+                )
+            }
+
+            let normalizedSlots = normalizeSlots(selectedSet.slots)
+            let cells: [WidgetCategory?] = normalizedSlots.map { id in
+                guard let id, let category = categoryByID[id] else { return nil }
+                return WidgetCategory(
+                    id: category.id,
+                    name: category.name,
+                    colorHex: category.colorHex,
+                    icon: category.icon
+                )
+            }
+
+            return RecordingGridEntry(
+                date: Date(),
+                categorySetID: selectedSet.id,
+                categorySetName: selectedSet.name,
+                cells: cells,
+                activeCategoryID: active?.category?.id,
+                message: nil
+            )
+        } catch {
+            return RecordingGridEntry(
+                date: Date(),
+                categorySetID: nil,
+                categorySetName: "カテゴリ",
+                cells: Array(repeating: nil, count: CategorySet.slotCount),
+                activeCategoryID: nil,
+                message: "データを読み込めません"
+            )
+        }
+    }
+
+    static func startChapter(categoryIDString: String) throws {
+        guard let categoryID = UUID(uuidString: categoryIDString) else {
+            throw WidgetDataError.invalidCategoryID
+        }
+
+        let context = ModelContext(try makeContainer())
+        let categories = try context.fetch(FetchDescriptor<Category>())
+        guard let category = categories.first(where: { $0.id == categoryID }) else {
+            throw WidgetDataError.categoryNotFound
+        }
+
+        let now = Date()
+        let activeChapters = try context.fetch(FetchDescriptor<Chapter>())
+            .filter { $0.endTime == nil }
+            .sorted { $0.startTime < $1.startTime }
+        let sameCategoryActive = activeChapters.first { $0.category?.id == categoryID }
+
+        for chapter in activeChapters where chapter.id != sameCategoryActive?.id {
+            chapter.endTime = now
+            chapter.updatedAt = now
+        }
+
+        if sameCategoryActive == nil {
+            context.insert(Chapter(category: category, startTime: now))
+        }
+
+        try context.save()
+        WidgetCenter.shared.reloadAllTimelines()
+    }
+
+    private static func normalizeSlots(_ slots: [UUID?]) -> [UUID?] {
+        var result = Array(slots.prefix(CategorySet.slotCount))
+        while result.count < CategorySet.slotCount { result.append(nil) }
+        return result
+    }
+}
+
+struct CategorySetEntity: AppEntity {
+    static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "カテゴリセット")
+    static let defaultQuery = CategorySetEntityQuery()
+
+    let id: String
+    let name: String
+
+    var displayRepresentation: DisplayRepresentation {
+        DisplayRepresentation(title: "\(name)")
+    }
+}
+
+struct CategorySetEntityQuery: EntityQuery {
+    func entities(for identifiers: [String]) async throws -> [CategorySetEntity] {
+        let sets = try await RecordingWidgetStore.categorySets()
+        return sets
+            .filter { identifiers.contains($0.id.uuidString) }
+            .map { CategorySetEntity(id: $0.id.uuidString, name: $0.name) }
+    }
+
+    func suggestedEntities() async throws -> [CategorySetEntity] {
+        try await RecordingWidgetStore.categorySets().map {
+            CategorySetEntity(id: $0.id.uuidString, name: $0.name)
+        }
+    }
+
+    func defaultResult() async -> CategorySetEntity? {
+        try? await suggestedEntities().first
+    }
+}
+
+struct SelectCategorySetIntent: WidgetConfigurationIntent {
+    static let title: LocalizedStringResource = "カテゴリセット"
+    static let description = IntentDescription("ウィジェットに表示するカテゴリセットを選びます。")
+
+    @Parameter(title: "カテゴリセット")
+    var categorySet: CategorySetEntity?
+
+    init() {}
+
+    init(categorySet: CategorySetEntity?) {
+        self.categorySet = categorySet
+    }
+}
+
+struct StartChapterIntent: AppIntent {
+    static let title: LocalizedStringResource = "記録開始"
+    static let description = IntentDescription("選んだカテゴリで記録を開始します。")
+    static let openAppWhenRun = false
+
+    @Parameter(title: "カテゴリID")
+    var categoryID: String
+
+    init() {
+        self.categoryID = ""
+    }
+
+    init(categoryID: String) {
+        self.categoryID = categoryID
+    }
+
+    func perform() async throws -> some IntentResult {
+        try await RecordingWidgetStore.startChapter(categoryIDString: categoryID)
+        return .result()
+    }
+}
+
+struct RecordingGridEntry: TimelineEntry {
+    let date: Date
+    let categorySetID: UUID?
+    let categorySetName: String
+    let cells: [WidgetCategory?]
+    let activeCategoryID: UUID?
+    let message: String?
+}
+
+struct RecordingGridProvider: AppIntentTimelineProvider {
+    func placeholder(in context: Context) -> RecordingGridEntry {
+        RecordingGridEntry(
+            date: Date(),
+            categorySetID: nil,
+            categorySetName: "いつものセット",
+            cells: [
+                WidgetCategory(id: UUID(), name: "勉強", colorHex: "#3478F6", icon: "book.fill"),
+                WidgetCategory(id: UUID(), name: "作業", colorHex: "#30B0C7", icon: "desktopcomputer"),
+                WidgetCategory(id: UUID(), name: "休憩", colorHex: "#34C759", icon: "cup.and.saucer.fill"),
+                WidgetCategory(id: UUID(), name: "移動", colorHex: "#FF9F0A", icon: "tram.fill"),
+                WidgetCategory(id: UUID(), name: "運動", colorHex: "#FF375F", icon: "figure.run"),
+                WidgetCategory(id: UUID(), name: "趣味", colorHex: "#BF5AF2", icon: "sparkles"),
+                nil,
+                nil
+            ],
+            activeCategoryID: nil,
+            message: nil
+        )
+    }
+
+    func snapshot(for configuration: SelectCategorySetIntent, in context: Context) async -> RecordingGridEntry {
+        RecordingWidgetStore.entry(categorySetID: selectedID(from: configuration))
+    }
+
+    func timeline(for configuration: SelectCategorySetIntent, in context: Context) async -> Timeline<RecordingGridEntry> {
+        Timeline(
+            entries: [RecordingWidgetStore.entry(categorySetID: selectedID(from: configuration))],
+            policy: .after(Date().addingTimeInterval(60))
+        )
+    }
+
+    private func selectedID(from configuration: SelectCategorySetIntent) -> UUID? {
+        configuration.categorySet.flatMap { UUID(uuidString: $0.id) }
+    }
+}
+
+struct RecordingGridWidget: Widget {
+    let kind = "RecordingGridWidget"
+
+    var body: some WidgetConfiguration {
+        AppIntentConfiguration(
+            kind: kind,
+            intent: SelectCategorySetIntent.self,
+            provider: RecordingGridProvider()
+        ) { entry in
+            RecordingGridView(entry: entry)
+        }
+        .configurationDisplayName("記録グリッド")
+        .description("カテゴリをタップしてすぐに記録を切り替えます。")
+        .supportedFamilies([.systemSmall, .systemMedium])
+    }
+}
+
+private struct RecordingGridView: View {
+    let entry: RecordingGridEntry
+    @Environment(\.widgetFamily) private var family
+
+    private var visibleCells: [WidgetCategory?] {
+        family == .systemSmall ? Array(entry.cells.prefix(4)) : entry.cells
+    }
+
+    private var columns: [GridItem] {
+        Array(repeating: GridItem(.flexible(), spacing: 8), count: family == .systemSmall ? 2 : 4)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            header
+
+            if let message = entry.message {
+                emptyState(message)
+            } else {
+                LazyVGrid(columns: columns, spacing: 8) {
+                    ForEach(Array(visibleCells.enumerated()), id: \.offset) { _, category in
+                        if let category {
+                            Button(intent: StartChapterIntent(categoryID: category.id.uuidString)) {
+                                RecordingGridCell(
+                                    category: category,
+                                    isActive: category.id == entry.activeCategoryID
+                                )
+                            }
+                            .buttonStyle(.plain)
+                        } else {
+                            RecordingGridEmptyCell()
+                        }
+                    }
+                }
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .containerBackground(.background, for: .widget)
+    }
+
+    private var header: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "square.grid.2x2")
+                .font(.caption.weight(.bold))
+                .foregroundStyle(.secondary)
+
+            Text(entry.categorySetName)
+                .font(.caption.weight(.semibold))
+                .lineLimit(1)
+
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func emptyState(_ message: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Image(systemName: "exclamationmark.circle")
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(.secondary)
+
+            Text(message)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .lineLimit(3)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+    }
+}
+
+private struct RecordingGridCell: View {
+    let category: WidgetCategory
+    let isActive: Bool
+
+    var body: some View {
+        VStack(spacing: 6) {
+            ZStack {
+                Circle()
+                    .fill(Color(liminalogHex: category.colorHex).opacity(isActive ? 1 : 0.18))
+                    .frame(width: 34, height: 34)
+
+                if isActive {
+                    Circle()
+                        .stroke(Color(liminalogHex: category.colorHex), lineWidth: 2.2)
+                        .frame(width: 40, height: 40)
+                }
+
+                Image(systemName: category.icon ?? "circle.fill")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(isActive ? .white : Color(liminalogHex: category.colorHex))
+            }
+
+            Text(category.name)
+                .font(.caption2.weight(isActive ? .semibold : .regular))
+                .foregroundStyle(isActive ? Color(liminalogHex: category.colorHex) : .primary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 7)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(isActive ? Color(liminalogHex: category.colorHex).opacity(0.12) : Color.secondary.opacity(0.08))
+        )
+    }
+}
+
+private struct RecordingGridEmptyCell: View {
+    var body: some View {
+        VStack(spacing: 6) {
+            Circle()
+                .strokeBorder(Color.secondary.opacity(0.25), style: StrokeStyle(lineWidth: 1.2, dash: [3, 3]))
+                .frame(width: 34, height: 34)
+
+            Text(" ")
+                .font(.caption2)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 7)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color.secondary.opacity(0.05))
+        )
+        .accessibilityHidden(true)
+    }
+}
+
+private extension Color {
+    init(liminalogHex hex: String) {
+        let cleaned = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var value: UInt64 = 0
+        Scanner(string: cleaned).scanHexInt64(&value)
+
+        let red: UInt64
+        let green: UInt64
+        let blue: UInt64
+
+        switch cleaned.count {
+        case 6:
+            red = (value >> 16) & 0xFF
+            green = (value >> 8) & 0xFF
+            blue = value & 0xFF
+        default:
+            red = 0x8E
+            green = 0x8E
+            blue = 0x93
+        }
+
+        self.init(
+            .sRGB,
+            red: Double(red) / 255,
+            green: Double(green) / 255,
+            blue: Double(blue) / 255,
+            opacity: 1
+        )
+    }
+}
