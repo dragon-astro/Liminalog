@@ -24,7 +24,7 @@ struct CategorySettingsView: View {
                                     .font(.subheadline.weight(.semibold))
                                     .foregroundStyle(.primary)
                                 Spacer()
-                                Text("\(set.categoryIDs.count)/8")
+                                Text("\(set.filledCount)/8")
                                     .font(.caption.monospacedDigit())
                                     .foregroundStyle(.secondary)
                                 Image(systemName: "chevron.right")
@@ -33,7 +33,7 @@ struct CategorySettingsView: View {
                             }
 
                             HStack(spacing: 6) {
-                                ForEach(store.categories(for: set)) { category in
+                                ForEach(store.assignedCategories(for: set)) { category in
                                     Image(systemName: category.icon ?? "circle.fill")
                                         .font(.caption)
                                         .foregroundStyle(category.color)
@@ -71,9 +71,6 @@ struct CategorySettingsView: View {
                             Text(category.name)
                                 .foregroundStyle(.primary)
                             Spacer()
-                            Text("\(category.usageCount)回")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
                             Image(systemName: "chevron.right")
                                 .font(.caption)
                                 .foregroundStyle(.tertiary)

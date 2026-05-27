@@ -35,15 +35,18 @@ struct ChapterEditSheet: View {
                         }
                     }
                     .labelsHidden()
+                    .disabled(isTimeLocked)
                 }
 
                 Section("時間") {
                     DatePicker("開始", selection: $startTime, displayedComponents: [.date, .hourAndMinute])
+                        .disabled(isTimeLocked)
                     if endTime != nil {
                         DatePicker("終了", selection: Binding(
                             get: { endTime ?? Date() },
                             set: { endTime = $0 }
                         ), displayedComponents: [.date, .hourAndMinute])
+                        .disabled(isTimeLocked)
                     } else {
                         HStack {
                             Text("終了")
@@ -53,6 +56,12 @@ struct ChapterEditSheet: View {
                                 .font(.subheadline)
                                 .foregroundStyle(selectedCategory?.color ?? .accentColor)
                         }
+                    }
+
+                    if isTimeLocked {
+                        Label("前日以前の実績はスコア公平性のため、時間とカテゴリを変更できません。メモ・気分・場所は後から編集できます。", systemImage: "lock.fill")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
                 }
 
@@ -76,10 +85,15 @@ struct ChapterEditSheet: View {
                 }
 
                 Section {
-                    Button(role: .destructive) {
-                        showDeleteConfirm = true
-                    } label: {
-                        Label("削除", systemImage: "trash")
+                    if isTimeLocked {
+                        Label("前日以前の実績は削除できません", systemImage: "lock.fill")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Button(role: .destructive) {
+                            showDeleteConfirm = true
+                        } label: {
+                            Label("削除", systemImage: "trash")
+                        }
                     }
                 }
             }
@@ -113,6 +127,10 @@ struct ChapterEditSheet: View {
         isPublic = chapter.isPublic
         selectedCategory = chapter.category
         categories = store.allCategories()
+    }
+
+    private var isTimeLocked: Bool {
+        store.isChapterTimeLocked(chapter)
     }
 
     private func save() {

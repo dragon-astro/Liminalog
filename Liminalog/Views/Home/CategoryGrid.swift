@@ -2,78 +2,103 @@ import SwiftUI
 
 struct CategoryGrid: View {
     @Environment(ChapterStore.self) private var store
+    @AppStorage("activeCategorySetID") private var activeSetIDString: String = ""
+    @AppStorage("homeCategoryGridExpanded") private var isExpanded = true
+
     @State private var categorySets: [CategorySet] = []
-    @State private var fallbackCategories: [Category] = []
     @State private var selectedSetID: UUID?
     @State private var activeID: UUID? = nil
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 10), count: 4)
 
     var body: some View {
-        VStack(spacing: 14) {
-            if categorySets.isEmpty {
-                categoryPage(title: nil, categories: fallbackCategories, categorySet: nil)
-            } else {
-                TabView(selection: $selectedSetID) {
-                    ForEach(categorySets) { set in
-                        categoryPage(title: set.name, categories: store.categories(for: set), categorySet: set)
-                            .tag(Optional(set.id))
+        if categorySets.isEmpty {
+            emptyState
+                .onAppear { refresh() }
+                .onChange(of: store.revision) { _, _ in refresh() }
+        } else {
+            VStack(spacing: 8) {
+                headerBar
+
+                if isExpanded {
+                    TabView(selection: $selectedSetID) {
+                        ForEach(categorySets) { set in
+                            gridPage(set: set)
+                                .tag(Optional(set.id))
+                        }
+                    }
+                    .tabViewStyle(.page(indexDisplayMode: .never))
+                    .frame(height: 196)
+
+                    if categorySets.count > 1 {
+                        pageIndicator
                     }
                 }
-                .tabViewStyle(.page(indexDisplayMode: .never))
-                .frame(height: 210)
-
-                if categorySets.count > 1 {
-                    pageIndicator
-                }
             }
-        }
-        .onAppear { refresh() }
-        .onChange(of: store.activeChapter?.category?.id) { _, newID in
-            activeID = newID
-            refresh()
-        }
-        .onChange(of: store.revision) { _, _ in
-            refresh()
+            .animation(.easeInOut(duration: 0.22), value: isExpanded)
+            .onAppear { refresh() }
+            .onChange(of: store.activeChapter?.category?.id) { _, newID in
+                activeID = newID
+            }
+            .onChange(of: store.revision) { _, _ in
+                refresh()
+            }
+            .onChange(of: selectedSetID) { _, newID in
+                activeSetIDString = newID?.uuidString ?? ""
+            }
         }
     }
 
-    private func categoryPage(title: String?, categories: [Category], categorySet: CategorySet?) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            if let title {
-                HStack {
-                    Text(title)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    Text("\(categories.count)/8")
-                        .font(.caption2.monospacedDigit())
-                        .foregroundStyle(.tertiary)
-                }
-                .padding(.horizontal, 2)
-            }
+    // MARK: - Header
 
-            LazyVGrid(columns: columns, spacing: 10) {
-                ForEach(categories.prefix(8)) { category in
+    /// セット名 + 折りたたみトグル。常時表示（折りたたみ時はこのバーだけ残る）。
+    private var headerBar: some View {
+        HStack(spacing: 6) {
+            Text(currentSetName)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+
+            Spacer()
+
+            Button {
+                isExpanded.toggle()
+            } label: {
+                Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 28, height: 24)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(isExpanded ? "カテゴリグリッドを隠す" : "カテゴリグリッドを表示")
+        }
+        .padding(.horizontal, 2)
+    }
+
+    private var currentSetName: String {
+        categorySets.first { $0.id == selectedSetID }?.name ?? categorySets.first?.name ?? ""
+    }
+
+    // MARK: - Grid page
+
+    private func gridPage(set: CategorySet) -> some View {
+        let cells = store.slottedCategories(for: set)
+        return LazyVGrid(columns: columns, spacing: 10) {
+            ForEach(0..<CategorySet.slotCount, id: \.self) { index in
+                if let category = cells[index] {
                     CategoryGridButton(
                         category: category,
                         isActive: activeID == category.id
                     ) {
-                        store.startChapter(category: category, categorySet: categorySet)
+                        store.startChapter(category: category, categorySet: set)
                         activeID = category.id
                     }
+                } else {
+                    EmptyGridSlot()
                 }
             }
         }
-    }
-
-    private func refresh() {
-        categorySets = store.categorySets()
-        fallbackCategories = store.categoriesForGrid()
-        if selectedSetID == nil || !categorySets.contains(where: { $0.id == selectedSetID }) {
-            selectedSetID = categorySets.first?.id
-        }
-        activeID = store.activeChapter?.category?.id
     }
 
     private var pageIndicator: some View {
@@ -86,5 +111,78 @@ struct CategoryGrid: View {
             }
         }
         .frame(maxWidth: .infinity)
+    }
+
+    // MARK: - Empty state
+
+    private var emptyState: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "square.grid.2x2")
+                .font(.title2)
+                .foregroundStyle(.tertiary)
+            Text("カテゴリセットがありません")
+                .font(.subheadline.weight(.semibold))
+            Text("設定からセットを作成すると、ここに記録ボタンが並びます。")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            NavigationLink {
+                CategorySettingsView()
+            } label: {
+                Text("セットを作成")
+                    .font(.subheadline.weight(.semibold))
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(Capsule().fill(Color.accentColor.opacity(0.16)))
+            }
+            .padding(.top, 4)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 28)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color(.secondarySystemGroupedBackground))
+        )
+    }
+
+    // MARK: - Sync
+
+    private func refresh() {
+        categorySets = store.categorySets()
+        activeID = store.activeChapter?.category?.id
+
+        // 復元: AppStorageから前回の選択を読み取り、存在すれば適用
+        let storedID = UUID(uuidString: activeSetIDString)
+        if let storedID, categorySets.contains(where: { $0.id == storedID }) {
+            selectedSetID = storedID
+        } else if selectedSetID == nil || !categorySets.contains(where: { $0.id == selectedSetID }) {
+            selectedSetID = categorySets.first?.id
+        }
+    }
+}
+
+// MARK: - Empty slot placeholder
+
+private struct EmptyGridSlot: View {
+    var body: some View {
+        VStack(spacing: 8) {
+            Circle()
+                .strokeBorder(
+                    Color(.separator).opacity(0.45),
+                    style: StrokeStyle(lineWidth: 1.2, dash: [3, 3])
+                )
+                .frame(width: 42, height: 42)
+
+            Text(" ")
+                .font(.caption2)
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color(.secondarySystemGroupedBackground).opacity(0.45))
+        )
+        .accessibilityHidden(true)
     }
 }

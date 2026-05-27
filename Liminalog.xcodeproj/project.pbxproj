@@ -40,6 +40,20 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		429074872FC7352100366B8C /* Exceptions for "Liminalog" folder in "Liminalog" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				AI_TASKS.md,
+			);
+			target = 425397A52FBECFB600C94B4E /* Liminalog */;
+		};
+		429074882FC7352100366B8C /* Exceptions for "Liminalog" folder in "LiminalogWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				AI_TASKS.md,
+			);
+			target = A10000032FBECFB600C94B4E /* LiminalogWidgetExtension */;
+		};
 		A100000E2FBECFB600C94B4E /* Exceptions for "LiminalogWidget" folder in "LiminalogWidgetExtension" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -52,6 +66,10 @@
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		425397A82FBECFB600C94B4E /* Liminalog */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				429074872FC7352100366B8C /* Exceptions for "Liminalog" folder in "Liminalog" target */,
+				429074882FC7352100366B8C /* Exceptions for "Liminalog" folder in "LiminalogWidgetExtension" target */,
+			);
 			path = Liminalog;
 			sourceTree = "<group>";
 		};

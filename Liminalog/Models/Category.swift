@@ -4,20 +4,23 @@ import SwiftUI
 
 @Model
 final class Category {
-    var id: UUID
-    var name: String
-    var colorHex: String
+    var id: UUID = UUID()
+    var name: String = ""
+    var colorHex: String = "#8E8E93"
     var icon: String?
-    var sortOrder: Int
-    var usageCount: Int = 0
-    var isDefault: Bool
-    var createdAt: Date
+    var sortOrder: Int = 0
+    var isDefault: Bool = false
+    var createdAt: Date = Date()
 
     @Relationship(deleteRule: .nullify, inverse: \Chapter.category)
-    var chapters: [Chapter]
+    var chapters: [Chapter] = []
+
+    @Relationship(deleteRule: .nullify, inverse: \PlanBlock.category)
+    var plans: [PlanBlock] = []
 
     var color: Color { Color(hex: colorHex) }
-    var totalUsageCount: Int { max(usageCount, chapters.count) }
+
+    init() {}
 
     init(name: String, colorHex: String, icon: String? = nil, sortOrder: Int = 0, isDefault: Bool = false) {
         self.id = UUID()
@@ -25,9 +28,9 @@ final class Category {
         self.colorHex = colorHex
         self.icon = icon
         self.sortOrder = sortOrder
-        self.usageCount = 0
         self.isDefault = isDefault
         self.createdAt = Date()
         self.chapters = []
+        self.plans = []
     }
 }

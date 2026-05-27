@@ -7,6 +7,6 @@ struct LiminalogApp: App {
         WindowGroup {
             RootTabView()
         }
-        .modelContainer(for: [Category.self, CategorySet.self, Chapter.self, PlanBlock.self, VisibilityPreset.self])
+        .modelContainer(for: [Category.self, CategorySet.self, Chapter.self, PlanBlock.self, VisibilityPreset.self, UserSettings.self, CalendarEventCache.self])
     }
 }

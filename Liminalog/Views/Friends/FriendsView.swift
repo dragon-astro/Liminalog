@@ -19,7 +19,7 @@ struct FriendsView: View {
                     Label("タイムライン比較", systemImage: "rectangle.split.2x1")
                 }
             }
-            .navigationTitle("友達")
+            .toolbar(.hidden, for: .navigationBar)
         }
     }
 }

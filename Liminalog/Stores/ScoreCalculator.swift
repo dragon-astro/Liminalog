@@ -21,15 +21,22 @@ struct ScoreSummary {
 }
 
 enum ScoreCalculator {
-    static func summary(date: Date, plans: [PlanBlock], chapters: [Chapter], calendar: Calendar = .current) -> ScoreSummary {
-        let dayStart = calendar.startOfDay(for: date)
-        let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart
+    static func summary(date: Date, plans: [PlanBlock], chapters: [Chapter], calendar: Calendar = .current, now: Date = Date()) -> ScoreSummary {
+        let boundary = DayBoundary(date: date, calendar: calendar)
+        let dayStart = boundary.dayStart
+        let dayEnd = boundary.dayEnd
         let clippedPlans = plans
             .filter { !$0.isAllDay }
             .map { TimeSlice(categoryID: $0.category?.id, start: max($0.startTime, dayStart), end: min($0.endTime, dayEnd)) }
             .filter { $0.duration > 0 }
         let clippedChapters = chapters
-            .map { TimeSlice(categoryID: $0.category?.id, start: max($0.startTime, dayStart), end: min($0.endTime ?? Date(), dayEnd)) }
+            .filter { chapter in
+                // 記録中は常に含める。完了済みは1分以上のものだけスコアに反映する。
+                // 1分未満の完了チャプターは誤タップとみなしスコアから除外する。
+                guard let end = chapter.endTime else { return true }
+                return end.timeIntervalSince(chapter.startTime) >= 60
+            }
+            .map { TimeSlice(categoryID: $0.category?.id, start: max($0.startTime, dayStart), end: min($0.endTime ?? now, dayEnd)) }
             .filter { $0.duration > 0 }
 
         let plannedDuration = clippedPlans.reduce(0) { $0 + $1.duration }

@@ -33,7 +33,7 @@ struct DashboardView: View {
                 }
             }
             .background(Color(.systemGroupedBackground))
-            .navigationTitle("統計")
+            .toolbar(.hidden, for: .navigationBar)
         }
     }
 
@@ -122,14 +122,14 @@ enum DashboardPeriod: String, CaseIterable, Identifiable {
 
         switch self {
         case .today:
-            return now.formatted(.dateTime.year().month(.wide).day().weekday(.wide))
+            return now.japaneseMonthDayWeekday
         case .week:
             let start = calendar.date(byAdding: .day, value: -6, to: calendar.startOfDay(for: now)) ?? now
-            return "\(start.formatted(.dateTime.month().day())) - \(now.formatted(.dateTime.month().day()))"
+            return "\(start.japaneseMonthDay) 〜 \(now.japaneseMonthDay)"
         case .month:
-            return now.formatted(.dateTime.year().month(.wide))
+            return now.japaneseYearMonth
         case .year:
-            return now.formatted(.dateTime.year())
+            return now.japaneseYear
         }
     }
 }
@@ -305,7 +305,7 @@ struct RecentTrendCard: View {
                             .frame(width: 10, height: 10)
                         Text(chapter.category?.name ?? "未分類")
                         Spacer()
-                        Text(chapter.startTime.formatted(date: .abbreviated, time: .shortened))
+                        Text(chapter.startTime.japaneseShortDateTime)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }

@@ -54,7 +54,7 @@ struct ProfileView: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            .navigationTitle("プロフィール")
+            .toolbar(.hidden, for: .navigationBar)
         }
     }
 }

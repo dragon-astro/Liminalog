@@ -33,8 +33,12 @@ struct ChapterCreateSheet: View {
                 }
 
                 Section("時間") {
-                    DatePicker("開始", selection: $startTime, displayedComponents: [.date, .hourAndMinute])
-                    DatePicker("終了", selection: $endTime, in: startTime..., displayedComponents: [.date, .hourAndMinute])
+                    DatePicker("開始", selection: $startTime, in: todayRange, displayedComponents: [.date, .hourAndMinute])
+                    DatePicker("終了", selection: $endTime, in: endTimeRange, displayedComponents: [.date, .hourAndMinute])
+
+                    Label("実績の手動追加は今日の範囲だけ可能です。前日以前の時間はスコア公平性のため追加できません。", systemImage: "lock.fill")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
 
                 Section("メモ") {
@@ -65,13 +69,40 @@ struct ChapterCreateSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("保存") { save() }
                         .fontWeight(.semibold)
-                        .disabled(selectedCategory == nil || endTime <= startTime)
+                        .disabled(!canSave)
                 }
             }
             .onAppear {
                 categories = store.allCategories()
                 selectedCategory = categories.first
+                clampToToday()
             }
+        }
+    }
+
+    private var todayRange: ClosedRange<Date> {
+        let now = Date()
+        let start = Calendar.current.startOfDay(for: now)
+        return start...now
+    }
+
+    private var endTimeRange: ClosedRange<Date> {
+        let now = Date()
+        return startTime...max(startTime, now)
+    }
+
+    private var canSave: Bool {
+        guard selectedCategory != nil else { return false }
+        return store.canCreateChapter(startTime: startTime, endTime: endTime)
+    }
+
+    private func clampToToday() {
+        let now = Date()
+        let dayStart = Calendar.current.startOfDay(for: now)
+        startTime = min(max(startTime, dayStart), now)
+        endTime = min(max(endTime, startTime), now)
+        if endTime <= startTime, let fallbackEnd = Calendar.current.date(byAdding: .minute, value: 1, to: startTime) {
+            endTime = min(fallbackEnd, now)
         }
     }
 

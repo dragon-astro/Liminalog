@@ -5,7 +5,7 @@ import SwiftUI
 @MainActor
 enum PreviewSupport {
     static let container: ModelContainer = {
-        let schema = Schema([Category.self, CategorySet.self, Chapter.self, PlanBlock.self, VisibilityPreset.self])
+        let schema = Schema([Category.self, CategorySet.self, Chapter.self, PlanBlock.self, VisibilityPreset.self, UserSettings.self, CalendarEventCache.self])
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
         let container = try! ModelContainer(for: schema, configurations: [configuration])
         seed(in: container.mainContext)
@@ -27,8 +27,12 @@ enum PreviewSupport {
         ]
 
         categories.forEach(context.insert)
-        context.insert(CategorySet(name: "平日", sortOrder: 0, categoryIDs: categories.map(\.id)))
-        context.insert(CategorySet(name: "休日", sortOrder: 1, categoryIDs: [categories[5].id, categories[4].id, categories[2].id, categories[0].id, categories[3].id]))
+        // 平日セット: 6カテゴリを左上から配置、残り2スロットは空き
+        let weekdaySlots: [UUID?] = categories.map { Optional($0.id) } + Array(repeating: nil, count: 8 - categories.count)
+        // 休日セット: 睡眠・趣味・休憩・勉強・移動 を配置、残り3スロットは空き
+        let holidayLayout: [UUID?] = [categories[5].id, categories[4].id, categories[2].id, categories[0].id, categories[3].id, nil, nil, nil]
+        context.insert(CategorySet(name: "平日", sortOrder: 0, slots: weekdaySlots))
+        context.insert(CategorySet(name: "休日", sortOrder: 1, slots: holidayLayout))
 
         let calendar = Calendar.current
         let startOfDay = calendar.startOfDay(for: Date())
@@ -55,21 +59,29 @@ enum PreviewSupport {
             context.insert(chapter)
         }
 
-        let plannedSamples: [(Int, Int, Category, String)] = [
-            (7, 90, categories[5], "睡眠"),
-            (9, 120, categories[0], "英語と課題"),
-            (11, 45, categories[3], "移動"),
-            (13, 150, categories[1], "制作作業"),
-            (16, 45, categories[2], "休憩"),
-            (18, 120, categories[4], "自由時間"),
+        let plannedSamples: [(Int, Int, Int, Category, String)] = [
+            (0, 0, 420, categories[5], "睡眠"),
+            (7, 0, 60, categories[2], "朝の準備"),
+            (8, 0, 60, categories[3], "移動"),
+            (9, 0, 120, categories[0], "英語と課題"),
+            (11, 0, 45, categories[3], "移動"),
+            (11, 45, 75, categories[2], "昼休み"),
+            (13, 0, 180, categories[1], "制作作業"),
+            (16, 0, 30, categories[2], "休憩"),
+            (16, 30, 90, categories[0], "復習"),
+            (18, 0, 60, categories[3], "帰宅"),
+            (19, 0, 150, categories[4], "自由時間"),
+            (21, 30, 60, categories[2], "夜の休憩"),
+            (22, 30, 90, categories[5], "睡眠"),
         ]
 
-        for (hour, minutes, category, title) in plannedSamples {
+        for (hour, startMinute, durationMinutes, category, title) in plannedSamples {
             guard
                 let start = calendar.date(byAdding: .hour, value: hour, to: startOfDay),
-                let end = calendar.date(byAdding: .minute, value: minutes, to: start)
+                let adjustedStart = calendar.date(byAdding: .minute, value: startMinute, to: start),
+                let end = calendar.date(byAdding: .minute, value: durationMinutes, to: adjustedStart)
             else { continue }
-            context.insert(PlanBlock(category: category, title: title, startTime: start, endTime: end))
+            context.insert(PlanBlock(category: category, title: title, startTime: adjustedStart, endTime: end))
         }
 
         if let activeStart = calendar.date(byAdding: .hour, value: 18, to: startOfDay) {
@@ -140,6 +152,21 @@ enum PreviewSupport {
                 let end = calendar.date(byAdding: .minute, value: minutes, to: start)
             else { continue }
             context.insert(PlanBlock(category: category, title: title, startTime: start, endTime: end))
+        }
+
+        let importantPlanOffsets: [(Int, Int, Category, String)] = [
+            (3, 1, categories[0], "レポート提出"),
+            (8, 1, categories[1], "ゼミ発表"),
+            (12, 4, categories[4], "合宿"),
+            (24, 1, categories[2], "手続き")
+        ]
+
+        for (dayOffset, dayCount, category, title) in importantPlanOffsets {
+            guard
+                let start = calendar.date(byAdding: .day, value: dayOffset, to: monthStart),
+                let end = calendar.date(byAdding: .day, value: dayCount, to: start)
+            else { continue }
+            context.insert(PlanBlock(category: category, title: title, startTime: start, endTime: end, isAllDay: true))
         }
 
         try? context.save()

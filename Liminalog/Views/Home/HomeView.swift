@@ -8,37 +8,24 @@ struct HomeView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollViewReader { proxy in
-                ScrollView {
-                    VStack(spacing: 14) {
-                        HStack(alignment: .top, spacing: 12) {
-                            CurrentChapterCard()
-                        }
-                        CategoryGrid()
-                        Divider()
-                        TimelineView(
-                            date: Date(),
-                            title: "今日のタイムライン",
-                            editingChapter: $editingChapter
-                        ) { start in
-                            addSheetStart = start
-                            showingAddSheet = true
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 12)
-                    .padding(.bottom, 32)
+            ScrollView {
+                VStack(spacing: 14) {
+                    CurrentChapterCard()
+                    // CategoryGrid 内のチェブロンで折りたたみを行う。
+                    CategoryGrid()
+                    Divider()
+                    TimelineView(
+                        date: Date(),
+                        title: "今日のタイムライン",
+                        editingChapter: $editingChapter
+                    )
                 }
-                .background(Color(.systemGroupedBackground))
-                .onAppear {
-                    scrollToNow(proxy)
-                }
-                .onChange(of: store.revision) { _, _ in
-                    scrollToNow(proxy)
-                }
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+                .padding(.bottom, 32)
             }
-            .navigationTitle("ホーム")
-            .navigationBarTitleDisplayMode(.large)
+            .background(Color(.systemGroupedBackground))
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
@@ -46,6 +33,13 @@ struct HomeView: View {
                     } label: {
                         Image(systemName: "plus")
                     }
+                }
+                ToolbarItem(placement: .principal) {
+                    Text(Date().japaneseMonthDayShortWeekday)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .accessibilityLabel("今日の日付 \(Date().japaneseMonthDayShortWeekday)")
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink(destination: CategorySettingsView()) {
@@ -61,15 +55,6 @@ struct HomeView: View {
             }
             .onAppear {
                 store.seedDefaultCategorySetsIfNeeded()
-            }
-        }
-    }
-
-    private func scrollToNow(_ proxy: ScrollViewProxy) {
-        guard Calendar.current.isDateInToday(Date()) else { return }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-            withAnimation(.easeInOut(duration: 0.35)) {
-                proxy.scrollTo(currentTimeMarkerID, anchor: .center)
             }
         }
     }

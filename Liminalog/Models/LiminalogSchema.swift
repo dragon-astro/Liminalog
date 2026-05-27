@@ -1,0 +1,27 @@
+import SwiftData
+
+enum LiminalogSchemaV1: VersionedSchema {
+    static var versionIdentifier = Schema.Version(1, 0, 0)
+
+    static var models: [any PersistentModel.Type] {
+        [
+            Category.self,
+            CategorySet.self,
+            Chapter.self,
+            PlanBlock.self,
+            VisibilityPreset.self,
+            UserSettings.self,
+            CalendarEventCache.self
+        ]
+    }
+}
+
+enum LiminalogMigrationPlan: SchemaMigrationPlan {
+    static var schemas: [any VersionedSchema.Type] {
+        [LiminalogSchemaV1.self]
+    }
+
+    static var stages: [MigrationStage] {
+        []
+    }
+}

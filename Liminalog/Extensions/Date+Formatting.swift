@@ -13,16 +13,41 @@ func formatDuration(_ seconds: TimeInterval) -> String {
 }
 
 extension Date {
+    private static let japaneseLocale = Locale(identifier: "ja_JP")
+
+    /// 時刻のみ "9:30" 形式（日本ロケール固定で 24 時間表記）
     var shortTime: String {
-        formatted(date: .omitted, time: .shortened)
+        formatted(.dateTime.locale(Self.japaneseLocale).hour().minute())
     }
 
+    /// "2026年" の形式
+    var japaneseYear: String {
+        formatted(.dateTime.locale(Self.japaneseLocale).year())
+    }
+
+    /// "2026年5月" の形式
     var japaneseYearMonth: String {
-        formatted(.dateTime.locale(Locale(identifier: "ja_JP")).year().month(.wide))
+        formatted(.dateTime.locale(Self.japaneseLocale).year().month(.wide))
     }
 
+    /// "5月24日" の形式
+    var japaneseMonthDay: String {
+        formatted(.dateTime.locale(Self.japaneseLocale).month().day())
+    }
+
+    /// "5月24日(土)" の形式
+    var japaneseMonthDayShortWeekday: String {
+        formatted(.dateTime.locale(Self.japaneseLocale).month().day().weekday(.abbreviated))
+    }
+
+    /// "2026年5月24日 土曜日" の形式
     var japaneseMonthDayWeekday: String {
-        formatted(.dateTime.locale(Locale(identifier: "ja_JP")).month(.wide).day().weekday(.wide))
+        formatted(.dateTime.locale(Self.japaneseLocale).month(.wide).day().weekday(.wide))
+    }
+
+    /// "5月24日 18:30" の形式
+    var japaneseShortDateTime: String {
+        formatted(.dateTime.locale(Self.japaneseLocale).month().day().hour().minute())
     }
 }
 
