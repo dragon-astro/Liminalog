@@ -694,20 +694,21 @@ private struct TimelineEntryList: View {
 
     var body: some View {
         LazyVStack(spacing: 10) {
-            ForEach(entries) { entry in
+            ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
+                let showStartTime = shouldShowStartTime(at: index)
                 if entry.kind.isGap {
                     if canCreateGap(entry) {
                         Button {
                             onGapTap(entry)
                         } label: {
-                            TimelineEntryRow(entry: entry, isHighlighted: false) {
+                            TimelineEntryRow(entry: entry, isHighlighted: false, showsStartTime: showStartTime) {
                                 TimelineGapCard(entry: entry, showsAddIcon: true)
                             }
                         }
                         .buttonStyle(.plain)
                         .id(entry.id)
                     } else {
-                        TimelineEntryRow(entry: entry, isHighlighted: false) {
+                        TimelineEntryRow(entry: entry, isHighlighted: false, showsStartTime: showStartTime) {
                             TimelineGapCard(entry: entry, showsAddIcon: false)
                         }
                         .id(entry.id)
@@ -716,7 +717,7 @@ private struct TimelineEntryList: View {
                     Button {
                         onEntryTap(entry)
                     } label: {
-                        TimelineEntryRow(entry: entry, isHighlighted: highlightedEntryID == entry.id) {
+                        TimelineEntryRow(entry: entry, isHighlighted: highlightedEntryID == entry.id, showsStartTime: showStartTime) {
                             TimelineEntryCard(entry: entry, isHighlighted: highlightedEntryID == entry.id)
                         }
                     }
@@ -759,6 +760,13 @@ private struct TimelineEntryList: View {
         }
         .padding(.vertical, 2)
     }
+
+    private func shouldShowStartTime(at index: Int) -> Bool {
+        guard index > 0 else { return true }
+        let previous = entries[index - 1]
+        let current = entries[index]
+        return !Calendar.current.isDate(previous.clippedEnd, equalTo: current.clippedStart, toGranularity: .minute)
+    }
 }
 
 private enum TimelineCardMetrics {
@@ -769,17 +777,19 @@ private enum TimelineCardMetrics {
 private struct TimelineEntryRow<Content: View>: View {
     let entry: TimelineEntry
     let isHighlighted: Bool
+    let showsStartTime: Bool
     let content: () -> Content
 
-    init(entry: TimelineEntry, isHighlighted: Bool, @ViewBuilder content: @escaping () -> Content) {
+    init(entry: TimelineEntry, isHighlighted: Bool, showsStartTime: Bool = true, @ViewBuilder content: @escaping () -> Content) {
         self.entry = entry
         self.isHighlighted = isHighlighted
+        self.showsStartTime = showsStartTime
         self.content = content
     }
 
     var body: some View {
         HStack(alignment: .center, spacing: 8) {
-            TimelineTimeRail(entry: entry, height: rowHeight, isHighlighted: isHighlighted)
+            TimelineTimeRail(entry: entry, height: rowHeight, isHighlighted: isHighlighted, showsStartTime: showsStartTime)
             content()
         }
     }
@@ -793,6 +803,7 @@ private struct TimelineTimeRail: View {
     let entry: TimelineEntry
     let height: CGFloat
     let isHighlighted: Bool
+    let showsStartTime: Bool
 
     var body: some View {
         HStack(spacing: 6) {
@@ -800,6 +811,7 @@ private struct TimelineTimeRail: View {
                 Text(entry.clippedStart.shortTime)
                     .font(.caption2.monospacedDigit().weight(.semibold))
                     .foregroundStyle(.primary)
+                    .opacity(showsStartTime ? 1 : 0)
                 Spacer(minLength: 0)
                 Text(entry.clippedEnd.shortTime)
                     .font(.caption2.monospacedDigit())

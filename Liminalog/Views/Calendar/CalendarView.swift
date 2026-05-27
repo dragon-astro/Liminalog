@@ -18,14 +18,17 @@ struct CalendarView: View {
             VStack(spacing: 0) {
                 calendarTopBar
 
+                CalendarWeekdayHeader(
+                    weekdays: weekdays,
+                    weekdayColor: weekdayColor(_:)
+                )
+
                 ScrollView {
                     CalendarMonthGrid(
-                        weekdays: weekdays,
                         dates: monthGridDates,
                         visibleMonth: visibleMonth,
                         importantPlans: importantPlans(on:),
-                        scoreSummary: store.scoreSummary(on:),
-                        weekdayColor: weekdayColor(_:)
+                        scoreSummary: store.scoreSummary(on:)
                     )
                     .id(store.revision)
                     .padding(.vertical, 12)
@@ -825,28 +828,43 @@ private extension PlanBlock {
     }
 }
 
-private struct CalendarMonthGrid: View {
+private struct CalendarWeekdayHeader: View {
     let weekdays: [String]
-    let dates: [Date]
-    let visibleMonth: Date
-    let importantPlans: (Date) -> [PlanBlock]
-    let scoreSummary: (Date) -> ScoreSummary
     let weekdayColor: (String) -> Color
 
     private let spacing: CGFloat = 1
 
     var body: some View {
-        VStack(spacing: spacing) {
-            HStack(spacing: spacing) {
-                ForEach(weekdays, id: \.self) { weekday in
-                    Text(weekday)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(weekdayColor(weekday))
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 28)
-                        .background(Color(.secondarySystemGroupedBackground))
-                }
+        HStack(spacing: spacing) {
+            ForEach(weekdays, id: \.self) { weekday in
+                Text(weekday)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(weekdayColor(weekday))
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 28)
+                    .background(Color(.secondarySystemGroupedBackground))
             }
+        }
+        .background(Color(.separator).opacity(0.32))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color(.separator).opacity(0.28), lineWidth: 1)
+        )
+        .padding(.top, 6)
+    }
+}
+
+private struct CalendarMonthGrid: View {
+    let dates: [Date]
+    let visibleMonth: Date
+    let importantPlans: (Date) -> [PlanBlock]
+    let scoreSummary: (Date) -> ScoreSummary
+
+    private let spacing: CGFloat = 1
+
+    var body: some View {
+        VStack(spacing: spacing) {
 
             ForEach(Array(weekDates.enumerated()), id: \.offset) { _, dates in
                 CalendarMonthWeekRow(

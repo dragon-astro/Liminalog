@@ -8,6 +8,7 @@ struct CurrentChapterCard: View {
     let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var body: some View {
+        let _ = store.revision
         Group {
             if let chapter = store.activeChapter, let category = chapter.category {
                 activeCard(chapter: chapter, category: category)
