@@ -35,7 +35,9 @@ final class ChapterStore {
     }
 
     func isChapterTimeLocked(_ chapter: Chapter, now: Date = Date()) -> Bool {
-        DayBoundary.dayStart(for: chapter.startTime) < DayBoundary.dayStart(for: now)
+        let today = DayBoundary(date: now)
+        let effectiveEnd = chapter.endTime ?? now
+        return !today.overlaps(start: chapter.startTime, end: effectiveEnd)
     }
 
     func canCreateChapter(startTime: Date, endTime: Date, now: Date = Date()) -> Bool {
