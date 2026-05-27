@@ -32,6 +32,11 @@ final class ChapterStore {
         }
     }
 
+    private func reloadRecordingGridWidget() {
+        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
+        WidgetCenter.shared.reloadTimelines(ofKind: "RecordingGridWidget")
+    }
+
     // MARK: - Edit locks
 
     func isPlanScheduleLocked(_ plan: PlanBlock, now: Date = Date()) -> Bool {
@@ -386,6 +391,11 @@ final class ChapterStore {
         settings.updatedAt = clock.now
         try? modelContext.save()
         markChanged(reloadWidgets: false)
+        reloadRecordingGridWidget()
+    }
+
+    func syncLiveActivityWithActiveChapter() {
+        updateLiveActivity()
     }
 
     // MARK: - Maintenance
@@ -661,6 +671,14 @@ final class ChapterStore {
     }
 
     private func updateLiveActivity(categorySet: CategorySet? = nil) {
-        liveActivityCoordinator.update(activeChapter: activeChapter, categorySet: categorySet ?? categorySets().first)
+        liveActivityCoordinator.update(activeChapter: activeChapter, categorySet: categorySet ?? currentCategorySet())
+    }
+
+    private func currentCategorySet() -> CategorySet? {
+        let sets = categorySets()
+        let settings = try? modelContext.fetch(FetchDescriptor<UserSettings>()).first
+        return settings?.enabledCategorySetID.flatMap { id in sets.first { $0.id == id } }
+            ?? sets.first { $0.isDefault }
+            ?? sets.first
     }
 }

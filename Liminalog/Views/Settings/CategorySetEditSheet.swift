@@ -48,9 +48,6 @@ struct CategorySetEditSheet: View {
                         Text("\(assignedCount)/\(CategorySet.slotCount)")
                             .monospacedDigit()
                     }
-                } footer: {
-                    Text("タップでカテゴリを割り当て、ドラッグでスロット同士を入れ替えます。位置はホームとWidgetのカテゴリグリッドにそのまま反映されます。")
-                        .font(.caption2)
                 }
             }
             .scrollDismissesKeyboard(.interactively)

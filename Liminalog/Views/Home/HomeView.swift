@@ -55,6 +55,7 @@ struct HomeView: View {
             }
             .onAppear {
                 store.seedDefaultCategorySetsIfNeeded()
+                store.syncLiveActivityWithActiveChapter()
             }
         }
     }

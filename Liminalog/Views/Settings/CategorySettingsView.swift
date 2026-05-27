@@ -61,8 +61,6 @@ struct CategorySettingsView: View {
                 sectionHeader(title: "カテゴリセット") {
                     showAddSetSheet = true
                 }
-            } footer: {
-                Text("編集モードでドラッグすると、ホームとWidgetで使うカテゴリセットの順番を変更できます。")
             }
 
             Section {

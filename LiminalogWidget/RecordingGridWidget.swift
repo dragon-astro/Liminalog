@@ -1,3 +1,4 @@
+import ActivityKit
 import AppIntents
 import SwiftData
 import SwiftUI
@@ -22,11 +23,6 @@ struct WidgetCategory: Identifiable, Hashable {
     let name: String
     let colorHex: String
     let icon: String?
-}
-
-struct WidgetCategorySet: Identifiable, Hashable {
-    let id: UUID
-    let name: String
 }
 
 private enum RecordingWidgetStore {
@@ -80,20 +76,7 @@ private enum RecordingWidgetStore {
         )
     }
 
-    static func categorySets() throws -> [WidgetCategorySet] {
-        let context = ModelContext(try makeContainer())
-        let descriptor = FetchDescriptor<CategorySet>(
-            sortBy: [
-                SortDescriptor(\.sortOrder),
-                SortDescriptor(\.createdAt)
-            ]
-        )
-        return try context.fetch(descriptor).map {
-            WidgetCategorySet(id: $0.id, name: $0.name)
-        }
-    }
-
-    static func entry(categorySetID: UUID? = nil) -> RecordingGridEntry {
+    static func entry() -> RecordingGridEntry {
         do {
             let context = ModelContext(try makeContainer())
             let categories = try context.fetch(FetchDescriptor<Category>(
@@ -111,7 +94,7 @@ private enum RecordingWidgetStore {
                 ]
             ))
             let settings = try context.fetch(FetchDescriptor<UserSettings>()).first
-            let requestedID = categorySetID ?? settings?.enabledCategorySetID
+            let requestedID = settings?.enabledCategorySetID
             let selectedSet = requestedID.flatMap { id in sets.first { $0.id == id } }
                 ?? sets.first { $0.isDefault }
                 ?? sets.first
@@ -163,7 +146,8 @@ private enum RecordingWidgetStore {
         }
     }
 
-    static func startChapter(categoryIDString: String) throws {
+    @MainActor
+    static func startChapter(categoryIDString: String) async throws {
         guard let categoryID = UUID(uuidString: categoryIDString) else {
             throw WidgetDataError.invalidCategoryID
         }
@@ -179,6 +163,7 @@ private enum RecordingWidgetStore {
             .filter { $0.endTime == nil }
             .sorted { $0.startTime < $1.startTime }
         let sameCategoryActive = activeChapters.first { $0.category?.id == categoryID }
+        var activeAfterChange = sameCategoryActive
 
         for chapter in activeChapters where chapter.id != sameCategoryActive?.id {
             chapter.endTime = now
@@ -186,10 +171,15 @@ private enum RecordingWidgetStore {
         }
 
         if sameCategoryActive == nil {
-            context.insert(Chapter(category: category, startTime: now))
+            let chapter = Chapter(category: category, startTime: now)
+            context.insert(chapter)
+            activeAfterChange = chapter
         }
 
         try context.save()
+        if #available(iOSApplicationExtension 16.2, *) {
+            await updateLiveActivity(activeChapter: activeAfterChange, context: context)
+        }
         WidgetCenter.shared.reloadAllTimelines()
     }
 
@@ -198,50 +188,93 @@ private enum RecordingWidgetStore {
         while result.count < CategorySet.slotCount { result.append(nil) }
         return result
     }
-}
 
-struct CategorySetEntity: AppEntity {
-    static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "カテゴリセット")
-    static let defaultQuery = CategorySetEntityQuery()
+    @available(iOSApplicationExtension 16.2, *)
+    @MainActor
+    private static func updateLiveActivity(activeChapter: Chapter?, context: ModelContext) async {
+        guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
 
-    let id: String
-    let name: String
+        let categories = (try? context.fetch(FetchDescriptor<Category>(
+            sortBy: [
+                SortDescriptor(\.sortOrder),
+                SortDescriptor(\.createdAt)
+            ]
+        ))) ?? []
+        let categoryByID = Dictionary(uniqueKeysWithValues: categories.map { ($0.id, $0) })
+        let sets = (try? context.fetch(FetchDescriptor<CategorySet>(
+            sortBy: [
+                SortDescriptor(\.sortOrder),
+                SortDescriptor(\.createdAt)
+            ]
+        ))) ?? []
+        let settings = try? context.fetch(FetchDescriptor<UserSettings>()).first
+        let selectedSet = settings?.enabledCategorySetID.flatMap { id in sets.first { $0.id == id } }
+            ?? sets.first { $0.isDefault }
+            ?? sets.first
+        let islandCategories = normalizeSlots(selectedSet?.slots ?? [])
+            .compactMap { id in id.flatMap { categoryByID[$0] } }
+            .prefix(4)
+            .map {
+                LiminalogActivityAttributes.IslandCategory(
+                    id: $0.id,
+                    name: $0.name,
+                    colorHex: $0.colorHex,
+                    icon: $0.icon
+                )
+            }
+        let state = makeActivityState(
+            activeChapter: activeChapter,
+            categorySetName: selectedSet?.name ?? "カテゴリ",
+            categories: Array(islandCategories)
+        )
 
-    var displayRepresentation: DisplayRepresentation {
-        DisplayRepresentation(title: "\(name)")
-    }
-}
+        if let activity = Activity<LiminalogActivityAttributes>.activities.first {
+            await activity.update(ActivityContent(state: state, staleDate: nil))
+            return
+        }
 
-struct CategorySetEntityQuery: EntityQuery {
-    func entities(for identifiers: [String]) async throws -> [CategorySetEntity] {
-        let sets = try await RecordingWidgetStore.categorySets()
-        return sets
-            .filter { identifiers.contains($0.id.uuidString) }
-            .map { CategorySetEntity(id: $0.id.uuidString, name: $0.name) }
-    }
-
-    func suggestedEntities() async throws -> [CategorySetEntity] {
-        try await RecordingWidgetStore.categorySets().map {
-            CategorySetEntity(id: $0.id.uuidString, name: $0.name)
+        do {
+            _ = try Activity<LiminalogActivityAttributes>.request(
+                attributes: LiminalogActivityAttributes(),
+                content: ActivityContent(state: state, staleDate: nil),
+                pushType: nil
+            )
+        } catch {
+            #if DEBUG
+            print("Widget Live Activity request failed: \(error)")
+            #endif
         }
     }
 
-    func defaultResult() async -> CategorySetEntity? {
-        try? await suggestedEntities().first
-    }
-}
+    @available(iOSApplicationExtension 16.2, *)
+    private static func makeActivityState(
+        activeChapter: Chapter?,
+        categorySetName: String,
+        categories: [LiminalogActivityAttributes.IslandCategory]
+    ) -> LiminalogActivityAttributes.ContentState {
+        guard let activeChapter, let category = activeChapter.category else {
+            return LiminalogActivityAttributes.ContentState(
+                activeCategoryID: nil,
+                categoryName: nil,
+                colorHex: "#8E8E93",
+                icon: nil,
+                startedAt: nil,
+                isPublic: true,
+                categorySetName: categorySetName,
+                categories: categories
+            )
+        }
 
-struct SelectCategorySetIntent: WidgetConfigurationIntent {
-    static let title: LocalizedStringResource = "カテゴリセット"
-    static let description = IntentDescription("ウィジェットに表示するカテゴリセットを選びます。")
-
-    @Parameter(title: "カテゴリセット")
-    var categorySet: CategorySetEntity?
-
-    init() {}
-
-    init(categorySet: CategorySetEntity?) {
-        self.categorySet = categorySet
+        return LiminalogActivityAttributes.ContentState(
+            activeCategoryID: category.id,
+            categoryName: category.name,
+            colorHex: category.colorHex,
+            icon: category.icon,
+            startedAt: activeChapter.startTime,
+            isPublic: activeChapter.isPublic,
+            categorySetName: categorySetName,
+            categories: categories
+        )
     }
 }
 
@@ -276,7 +309,7 @@ struct RecordingGridEntry: TimelineEntry {
     let message: String?
 }
 
-struct RecordingGridProvider: AppIntentTimelineProvider {
+struct RecordingGridProvider: TimelineProvider {
     func placeholder(in context: Context) -> RecordingGridEntry {
         RecordingGridEntry(
             date: Date(),
@@ -297,19 +330,15 @@ struct RecordingGridProvider: AppIntentTimelineProvider {
         )
     }
 
-    func snapshot(for configuration: SelectCategorySetIntent, in context: Context) async -> RecordingGridEntry {
-        RecordingWidgetStore.entry(categorySetID: selectedID(from: configuration))
+    func getSnapshot(in context: Context, completion: @escaping (RecordingGridEntry) -> Void) {
+        completion(RecordingWidgetStore.entry())
     }
 
-    func timeline(for configuration: SelectCategorySetIntent, in context: Context) async -> Timeline<RecordingGridEntry> {
-        Timeline(
-            entries: [RecordingWidgetStore.entry(categorySetID: selectedID(from: configuration))],
+    func getTimeline(in context: Context, completion: @escaping (Timeline<RecordingGridEntry>) -> Void) {
+        completion(Timeline(
+            entries: [RecordingWidgetStore.entry()],
             policy: .after(Date().addingTimeInterval(60))
-        )
-    }
-
-    private func selectedID(from configuration: SelectCategorySetIntent) -> UUID? {
-        configuration.categorySet.flatMap { UUID(uuidString: $0.id) }
+        ))
     }
 }
 
@@ -317,15 +346,14 @@ struct RecordingGridWidget: Widget {
     let kind = "RecordingGridWidget"
 
     var body: some WidgetConfiguration {
-        AppIntentConfiguration(
+        StaticConfiguration(
             kind: kind,
-            intent: SelectCategorySetIntent.self,
             provider: RecordingGridProvider()
         ) { entry in
             RecordingGridView(entry: entry)
         }
         .configurationDisplayName("記録グリッド")
-        .description("カテゴリをタップしてすぐに記録を切り替えます。")
+        .description("現在のテーブルからカテゴリをタップして記録を切り替えます。")
         .supportedFamilies([.systemSmall, .systemMedium])
     }
 }
