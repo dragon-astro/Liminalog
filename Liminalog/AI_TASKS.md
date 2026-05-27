@@ -701,6 +701,7 @@ refactor: split plan store
 | 2026-05-28 | User/Codex | クラッシュ追加対応: local-only ModelContainer 作成失敗時に残っていた `fatalError` が Debug で `EXC_BREAKPOINT` になっていた。Cloud/AppGroup → local-only → in-memory の3段階フォールバックに変更し、起動不能よりも原因ログ取得とUI確認継続を優先する。local-only は `cloudKitDatabase: .none` を明示。 |
 | 2026-05-28 | Codex | CloudKit互換追加対応: 起動ログで `Category.chapters` / `Category.plans` が非optional relationshipとして拒否されていたため optional 配列へ変更。CloudKit push 通知警告に対応するため App の `Info.plist` を `Config/LiminalogInfo.plist` として明示ファイル化し、`UIBackgroundModes = remote-notification` を追加。 |
 | 2026-05-28 | User/Codex | UI細部修正: タイムラインの隣接エントリで境界時刻が重複表示されないよう、前行の終了分と同じ開始時刻は非表示化。`CurrentChapterCard` は `store.revision` を購読してカテゴリタップ直後に記録中表示へ切り替わるよう修正。カレンダー曜日ヘッダーを月グリッドから分離し、スクロールしても上部に固定される構成へ変更。 |
+| 2026-05-28 | User/Codex | UI細部修正: タイムライン時刻をカード上下の補助表示ではなく境界ラベルとして再調整。連続するチャプター/未記録では次行の開始時刻を隠し、前行の終了時刻を境界の1表示として扱う。左レールは連続時に上下接続し、未記録は薄いレール、実績/予定はカテゴリ色レールでつながる見た目へ変更。日末の 0:00 は `24:00` 表示にする例外を追加。 |
 | 2026-05-28 | Codex | Git安全運用ルールを §3.6 に追加。`main` を安定版・復元ポイント、作業は `codex/*` / `claude/*` ブランチで進める方針、コミット/pushのタイミング、禁止操作、現在の復元ポイント `4b2c838` と remote を明記。 |
 | 2026-05-28 | Codex | Phase 0 safe scope: `DayBoundary` を追加し、`ScoreCalculator` / `ChapterStore` の日付境界を 0:00-24:00 固定に寄せた。日付またぎはDB分割せず、表示・集計側でクリップする方針を崩さない。 |
 | 2026-05-28 | Codex | Phase 0 safe scope: SwiftDataモデルのCloudKit互換下準備として全 `@Model` にデフォルト値/空initを追加し、`Chapter` / `PlanBlock` に `visibilityScope` / `updatedAt` 等を追加。`UserSettings` / `CalendarEventCache` / `VisibilityScope` / `VersionedSchema` 骨格も追加。 |

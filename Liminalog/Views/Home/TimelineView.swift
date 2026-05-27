@@ -693,22 +693,36 @@ private struct TimelineEntryList: View {
     var onDeleteEntry: (TimelineEntry) -> Void
 
     var body: some View {
-        LazyVStack(spacing: 10) {
+        LazyVStack(spacing: 0) {
             ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
-                let showStartTime = shouldShowStartTime(at: index)
+                let connectsToPrevious = isContiguousWithPrevious(at: index)
+                let connectsToNext = isContiguousWithNext(at: index)
+                let showStartTime = !connectsToPrevious
                 if entry.kind.isGap {
                     if canCreateGap(entry) {
                         Button {
                             onGapTap(entry)
                         } label: {
-                            TimelineEntryRow(entry: entry, isHighlighted: false, showsStartTime: showStartTime) {
+                            TimelineEntryRow(
+                                entry: entry,
+                                isHighlighted: false,
+                                showsStartTime: showStartTime,
+                                connectsToPrevious: connectsToPrevious,
+                                connectsToNext: connectsToNext
+                            ) {
                                 TimelineGapCard(entry: entry, showsAddIcon: true)
                             }
                         }
                         .buttonStyle(.plain)
                         .id(entry.id)
                     } else {
-                        TimelineEntryRow(entry: entry, isHighlighted: false, showsStartTime: showStartTime) {
+                        TimelineEntryRow(
+                            entry: entry,
+                            isHighlighted: false,
+                            showsStartTime: showStartTime,
+                            connectsToPrevious: connectsToPrevious,
+                            connectsToNext: connectsToNext
+                        ) {
                             TimelineGapCard(entry: entry, showsAddIcon: false)
                         }
                         .id(entry.id)
@@ -717,7 +731,13 @@ private struct TimelineEntryList: View {
                     Button {
                         onEntryTap(entry)
                     } label: {
-                        TimelineEntryRow(entry: entry, isHighlighted: highlightedEntryID == entry.id, showsStartTime: showStartTime) {
+                        TimelineEntryRow(
+                            entry: entry,
+                            isHighlighted: highlightedEntryID == entry.id,
+                            showsStartTime: showStartTime,
+                            connectsToPrevious: connectsToPrevious,
+                            connectsToNext: connectsToNext
+                        ) {
                             TimelineEntryCard(entry: entry, isHighlighted: highlightedEntryID == entry.id)
                         }
                     }
@@ -761,41 +781,69 @@ private struct TimelineEntryList: View {
         .padding(.vertical, 2)
     }
 
-    private func shouldShowStartTime(at index: Int) -> Bool {
-        guard index > 0 else { return true }
-        let previous = entries[index - 1]
-        let current = entries[index]
-        return !Calendar.current.isDate(previous.clippedEnd, equalTo: current.clippedStart, toGranularity: .minute)
+    private func isContiguousWithPrevious(at index: Int) -> Bool {
+        guard index > 0 else { return false }
+        return areContiguous(entries[index - 1], entries[index])
+    }
+
+    private func isContiguousWithNext(at index: Int) -> Bool {
+        guard index + 1 < entries.count else { return false }
+        return areContiguous(entries[index], entries[index + 1])
+    }
+
+    private func areContiguous(_ lhs: TimelineEntry, _ rhs: TimelineEntry) -> Bool {
+        Calendar.current.isDate(lhs.clippedEnd, equalTo: rhs.clippedStart, toGranularity: .minute)
     }
 }
 
 private enum TimelineCardMetrics {
     static let entryHeight: CGFloat = 62
     static let gapHeight: CGFloat = 48
+    static let rowVerticalPadding: CGFloat = 5
 }
 
 private struct TimelineEntryRow<Content: View>: View {
     let entry: TimelineEntry
     let isHighlighted: Bool
     let showsStartTime: Bool
+    let connectsToPrevious: Bool
+    let connectsToNext: Bool
     let content: () -> Content
 
-    init(entry: TimelineEntry, isHighlighted: Bool, showsStartTime: Bool = true, @ViewBuilder content: @escaping () -> Content) {
+    init(
+        entry: TimelineEntry,
+        isHighlighted: Bool,
+        showsStartTime: Bool = true,
+        connectsToPrevious: Bool = false,
+        connectsToNext: Bool = false,
+        @ViewBuilder content: @escaping () -> Content
+    ) {
         self.entry = entry
         self.isHighlighted = isHighlighted
         self.showsStartTime = showsStartTime
+        self.connectsToPrevious = connectsToPrevious
+        self.connectsToNext = connectsToNext
         self.content = content
     }
 
     var body: some View {
         HStack(alignment: .center, spacing: 8) {
-            TimelineTimeRail(entry: entry, height: rowHeight, isHighlighted: isHighlighted, showsStartTime: showsStartTime)
+            TimelineTimeRail(
+                entry: entry,
+                height: rowHeight,
+                isHighlighted: isHighlighted,
+                showsStartTime: showsStartTime,
+                connectsToPrevious: connectsToPrevious,
+                connectsToNext: connectsToNext
+            )
             content()
+                .padding(.vertical, TimelineCardMetrics.rowVerticalPadding)
         }
     }
 
     private var rowHeight: CGFloat {
-        entry.kind.isGap ? TimelineCardMetrics.gapHeight : TimelineCardMetrics.entryHeight
+        let cardHeight = entry.kind.isGap ? TimelineCardMetrics.gapHeight : TimelineCardMetrics.entryHeight
+        return cardHeight + TimelineCardMetrics.rowVerticalPadding * 2
     }
 }
 
@@ -804,33 +852,45 @@ private struct TimelineTimeRail: View {
     let height: CGFloat
     let isHighlighted: Bool
     let showsStartTime: Bool
+    let connectsToPrevious: Bool
+    let connectsToNext: Bool
 
     var body: some View {
         HStack(spacing: 6) {
             VStack(alignment: .trailing, spacing: 0) {
-                Text(entry.clippedStart.shortTime)
-                    .font(.caption2.monospacedDigit().weight(.semibold))
-                    .foregroundStyle(.primary)
+                Text(timeLabel(for: entry.clippedStart, isEnd: false))
+                    .timelineBoundaryTimeStyle()
                     .opacity(showsStartTime ? 1 : 0)
                 Spacer(minLength: 0)
-                Text(entry.clippedEnd.shortTime)
-                    .font(.caption2.monospacedDigit())
-                    .foregroundStyle(.secondary)
+                Text(timeLabel(for: entry.clippedEnd, isEnd: true))
+                    .timelineBoundaryTimeStyle()
             }
-            .frame(width: 42, height: height - 6)
+            .frame(width: 42, height: height)
 
-            VStack(spacing: 0) {
-                Circle()
-                    .fill(railColor)
-                    .frame(width: 7, height: 7)
+            ZStack {
                 Rectangle()
-                    .fill(railColor.opacity(entry.kind.isGap ? 0.18 : 0.34))
-                    .frame(width: 2)
-                Circle()
-                    .stroke(railColor.opacity(entry.kind.isGap ? 0.32 : 0.7), lineWidth: 1.5)
-                    .frame(width: 7, height: 7)
+                    .fill(lineColor)
+                    .frame(width: lineWidth)
+                    .frame(maxHeight: .infinity)
+                    .padding(.top, connectsToPrevious ? 0 : 3.5)
+                    .padding(.bottom, connectsToNext ? 0 : 3.5)
+
+                VStack(spacing: 0) {
+                    if showsStartTime {
+                        Circle()
+                            .fill(startMarkerColor)
+                            .frame(width: 7, height: 7)
+                    } else {
+                        Color.clear.frame(width: 7, height: 7)
+                    }
+                    Spacer(minLength: 0)
+                    Circle()
+                        .strokeBorder(endMarkerColor, lineWidth: entry.kind.isGap ? 1.4 : 1.6)
+                        .background(Circle().fill(Color(.systemGroupedBackground)))
+                        .frame(width: 7, height: 7)
+                }
             }
-            .frame(width: 8, height: height - 6)
+            .frame(width: 8, height: height)
         }
         .frame(width: 56, height: height)
         .accessibilityHidden(true)
@@ -841,6 +901,50 @@ private struct TimelineTimeRail: View {
             return Color(.separator)
         }
         return entry.isActive || isHighlighted ? entry.color : entry.color.opacity(0.78)
+    }
+
+    private var lineColor: Color {
+        if entry.kind.isGap {
+            return Color(.separator).opacity(0.34)
+        }
+        return railColor.opacity(entry.isActive || isHighlighted ? 0.58 : 0.42)
+    }
+
+    private var lineWidth: CGFloat {
+        entry.kind.isGap ? 1.7 : 2.4
+    }
+
+    private var startMarkerColor: Color {
+        if entry.kind.isGap {
+            return Color(.separator).opacity(0.5)
+        }
+        return railColor
+    }
+
+    private var endMarkerColor: Color {
+        if entry.kind.isGap {
+            return Color(.separator).opacity(0.55)
+        }
+        return railColor.opacity(0.82)
+    }
+
+    private func timeLabel(for date: Date, isEnd: Bool) -> String {
+        if isEnd,
+           Calendar.current.component(.hour, from: date) == 0,
+           Calendar.current.component(.minute, from: date) == 0,
+           date > entry.clippedStart {
+            return "24:00"
+        }
+        return date.shortTime
+    }
+}
+
+private extension Text {
+    func timelineBoundaryTimeStyle() -> some View {
+        self
+            .font(.caption2.monospacedDigit().weight(.semibold))
+            .foregroundStyle(.primary)
+            .fixedSize(horizontal: true, vertical: false)
     }
 }
 
