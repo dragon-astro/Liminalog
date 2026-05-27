@@ -81,8 +81,8 @@
 | **VisibilityPreset** | `id, name, level: VisibilityLevel{all,partial,none}` | なし | 定義のみ・現状未使用 |
 
 ### `LiminalogActivityAttributes`（ActivityKit）
-- `ContentState` に現在チャプター + カテゴリセットを同梱（categoriesは IslandCategory として inline 化）
-- Live Activity 側で SwiftData を読まずに済むようコピーを送る設計
+- `ContentState` は現在チャプター + カテゴリセット名 + 公開状態だけを保持
+- 2026-05-28 に `ContentState.categories` / `IslandCategory` は削除済み。カテゴリ配列は Live Activity state に同梱しない
 
 ### モデル間の関連まとめ
 
@@ -200,12 +200,12 @@ DashboardView の Picker.tap → period が変わる
 
 | 項目 | 状態 |
 |------|------|
-| App Groups | **未設定** |
-| App ↔ Widget の SwiftData 共有 | **なし** |
+| App Groups | **設定済** (`group.app.YasudaRyuga.Liminalog`) |
+| App ↔ Widget の SwiftData 共有 | **土台あり**（App Group ModelContainer。Widget 側の本格読み込みは未実装） |
 | WidgetKit のインタラクティブ記録グリッド | **未実装**（LiminalogStatusWidget は静的文言のみ） |
 | Live Activity | **実装済** — Dynamic Island / Lock Screen 対応 |
 | Live Activity への状態伝達 | アプリ側 `LiveActivityManager.update(...)` から `Activity.update(...)` で push |
-| カテゴリデータの Live Activity への同梱 | `ContentState.categories: [IslandCategory]` として inline コピー |
+| カテゴリデータの Live Activity への同梱 | **廃止済**。`ContentState` にカテゴリ配列は持たせない |
 
 ### Color(hex:) の重複
 

@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import WidgetKit
 
 @Observable
 @MainActor
@@ -22,6 +23,13 @@ final class ChapterStore {
         self.planStore = PlanStore(modelContext: modelContext, clock: clock)
         self.scoreStore = ScoreStore(modelContext: modelContext, clock: clock)
         self.liveActivityCoordinator = LiveActivityCoordinator(categorySetStore: categorySetStore)
+    }
+
+    private func markChanged(reloadWidgets: Bool = true) {
+        revision += 1
+        if reloadWidgets && ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil {
+            WidgetCenter.shared.reloadAllTimelines()
+        }
     }
 
     // MARK: - Edit locks
@@ -113,7 +121,7 @@ final class ChapterStore {
             }
             // 既に同カテゴリを記録中 → 何も新しく作らずに継続
             try? modelContext.save()
-            revision += 1
+            markChanged()
             updateLiveActivity(categorySet: categorySet)
             return
         }
@@ -127,7 +135,7 @@ final class ChapterStore {
         let chapter = Chapter(category: category, startTime: now)
         modelContext.insert(chapter)
         try? modelContext.save()
-        revision += 1
+        markChanged()
         updateLiveActivity(categorySet: categorySet)
     }
 
@@ -143,7 +151,7 @@ final class ChapterStore {
         chapter.updatedAt = clock.now
         modelContext.insert(chapter)
         try? modelContext.save()
-        revision += 1
+        markChanged()
         updateLiveActivity()
         return true
     }
@@ -152,7 +160,7 @@ final class ChapterStore {
         let now = clock.now
         guard closeActiveChapters(at: now) else { return }
         try? modelContext.save()
-        revision += 1
+        markChanged()
         updateLiveActivity()
     }
 
@@ -238,7 +246,7 @@ final class ChapterStore {
         chapter.isPublic = isPublic
         chapter.updatedAt = clock.now
         try? modelContext.save()
-        revision += 1
+        markChanged()
         updateLiveActivity()
         return true
     }
@@ -247,7 +255,7 @@ final class ChapterStore {
         chapter.isPublic = isPublic
         chapter.updatedAt = clock.now
         try? modelContext.save()
-        revision += 1
+        markChanged()
     }
 
     /// 複数チャプターの公開状態をまとめて変更。`isPublic == nil` のときは現状を反転する（一括トグル）。
@@ -259,7 +267,7 @@ final class ChapterStore {
             chapter.updatedAt = clock.now
         }
         try? modelContext.save()
-        revision += 1
+        markChanged()
     }
 
     @discardableResult
@@ -267,7 +275,7 @@ final class ChapterStore {
         guard !isChapterTimeLocked(chapter, now: clock.now) else { return false }
         modelContext.delete(chapter)
         try? modelContext.save()
-        revision += 1
+        markChanged()
         updateLiveActivity()
         return true
     }
@@ -289,21 +297,21 @@ final class ChapterStore {
     @discardableResult
     func addPlanBlock(category: Category?, title: String, startTime: Date, endTime: Date, isAllDay: Bool = false, isImportant: Bool = false, note: String? = nil, isPublic: Bool = true) -> Bool {
         guard planStore.addPlanBlock(category: category, title: title, startTime: startTime, endTime: endTime, isAllDay: isAllDay, isImportant: isImportant, note: note, isPublic: isPublic) else { return false }
-        revision += 1
+        markChanged()
         return true
     }
 
     @discardableResult
     func savePlanBlock(_ plan: PlanBlock, category: Category?, title: String, startTime: Date, endTime: Date, isAllDay: Bool, isImportant: Bool, note: String?, isPublic: Bool) -> Bool {
         guard planStore.savePlanBlock(plan, category: category, title: title, startTime: startTime, endTime: endTime, isAllDay: isAllDay, isImportant: isImportant, note: note, isPublic: isPublic) else { return false }
-        revision += 1
+        markChanged()
         return true
     }
 
     @discardableResult
     func deletePlanBlock(_ plan: PlanBlock) -> Bool {
         guard planStore.deletePlanBlock(plan) else { return false }
-        revision += 1
+        markChanged()
         return true
     }
 
@@ -325,19 +333,19 @@ final class ChapterStore {
 
     func addCategory(name: String, colorHex: String, icon: String? = nil) {
         if categoryStore.addCategory(name: name, colorHex: colorHex, icon: icon) {
-            revision += 1
+            markChanged()
         }
     }
 
     func updateCategory(_ category: Category, name: String, colorHex: String, icon: String? = nil) {
         if categoryStore.updateCategory(category, name: name, colorHex: colorHex, icon: icon) {
-            revision += 1
+            markChanged()
         }
     }
 
     func deleteCategory(_ category: Category) {
         if categoryStore.deleteCategory(category) {
-            revision += 1
+            markChanged()
         }
     }
 
@@ -345,19 +353,19 @@ final class ChapterStore {
 
     func addCategorySet(name: String, slots: [UUID?]) {
         if categorySetStore.addCategorySet(name: name, slots: slots) {
-            revision += 1
+            markChanged()
         }
     }
 
     func updateCategorySet(_ set: CategorySet, name: String, slots: [UUID?]) {
         if categorySetStore.updateCategorySet(set, name: name, slots: slots) {
-            revision += 1
+            markChanged()
         }
     }
 
     func deleteCategorySet(_ set: CategorySet) {
         if categorySetStore.deleteCategorySet(set) {
-            revision += 1
+            markChanged()
         }
     }
 
@@ -383,20 +391,20 @@ final class ChapterStore {
         guard !toDelete.isEmpty else { return }
         toDelete.forEach { modelContext.delete($0) }
         try? modelContext.save()
-        revision += 1
+        markChanged()
     }
 
     // MARK: - Seed defaults
 
     func seedDefaultCategoriesIfNeeded() {
         if categoryStore.seedDefaultCategoriesIfNeeded() {
-            revision += 1
+            markChanged()
         }
     }
 
     func seedDefaultCategorySetsIfNeeded() {
         if categorySetStore.seedDefaultCategorySetsIfNeeded() {
-            revision += 1
+            markChanged()
         }
     }
 
@@ -442,7 +450,7 @@ final class ChapterStore {
             seedPlanGaps(for: todayPlans, on: today, categories: categories, samples: samples)
             try? modelContext.save()
             UserDefaults.standard.set(currentSeedVersion, forKey: seedVersionKey)
-            revision += 1
+            markChanged()
             return
         }
 
@@ -459,7 +467,7 @@ final class ChapterStore {
 
         try? modelContext.save()
         UserDefaults.standard.set(currentSeedVersion, forKey: seedVersionKey)
-        revision += 1
+        markChanged()
     }
 
     private func seedPlanGaps(
@@ -630,7 +638,7 @@ final class ChapterStore {
         }
 
         try? modelContext.save()
-        revision += 1
+        markChanged()
     }
 
     private func updateLiveActivity(categorySet: CategorySet? = nil) {

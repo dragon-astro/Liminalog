@@ -8,11 +8,10 @@ final class LiveActivityManager {
     private init() {}
 
     @available(iOS 16.2, *)
-    func update(activeChapter: Chapter?, categorySetName: String, categories: [Category]) async {
+    func update(activeChapter: Chapter?, categorySetName: String) async {
         let state = makeState(
             activeChapter: activeChapter,
-            categorySetName: categorySetName,
-            categories: categories
+            categorySetName: categorySetName
         )
 
         if let activity = Activity<LiminalogActivityAttributes>.activities.first {
@@ -40,11 +39,7 @@ final class LiveActivityManager {
     }
 
     @available(iOS 16.2, *)
-    private func makeState(activeChapter: Chapter?, categorySetName: String, categories: [Category]) -> LiminalogActivityAttributes.ContentState {
-        let islandCategories = categories.prefix(8).map {
-            IslandCategory(id: $0.id, name: $0.name, colorHex: $0.colorHex, icon: $0.icon)
-        }
-
+    private func makeState(activeChapter: Chapter?, categorySetName: String) -> LiminalogActivityAttributes.ContentState {
         guard let activeChapter, let category = activeChapter.category else {
             return LiminalogActivityAttributes.ContentState(
                 categoryName: nil,
@@ -52,8 +47,7 @@ final class LiveActivityManager {
                 icon: nil,
                 startedAt: nil,
                 isPublic: true,
-                categorySetName: categorySetName,
-                categories: islandCategories
+                categorySetName: categorySetName
             )
         }
 
@@ -63,8 +57,7 @@ final class LiveActivityManager {
             icon: category.icon,
             startedAt: activeChapter.startTime,
             isPublic: activeChapter.isPublic,
-            categorySetName: categorySetName,
-            categories: islandCategories
+            categorySetName: categorySetName
         )
     }
 }

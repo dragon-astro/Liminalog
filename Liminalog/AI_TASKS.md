@@ -323,7 +323,7 @@ refactor: split plan store
 - [x] `PlanBlock.sourceEventID`, `PlanBlock.updatedAt`, `PlanBlock.visibilityScope` 追加 <!-- 担当: Codex, 完了: 2026-05-28 -->
 - [x] `UserSettings` モデル新規作成 + シード（`settingsKey` 重複統合ロジック必須）<!-- 担当: Codex, 理由: §8.5 BootstrapStore/SeedCoordinator と一体, 完了: 2026-05-28 -->
 - [~] 既存 `VisibilityPreset` を `docs/04 §4.5` の新設計で置換（`builtInKey` 重複統合ロジック必須）<!-- 担当: Codex, 進捗: 2026-05-28 builtInKey/updatedAt/default init/重複統合のみ実装。publishMode 等の本格プリセット設計は未実装 -->
-- [ ] `LiminalogActivityAttributes.ContentState.categories` を削除（App Groups経由で読むため不要）<!-- 担当: Codex -->
+- [x] `LiminalogActivityAttributes.ContentState.categories` を削除（App Groups経由で読むため不要）<!-- 担当: Codex, 完了: 2026-05-28。Live Activity の ContentState は現在カテゴリ/カテゴリセット名/公開状態だけを持ち、カテゴリ配列は Widget/App Group 側で読む前提へ寄せた -->
 - [x] `VersionedSchema` + `SchemaMigrationPlan` の骨格を追加 <!-- 担当: Codex, 理由: SwiftData の作法・複雑, 完了: 2026-05-28 -->
 
 ### 5.6 DEBUG seed の隔離
@@ -365,7 +365,7 @@ refactor: split plan store
 - [ ] `StartChapterIntent` (AppIntent) 実装 <!-- 担当: Codex, 理由: AppIntent + 並行制御 + 共有ストア書き込み -->
 - [ ] `SelectCategorySetIntent` (configurable widget) 実装 <!-- 担当: Codex -->
 - [ ] `RecordingGridView` (Widget UI) 実装 <!-- 担当: Claude, 理由: SwiftUI / アプリ側 CategoryGrid との視覚整合性 -->
-- [ ] アプリ側 mutation 後の `WidgetCenter.shared.reloadAllTimelines()` 呼び出し統一 <!-- 担当: Codex, 理由: 副作用の差し込み箇所が多い・抜け漏れ防止 -->
+- [x] アプリ側 mutation 後の `WidgetCenter.shared.reloadAllTimelines()` 呼び出し統一 <!-- 担当: Codex, 理由: 副作用の差し込み箇所が多い・抜け漏れ防止, 完了: 2026-05-28。`ChapterStore.markChanged()` に集約し、テスト実行中は Widget reload を抑制 -->
 - [ ] `LiminalogStatusWidget` の退役（または記録グリッドへ統合）<!-- 担当: Claude, 理由: 既存ウィジェットUIの判断 -->
 
 ### 6.2 公開設定 UI（Phase 1 最小版）
@@ -697,6 +697,8 @@ refactor: split plan store
 
 | 日付 | 担当 | 内容 |
 |---|---|---|
+| 2026-05-28 | Codex | Phase 0/1 bridge: `LiminalogActivityAttributes.ContentState.categories` と Widget 側の `IslandCategory` を削除し、Live Activity は現在カテゴリ・カテゴリセット名・公開状態だけを渡す形へ整理。Dynamic Island 下段はカテゴリ配列ではなくセット名/公開状態の軽い情報表示に変更した。 |
+| 2026-05-28 | Codex | Phase 1: `ChapterStore.markChanged()` を追加し、Chapter/Category/Plan 系 mutation 後の `revision` 更新と `WidgetCenter.shared.reloadAllTimelines()` を一箇所に集約。Widget 記録グリッド本体は未実装だが、アプリ側変更を Widget Timeline に反映する土台は完了。XCTest 中は reload を抑制する。 |
 | 2026-05-28 | Codex | Phase 0: テスト網を拡張。active Chapter 複数件の収束、同カテゴリ再タップ継続、CategorySet スロット順解決、`SeedCoordinator` の UserSettings / built-in VisibilityPreset 重複統合、`ScoreStore.streakCount`、Dashboard 期間境界を Swift Testing で検証。Dashboard の期間計算は `DashboardPeriod.dateInterval(containing:)` に切り出し、UI 表示は維持した。 |
 | 2026-05-28 | Codex | Phase 0: `LiminalogTests` ターゲットを追加し、Swift Testing で `DayBoundaryTests` / `ScoreCalculatorTests` / `ChapterStoreTests` を実装。テストホスト起動時は `SharedModelContainer.inMemory()` を使い、Live Activity 更新を XCTest 中だけ無効化して、Cloud/AppGroup 初期化に依存しないロジックテストを走らせる構成にした。 |
 | 2026-05-28 | Codex | Phase 0: 実績 Chapter 同士の重複保存を Store 層でブロック。手動追加・編集は `start < end`、未来終了禁止、既存 Chapter との重複禁止を満たす場合だけ保存し、`ChapterCreateSheet` / `ChapterEditSheet` でも保存不可理由を警告表示するようにした。カテゴリ短時間切替は A/B/C が別 Chapter として残ることをテスト済み。 |

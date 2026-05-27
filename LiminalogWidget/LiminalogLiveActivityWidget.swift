@@ -24,7 +24,7 @@ struct LiminalogLiveActivityWidget: Widget {
                 }
 
                 DynamicIslandExpandedRegion(.bottom) {
-                    CategorySetStrip(state: context.state)
+                    LiveActivityDetailStrip(state: context.state)
                 }
             } compactLeading: {
                 CategoryIcon(state: context.state, size: 22)
@@ -94,32 +94,21 @@ private struct CurrentCategoryBadge: View {
     }
 }
 
-private struct CategorySetStrip: View {
+private struct LiveActivityDetailStrip: View {
     let state: LiminalogActivityAttributes.ContentState
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(state.categorySetName)
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(.secondary)
+        HStack(spacing: 8) {
+            Label(state.categorySetName, systemImage: "square.grid.2x2")
+                .lineLimit(1)
 
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
-                ForEach(state.categories.prefix(8)) { category in
-                    HStack(spacing: 5) {
-                        Image(systemName: category.icon ?? "circle.fill")
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(Color(hex: category.colorHex))
-                            .frame(width: 16, height: 16)
+            Spacer(minLength: 8)
 
-                        Text(category.name)
-                            .font(.caption2.weight(.medium))
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.72)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-            }
+            Label(state.isPublic ? "公開" : "非公開", systemImage: state.isPublic ? "eye" : "eye.slash")
+                .lineLimit(1)
         }
+        .font(.caption2.weight(.semibold))
+        .foregroundStyle(.secondary)
         .padding(.top, 2)
     }
 }

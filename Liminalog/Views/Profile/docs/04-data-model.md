@@ -581,7 +581,7 @@ public enum LiminalogMigrationPlan: SchemaMigrationPlan {
 | 現行 | 扱い | 理由 |
 |------|------|------|
 | `VisibilityPreset` (現状の薄実装) | 廃止 → 4.5 の新設計に置換 | 仕様と乖離 |
-| `LiminalogActivityAttributes.ContentState.categories` | 廃止 | App Groups 経由で SwiftData から読むため不要 |
+| `LiminalogActivityAttributes.ContentState.categories` | 廃止済 (2026-05-28) | App Groups 経由で SwiftData から読むため不要 |
 | `LiminalogActivityAttributes.ContentState.categorySetName` | 廃止 | 同上 |
 | `ChapterStore.revision` | 廃止 | `@Query` 主軸への移行 |
 
