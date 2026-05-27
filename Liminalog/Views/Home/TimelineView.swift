@@ -698,6 +698,7 @@ private struct TimelineEntryList: View {
                 let connectsToPrevious = isContiguousWithPrevious(at: index)
                 let connectsToNext = isContiguousWithNext(at: index)
                 let showStartTime = !connectsToPrevious
+                let showEndTime = index + 1 < entries.count
                 if entry.kind.isGap {
                     if canCreateGap(entry) {
                         Button {
@@ -707,6 +708,7 @@ private struct TimelineEntryList: View {
                                 entry: entry,
                                 isHighlighted: false,
                                 showsStartTime: showStartTime,
+                                showsEndTime: showEndTime,
                                 connectsToPrevious: connectsToPrevious,
                                 connectsToNext: connectsToNext
                             ) {
@@ -720,6 +722,7 @@ private struct TimelineEntryList: View {
                             entry: entry,
                             isHighlighted: false,
                             showsStartTime: showStartTime,
+                            showsEndTime: showEndTime,
                             connectsToPrevious: connectsToPrevious,
                             connectsToNext: connectsToNext
                         ) {
@@ -735,6 +738,7 @@ private struct TimelineEntryList: View {
                             entry: entry,
                             isHighlighted: highlightedEntryID == entry.id,
                             showsStartTime: showStartTime,
+                            showsEndTime: showEndTime,
                             connectsToPrevious: connectsToPrevious,
                             connectsToNext: connectsToNext
                         ) {
@@ -806,6 +810,7 @@ private struct TimelineEntryRow<Content: View>: View {
     let entry: TimelineEntry
     let isHighlighted: Bool
     let showsStartTime: Bool
+    let showsEndTime: Bool
     let connectsToPrevious: Bool
     let connectsToNext: Bool
     let content: () -> Content
@@ -814,6 +819,7 @@ private struct TimelineEntryRow<Content: View>: View {
         entry: TimelineEntry,
         isHighlighted: Bool,
         showsStartTime: Bool = true,
+        showsEndTime: Bool = true,
         connectsToPrevious: Bool = false,
         connectsToNext: Bool = false,
         @ViewBuilder content: @escaping () -> Content
@@ -821,6 +827,7 @@ private struct TimelineEntryRow<Content: View>: View {
         self.entry = entry
         self.isHighlighted = isHighlighted
         self.showsStartTime = showsStartTime
+        self.showsEndTime = showsEndTime
         self.connectsToPrevious = connectsToPrevious
         self.connectsToNext = connectsToNext
         self.content = content
@@ -833,6 +840,7 @@ private struct TimelineEntryRow<Content: View>: View {
                 height: rowHeight,
                 isHighlighted: isHighlighted,
                 showsStartTime: showsStartTime,
+                showsEndTime: showsEndTime,
                 connectsToPrevious: connectsToPrevious,
                 connectsToNext: connectsToNext
             )
@@ -852,18 +860,26 @@ private struct TimelineTimeRail: View {
     let height: CGFloat
     let isHighlighted: Bool
     let showsStartTime: Bool
+    let showsEndTime: Bool
     let connectsToPrevious: Bool
     let connectsToNext: Bool
 
     var body: some View {
         HStack(spacing: 6) {
-            VStack(alignment: .trailing, spacing: 0) {
-                Text(timeLabel(for: entry.clippedStart, isEnd: false))
-                    .timelineBoundaryTimeStyle()
-                    .opacity(showsStartTime ? 1 : 0)
-                Spacer(minLength: 0)
-                Text(timeLabel(for: entry.clippedEnd, isEnd: true))
-                    .timelineBoundaryTimeStyle()
+            ZStack(alignment: .topTrailing) {
+                if showsStartTime {
+                    Text(entry.clippedStart.shortTime)
+                        .timelineBoundaryTimeStyle()
+                        .frame(width: 42, height: 14, alignment: .trailing)
+                        .offset(y: -3.5)
+                }
+
+                if showsEndTime {
+                    Text(entry.clippedEnd.shortTime)
+                        .timelineBoundaryTimeStyle()
+                        .frame(width: 42, height: 14, alignment: .trailing)
+                        .offset(y: height - 10.5)
+                }
             }
             .frame(width: 42, height: height)
 
@@ -928,15 +944,6 @@ private struct TimelineTimeRail: View {
         return railColor.opacity(0.82)
     }
 
-    private func timeLabel(for date: Date, isEnd: Bool) -> String {
-        if isEnd,
-           Calendar.current.component(.hour, from: date) == 0,
-           Calendar.current.component(.minute, from: date) == 0,
-           date > entry.clippedStart {
-            return "24:00"
-        }
-        return date.shortTime
-    }
 }
 
 private extension Text {
