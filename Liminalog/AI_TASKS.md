@@ -183,6 +183,70 @@ Codexの指摘に基づき、プランに加筆修正する。
 - 仕様書だけで判断できない → §9 オープン論点 セクションに追加してユーザーに確認
 - 設計方針が docs/ にない → 先に docs/ を更新してからタスク追記
 
+### 3.6 Git 安全運用ルール
+
+このプロジェクトでは、Gitを「後から戻れる復元ポイント」として扱う。Claude / Codex ともに、実装前後で以下を守る。
+
+#### 基本方針
+
+- `main` は安定版・復元ポイント用。直接作業しない
+- 普段の作業はブランチ上で行う
+- 大きな変更前には必ずコミットして、戻れる地点を作る
+- 作業後は **ビルド確認 → AI_TASKS.md 記録 → コミット → push** を基本セットにする
+- ビルドが通らない、UIが大きく壊れている、仕様が仮の状態は `main` に入れない
+
+#### ブランチ運用
+
+| ブランチ | 役割 |
+|---|---|
+| `main` | 発表・復元用の安定版。壊れていない確認済み状態だけを置く |
+| `codex/*` | Codexの基盤改修・ロジック改修用 |
+| `claude/*` | ClaudeのUI調整・画面実装用 |
+| `release/demo-YYYYMMDD` | 発表前に固定するデモ版 |
+
+現在の復元ポイント:
+- commit: `4b2c838 chore: save phase0 baseline`
+- remote: `origin https://github.com/dragon-astro/Liminalog.git`
+- pushed branches: `main`, `codex/phase0-next`
+
+#### コミットのタイミング
+
+- Phase開始前 / Phase完了後
+- Store分割、CloudKit切替、Package化など大きな構造変更の前
+- UI大改修の前後
+- バグ修正が一区切りついた時
+- Claude / Codex の担当を切り替える前
+
+#### コミットメッセージ例
+
+```text
+chore: save phase0 baseline
+feat: add calendar search
+fix: prevent chapter loss on category switch
+docs: record phase0 progress
+refactor: split plan store
+```
+
+#### Claude / Codex 並行作業時の注意
+
+- 同じファイルを同時に大きく触らない
+- 着手前に AI_TASKS.md で担当・進行中を明記する
+- ClaudeがUIを触っている間、CodexはStore/Logic/Docs中心にする
+- CodexがStore分割中は、Claudeは同じStoreに依存するUIの大改修を避ける
+- 競合しそうな場合は、先にコミット・pushしてから相手に渡す
+
+#### 禁止・確認必須の操作
+
+以下はデータを失う可能性があるため、ユーザー確認なしに実行しない。
+
+- `git reset --hard`
+- `git clean`
+- ブランチ削除
+- コミット履歴を書き換える操作
+- ファイル削除を伴う大きな整理
+
+戻したい場合は、まず現在の状態・戻したい地点・影響範囲を確認してから実行する。
+
 ---
 
 ## 4. タスクのステータス凡例
@@ -628,6 +692,7 @@ Codexの指摘に基づき、プランに加筆修正する。
 
 | 日付 | 担当 | 内容 |
 |---|---|---|
+| 2026-05-28 | Codex | Git安全運用ルールを §3.6 に追加。`main` を安定版・復元ポイント、作業は `codex/*` / `claude/*` ブランチで進める方針、コミット/pushのタイミング、禁止操作、現在の復元ポイント `4b2c838` と remote を明記。 |
 | 2026-05-28 | Codex | Phase 0 safe scope: `DayBoundary` を追加し、`ScoreCalculator` / `ChapterStore` の日付境界を 0:00-24:00 固定に寄せた。日付またぎはDB分割せず、表示・集計側でクリップする方針を崩さない。 |
 | 2026-05-28 | Codex | Phase 0 safe scope: SwiftDataモデルのCloudKit互換下準備として全 `@Model` にデフォルト値/空initを追加し、`Chapter` / `PlanBlock` に `visibilityScope` / `updatedAt` 等を追加。`UserSettings` / `CalendarEventCache` / `VisibilityScope` / `VersionedSchema` 骨格も追加。 |
 | 2026-05-28 | Codex | Phase 0 safe scope: `SeedCoordinator` を追加し、`UserSettings.settingsKey == default` と `VisibilityPreset.builtInKey` の重複統合を起動時に実行。DEBUG preview plan seed は `LiminalogSeedPreviewData` フラグなしでは実機DEBUGで走らないようゲート化。 |
