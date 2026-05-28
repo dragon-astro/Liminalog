@@ -181,11 +181,21 @@ private enum RecordingWidgetStore {
             activeAfterChange = chapter
         }
 
+        let liveActivityState: LiminalogActivityAttributes.ContentState?
+        if #available(iOSApplicationExtension 16.2, *) {
+            liveActivityState = makeLiveActivityState(activeChapter: activeAfterChange, context: context)
+        } else {
+            liveActivityState = nil
+        }
+
         try context.save()
         WidgetCenter.shared.reloadTimelines(ofKind: widgetKind)
 
+        guard let liveActivityState else { return }
         if #available(iOSApplicationExtension 16.2, *) {
-            await updateLiveActivity(activeChapter: activeAfterChange, context: context)
+            Task { @MainActor in
+                await publishLiveActivity(state: liveActivityState)
+            }
         }
     }
 
@@ -197,9 +207,10 @@ private enum RecordingWidgetStore {
 
     @available(iOSApplicationExtension 16.2, *)
     @MainActor
-    private static func updateLiveActivity(activeChapter: Chapter?, context: ModelContext) async {
-        guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
-
+    private static func makeLiveActivityState(
+        activeChapter: Chapter?,
+        context: ModelContext
+    ) -> LiminalogActivityAttributes.ContentState {
         let categories = (try? context.fetch(FetchDescriptor<Category>(
             sortBy: [
                 SortDescriptor(\.sortOrder),
@@ -228,11 +239,17 @@ private enum RecordingWidgetStore {
                     icon: $0.icon
                 )
             }
-        let state = makeActivityState(
+        return makeActivityState(
             activeChapter: activeChapter,
             categorySetName: selectedSet?.name ?? "カテゴリ",
             categories: Array(islandCategories)
         )
+    }
+
+    @available(iOSApplicationExtension 16.2, *)
+    @MainActor
+    private static func publishLiveActivity(state: LiminalogActivityAttributes.ContentState) async {
+        guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
 
         let activities = Activity<LiminalogActivityAttributes>.activities
         if !activities.isEmpty {
