@@ -140,10 +140,8 @@ struct ProfileView: View {
                     .accessibilityLabel("設定")
                 }
             }
-            .sheet(isPresented: $isShowingSettings) {
-                NavigationStack {
-                    SettingsView()
-                }
+            .navigationDestination(isPresented: $isShowingSettings) {
+                SettingsView()
             }
             .sheet(isPresented: $isShowingEditProfile) {
                 ProfileEditSheet(settings: settings, onSave: saveProfile)
