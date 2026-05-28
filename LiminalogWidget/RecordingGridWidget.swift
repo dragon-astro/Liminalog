@@ -197,6 +197,7 @@ private enum RecordingWidgetStore {
         } else {
             defaults.removeObject(forKey: activeCategoryCacheKey)
         }
+        defaults.synchronize()
     }
 
     private static func cachedActiveCategoryID(validatingWith categoryByID: [UUID: Category]) -> UUID? {

@@ -74,6 +74,7 @@ struct StartChapterIntent: AppIntent, LiveActivityIntent {
         } else {
             defaults.removeObject(forKey: activeCategoryCacheKey)
         }
+        defaults.synchronize()
     }
 
     @available(iOS 16.2, *)

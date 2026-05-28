@@ -48,6 +48,7 @@ final class ChapterStore {
         } else {
             defaults.removeObject(forKey: Self.activeCategoryCacheKey)
         }
+        defaults.synchronize()
     }
 
     private func syncActiveCategoryCacheFromStore() {
