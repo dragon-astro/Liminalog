@@ -900,7 +900,7 @@ refactor: split plan store
 | 2026-05-28 | Codex | Dynamic Island がアプリ内の現在テーブルを参照できていない問題を修正。`setEnabledCategorySetID` は `UserSettings.enabledCategorySetID` 保存と `RecordingGridWidget` reload だけで Live Activity state を更新していなかったため、保存成功後に `updateLiveActivity()` を呼ぶようにした。カテゴリ/カテゴリセットの編集・削除・並び替え後も Island のカテゴリ配列が古くならないよう Live Activity 更新を追加 |
 | 2026-05-28 | Codex | Profile Phase 1 をリリース候補レベルへ更新。`UserSettings` に `profileDisplayName` / `profileBio` / `profileImageData` / `profileAccentColorHex` を追加し、プロフィール編集シートで名前・bio・写真・アクセントカラーを保存可能にした。プロフィール本体は設定項目を出さず、自己紹介ヘッダー・主要スタッツ・実データ由来バッジ・Chapter由来の日記カードグリッドに整理。日記カードはタップで当日の記録一覧を表示し、友達ビューへ転用しやすいカード/ヘッダー構成へ寄せた |
 | 2026-05-28 | Codex | Profile右上の設定表示を sheet から `navigationDestination` に変更。設定画面は下からのモーダルではなく、プロフィール内の通常ページとして右からpush遷移する。これに伴い `SettingsView` の「閉じる」ボタンを削除し、標準の戻る導線に統一 |
-| 2026-05-28 | Codex | 今日タブの CategorySet 横切替が重い問題を軽量化。テーブル切替は記録データ変更ではないため `setEnabledCategorySetID` で `ChapterStore.revision` を更新しないようにし、Home/Timeline 全体の再描画を避ける。`CategoryGrid` 側では `@AppStorage` による画面内選択は即時更新し、SwiftData保存・Widget reload・Live Activity更新は 180ms debounce でスワイプ操作後に遅延実行する |
+| 2026-05-28 | Codex | 今日タブの CategorySet 横切替が重い問題を軽量化。テーブル切替は記録データ変更ではないため `setEnabledCategorySetID` で `ChapterStore.revision` を更新しないようにし、Home/Timeline 全体の再描画を避ける。Widget / Dynamic Island 連携が切れないよう、SwiftData保存・Widget reload・Live Activity更新は選択変更時に即時実行する |
 
 ---
 
