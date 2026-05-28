@@ -15,6 +15,7 @@ final class ChapterStore {
     var revision = 0
     private static let appGroupID = "group.app.YasudaRyuga.Liminalog"
     private static let activeCategoryCacheKey = "recording.activeCategoryID"
+    private static let pendingCategoryCacheKey = "recording.pendingCategoryID"
 
     init(modelContext: ModelContext, clock: any LiminalogClock = SystemClock()) {
         self.modelContext = modelContext
@@ -45,8 +46,10 @@ final class ChapterStore {
         else { return }
         if let id {
             defaults.set(id.uuidString, forKey: Self.activeCategoryCacheKey)
+            defaults.set(id.uuidString, forKey: Self.pendingCategoryCacheKey)
         } else {
             defaults.removeObject(forKey: Self.activeCategoryCacheKey)
+            defaults.removeObject(forKey: Self.pendingCategoryCacheKey)
         }
         defaults.synchronize()
     }

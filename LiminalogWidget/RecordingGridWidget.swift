@@ -29,6 +29,7 @@ private enum RecordingWidgetStore {
     static let appGroupID = "group.app.YasudaRyuga.Liminalog"
     static let widgetKind = "RecordingGridWidget"
     static let activeCategoryCacheKey = "recording.activeCategoryID"
+    static let pendingCategoryCacheKey = "recording.pendingCategoryID"
 
     static var cloudSchema: Schema {
         Schema([
@@ -194,8 +195,10 @@ private enum RecordingWidgetStore {
         guard let defaults = UserDefaults(suiteName: appGroupID) else { return }
         if let id {
             defaults.set(id.uuidString, forKey: activeCategoryCacheKey)
+            defaults.set(id.uuidString, forKey: pendingCategoryCacheKey)
         } else {
             defaults.removeObject(forKey: activeCategoryCacheKey)
+            defaults.removeObject(forKey: pendingCategoryCacheKey)
         }
         defaults.synchronize()
     }
@@ -443,7 +446,11 @@ struct RecordingGridWidget: Widget {
 private struct RecordingGridView: View {
     let entry: RecordingGridEntry
     @Environment(\.widgetFamily) private var family
-    @State private var optimisticCategoryID: UUID?
+    @AppStorage(
+        RecordingWidgetStore.pendingCategoryCacheKey,
+        store: UserDefaults(suiteName: RecordingWidgetStore.appGroupID)
+    )
+    private var optimisticCategoryIDString = ""
 
     private var visibleCells: [WidgetCategory?] {
         family == .systemSmall ? Array(entry.cells.prefix(4)) : entry.cells
@@ -465,6 +472,16 @@ private struct RecordingGridView: View {
         family == .systemSmall ? 7 : 10
     }
 
+    private var optimisticCategoryID: UUID? {
+        guard let id = UUID(uuidString: optimisticCategoryIDString),
+              id != entry.activeCategoryID,
+              visibleCells.contains(where: { $0?.id == id })
+        else {
+            return nil
+        }
+        return id
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: contentSpacing) {
             header
@@ -482,7 +499,8 @@ private struct RecordingGridView: View {
                             .toggleStyle(RecordingGridToggleStyle(
                                 category: category,
                                 persistedIsActive: isActive,
-                                optimisticCategoryID: $optimisticCategoryID,
+                                optimisticCategoryID: optimisticCategoryID,
+                                optimisticCategoryIDString: $optimisticCategoryIDString,
                                 isCompact: family == .systemSmall
                             ))
                         } else {
@@ -530,18 +548,22 @@ private struct RecordingGridView: View {
 private struct RecordingGridToggleStyle: ToggleStyle {
     let category: WidgetCategory
     let persistedIsActive: Bool
-    @Binding var optimisticCategoryID: UUID?
+    let optimisticCategoryID: UUID?
+    @Binding var optimisticCategoryIDString: String
     let isCompact: Bool
 
     func makeBody(configuration: Configuration) -> some View {
         Button {
-            optimisticCategoryID = category.id
+            optimisticCategoryIDString = category.id.uuidString
             configuration.isOn.toggle()
         } label: {
             let isOptimistic = optimisticCategoryID == category.id
-            let usesOptimisticSelection = optimisticCategoryID != nil
-            let isActive = usesOptimisticSelection ? isOptimistic : persistedIsActive
-            let isPending = isOptimistic && !persistedIsActive
+            let hasOptimisticSelection = optimisticCategoryID != nil
+            let isTogglePending = configuration.isOn && !persistedIsActive
+            let isActive = hasOptimisticSelection
+                ? isOptimistic
+                : (configuration.isOn || persistedIsActive)
+            let isPending = (isOptimistic && !persistedIsActive) || isTogglePending
 
             RecordingGridCell(
                 category: category,

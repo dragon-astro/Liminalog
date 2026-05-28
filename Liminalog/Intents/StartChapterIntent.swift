@@ -10,6 +10,7 @@ struct StartChapterIntent: AppIntent, LiveActivityIntent {
     static let openAppWhenRun = false
     private static let appGroupID = "group.app.YasudaRyuga.Liminalog"
     private static let activeCategoryCacheKey = "recording.activeCategoryID"
+    private static let pendingCategoryCacheKey = "recording.pendingCategoryID"
 
     @Parameter(title: "カテゴリID")
     var categoryID: String
@@ -71,8 +72,10 @@ struct StartChapterIntent: AppIntent, LiveActivityIntent {
         guard let defaults = UserDefaults(suiteName: appGroupID) else { return }
         if let id {
             defaults.set(id.uuidString, forKey: activeCategoryCacheKey)
+            defaults.set(id.uuidString, forKey: pendingCategoryCacheKey)
         } else {
             defaults.removeObject(forKey: activeCategoryCacheKey)
+            defaults.removeObject(forKey: pendingCategoryCacheKey)
         }
         defaults.synchronize()
     }

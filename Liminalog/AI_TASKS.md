@@ -894,6 +894,7 @@ refactor: split plan store
 | 2026-05-28 | Codex | Widget のカテゴリセルを `Button(intent:)` から `Toggle(isOn:intent:)` + custom `ToggleStyle` へ変更。WidgetKit の楽観的な一時状態を使って、タップしたカテゴリを即時に仮active表示し、保存済みactiveと一時状態が食い違う間は右上に小さな同期中バッジを表示する。SwiftData保存後のtimeline更新で一致すればバッジが消えて本反映、不一致なら保存済みactive表示へ戻る設計 |
 | 2026-05-28 | Codex | Widget仮反映中のチカチカを抑制。楽観表示用Toggleと `invalidatableContent()` の併用で更新待ち中の無効化表示が目立つため、カテゴリグリッドの `invalidatableContent()` を削除。同期中バッジも回転矢印アイコンから静かなオレンジ点に変更し、仮反映は伝えるが警告/点滅の印象を弱めた |
 | 2026-05-28 | Codex | Widget同期待ち中の二重ハイライトを修正。各Toggleセルが独立した仮状態を持つと、変更前カテゴリは保存済みactive、新カテゴリは仮activeとして同時に強調されるため、`RecordingGridView` にグリッド全体の `optimisticCategoryID` を持たせた。仮選択がある間はそのカテゴリだけをactive表示し、保存済みactiveに追いついたら同期点だけ消える方針 |
+| 2026-05-28 | Codex | 上記 `@State optimisticCategoryID` はWidgetKitの即時楽観描画に乗らず、Widget→Widget が再びtimeline更新待ちになったため撤回。`Toggle` の `configuration.isOn` による即時表示を復活させ、仮選択カテゴリは App Group `UserDefaults` の `recording.pendingCategoryID` でグリッド全体に共有する構成へ変更。仮選択中は旧activeを抑制し、保存済み `recording.activeCategoryID` に追いつくと同期点だけ消える |
 
 ---
 
