@@ -55,7 +55,11 @@ struct ProfileView: View {
             DayBoundary.dayStart(for: chapter.startTime)
         }
         .map { day, chapters in
-            ProfileDayDigest(date: day, chapters: chapters.sorted { $0.startTime < $1.startTime })
+            ProfileDayDigest(
+                date: day,
+                chapters: chapters.sorted { $0.startTime < $1.startTime },
+                plans: store.plannedBlocks(on: day).filter { !$0.isAllDay }.sorted { $0.startTime < $1.startTime }
+            )
         }
         .sorted { $0.date > $1.date }
     }
@@ -388,11 +392,25 @@ private struct ProfileDiaryTile: View {
     let digest: ProfileDayDigest
 
     var body: some View {
-        ZStack(alignment: .bottomLeading) {
+        ZStack(alignment: .topLeading) {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .fill(tileGradient)
 
-            VStack(alignment: .leading, spacing: 10) {
+            ZStack {
+                Circle()
+                    .fill(.white.opacity(0.12))
+                    .frame(width: 112, height: 112)
+                    .blur(radius: 24)
+                    .offset(x: 46, y: 28)
+
+                Circle()
+                    .fill((digest.secondaryColor ?? digest.primaryColor).opacity(0.22))
+                    .frame(width: 92, height: 92)
+                    .blur(radius: 20)
+                    .offset(x: -34, y: 94)
+            }
+
+            VStack(alignment: .leading, spacing: 11) {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(ProfileFormat.monthDay(digest.date))
@@ -416,8 +434,9 @@ private struct ProfileDiaryTile: View {
 
                 Spacer(minLength: 0)
 
-                ProfileRhythmStrip(segments: digest.rhythmSegments)
-                    .frame(height: 28)
+                ProfileDayCoverArt(digest: digest)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 104)
 
                 HStack(spacing: 6) {
                     Text(digest.mainCategory?.name ?? "記録")
@@ -431,14 +450,17 @@ private struct ProfileDiaryTile: View {
                 }
                 .foregroundStyle(.white.opacity(0.9))
 
-                Text(digest.summaryText)
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.74))
-                    .lineLimit(1)
+                HStack(spacing: 6) {
+                    Label(ProfileFormat.duration(digest.plannedDuration), systemImage: "calendar")
+                    Label(ProfileFormat.duration(digest.totalDuration), systemImage: "record.circle")
+                }
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.72))
+                .lineLimit(1)
             }
             .padding(12)
         }
-        .frame(height: 178)
+        .frame(height: 218)
         .frame(maxWidth: .infinity, alignment: .leading)
         .overlay {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -448,8 +470,8 @@ private struct ProfileDiaryTile: View {
     }
 
     private var tileGradient: LinearGradient {
-        let base = digest.mainCategory.map { Color(hex: $0.colorHex) } ?? Color.accentColor
-        let secondary = digest.topCategories.dropFirst().first.map { Color(hex: $0.colorHex) } ?? base.opacity(0.58)
+        let base = digest.primaryColor
+        let secondary = digest.secondaryColor ?? base.opacity(0.58)
         return LinearGradient(
             colors: [
                 base.opacity(0.92),
@@ -475,28 +497,93 @@ private struct ProfileDiaryPlaceholder: View {
                 }
                 .foregroundStyle(.tertiary)
             }
-            .frame(height: 178)
+            .frame(height: 218)
     }
 }
 
-private struct ProfileRhythmStrip: View {
-    let segments: [ProfileRhythmSegment]
+private struct ProfileDayCoverArt: View {
+    let digest: ProfileDayDigest
 
     var body: some View {
         GeometryReader { proxy in
-            ZStack(alignment: .leading) {
-                Capsule()
-                    .fill(.white.opacity(0.16))
+            let size = min(proxy.size.width, proxy.size.height)
+            let rect = CGRect(
+                x: (proxy.size.width - size) / 2,
+                y: (proxy.size.height - size) / 2,
+                width: size,
+                height: size
+            )
 
-                ForEach(segments) { segment in
-                    RoundedRectangle(cornerRadius: 3, style: .continuous)
-                        .fill(Color(hex: segment.colorHex).opacity(0.95))
-                        .frame(width: max(2, proxy.size.width * segment.widthRatio))
-                        .offset(x: proxy.size.width * segment.startRatio)
+            ZStack {
+                ForEach(0..<18, id: \.self) { index in
+                    Circle()
+                        .stroke(.white.opacity(index.isMultiple(of: 3) ? 0.08 : 0.035), lineWidth: 1)
+                        .frame(width: size * (0.24 + CGFloat(index) * 0.035))
                 }
+
+                ProfileOrbitBase()
+                    .stroke(.white.opacity(0.16), style: StrokeStyle(lineWidth: 15, lineCap: .round))
+                    .frame(width: rect.width * 0.9, height: rect.height * 0.9)
+
+                ProfileOrbitBase()
+                    .stroke(.white.opacity(0.11), style: StrokeStyle(lineWidth: 15, lineCap: .round))
+                    .frame(width: rect.width * 0.62, height: rect.height * 0.62)
+
+                ForEach(digest.planSegments) { segment in
+                    ProfileDayArc(startRatio: segment.startRatio, widthRatio: segment.widthRatio)
+                        .stroke(
+                            Color(hex: segment.colorHex).opacity(0.8),
+                            style: StrokeStyle(lineWidth: 15, lineCap: .round)
+                        )
+                        .frame(width: rect.width * 0.9, height: rect.height * 0.9)
+                        .shadow(color: Color(hex: segment.colorHex).opacity(0.38), radius: 8)
+                }
+
+                ForEach(digest.actualSegments) { segment in
+                    ProfileDayArc(startRatio: segment.startRatio, widthRatio: segment.widthRatio)
+                        .stroke(
+                            Color(hex: segment.colorHex),
+                            style: StrokeStyle(lineWidth: 15, lineCap: .round)
+                        )
+                        .frame(width: rect.width * 0.62, height: rect.height * 0.62)
+                        .shadow(color: Color(hex: segment.colorHex).opacity(0.48), radius: 10)
+                }
+
+                Circle()
+                    .fill(.black.opacity(0.22))
+                    .frame(width: rect.width * 0.29, height: rect.height * 0.29)
+
+                VStack(spacing: 1) {
+                    Text("\(Int(digest.followRate * 100))%")
+                        .font(.caption.monospacedDigit().weight(.heavy))
+                    Text("SYNC")
+                        .font(.system(size: 7, weight: .bold))
+                }
+                .foregroundStyle(.white.opacity(0.88))
             }
         }
-        .clipShape(Capsule())
+        .accessibilityLabel("予定と実績の24時間アート")
+    }
+}
+
+private struct ProfileOrbitBase: Shape {
+    func path(in rect: CGRect) -> Path {
+        Path(ellipseIn: rect)
+    }
+}
+
+private struct ProfileDayArc: Shape {
+    let startRatio: Double
+    let widthRatio: Double
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let center = CGPoint(x: rect.midX, y: rect.midY)
+        let radius = min(rect.width, rect.height) / 2
+        let start = Angle.degrees(startRatio * 360 - 90)
+        let end = Angle.degrees((startRatio + widthRatio) * 360 - 90)
+        path.addArc(center: center, radius: radius, startAngle: start, endAngle: end, clockwise: false)
+        return path
     }
 }
 
@@ -521,29 +608,12 @@ private struct ProfileDiaryDetailSheet: View {
                     .padding(.vertical, 4)
                 }
 
-                Section("記録") {
-                    ForEach(digest.chapters, id: \.id) { chapter in
-                        HStack(spacing: 12) {
-                            Image(systemName: chapter.category?.icon ?? "circle.fill")
-                                .foregroundStyle(chapter.category.map { Color(hex: $0.colorHex) } ?? .secondary)
-                                .frame(width: 24)
-
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(chapter.category?.name ?? "未分類")
-                                    .font(.subheadline.weight(.semibold))
-                                Text("\(ProfileFormat.time(chapter.startTime)) - \(ProfileFormat.time(chapter.endTime ?? Date()))")
-                                    .font(.caption.monospacedDigit())
-                                    .foregroundStyle(.secondary)
-                            }
-
-                            Spacer()
-
-                            if !chapter.isPublic {
-                                Image(systemName: "lock.fill")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
+                Section("この日の成分") {
+                    LabeledContent("予定", value: ProfileFormat.duration(digest.plannedDuration))
+                    LabeledContent("実績", value: ProfileFormat.duration(digest.totalDuration))
+                    LabeledContent("シンク率", value: "\(Int(digest.followRate * 100))%")
+                    if let mainCategory = digest.mainCategory {
+                        LabeledContent("主役", value: mainCategory.name)
                     }
                 }
             }
@@ -705,6 +775,7 @@ private struct ProfileDraft {
 private struct ProfileDayDigest: Identifiable {
     let date: Date
     let chapters: [Chapter]
+    let plans: [PlanBlock]
 
     var id: Date { date }
 
@@ -712,20 +783,39 @@ private struct ProfileDayDigest: Identifiable {
         chapters.reduce(0) { $0 + max(0, $1.durationLive) }
     }
 
+    var plannedDuration: TimeInterval {
+        clippedDurations(for: plans.map { ($0.startTime, $0.endTime) }).reduce(0, +)
+    }
+
     var mainCategory: Category? {
         categoryDurations.max { lhs, rhs in lhs.duration < rhs.duration }?.category
+            ?? planCategoryDurations.max { lhs, rhs in lhs.duration < rhs.duration }?.category
     }
 
     var topCategories: [Category] {
-        categoryDurations
+        (categoryDurations + planCategoryDurations)
             .sorted { $0.duration > $1.duration }
             .map(\.category)
+    }
+
+    var primaryColor: Color {
+        mainCategory.map { Color(hex: $0.colorHex) } ?? Color.accentColor
+    }
+
+    var secondaryColor: Color? {
+        topCategories.dropFirst().first.map { Color(hex: $0.colorHex) }
     }
 
     var autoTitle: String {
         guard !chapters.isEmpty else { return "記録のない日" }
         let categoryName = mainCategory?.name ?? "記録"
         let hourSpread = activeHourSpread
+        if followRate >= 0.82 {
+            return "予定と響いた日"
+        }
+        if totalDuration >= plannedDuration * 1.25, plannedDuration > 0 {
+            return "予定を越えた日"
+        }
         if totalDuration >= 8 * 3600 {
             return "\(categoryName)に浸った日"
         }
@@ -744,27 +834,33 @@ private struct ProfileDayDigest: Identifiable {
     var summaryText: String {
         let categoryCount = Set(chapters.compactMap { $0.category?.id }).count
         if let mainCategory {
-            return "\(categoryCount)カテゴリ / \(mainCategory.name)中心"
+            return "\(categoryCount)カテゴリ / \(mainCategory.name)中心 / \(Int(followRate * 100))% sync"
         }
         return "\(chapters.count)件の記録"
     }
 
-    var rhythmSegments: [ProfileRhythmSegment] {
-        let boundary = DayBoundary(date: date)
-        let dayDuration = boundary.dayEnd.timeIntervalSince(boundary.dayStart)
-        guard dayDuration > 0 else { return [] }
+    var actualSegments: [ProfileDaySegment] {
+        segments(
+            from: chapters.compactMap { chapter -> (Date, Date, String)? in
+                guard let category = chapter.category else { return nil }
+                return (chapter.startTime, chapter.endTime ?? Date(), category.colorHex)
+            }
+        )
+    }
 
-        return chapters.compactMap { chapter in
-            guard let category = chapter.category else { return nil }
-            let start = max(chapter.startTime, boundary.dayStart)
-            let end = min(chapter.endTime ?? Date(), boundary.dayEnd)
-            guard end > start else { return nil }
-            return ProfileRhythmSegment(
-                startRatio: start.timeIntervalSince(boundary.dayStart) / dayDuration,
-                widthRatio: end.timeIntervalSince(start) / dayDuration,
-                colorHex: category.colorHex
-            )
-        }
+    var planSegments: [ProfileDaySegment] {
+        segments(
+            from: plans.compactMap { plan -> (Date, Date, String)? in
+                guard let category = plan.category else { return nil }
+                return (plan.startTime, plan.endTime, category.colorHex)
+            }
+        )
+    }
+
+    var followRate: Double {
+        guard plannedDuration > 0, totalDuration > 0 else { return 0 }
+        let diff = abs(plannedDuration - totalDuration)
+        return max(0, min(1, 1 - diff / max(plannedDuration, totalDuration)))
     }
 
     private var categoryDurations: [(category: Category, duration: TimeInterval)] {
@@ -773,6 +869,16 @@ private struct ProfileDayDigest: Identifiable {
             guard let category = chapter.category else { continue }
             let current = durations[category.id]?.1 ?? 0
             durations[category.id] = (category, current + max(0, chapter.durationLive))
+        }
+        return Array(durations.values)
+    }
+
+    private var planCategoryDurations: [(category: Category, duration: TimeInterval)] {
+        var durations: [UUID: (Category, TimeInterval)] = [:]
+        for plan in plans {
+            guard let category = plan.category else { continue }
+            let current = durations[category.id]?.1 ?? 0
+            durations[category.id] = (category, current + max(0, plan.duration))
         }
         return Array(durations.values)
     }
@@ -788,9 +894,35 @@ private struct ProfileDayDigest: Identifiable {
         let publicCount = chapters.filter(\.isPublic).count
         return Double(publicCount) / Double(chapters.count)
     }
+
+    private func segments(from source: [(Date, Date, String)]) -> [ProfileDaySegment] {
+        let boundary = DayBoundary(date: date)
+        let dayDuration = boundary.dayEnd.timeIntervalSince(boundary.dayStart)
+        guard dayDuration > 0 else { return [] }
+
+        return source.compactMap { startDate, endDate, colorHex in
+            let start = max(startDate, boundary.dayStart)
+            let end = min(endDate, boundary.dayEnd)
+            guard end > start else { return nil }
+            return ProfileDaySegment(
+                startRatio: start.timeIntervalSince(boundary.dayStart) / dayDuration,
+                widthRatio: max(0.006, end.timeIntervalSince(start) / dayDuration),
+                colorHex: colorHex
+            )
+        }
+    }
+
+    private func clippedDurations(for source: [(Date, Date)]) -> [TimeInterval] {
+        let boundary = DayBoundary(date: date)
+        return source.map { startDate, endDate in
+            let start = max(startDate, boundary.dayStart)
+            let end = min(endDate, boundary.dayEnd)
+            return max(0, end.timeIntervalSince(start))
+        }
+    }
 }
 
-private struct ProfileRhythmSegment: Identifiable {
+private struct ProfileDaySegment: Identifiable {
     let id = UUID()
     let startRatio: Double
     let widthRatio: Double
