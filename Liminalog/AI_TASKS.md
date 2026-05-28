@@ -885,6 +885,7 @@ refactor: split plan store
 | 2026-05-28 | Codex | Dynamic Island の再修正。前回の円形ボタンは収まりが悪かったため、expanded 下段は文字付きカプセル型ボタンへ戻しつつ `LazyVGrid` 4列×2段で現在テーブル8枠を表示する構成へ変更。現在アクティビティのアイコン/継続時間は左右角で見切れやすい leading/trailing から center region にまとめ、compact 表示はさらに小さいアイコン/タイマー幅に調整。`StartChapterIntent` は `LiveActivityIntent` にも適合させ、Dynamic Island 内ボタン押下時に app process 経由で実行されやすい形へ寄せた。Live Activity 更新ログも DEBUG に追加 |
 | 2026-05-28 | Codex | Dynamic Island ボタン更新経路の補強。`Liminalog/Intents/StartChapterIntent.swift` を追加し、Widget extension 側だけでなくアプリ本体側にも同名の `StartChapterIntent: LiveActivityIntent` を認識させる構成にした。Dynamic Island のボタン押下時にアプリを開かず app process でカテゴリ切替・SwiftData保存・Live Activity更新を実行できるようにする狙い。Widget側のIntentはホームWidget用に残す |
 | 2026-05-28 | Codex | Widget / Dynamic Island の反映遅延を短縮。カテゴリ切替Intentでは Live Activity の state 更新を SwiftData save より先に行う楽観更新へ変更し、表示だけ先に切り替わるようにした。Widget extension 側は `ModelContainer` を static cache 化し、毎タップのコンテナ生成コストを削減。Widget 内 AppIntent では `reloadAllTimelines()` を削除し、Intent完了後にWidgetKitが行う即時reloadへ任せる。Dynamic Island 側のアプリIntentでは保存後に `RecordingGridWidget` のみ reload してホームWidgetとの整合を保つ |
+| 2026-05-28 | Codex | Widget と Dynamic Island の即時性/信頼性を再調整。楽観更新は実体保存前の表示先行になり得るため撤回し、`StartChapterIntent` は SwiftData save 成功後に `RecordingGridWidget` の timeline reload と Live Activity update を行う順序へ変更。Widget 側 AppIntent でも `reloadTimelines(ofKind:)` を復活させ、全Widget reloadではなく記録グリッドだけを即時再読込する。表示の正は保存済みChapterに寄せ、保存失敗時にWidget/Islandだけ切り替わる状態を避ける |
 
 ---
 

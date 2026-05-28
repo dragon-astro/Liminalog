@@ -181,10 +181,12 @@ private enum RecordingWidgetStore {
             activeAfterChange = chapter
         }
 
+        try context.save()
+        WidgetCenter.shared.reloadTimelines(ofKind: widgetKind)
+
         if #available(iOSApplicationExtension 16.2, *) {
             await updateLiveActivity(activeChapter: activeAfterChange, context: context)
         }
-        try context.save()
     }
 
     private static func normalizeSlots(_ slots: [UUID?]) -> [UUID?] {

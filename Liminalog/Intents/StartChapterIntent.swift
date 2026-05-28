@@ -50,12 +50,12 @@ struct StartChapterIntent: AppIntent, LiveActivityIntent {
             activeAfterChange = chapter
         }
 
+        try context.save()
+        WidgetCenter.shared.reloadTimelines(ofKind: "RecordingGridWidget")
+
         if #available(iOS 16.2, *) {
             await updateLiveActivity(activeChapter: activeAfterChange, context: context)
         }
-
-        try context.save()
-        WidgetCenter.shared.reloadTimelines(ofKind: "RecordingGridWidget")
 
         #if DEBUG
         print("App LiveActivityIntent switched category: \(categoryID.uuidString)")
