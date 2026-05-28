@@ -18,7 +18,7 @@ ClaudeとCodexが連携してLiminalogを開発するための共有タスク管
 | [../Liminalog/Views/Profile/docs/06-testing.md](../Liminalog/Views/Profile/docs/06-testing.md) | テスト方針 |
 | [../Liminalog/Views/Profile/docs/07-codex-plan-review.md](../Liminalog/Views/Profile/docs/07-codex-plan-review.md) | Codex 計画レビュー（修正指示） |
 | [../Liminalog/Views/Profile/docs/08-timeline-redesign.md](../Liminalog/Views/Profile/docs/08-timeline-redesign.md) | タイムライン UX 再設計（05 上書き） |
-| [../Liminalog/Views/Profile/docs/09-profile-design.md](../Liminalog/Views/Profile/docs/09-profile-design.md) | プロフィール画面 情報設計（SNS準拠・実装裁量重視・05 上書き） |
+| [../Liminalog/Views/Profile/docs/09-profile-design.md](../Liminalog/Views/Profile/docs/09-profile-design.md) | プロフィール画面 情報設計 v2（二面性・装飾アイテム経済・05 上書き） |
 | [../Liminalog/liminalog_spec_v04.md](../Liminalog/liminalog_spec_v04.md) | プロダクト仕様書 |
 | [../Liminalog/CLAUDE_v04.md](../Liminalog/CLAUDE_v04.md) | Claude向けプロジェクト概要 |
 
@@ -408,6 +408,23 @@ refactor: split plan store
 - [x] `SettingsView` 新規作成 + プロフィール右上 ☰ から開く（docs/09 §6 参照）<!-- 担当: Codex, 完了: 2026-05-28 -->
 - [-] 友達ビュー対応（同レイアウト・read-only・公開設定フィルタ・docs/09 §7）<!-- Phase 3 友達機能へ移動: ユーザーモデル/公開フィルタ未実装のため -->
 - [-] 1日の始まり時間 Picker を `SettingsView` に追加 <!-- 撤回: 現行仕様では 0:00-24:00 固定。可変境界は超低優先度の将来検討 -->
+
+### 6.4.1 装飾アイテム経済への移行（docs/09 v2 対応）
+
+> docs/09 が v2 に更新され、コレクションの位置づけが「達成バッジ表示」から「**装着可能な装飾アイテム経済**」に変わった。
+> 既存の Phase 1 最小版バッジ（§6.4 で実装済）は **暫定表示** として残し、Phase 2 で本格的な装着システムに置き換える。
+
+- [ ] 装飾アイテムモデル設計（フレーム/バッジ/炎/アイコンセット/テーマ/バー/カード/月アート の8種類）<!-- 担当: Codex, 理由: モデル + マスターデータ設計、docs/09 §4.1 参照 -->
+- [ ] 装着状態の永続化（`UserSettings` または専用モデルで「装着中アイテムID」を保持）<!-- 担当: Codex -->
+- [ ] 解放条件判定ロジック（累計時間/ストリーク/パターン達成）<!-- 担当: Codex, 理由: docs/09 §4.2 のルール表とロジック -->
+- [ ] コレクションハブ UI（種類別タブ、解放済/未解放、装着切替）<!-- 担当: Claude, 理由: SwiftUI レイアウト勝負 -->
+- [ ] 「次に狙う解放」セクション（達成までの近さでソート）<!-- 担当: Claude -->
+- [ ] プロフィール画像フレームの装着レンダリング<!-- 担当: Claude -->
+- [ ] 名前バッジの装着レンダリング<!-- 担当: Claude -->
+- [ ] ストリーク炎バリエーションの装着レンダリング<!-- 担当: Claude -->
+- [ ] テーマカラー解放と装着（標準8色は既存、拡張色を解放対象に）<!-- 担当: Claude -->
+- [ ] 装着アイテムの両ビュー（自分/友達）反映<!-- 担当: Claude, 依存: Phase 3 友達機能 -->
+- [ ] 既存の Phase 1 バッジ表示を装飾アイテム経済データソースに差し替え<!-- 担当: Codex -->
 
 ---
 
@@ -903,6 +920,11 @@ refactor: split plan store
 | 2026-05-28 | Codex | 今日タブの CategorySet 横切替が重い問題を軽量化。テーブル切替は記録データ変更ではないため `setEnabledCategorySetID` で `ChapterStore.revision` を更新しないようにし、Home/Timeline 全体の再描画を避ける。Widget / Dynamic Island 連携が切れないよう、SwiftData保存・Widget reload・Live Activity更新は選択変更時に即時実行する |
 | 2026-05-28 | Codex | 日記カードの役割を「カレンダーの再掲」から「SNSに投稿しても映える1日の表紙」へ変更。Profile の日記グリッドを2列のビジュアルカードにし、自動タイトル、代表カテゴリ、24時間リズム模様、合計記録時間、短い要約を表示する。詳細シート先頭にも同じ表紙カードを出し、記録一覧は補足情報として下に置く構成にした |
 | 2026-05-28 | Codex | 日記カード機能の目的を再検討し、MVPではプロフィールに常設グリッドを置かない方針へ変更。カレンダー/Todayと競合する一覧表示では価値が薄く、重いビジュアルがアプリ全体の体感速度を落とすため、`ProfileView` から日記カード一覧・詳細シート・日別Digest生成・リズム描画を撤去。生成画像アセットも削除。将来的な日記カードは「閲覧画面」ではなく、1日を振り返ってSNS/友達へ共有するための画像生成・共有成果物として再設計する |
+| 2026-05-28 | User/Claude | 役割分担を明確化。今後 Claude = コードレビュー + 設計、Codex = 実装担当。バグ修正の軽重で振り分け。あれからの Codex 進捗をレビュー要求 |
+| 2026-05-28 | Claude | Codex 直近実装のレビュー: Phase 0 アーキ移行 (Split Stores / SharedModelContainer / SeedCoordinator / Test target) + Phase 1 Widget + Profile Phase 1 のビルド成功確認。主な指摘: ①AppStores と ChapterStore でサブストアを二重インスタンス化している（DI 化推奨）②ChapterStore.startChapter と StartChapterIntent.perform でロジック重複（同値テスト要）③`revision` カウンター残存 → Phase 0 完了条件か Phase 1 暫定併用かを明文化要 ④hasChapterOverlap が広めに fetch するパフォーマンス懸念 ⑤ProfileView の集計を ScoreStore API に寄せたい。MERGE推奨だがこれらは次の Codex タスクに追加が望ましい |
+| 2026-05-28 | User | プロフィールの設計意図を再整理。①プロフィール画面は「他人に見せる場」と「自分のアプリ機能を総覧する場」の二面性を持つ ②コレクションは他人に見せず、自分の活動総括 + モチベ装置として配置 ③解放要素は全部見せるショーケースではなく、バッジ/アイコンフレームのような部分的な着せ替え要素として実装する ④「解放した」だけでは動機にならず、「装着したい」「欲しい」と思える具体的なアイテムを作る方針 |
+| 2026-05-28 | Claude | docs/09-profile-design.md を v2 に全面改訂。プロフィールの二面性（自分ビュー/友達ビュー）と装飾アイテム経済を中核に再設計。装飾アイテム種類（フレーム/バッジ/炎/アイコンセット/テーマ/バー/カード/月アート）を §4.1 に列挙。「解放しただけ」の設計を明示的に禁止し、「装着して見た目が変わる」「ユーザーが能動的に欲しいと思える」原則を §1.2 / §10 に明記。コレクション全体は自分ビュー専用、装着アイテムは両ビューに反映の差分テーブルを §7 に追加。README.md と AI_TASKS の docs 一覧・§6.4.1 に装飾アイテム経済への移行タスク（11件）を追加 |
+| 2026-05-28 | Codex | Claudeレビュー指摘のうち高リスクな2点を修正。`AppStores` が生成した `CategoryStore` / `CategorySetStore` / `PlanStore` / `ScoreStore` / `LiveActivityCoordinator` を `ChapterStore` に注入し、同一 `ModelContext` 内でサブストアを二重生成しない構成に変更。さらに記録開始/カテゴリ切替のアルゴリズムを `RecordingSwitchLogic.switchToCategory` に切り出し、アプリ内 `ChapterStore.startChapter` と Live Activity/AppIntent の `StartChapterIntent.perform`、Widget側の `RecordingWidgetStore.startChapter` で同じ挙動に寄せた。Widget target は app target の `Chapter.swift` を参照していないため、現段階では `WidgetSharedModels.swift` に同名ヘルパーを置く暫定対応。将来は shared package 化で完全な単一ソースにするのが望ましい。`revision` は SwiftUI再描画ブリッジとして残存、Phase 1 以降で Observation/Store購読整理時に撤去判断。検証: `xcodebuild -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build-for-testing` 成功。`test-without-building` は出力なしで停止したため中断 |
 
 ---
 

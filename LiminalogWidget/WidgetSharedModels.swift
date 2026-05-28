@@ -79,6 +79,50 @@ final class Chapter {
     }
 }
 
+struct RecordingSwitchResult {
+    let activeChapter: Chapter?
+    let didCreateChapter: Bool
+    let closedChapterCount: Int
+}
+
+enum RecordingSwitchLogic {
+    @discardableResult
+    static func switchToCategory(
+        _ category: Category,
+        at now: Date,
+        activeChapters: [Chapter],
+        insert: (Chapter) -> Void
+    ) -> RecordingSwitchResult {
+        let sameCategoryActive = activeChapters.first { $0.category?.id == category.id }
+        var activeAfterChange = sameCategoryActive
+        var closedChapterCount = 0
+
+        for chapter in activeChapters where chapter.id != sameCategoryActive?.id {
+            chapter.endTime = now
+            chapter.updatedAt = now
+            closedChapterCount += 1
+        }
+
+        guard sameCategoryActive == nil else {
+            return RecordingSwitchResult(
+                activeChapter: activeAfterChange,
+                didCreateChapter: false,
+                closedChapterCount: closedChapterCount
+            )
+        }
+
+        let chapter = Chapter(category: category, startTime: now)
+        insert(chapter)
+        activeAfterChange = chapter
+
+        return RecordingSwitchResult(
+            activeChapter: activeAfterChange,
+            didCreateChapter: true,
+            closedChapterCount: closedChapterCount
+        )
+    }
+}
+
 @Model
 final class PlanBlock {
     var id: UUID = UUID()

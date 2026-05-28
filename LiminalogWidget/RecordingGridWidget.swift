@@ -168,20 +168,16 @@ private enum RecordingWidgetStore {
 
         let now = Date()
         let activeChapters = try fetchActiveChapters(context: context, order: .forward)
-        let sameCategoryActive = activeChapters.first { $0.category?.id == categoryID }
-
-        for chapter in activeChapters where chapter.id != sameCategoryActive?.id {
-            chapter.endTime = now
-            chapter.updatedAt = now
-        }
-
-        if sameCategoryActive == nil {
-            let chapter = Chapter(category: category, startTime: now)
+        let result = RecordingSwitchLogic.switchToCategory(
+            category,
+            at: now,
+            activeChapters: activeChapters
+        ) { chapter in
             context.insert(chapter)
         }
 
         try context.save()
-        cacheActiveCategoryID(categoryID)
+        cacheActiveCategoryID(result.activeChapter?.category?.id)
         WidgetCenter.shared.reloadTimelines(ofKind: widgetKind)
 
         if #available(iOSApplicationExtension 16.2, *) {

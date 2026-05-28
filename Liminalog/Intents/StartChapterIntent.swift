@@ -35,30 +35,24 @@ struct StartChapterIntent: AppIntent, LiveActivityIntent {
             throw StartChapterIntentError.categoryNotFound
         }
 
-        let now = Date()
-        let activeChapters = try context.fetch(FetchDescriptor<Chapter>())
-            .filter { $0.endTime == nil }
-            .sorted { $0.startTime < $1.startTime }
-        let sameCategoryActive = activeChapters.first { $0.category?.id == categoryID }
-        var activeAfterChange = sameCategoryActive
-
-        for chapter in activeChapters where chapter.id != sameCategoryActive?.id {
-            chapter.endTime = now
-            chapter.updatedAt = now
-        }
-
-        if sameCategoryActive == nil {
-            let chapter = Chapter(category: category, startTime: now)
+        let activeChapters = try context.fetch(FetchDescriptor<Chapter>(
+            predicate: #Predicate { $0.endTime == nil },
+            sortBy: [SortDescriptor(\.startTime)]
+        ))
+        let result = RecordingSwitchLogic.switchToCategory(
+            category,
+            at: Date(),
+            activeChapters: activeChapters
+        ) { chapter in
             context.insert(chapter)
-            activeAfterChange = chapter
         }
 
         try context.save()
-        Self.cacheActiveCategoryID(activeAfterChange?.category?.id)
+        Self.cacheActiveCategoryID(result.activeChapter?.category?.id)
         WidgetCenter.shared.reloadTimelines(ofKind: "RecordingGridWidget")
 
         if #available(iOS 16.2, *) {
-            await updateLiveActivity(activeChapter: activeAfterChange, context: context)
+            await updateLiveActivity(activeChapter: result.activeChapter, context: context)
         }
 
         #if DEBUG

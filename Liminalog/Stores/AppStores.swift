@@ -16,13 +16,24 @@ final class AppStores {
         self.modelContext = modelContext
         let categoryStore = CategoryStore(modelContext: modelContext)
         let categorySetStore = CategorySetStore(modelContext: modelContext, categoryStore: categoryStore)
+        let planStore = PlanStore(modelContext: modelContext, clock: clock)
+        let scoreStore = ScoreStore(modelContext: modelContext, clock: clock)
+        let liveActivityCoordinator = LiveActivityCoordinator(categorySetStore: categorySetStore)
 
         self.categoryStore = categoryStore
         self.categorySetStore = categorySetStore
-        self.planStore = PlanStore(modelContext: modelContext, clock: clock)
-        self.scoreStore = ScoreStore(modelContext: modelContext, clock: clock)
-        self.liveActivityCoordinator = LiveActivityCoordinator(categorySetStore: categorySetStore)
-        self.chapterStore = ChapterStore(modelContext: modelContext, clock: clock)
+        self.planStore = planStore
+        self.scoreStore = scoreStore
+        self.liveActivityCoordinator = liveActivityCoordinator
+        self.chapterStore = ChapterStore(
+            modelContext: modelContext,
+            clock: clock,
+            categoryStore: categoryStore,
+            categorySetStore: categorySetStore,
+            planStore: planStore,
+            scoreStore: scoreStore,
+            liveActivityCoordinator: liveActivityCoordinator
+        )
     }
 
     @discardableResult

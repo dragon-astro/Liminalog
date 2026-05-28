@@ -17,15 +17,29 @@ final class ChapterStore {
     private static let activeCategoryCacheKey = "recording.activeCategoryID"
     private static let pendingCategoryCacheKey = "recording.pendingCategoryID"
 
-    init(modelContext: ModelContext, clock: any LiminalogClock = SystemClock()) {
+    init(
+        modelContext: ModelContext,
+        clock: any LiminalogClock = SystemClock(),
+        categoryStore: CategoryStore? = nil,
+        categorySetStore: CategorySetStore? = nil,
+        planStore: PlanStore? = nil,
+        scoreStore: ScoreStore? = nil,
+        liveActivityCoordinator: LiveActivityCoordinator? = nil
+    ) {
         self.modelContext = modelContext
         self.clock = clock
-        let categoryStore = CategoryStore(modelContext: modelContext)
-        self.categoryStore = categoryStore
-        self.categorySetStore = CategorySetStore(modelContext: modelContext, categoryStore: categoryStore)
-        self.planStore = PlanStore(modelContext: modelContext, clock: clock)
-        self.scoreStore = ScoreStore(modelContext: modelContext, clock: clock)
-        self.liveActivityCoordinator = LiveActivityCoordinator(categorySetStore: categorySetStore)
+        let resolvedCategoryStore = categoryStore ?? CategoryStore(modelContext: modelContext)
+        let resolvedCategorySetStore = categorySetStore ?? CategorySetStore(
+            modelContext: modelContext,
+            categoryStore: resolvedCategoryStore
+        )
+        self.categoryStore = resolvedCategoryStore
+        self.categorySetStore = resolvedCategorySetStore
+        self.planStore = planStore ?? PlanStore(modelContext: modelContext, clock: clock)
+        self.scoreStore = scoreStore ?? ScoreStore(modelContext: modelContext, clock: clock)
+        self.liveActivityCoordinator = liveActivityCoordinator ?? LiveActivityCoordinator(
+            categorySetStore: resolvedCategorySetStore
+        )
     }
 
     private func markChanged(reloadWidgets: Bool = true) {
@@ -147,33 +161,16 @@ final class ChapterStore {
     /// - **別カテゴリへ切替:** active を `endTime = now` で終了して新規開始（カテゴリ切替では削除しない）。
     func startChapter(category: Category, categorySet: CategorySet? = nil) {
         let now = clock.now
-        let actives = activeChapters()
-
-        // 1. 同カテゴリの active があれば維持しつつ、並行して残った他 active だけ閉じる。
-        if let keptActive = actives.first(where: { $0.category?.id == category.id }) {
-            for active in actives where active.id != keptActive.id {
-                active.endTime = now
-                active.updatedAt = now
-            }
-            // 既に同カテゴリを記録中 → 何も新しく作らずに継続
-            if saveModelContext() {
-                cacheActiveCategoryID(category.id)
-            }
-            markChanged()
-            updateLiveActivity(categorySet: categorySet)
-            return
+        let result = RecordingSwitchLogic.switchToCategory(
+            category,
+            at: now,
+            activeChapters: activeChapters()
+        ) { chapter in
+            modelContext.insert(chapter)
         }
 
-        // 2. 通常のカテゴリ切替。ここでは 1分未満でも削除せず、必ず終了記録を残す。
-        for active in actives {
-            active.endTime = now
-            active.updatedAt = now
-        }
-
-        let chapter = Chapter(category: category, startTime: now)
-        modelContext.insert(chapter)
         if saveModelContext() {
-            cacheActiveCategoryID(category.id)
+            cacheActiveCategoryID(result.activeChapter?.category?.id)
         }
         markChanged()
         updateLiveActivity(categorySet: categorySet)
