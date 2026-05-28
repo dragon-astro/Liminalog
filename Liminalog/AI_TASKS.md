@@ -892,6 +892,7 @@ refactor: split plan store
 | 2026-05-28 | Codex | Widget→Widget の反映だけ約3秒遅い原因候補を切り分け。Dynamic Island はアプリ本体側Intent/ActivityKit更新で即時pushされる一方、ホームWidgetはWidget extension内Intentが App Group `UserDefaults` に書いた値を別WidgetKit描画プロセスが再読込するため、defaultsの非同期flush待ちが発生し得る。保存成功後キャッシュ更新時に `defaults.synchronize()` を追加し、timeline reload前に軽量active cacheを共有コンテナへ明示反映させる |
 | 2026-05-28 | Codex | Widget→Widget の3秒待ちはflush後も残るため、原因をWidgetKit Buttonのtimeline更新待ちと判断。Dynamic IslandはActivityKitのlive state更新、ホームWidgetはsnapshot/timeline再提示なので原理的に更新経路が違う。`RecordingGridWidget` のカテゴリグリッドへ `invalidatableContent()` を追加し、タップ後から新timeline提示まで古いactive表示をそのまま信じさせず、更新待ちコンテンツとして扱わせる |
 | 2026-05-28 | Codex | Widget のカテゴリセルを `Button(intent:)` から `Toggle(isOn:intent:)` + custom `ToggleStyle` へ変更。WidgetKit の楽観的な一時状態を使って、タップしたカテゴリを即時に仮active表示し、保存済みactiveと一時状態が食い違う間は右上に小さな同期中バッジを表示する。SwiftData保存後のtimeline更新で一致すればバッジが消えて本反映、不一致なら保存済みactive表示へ戻る設計 |
+| 2026-05-28 | Codex | Widget仮反映中のチカチカを抑制。楽観表示用Toggleと `invalidatableContent()` の併用で更新待ち中の無効化表示が目立つため、カテゴリグリッドの `invalidatableContent()` を削除。同期中バッジも回転矢印アイコンから静かなオレンジ点に変更し、仮反映は伝えるが警告/点滅の印象を弱めた |
 
 ---
 

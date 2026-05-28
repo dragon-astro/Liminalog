@@ -488,7 +488,6 @@ private struct RecordingGridView: View {
                         }
                     }
                 }
-                .invalidatableContent()
             }
         }
         .padding(contentPadding)
@@ -604,16 +603,13 @@ private struct PendingSyncBadge: View {
     let isCompact: Bool
 
     var body: some View {
-        ZStack {
-            Circle()
-                .fill(.background.opacity(0.92))
-            Circle()
-                .stroke(Color.orange.opacity(0.7), lineWidth: 1.2)
-            Image(systemName: "arrow.triangle.2.circlepath")
-                .font(.system(size: isCompact ? 6 : 7, weight: .bold))
-                .foregroundStyle(.orange)
-        }
-        .frame(width: isCompact ? 13 : 15, height: isCompact ? 13 : 15)
+        Circle()
+            .fill(Color.orange.opacity(0.85))
+            .frame(width: isCompact ? 7 : 8, height: isCompact ? 7 : 8)
+            .overlay {
+                Circle()
+                    .stroke(.background.opacity(0.9), lineWidth: 1.4)
+            }
         .accessibilityLabel("同期中")
     }
 }
