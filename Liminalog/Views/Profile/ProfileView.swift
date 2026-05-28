@@ -356,11 +356,17 @@ private struct ProfileDiarySection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            ProfileSectionHeader(title: "日記カード")
+            HStack(alignment: .firstTextBaseline) {
+                ProfileSectionHeader(title: "日記カード")
+                Spacer()
+                Text("1日の表紙")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
 
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 7), count: 3), spacing: 7) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 9), count: 2), spacing: 9) {
                 if digests.isEmpty {
-                    ForEach(0..<6, id: \.self) { _ in
+                    ForEach(0..<4, id: \.self) { _ in
                         ProfileDiaryPlaceholder()
                     }
                 } else {
@@ -381,51 +387,78 @@ private struct ProfileDiarySection: View {
 private struct ProfileDiaryTile: View {
     let digest: ProfileDayDigest
 
-    private var colors: [Color] {
-        let categoryColors = digest.topCategories.map { Color(hex: $0.colorHex) }
-        return categoryColors.isEmpty ? [Color.accentColor, Color(.systemGray3)] : categoryColors
-    }
-
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 3) {
-                ForEach(Array(colors.prefix(4).enumerated()), id: \.offset) { _, color in
-                    RoundedRectangle(cornerRadius: 2, style: .continuous)
-                        .fill(color)
-                        .frame(height: 5)
+        ZStack(alignment: .bottomLeading) {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(tileGradient)
+
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(ProfileFormat.monthDay(digest.date))
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(.white.opacity(0.82))
+                        Text(digest.autoTitle)
+                            .font(.headline.weight(.heavy))
+                            .foregroundStyle(.white)
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.72)
+                    }
+
+                    Spacer(minLength: 6)
+
+                    Image(systemName: digest.mainCategory?.icon ?? "sparkles")
+                        .font(.title3.weight(.bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 34, height: 34)
+                        .background(.white.opacity(0.16), in: Circle())
                 }
-            }
 
-            Spacer(minLength: 0)
+                Spacer(minLength: 0)
 
-            Text(ProfileFormat.monthDay(digest.date))
-                .font(.caption.weight(.bold))
-                .foregroundStyle(.primary)
+                ProfileRhythmStrip(segments: digest.rhythmSegments)
+                    .frame(height: 28)
 
-            HStack(spacing: 4) {
-                Image(systemName: digest.mainCategory?.icon ?? "circle.fill")
+                HStack(spacing: 6) {
+                    Text(digest.mainCategory?.name ?? "記録")
+                        .font(.caption.weight(.bold))
+                        .lineLimit(1)
+
+                    Spacer(minLength: 6)
+
+                    Text(ProfileFormat.duration(digest.totalDuration))
+                        .font(.caption.monospacedDigit().weight(.semibold))
+                }
+                .foregroundStyle(.white.opacity(0.9))
+
+                Text(digest.summaryText)
                     .font(.caption2.weight(.semibold))
-                    .foregroundStyle(digest.mainCategory.map { Color(hex: $0.colorHex) } ?? .secondary)
-                Text(digest.mainCategory?.name ?? "記録")
-                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.74))
                     .lineLimit(1)
             }
-
-            Text(ProfileFormat.duration(digest.totalDuration))
-                .font(.caption2.monospacedDigit())
-                .foregroundStyle(.secondary)
+            .padding(12)
         }
-        .padding(9)
-        .frame(height: 116)
+        .frame(height: 178)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
-        )
         .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(Color(.separator).opacity(0.22), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(.white.opacity(0.16), lineWidth: 1)
         }
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    private var tileGradient: LinearGradient {
+        let base = digest.mainCategory.map { Color(hex: $0.colorHex) } ?? Color.accentColor
+        let secondary = digest.topCategories.dropFirst().first.map { Color(hex: $0.colorHex) } ?? base.opacity(0.58)
+        return LinearGradient(
+            colors: [
+                base.opacity(0.92),
+                secondary.opacity(0.68),
+                Color.black.opacity(0.84)
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
     }
 }
 
@@ -434,11 +467,36 @@ private struct ProfileDiaryPlaceholder: View {
         RoundedRectangle(cornerRadius: 8, style: .continuous)
             .fill(Color(.secondarySystemGroupedBackground))
             .overlay {
-                Image(systemName: "plus")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.tertiary)
+                VStack(spacing: 8) {
+                    Image(systemName: "sparkles")
+                        .font(.title3.weight(.semibold))
+                    Text("記録すると表紙ができます")
+                        .font(.caption2.weight(.semibold))
+                }
+                .foregroundStyle(.tertiary)
             }
-            .frame(height: 116)
+            .frame(height: 178)
+    }
+}
+
+private struct ProfileRhythmStrip: View {
+    let segments: [ProfileRhythmSegment]
+
+    var body: some View {
+        GeometryReader { proxy in
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(.white.opacity(0.16))
+
+                ForEach(segments) { segment in
+                    RoundedRectangle(cornerRadius: 3, style: .continuous)
+                        .fill(Color(hex: segment.colorHex).opacity(0.95))
+                        .frame(width: max(2, proxy.size.width * segment.widthRatio))
+                        .offset(x: proxy.size.width * segment.startRatio)
+                }
+            }
+        }
+        .clipShape(Capsule())
     }
 }
 
@@ -450,11 +508,14 @@ private struct ProfileDiaryDetailSheet: View {
         NavigationStack {
             List {
                 Section {
-                    VStack(alignment: .leading, spacing: 10) {
+                    VStack(alignment: .leading, spacing: 14) {
+                        ProfileDiaryTile(digest: digest)
+                            .listRowInsets(EdgeInsets())
+
                         Text(ProfileFormat.fullDate(digest.date))
                             .font(.title3.weight(.bold))
-                        Text(ProfileFormat.duration(digest.totalDuration))
-                            .font(.headline.monospacedDigit())
+                        Text(digest.summaryText)
+                            .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
                     .padding(.vertical, 4)
@@ -661,6 +722,51 @@ private struct ProfileDayDigest: Identifiable {
             .map(\.category)
     }
 
+    var autoTitle: String {
+        guard !chapters.isEmpty else { return "記録のない日" }
+        let categoryName = mainCategory?.name ?? "記録"
+        let hourSpread = activeHourSpread
+        if totalDuration >= 8 * 3600 {
+            return "\(categoryName)に浸った日"
+        }
+        if publicRatio < 0.4 {
+            return "静かに過ごした日"
+        }
+        if hourSpread >= 10 {
+            return "長く動いた日"
+        }
+        if chapters.count >= 6 {
+            return "切り替え上手な日"
+        }
+        return "\(categoryName)が主役の日"
+    }
+
+    var summaryText: String {
+        let categoryCount = Set(chapters.compactMap { $0.category?.id }).count
+        if let mainCategory {
+            return "\(categoryCount)カテゴリ / \(mainCategory.name)中心"
+        }
+        return "\(chapters.count)件の記録"
+    }
+
+    var rhythmSegments: [ProfileRhythmSegment] {
+        let boundary = DayBoundary(date: date)
+        let dayDuration = boundary.dayEnd.timeIntervalSince(boundary.dayStart)
+        guard dayDuration > 0 else { return [] }
+
+        return chapters.compactMap { chapter in
+            guard let category = chapter.category else { return nil }
+            let start = max(chapter.startTime, boundary.dayStart)
+            let end = min(chapter.endTime ?? Date(), boundary.dayEnd)
+            guard end > start else { return nil }
+            return ProfileRhythmSegment(
+                startRatio: start.timeIntervalSince(boundary.dayStart) / dayDuration,
+                widthRatio: end.timeIntervalSince(start) / dayDuration,
+                colorHex: category.colorHex
+            )
+        }
+    }
+
     private var categoryDurations: [(category: Category, duration: TimeInterval)] {
         var durations: [UUID: (Category, TimeInterval)] = [:]
         for chapter in chapters {
@@ -670,6 +776,25 @@ private struct ProfileDayDigest: Identifiable {
         }
         return Array(durations.values)
     }
+
+    private var activeHourSpread: Int {
+        let hours = chapters.map { Calendar.current.component(.hour, from: $0.startTime) }
+        guard let min = hours.min(), let max = hours.max() else { return 0 }
+        return max - min
+    }
+
+    private var publicRatio: Double {
+        guard !chapters.isEmpty else { return 0 }
+        let publicCount = chapters.filter(\.isPublic).count
+        return Double(publicCount) / Double(chapters.count)
+    }
+}
+
+private struct ProfileRhythmSegment: Identifiable {
+    let id = UUID()
+    let startRatio: Double
+    let widthRatio: Double
+    let colorHex: String
 }
 
 private struct ProfileBadgeModel: Identifiable {

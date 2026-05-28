@@ -901,6 +901,7 @@ refactor: split plan store
 | 2026-05-28 | Codex | Profile Phase 1 をリリース候補レベルへ更新。`UserSettings` に `profileDisplayName` / `profileBio` / `profileImageData` / `profileAccentColorHex` を追加し、プロフィール編集シートで名前・bio・写真・アクセントカラーを保存可能にした。プロフィール本体は設定項目を出さず、自己紹介ヘッダー・主要スタッツ・実データ由来バッジ・Chapter由来の日記カードグリッドに整理。日記カードはタップで当日の記録一覧を表示し、友達ビューへ転用しやすいカード/ヘッダー構成へ寄せた |
 | 2026-05-28 | Codex | Profile右上の設定表示を sheet から `navigationDestination` に変更。設定画面は下からのモーダルではなく、プロフィール内の通常ページとして右からpush遷移する。これに伴い `SettingsView` の「閉じる」ボタンを削除し、標準の戻る導線に統一 |
 | 2026-05-28 | Codex | 今日タブの CategorySet 横切替が重い問題を軽量化。テーブル切替は記録データ変更ではないため `setEnabledCategorySetID` で `ChapterStore.revision` を更新しないようにし、Home/Timeline 全体の再描画を避ける。Widget / Dynamic Island 連携が切れないよう、SwiftData保存・Widget reload・Live Activity更新は選択変更時に即時実行する |
+| 2026-05-28 | Codex | 日記カードの役割を「カレンダーの再掲」から「SNSに投稿しても映える1日の表紙」へ変更。Profile の日記グリッドを2列のビジュアルカードにし、自動タイトル、代表カテゴリ、24時間リズム模様、合計記録時間、短い要約を表示する。詳細シート先頭にも同じ表紙カードを出し、記録一覧は補足情報として下に置く構成にした |
 
 ---
 
