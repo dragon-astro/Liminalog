@@ -474,14 +474,15 @@ private struct RecordingGridView: View {
                 LazyVGrid(columns: columns, spacing: gridSpacing) {
                     ForEach(Array(visibleCells.enumerated()), id: \.offset) { _, category in
                         if let category {
-                            Button(intent: StartChapterIntent(categoryID: category.id.uuidString)) {
-                                RecordingGridCell(
-                                    category: category,
-                                    isActive: category.id == entry.activeCategoryID,
-                                    isCompact: family == .systemSmall
-                                )
+                            let isActive = category.id == entry.activeCategoryID
+                            Toggle(isOn: isActive, intent: StartChapterIntent(categoryID: category.id.uuidString)) {
+                                Text(category.name)
                             }
-                            .buttonStyle(.plain)
+                            .toggleStyle(RecordingGridToggleStyle(
+                                category: category,
+                                persistedIsActive: isActive,
+                                isCompact: family == .systemSmall
+                            ))
                         } else {
                             RecordingGridEmptyCell(isCompact: family == .systemSmall)
                         }
@@ -525,9 +526,31 @@ private struct RecordingGridView: View {
     }
 }
 
+private struct RecordingGridToggleStyle: ToggleStyle {
+    let category: WidgetCategory
+    let persistedIsActive: Bool
+    let isCompact: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        Button {
+            configuration.isOn.toggle()
+        } label: {
+            RecordingGridCell(
+                category: category,
+                isActive: configuration.isOn || persistedIsActive,
+                isPending: configuration.isOn != persistedIsActive,
+                isCompact: isCompact
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text(category.name))
+    }
+}
+
 private struct RecordingGridCell: View {
     let category: WidgetCategory
     let isActive: Bool
+    let isPending: Bool
     let isCompact: Bool
 
     private var iconSize: CGFloat {
@@ -568,6 +591,30 @@ private struct RecordingGridCell: View {
             RoundedRectangle(cornerRadius: 10)
                 .fill(isActive ? Color(liminalogHex: category.colorHex).opacity(0.12) : Color.secondary.opacity(0.08))
         )
+        .overlay(alignment: .topTrailing) {
+            if isPending {
+                PendingSyncBadge(isCompact: isCompact)
+                    .padding(isCompact ? 4 : 5)
+            }
+        }
+    }
+}
+
+private struct PendingSyncBadge: View {
+    let isCompact: Bool
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(.background.opacity(0.92))
+            Circle()
+                .stroke(Color.orange.opacity(0.7), lineWidth: 1.2)
+            Image(systemName: "arrow.triangle.2.circlepath")
+                .font(.system(size: isCompact ? 6 : 7, weight: .bold))
+                .foregroundStyle(.orange)
+        }
+        .frame(width: isCompact ? 13 : 15, height: isCompact ? 13 : 15)
+        .accessibilityLabel("同期中")
     }
 }
 
