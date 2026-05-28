@@ -393,197 +393,208 @@ private struct ProfileDiaryTile: View {
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(tileGradient)
+            Image(digest.coverAssetName)
+                .resizable()
+                .scaledToFill()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            ZStack {
-                Circle()
-                    .fill(.white.opacity(0.12))
-                    .frame(width: 112, height: 112)
-                    .blur(radius: 24)
-                    .offset(x: 46, y: 28)
+            LinearGradient(
+                colors: [
+                    .black.opacity(0.2),
+                    .black.opacity(0.08),
+                    .black.opacity(0.72)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
 
-                Circle()
-                    .fill((digest.secondaryColor ?? digest.primaryColor).opacity(0.22))
-                    .frame(width: 92, height: 92)
-                    .blur(radius: 20)
-                    .offset(x: -34, y: 94)
-            }
+            RadialGradient(
+                colors: [
+                    digest.primaryColor.opacity(0.36),
+                    .clear
+                ],
+                center: .bottomTrailing,
+                startRadius: 8,
+                endRadius: 160
+            )
+            .blendMode(.screen)
 
-            VStack(alignment: .leading, spacing: 11) {
+            VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .top) {
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("24H MIX")
+                            .font(.system(size: 8, weight: .black))
+                            .foregroundStyle(.white.opacity(0.72))
+                            .tracking(1.2)
                         Text(ProfileFormat.monthDay(digest.date))
-                            .font(.caption.weight(.bold))
-                            .foregroundStyle(.white.opacity(0.82))
-                        Text(digest.autoTitle)
-                            .font(.headline.weight(.heavy))
+                            .font(.system(size: 22, weight: .black, design: .rounded))
                             .foregroundStyle(.white)
-                            .lineLimit(2)
-                            .minimumScaleFactor(0.72)
+                            .monospacedDigit()
                     }
 
                     Spacer(minLength: 6)
 
-                    Image(systemName: digest.mainCategory?.icon ?? "sparkles")
-                        .font(.title3.weight(.bold))
-                        .foregroundStyle(.white)
-                        .frame(width: 34, height: 34)
-                        .background(.white.opacity(0.16), in: Circle())
+                    ProfileDiarySyncBadge(rate: digest.followRate)
                 }
 
                 Spacer(minLength: 0)
 
-                ProfileDayCoverArt(digest: digest)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 104)
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 8) {
+                        Image(systemName: digest.mainCategory?.icon ?? "sparkles")
+                            .font(.caption.weight(.black))
+                            .foregroundStyle(.black.opacity(0.88))
+                            .frame(width: 24, height: 24)
+                            .background(.white.opacity(0.86), in: Circle())
 
-                HStack(spacing: 6) {
-                    Text(digest.mainCategory?.name ?? "記録")
-                        .font(.caption.weight(.bold))
-                        .lineLimit(1)
+                        Text(digest.autoTitle)
+                            .font(.system(size: 16, weight: .black, design: .rounded))
+                            .foregroundStyle(.white)
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.68)
+                    }
 
-                    Spacer(minLength: 6)
+                    ProfileDayJacketRibbon(
+                        planSegments: digest.planSegments,
+                        actualSegments: digest.actualSegments
+                    )
+                    .frame(height: 42)
 
-                    Text(ProfileFormat.duration(digest.totalDuration))
-                        .font(.caption.monospacedDigit().weight(.semibold))
+                    HStack(spacing: 6) {
+                        Text(digest.mainCategory?.name ?? "記録")
+                            .font(.caption2.weight(.heavy))
+                            .lineLimit(1)
+
+                        Spacer(minLength: 6)
+
+                        Text(ProfileFormat.duration(digest.totalDuration))
+                            .font(.caption2.monospacedDigit().weight(.black))
+                    }
+                    .foregroundStyle(.white.opacity(0.86))
                 }
-                .foregroundStyle(.white.opacity(0.9))
-
-                HStack(spacing: 6) {
-                    Label(ProfileFormat.duration(digest.plannedDuration), systemImage: "calendar")
-                    Label(ProfileFormat.duration(digest.totalDuration), systemImage: "record.circle")
-                }
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(.white.opacity(0.72))
-                .lineLimit(1)
             }
-            .padding(12)
+            .padding(13)
         }
         .frame(height: 218)
         .frame(maxWidth: .infinity, alignment: .leading)
         .overlay {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(.white.opacity(0.16), lineWidth: 1)
+                .stroke(.white.opacity(0.2), lineWidth: 1)
         }
+        .shadow(color: digest.primaryColor.opacity(0.22), radius: 14, y: 8)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
+}
 
-    private var tileGradient: LinearGradient {
-        let base = digest.primaryColor
-        let secondary = digest.secondaryColor ?? base.opacity(0.58)
-        return LinearGradient(
-            colors: [
-                base.opacity(0.92),
-                secondary.opacity(0.68),
-                Color.black.opacity(0.84)
-            ],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
+private struct ProfileDiarySyncBadge: View {
+    let rate: Double
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Text("\(Int(rate * 100))")
+                .font(.system(size: 16, weight: .black, design: .rounded))
+                .monospacedDigit()
+            Text("SYNC")
+                .font(.system(size: 6, weight: .black))
+                .tracking(0.8)
+        }
+        .foregroundStyle(.white)
+        .frame(width: 44, height: 36)
+        .background(.black.opacity(0.26), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(.white.opacity(0.2), lineWidth: 1)
+        }
+    }
+}
+
+private struct ProfileDayJacketRibbon: View {
+    let planSegments: [ProfileDaySegment]
+    let actualSegments: [ProfileDaySegment]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            ProfileSegmentRow(label: "PLAN", segments: planSegments, height: 6, opacity: 0.72)
+            ProfileSegmentRow(label: "REAL", segments: actualSegments, height: 12, opacity: 1)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 8)
+        .background(.black.opacity(0.26), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(.white.opacity(0.12), lineWidth: 1)
+        }
+    }
+}
+
+private struct ProfileSegmentRow: View {
+    let label: String
+    let segments: [ProfileDaySegment]
+    let height: CGFloat
+    let opacity: Double
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Text(label)
+                .font(.system(size: 6, weight: .black))
+                .foregroundStyle(.white.opacity(0.5))
+                .tracking(0.8)
+                .frame(width: 25, alignment: .leading)
+
+            ProfileSegmentBand(segments: segments, height: height, opacity: opacity)
+        }
+    }
+}
+
+private struct ProfileSegmentBand: View {
+    let segments: [ProfileDaySegment]
+    let height: CGFloat
+    let opacity: Double
+
+    var body: some View {
+        GeometryReader { proxy in
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: height / 2, style: .continuous)
+                    .fill(.white.opacity(0.13))
+
+                ForEach(segments) { segment in
+                    RoundedRectangle(cornerRadius: height / 2, style: .continuous)
+                        .fill(Color(hex: segment.colorHex).opacity(opacity))
+                        .frame(width: max(2, proxy.size.width * segment.widthRatio), height: height)
+                        .offset(x: proxy.size.width * segment.startRatio)
+                        .shadow(color: Color(hex: segment.colorHex).opacity(0.35), radius: height * 0.8)
+                }
+            }
+            .frame(height: height)
+            .clipShape(RoundedRectangle(cornerRadius: height / 2, style: .continuous))
+        }
+        .frame(height: height)
     }
 }
 
 private struct ProfileDiaryPlaceholder: View {
     var body: some View {
-        RoundedRectangle(cornerRadius: 8, style: .continuous)
-            .fill(Color(.secondarySystemGroupedBackground))
-            .overlay {
-                VStack(spacing: 8) {
-                    Image(systemName: "sparkles")
-                        .font(.title3.weight(.semibold))
-                    Text("記録すると表紙ができます")
-                        .font(.caption2.weight(.semibold))
-                }
-                .foregroundStyle(.tertiary)
-            }
-            .frame(height: 218)
-    }
-}
-
-private struct ProfileDayCoverArt: View {
-    let digest: ProfileDayDigest
-
-    var body: some View {
-        GeometryReader { proxy in
-            let size = min(proxy.size.width, proxy.size.height)
-            let rect = CGRect(
-                x: (proxy.size.width - size) / 2,
-                y: (proxy.size.height - size) / 2,
-                width: size,
-                height: size
+        ZStack {
+            LinearGradient(
+                colors: [
+                    Color.black.opacity(0.84),
+                    Color.accentColor.opacity(0.36),
+                    Color.black.opacity(0.92)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
             )
 
-            ZStack {
-                ForEach(0..<18, id: \.self) { index in
-                    Circle()
-                        .stroke(.white.opacity(index.isMultiple(of: 3) ? 0.08 : 0.035), lineWidth: 1)
-                        .frame(width: size * (0.24 + CGFloat(index) * 0.035))
-                }
-
-                ProfileOrbitBase()
-                    .stroke(.white.opacity(0.16), style: StrokeStyle(lineWidth: 15, lineCap: .round))
-                    .frame(width: rect.width * 0.9, height: rect.height * 0.9)
-
-                ProfileOrbitBase()
-                    .stroke(.white.opacity(0.11), style: StrokeStyle(lineWidth: 15, lineCap: .round))
-                    .frame(width: rect.width * 0.62, height: rect.height * 0.62)
-
-                ForEach(digest.planSegments) { segment in
-                    ProfileDayArc(startRatio: segment.startRatio, widthRatio: segment.widthRatio)
-                        .stroke(
-                            Color(hex: segment.colorHex).opacity(0.8),
-                            style: StrokeStyle(lineWidth: 15, lineCap: .round)
-                        )
-                        .frame(width: rect.width * 0.9, height: rect.height * 0.9)
-                        .shadow(color: Color(hex: segment.colorHex).opacity(0.38), radius: 8)
-                }
-
-                ForEach(digest.actualSegments) { segment in
-                    ProfileDayArc(startRatio: segment.startRatio, widthRatio: segment.widthRatio)
-                        .stroke(
-                            Color(hex: segment.colorHex),
-                            style: StrokeStyle(lineWidth: 15, lineCap: .round)
-                        )
-                        .frame(width: rect.width * 0.62, height: rect.height * 0.62)
-                        .shadow(color: Color(hex: segment.colorHex).opacity(0.48), radius: 10)
-                }
-
-                Circle()
-                    .fill(.black.opacity(0.22))
-                    .frame(width: rect.width * 0.29, height: rect.height * 0.29)
-
-                VStack(spacing: 1) {
-                    Text("\(Int(digest.followRate * 100))%")
-                        .font(.caption.monospacedDigit().weight(.heavy))
-                    Text("SYNC")
-                        .font(.system(size: 7, weight: .bold))
-                }
-                .foregroundStyle(.white.opacity(0.88))
+            VStack(spacing: 10) {
+                Image(systemName: "sparkles")
+                    .font(.title2.weight(.black))
+                Text("記録すると表紙ができます")
+                    .font(.caption2.weight(.bold))
             }
+            .foregroundStyle(.white.opacity(0.72))
         }
-        .accessibilityLabel("予定と実績の24時間アート")
-    }
-}
-
-private struct ProfileOrbitBase: Shape {
-    func path(in rect: CGRect) -> Path {
-        Path(ellipseIn: rect)
-    }
-}
-
-private struct ProfileDayArc: Shape {
-    let startRatio: Double
-    let widthRatio: Double
-
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        let center = CGPoint(x: rect.midX, y: rect.midY)
-        let radius = min(rect.width, rect.height) / 2
-        let start = Angle.degrees(startRatio * 360 - 90)
-        let end = Angle.degrees((startRatio + widthRatio) * 360 - 90)
-        path.addArc(center: center, radius: radius, startAngle: start, endAngle: end, clockwise: false)
-        return path
+        .frame(height: 218)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
 
@@ -804,6 +815,12 @@ private struct ProfileDayDigest: Identifiable {
 
     var secondaryColor: Color? {
         topCategories.dropFirst().first.map { Color(hex: $0.colorHex) }
+    }
+
+    var coverAssetName: String {
+        let assets = ["DiaryCoverAurora", "DiaryCoverPrism", "DiaryCoverVerdant", "DiaryCoverEmber"]
+        let dayNumber = Int(date.timeIntervalSinceReferenceDate / 86_400)
+        return assets[abs(dayNumber) % assets.count]
     }
 
     var autoTitle: String {
