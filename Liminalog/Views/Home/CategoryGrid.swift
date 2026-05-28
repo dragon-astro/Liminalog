@@ -176,12 +176,14 @@ struct CategoryGrid: View {
         } else if selectedSetID == nil || !categorySets.contains(where: { $0.id == selectedSetID }) {
             selectedSetID = categorySets.first?.id
         }
+        store.setEnabledCategorySetID(selectedSetID)
     }
 
     private func persistSelection(_ id: UUID?) {
         let newString = id?.uuidString ?? ""
-        guard activeSetIDString != newString else { return }
-        activeSetIDString = newString
+        if activeSetIDString != newString {
+            activeSetIDString = newString
+        }
         store.setEnabledCategorySetID(id)
     }
 

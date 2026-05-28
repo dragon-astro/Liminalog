@@ -16,6 +16,7 @@ final class ChapterStore {
     private static let appGroupID = "group.app.YasudaRyuga.Liminalog"
     private static let activeCategoryCacheKey = "recording.activeCategoryID"
     private static let pendingCategoryCacheKey = "recording.pendingCategoryID"
+    private static let enabledCategorySetCacheKey = "recording.enabledCategorySetID"
 
     init(
         modelContext: ModelContext,
@@ -64,6 +65,18 @@ final class ChapterStore {
         } else {
             defaults.removeObject(forKey: Self.activeCategoryCacheKey)
             defaults.removeObject(forKey: Self.pendingCategoryCacheKey)
+        }
+        defaults.synchronize()
+    }
+
+    private func cacheEnabledCategorySetID(_ id: UUID?) {
+        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil,
+              let defaults = UserDefaults(suiteName: Self.appGroupID)
+        else { return }
+        if let id {
+            defaults.set(id.uuidString, forKey: Self.enabledCategorySetCacheKey)
+        } else {
+            defaults.removeObject(forKey: Self.enabledCategorySetCacheKey)
         }
         defaults.synchronize()
     }
@@ -426,17 +439,19 @@ final class ChapterStore {
     }
 
     func setEnabledCategorySetID(_ id: UUID?) {
-        let descriptor = FetchDescriptor<UserSettings>()
-        let settings = (try? modelContext.fetch(descriptor).first) ?? UserSettings()
-        if settings.modelContext == nil {
-            modelContext.insert(settings)
+        let settings = SeedCoordinator.ensureUserSettings(in: modelContext, now: clock.now)
+        if settings.enabledCategorySetID == id {
+            cacheEnabledCategorySetID(id)
+            reloadRecordingGridWidget()
+            updateLiveActivity(categorySet: categorySets().first { $0.id == id })
+            return
         }
-        guard settings.enabledCategorySetID != id else { return }
         settings.enabledCategorySetID = id
         settings.updatedAt = clock.now
         guard saveModelContext() else { return }
+        cacheEnabledCategorySetID(id)
         reloadRecordingGridWidget()
-        updateLiveActivity()
+        updateLiveActivity(categorySet: categorySets().first { $0.id == id })
     }
 
     func syncLiveActivityWithActiveChapter() {
@@ -721,8 +736,8 @@ final class ChapterStore {
 
     private func currentCategorySet() -> CategorySet? {
         let sets = categorySets()
-        let settings = try? modelContext.fetch(FetchDescriptor<UserSettings>()).first
-        return settings?.enabledCategorySetID.flatMap { id in sets.first { $0.id == id } }
+        let settings = SeedCoordinator.ensureUserSettings(in: modelContext, now: clock.now)
+        return settings.enabledCategorySetID.flatMap { id in sets.first { $0.id == id } }
             ?? sets.first { $0.isDefault }
             ?? sets.first
     }

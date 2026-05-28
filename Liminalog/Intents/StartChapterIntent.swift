@@ -11,6 +11,7 @@ struct StartChapterIntent: AppIntent, LiveActivityIntent {
     private static let appGroupID = "group.app.YasudaRyuga.Liminalog"
     private static let activeCategoryCacheKey = "recording.activeCategoryID"
     private static let pendingCategoryCacheKey = "recording.pendingCategoryID"
+    private static let enabledCategorySetCacheKey = "recording.enabledCategorySetID"
 
     @Parameter(title: "カテゴリID")
     var categoryID: String
@@ -94,10 +95,24 @@ struct StartChapterIntent: AppIntent, LiveActivityIntent {
                 SortDescriptor(\.createdAt)
             ]
         ))) ?? []
-        let settings = try? context.fetch(FetchDescriptor<UserSettings>()).first
-        return settings?.enabledCategorySetID.flatMap { id in sets.first { $0.id == id } }
+        let settings = try? context.fetch(FetchDescriptor<UserSettings>(
+            predicate: #Predicate { $0.settingsKey == "default" },
+            sortBy: [SortDescriptor(\.createdAt)]
+        )).first
+        let cachedID = Self.cachedEnabledCategorySetID(validatingWith: sets)
+        return (cachedID ?? settings?.enabledCategorySetID).flatMap { id in sets.first { $0.id == id } }
             ?? sets.first { $0.isDefault }
             ?? sets.first
+    }
+
+    private static func cachedEnabledCategorySetID(validatingWith sets: [CategorySet]) -> UUID? {
+        guard let value = UserDefaults(suiteName: appGroupID)?.string(forKey: enabledCategorySetCacheKey),
+              let id = UUID(uuidString: value),
+              sets.contains(where: { $0.id == id })
+        else {
+            return nil
+        }
+        return id
     }
 
     @MainActor

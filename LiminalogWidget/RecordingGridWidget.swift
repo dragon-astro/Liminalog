@@ -30,6 +30,7 @@ private enum RecordingWidgetStore {
     static let widgetKind = "RecordingGridWidget"
     static let activeCategoryCacheKey = "recording.activeCategoryID"
     static let pendingCategoryCacheKey = "recording.pendingCategoryID"
+    static let enabledCategorySetCacheKey = "recording.enabledCategorySetID"
 
     static var cloudSchema: Schema {
         Schema([
@@ -100,8 +101,8 @@ private enum RecordingWidgetStore {
                     SortDescriptor(\.createdAt)
                 ]
             ))
-            let settings = try context.fetch(FetchDescriptor<UserSettings>()).first
-            let requestedID = settings?.enabledCategorySetID
+            let settings = try fetchUserSettings(context: context)
+            let requestedID = cachedEnabledCategorySetID(validatingWith: sets) ?? settings?.enabledCategorySetID
             let selectedSet = requestedID.flatMap { id in sets.first { $0.id == id } }
                 ?? sets.first { $0.isDefault }
                 ?? sets.first
@@ -223,6 +224,25 @@ private enum RecordingWidgetStore {
         return id
     }
 
+    private static func cachedEnabledCategorySetID(validatingWith sets: [CategorySet]) -> UUID? {
+        guard let value = UserDefaults(suiteName: appGroupID)?.string(forKey: enabledCategorySetCacheKey),
+              let id = UUID(uuidString: value),
+              sets.contains(where: { $0.id == id })
+        else {
+            return nil
+        }
+        return id
+    }
+
+    private static func fetchUserSettings(context: ModelContext) throws -> UserSettings? {
+        var descriptor = FetchDescriptor<UserSettings>(
+            predicate: #Predicate { $0.settingsKey == "default" },
+            sortBy: [SortDescriptor(\.createdAt)]
+        )
+        descriptor.fetchLimit = 1
+        return try context.fetch(descriptor).first
+    }
+
     private static func fetchActiveChapters(
         context: ModelContext,
         order: SortOrder = .reverse
@@ -285,8 +305,9 @@ private enum RecordingWidgetStore {
                 SortDescriptor(\.createdAt)
             ]
         ))) ?? []
-        let settings = try? context.fetch(FetchDescriptor<UserSettings>()).first
-        let selectedSet = settings?.enabledCategorySetID.flatMap { id in sets.first { $0.id == id } }
+        let settings = try? fetchUserSettings(context: context)
+        let requestedID = cachedEnabledCategorySetID(validatingWith: sets) ?? settings?.enabledCategorySetID
+        let selectedSet = requestedID.flatMap { id in sets.first { $0.id == id } }
             ?? sets.first { $0.isDefault }
             ?? sets.first
         let islandCategories = normalizeSlots(selectedSet?.slots ?? [])
