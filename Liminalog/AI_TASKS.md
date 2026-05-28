@@ -403,8 +403,8 @@ refactor: split plan store
 
 - [x] `ProfileView` 再設計（docs/09 の情報設計に従う・UI最適化は実装側裁量）<!-- 担当: Codex, 完了: 2026-05-28 -->
 - [x] アイデンティティゾーン実装（プロフィール画像 + ニックネーム + bio + 主要スタッツ 連続/累計/友達数）<!-- 担当: Codex, 完了: 2026-05-28 -->
-- [~] 解放コレクション表示（ハイライト風・docs/09 §3.2）<!-- 担当: Codex, 2026-05-28: プレースホルダーのみ実装。実データはアンロックシステム実装後に接続 -->
-- [~] 日記カードグリッド表示（DayDigest アーカイブ・docs/09 §3.3）<!-- 担当: Codex, 2026-05-28: 最近の記録日/空状態プレースホルダーでUI枠のみ実装。DayDigest生成後に実カードへ差し替え -->
+- [x] 解放コレクション表示（ハイライト風・docs/09 §3.2）<!-- 担当: Codex, 2026-05-28: Phase 1 最小版として実績/継続/累計時間から解放状態を算出するバッジ表示へ更新。Phase 2 の本格アンロック実装後にデータソースを差し替える -->
+- [x] 日記カードグリッド表示（DayDigest アーカイブ・docs/09 §3.3）<!-- 担当: Codex, 2026-05-28: Phase 1 最小版として記録済みChapterから日別カードを自動生成し、タップで当日の記録一覧を表示。Phase 2 のDayDigest生成後に永続カードへ差し替える -->
 - [x] `SettingsView` 新規作成 + プロフィール右上 ☰ から開く（docs/09 §6 参照）<!-- 担当: Codex, 完了: 2026-05-28 -->
 - [-] 友達ビュー対応（同レイアウト・read-only・公開設定フィルタ・docs/09 §7）<!-- Phase 3 友達機能へ移動: ユーザーモデル/公開フィルタ未実装のため -->
 - [-] 1日の始まり時間 Picker を `SettingsView` に追加 <!-- 撤回: 現行仕様では 0:00-24:00 固定。可変境界は超低優先度の将来検討 -->
@@ -898,6 +898,7 @@ refactor: split plan store
 | 2026-05-28 | Codex | Widget の新旧カテゴリ二重表示が残ったため、pending共有をBinding任せから明示flushへ補強。タップ時に `RecordingWidgetStore.cachePendingCategoryID(_:)` で App Group `UserDefaults` へ直接 `recording.pendingCategoryID` を書き込み `synchronize()` する。狙いは、押したToggleセルだけでなく親/他セルが同じpendingカテゴリを読み、旧activeを即時に抑制すること |
 | 2026-05-28 | Codex | WidgetKitの複数Toggleでは旧activeセルを同時に消すのが難しいため、現時点では新旧二重表示を許容して即時性を優先する判断に戻した。嫌だった保存済みcurrentの控えめ表示案は撤回。あわせて `RecordingGridWidget` のテーブル名を上端から離し、カテゴリボタンとの間隔を詰めた。Dynamic Island compact leading のカテゴリアイコンは 12pt→15pt に拡大 |
 | 2026-05-28 | Codex | Dynamic Island がアプリ内の現在テーブルを参照できていない問題を修正。`setEnabledCategorySetID` は `UserSettings.enabledCategorySetID` 保存と `RecordingGridWidget` reload だけで Live Activity state を更新していなかったため、保存成功後に `updateLiveActivity()` を呼ぶようにした。カテゴリ/カテゴリセットの編集・削除・並び替え後も Island のカテゴリ配列が古くならないよう Live Activity 更新を追加 |
+| 2026-05-28 | Codex | Profile Phase 1 をリリース候補レベルへ更新。`UserSettings` に `profileDisplayName` / `profileBio` / `profileImageData` / `profileAccentColorHex` を追加し、プロフィール編集シートで名前・bio・写真・アクセントカラーを保存可能にした。プロフィール本体は設定項目を出さず、自己紹介ヘッダー・主要スタッツ・実データ由来バッジ・Chapter由来の日記カードグリッドに整理。日記カードはタップで当日の記録一覧を表示し、友達ビューへ転用しやすいカード/ヘッダー構成へ寄せた |
 
 ---
 

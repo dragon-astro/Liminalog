@@ -5,6 +5,10 @@ import SwiftData
 final class UserSettings {
     var id: UUID = UUID()
     var settingsKey: String = "default"
+    var profileDisplayName: String = ""
+    var profileBio: String = ""
+    var profileImageData: Data?
+    var profileAccentColorHex: String = "#2F80ED"
     var defaultVisibility: VisibilityScope = VisibilityScope.all
     var themeName: String = "default"
     var enabledCategorySetID: UUID?

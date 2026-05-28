@@ -59,6 +59,18 @@ enum SeedCoordinator {
     }
 
     private static func merge(_ duplicate: UserSettings, into primary: UserSettings) {
+        if primary.profileDisplayName.isEmpty {
+            primary.profileDisplayName = duplicate.profileDisplayName
+        }
+        if primary.profileBio.isEmpty {
+            primary.profileBio = duplicate.profileBio
+        }
+        if primary.profileImageData == nil {
+            primary.profileImageData = duplicate.profileImageData
+        }
+        if primary.profileAccentColorHex == "#2F80ED", duplicate.profileAccentColorHex != "#2F80ED" {
+            primary.profileAccentColorHex = duplicate.profileAccentColorHex
+        }
         if primary.themeName == "default", duplicate.themeName != "default" {
             primary.themeName = duplicate.themeName
         }

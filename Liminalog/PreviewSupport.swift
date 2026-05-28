@@ -34,6 +34,12 @@ enum PreviewSupport {
         context.insert(CategorySet(name: "平日", sortOrder: 0, slots: weekdaySlots))
         context.insert(CategorySet(name: "休日", sortOrder: 1, slots: holidayLayout))
 
+        let settings = UserSettings()
+        settings.profileDisplayName = "Ryu"
+        settings.profileBio = "切り替わる瞬間を記録中"
+        settings.profileAccentColorHex = "#2F80ED"
+        context.insert(settings)
+
         let calendar = Calendar.current
         let startOfDay = calendar.startOfDay(for: Date())
         let samples: [(Int, Int, Category, String?, String?, String?, Bool)] = [
