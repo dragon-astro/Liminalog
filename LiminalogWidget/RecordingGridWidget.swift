@@ -443,6 +443,7 @@ struct RecordingGridWidget: Widget {
 private struct RecordingGridView: View {
     let entry: RecordingGridEntry
     @Environment(\.widgetFamily) private var family
+    @State private var optimisticCategoryID: UUID?
 
     private var visibleCells: [WidgetCategory?] {
         family == .systemSmall ? Array(entry.cells.prefix(4)) : entry.cells
@@ -481,6 +482,7 @@ private struct RecordingGridView: View {
                             .toggleStyle(RecordingGridToggleStyle(
                                 category: category,
                                 persistedIsActive: isActive,
+                                optimisticCategoryID: $optimisticCategoryID,
                                 isCompact: family == .systemSmall
                             ))
                         } else {
@@ -528,16 +530,23 @@ private struct RecordingGridView: View {
 private struct RecordingGridToggleStyle: ToggleStyle {
     let category: WidgetCategory
     let persistedIsActive: Bool
+    @Binding var optimisticCategoryID: UUID?
     let isCompact: Bool
 
     func makeBody(configuration: Configuration) -> some View {
         Button {
+            optimisticCategoryID = category.id
             configuration.isOn.toggle()
         } label: {
+            let isOptimistic = optimisticCategoryID == category.id
+            let usesOptimisticSelection = optimisticCategoryID != nil
+            let isActive = usesOptimisticSelection ? isOptimistic : persistedIsActive
+            let isPending = isOptimistic && !persistedIsActive
+
             RecordingGridCell(
                 category: category,
-                isActive: configuration.isOn || persistedIsActive,
-                isPending: configuration.isOn != persistedIsActive,
+                isActive: isActive,
+                isPending: isPending,
                 isCompact: isCompact
             )
         }
