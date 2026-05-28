@@ -487,6 +487,7 @@ private struct RecordingGridView: View {
                         }
                     }
                 }
+                .invalidatableContent()
             }
         }
         .padding(contentPadding)
