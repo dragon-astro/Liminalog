@@ -386,6 +386,7 @@ final class ChapterStore {
     func updateCategory(_ category: Category, name: String, colorHex: String, icon: String? = nil) {
         if categoryStore.updateCategory(category, name: name, colorHex: colorHex, icon: icon) {
             markChanged()
+            updateLiveActivity()
         }
     }
 
@@ -393,6 +394,7 @@ final class ChapterStore {
         if categoryStore.deleteCategory(category) {
             syncActiveCategoryCacheFromStore()
             markChanged()
+            updateLiveActivity()
         }
     }
 
@@ -401,24 +403,28 @@ final class ChapterStore {
     func addCategorySet(name: String, slots: [UUID?]) {
         if categorySetStore.addCategorySet(name: name, slots: slots) {
             markChanged()
+            updateLiveActivity()
         }
     }
 
     func updateCategorySet(_ set: CategorySet, name: String, slots: [UUID?]) {
         if categorySetStore.updateCategorySet(set, name: name, slots: slots) {
             markChanged()
+            updateLiveActivity()
         }
     }
 
     func deleteCategorySet(_ set: CategorySet) {
         if categorySetStore.deleteCategorySet(set) {
             markChanged()
+            updateLiveActivity()
         }
     }
 
     func moveCategorySets(from source: IndexSet, to destination: Int) {
         if categorySetStore.moveCategorySets(from: source, to: destination) {
             markChanged()
+            updateLiveActivity()
         }
     }
 
@@ -431,9 +437,10 @@ final class ChapterStore {
         guard settings.enabledCategorySetID != id else { return }
         settings.enabledCategorySetID = id
         settings.updatedAt = clock.now
-        try? modelContext.save()
+        guard saveModelContext() else { return }
         markChanged(reloadWidgets: false)
         reloadRecordingGridWidget()
+        updateLiveActivity()
     }
 
     func syncLiveActivityWithActiveChapter() {
