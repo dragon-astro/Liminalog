@@ -19,8 +19,8 @@ struct LiminalogLiveActivityWidget: Widget {
                     LiveActivityCategoryControls(state: context.state)
                 }
             } compactLeading: {
-                CategoryIcon(state: context.state, size: 12)
-                    .frame(width: 16, height: 16)
+                CategoryIcon(state: context.state, size: 15)
+                    .frame(width: 18, height: 18)
             } compactTrailing: {
                 if let startedAt = context.state.startedAt {
                     Text(timerInterval: startedAt...Date.distantFuture, countsDown: false)

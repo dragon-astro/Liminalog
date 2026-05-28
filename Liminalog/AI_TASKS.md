@@ -896,7 +896,7 @@ refactor: split plan store
 | 2026-05-28 | Codex | Widget同期待ち中の二重ハイライトを修正。各Toggleセルが独立した仮状態を持つと、変更前カテゴリは保存済みactive、新カテゴリは仮activeとして同時に強調されるため、`RecordingGridView` にグリッド全体の `optimisticCategoryID` を持たせた。仮選択がある間はそのカテゴリだけをactive表示し、保存済みactiveに追いついたら同期点だけ消える方針 |
 | 2026-05-28 | Codex | 上記 `@State optimisticCategoryID` はWidgetKitの即時楽観描画に乗らず、Widget→Widget が再びtimeline更新待ちになったため撤回。`Toggle` の `configuration.isOn` による即時表示を復活させ、仮選択カテゴリは App Group `UserDefaults` の `recording.pendingCategoryID` でグリッド全体に共有する構成へ変更。仮選択中は旧activeを抑制し、保存済み `recording.activeCategoryID` に追いつくと同期点だけ消える |
 | 2026-05-28 | Codex | Widget の新旧カテゴリ二重表示が残ったため、pending共有をBinding任せから明示flushへ補強。タップ時に `RecordingWidgetStore.cachePendingCategoryID(_:)` で App Group `UserDefaults` へ直接 `recording.pendingCategoryID` を書き込み `synchronize()` する。狙いは、押したToggleセルだけでなく親/他セルが同じpendingカテゴリを読み、旧activeを即時に抑制すること |
-| 2026-05-28 | Codex | WidgetKitの複数Toggleは押したセルだけが即時楽観更新され、旧activeセルは同じ瞬間に再評価されないため、新旧二重ハイライトが残ることを確認。排他選択を即時に完全再現する代わりに、保存済みcurrentは強ハイライトから小さな緑点+控えめ表示へ変更し、タップ直後のpendingカテゴリだけを強ハイライトするUIへ寄せた |
+| 2026-05-28 | Codex | WidgetKitの複数Toggleでは旧activeセルを同時に消すのが難しいため、現時点では新旧二重表示を許容して即時性を優先する判断に戻した。嫌だった保存済みcurrentの控えめ表示案は撤回。あわせて `RecordingGridWidget` のテーブル名を上端から離し、カテゴリボタンとの間隔を詰めた。Dynamic Island compact leading のカテゴリアイコンは 12pt→15pt に拡大 |
 
 ---
 
