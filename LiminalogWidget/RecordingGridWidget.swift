@@ -573,17 +573,15 @@ private struct RecordingGridToggleStyle: ToggleStyle {
             configuration.isOn.toggle()
         } label: {
             let isOptimistic = optimisticCategoryID == category.id
-            let hasOptimisticSelection = optimisticCategoryID != nil
             let isTogglePending = configuration.isOn && !persistedIsActive
-            let isActive = hasOptimisticSelection
-                ? isOptimistic
-                : (configuration.isOn || persistedIsActive)
             let isPending = (isOptimistic && !persistedIsActive) || isTogglePending
+            let visualState: RecordingGridCell.VisualState = isPending
+                ? .pending
+                : (persistedIsActive ? .current : .idle)
 
             RecordingGridCell(
                 category: category,
-                isActive: isActive,
-                isPending: isPending,
+                visualState: visualState,
                 isCompact: isCompact
             )
         }
@@ -593,10 +591,19 @@ private struct RecordingGridToggleStyle: ToggleStyle {
 }
 
 private struct RecordingGridCell: View {
+    enum VisualState {
+        case idle
+        case current
+        case pending
+    }
+
     let category: WidgetCategory
-    let isActive: Bool
-    let isPending: Bool
+    let visualState: VisualState
     let isCompact: Bool
+
+    private var isHighlighted: Bool {
+        visualState == .pending
+    }
 
     private var iconSize: CGFloat {
         isCompact ? 26 : 34
@@ -610,10 +617,10 @@ private struct RecordingGridCell: View {
         VStack(spacing: isCompact ? 3 : 6) {
             ZStack {
                 Circle()
-                    .fill(Color(liminalogHex: category.colorHex).opacity(isActive ? 1 : 0.18))
+                    .fill(Color(liminalogHex: category.colorHex).opacity(iconOpacity))
                     .frame(width: iconSize, height: iconSize)
 
-                if isActive {
+                if isHighlighted {
                     Circle()
                         .stroke(Color(liminalogHex: category.colorHex), lineWidth: 2.2)
                         .frame(width: activeRingSize, height: activeRingSize)
@@ -621,12 +628,12 @@ private struct RecordingGridCell: View {
 
                 Image(systemName: category.icon ?? "circle.fill")
                     .font(.system(size: isCompact ? 12 : 15, weight: .semibold))
-                    .foregroundStyle(isActive ? .white : Color(liminalogHex: category.colorHex))
+                    .foregroundStyle(iconForegroundStyle)
             }
 
             Text(category.name)
-                .font(.system(size: isCompact ? 9 : 11, weight: isActive ? .semibold : .regular))
-                .foregroundStyle(isActive ? Color(liminalogHex: category.colorHex) : .primary)
+                .font(.system(size: isCompact ? 9 : 11, weight: isHighlighted ? .semibold : .regular))
+                .foregroundStyle(textForegroundStyle)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
         }
@@ -634,14 +641,71 @@ private struct RecordingGridCell: View {
         .frame(height: isCompact ? 48 : 62)
         .background(
             RoundedRectangle(cornerRadius: 10)
-                .fill(isActive ? Color(liminalogHex: category.colorHex).opacity(0.12) : Color.secondary.opacity(0.08))
+                .fill(backgroundStyle)
         )
+        .overlay(alignment: .topLeading) {
+            if visualState == .current {
+                CurrentCategoryBadge(isCompact: isCompact)
+                    .padding(isCompact ? 4 : 5)
+            }
+        }
         .overlay(alignment: .topTrailing) {
-            if isPending {
+            if visualState == .pending {
                 PendingSyncBadge(isCompact: isCompact)
                     .padding(isCompact ? 4 : 5)
             }
         }
+    }
+
+    private var iconOpacity: Double {
+        switch visualState {
+        case .idle:
+            0.18
+        case .current:
+            0.34
+        case .pending:
+            1
+        }
+    }
+
+    private var iconForegroundStyle: AnyShapeStyle {
+        switch visualState {
+        case .pending:
+            AnyShapeStyle(.white)
+        case .idle, .current:
+            AnyShapeStyle(Color(liminalogHex: category.colorHex))
+        }
+    }
+
+    private var textForegroundStyle: AnyShapeStyle {
+        switch visualState {
+        case .pending:
+            AnyShapeStyle(Color(liminalogHex: category.colorHex))
+        case .current:
+            AnyShapeStyle(.secondary)
+        case .idle:
+            AnyShapeStyle(.primary)
+        }
+    }
+
+    private var backgroundStyle: Color {
+        switch visualState {
+        case .pending:
+            Color(liminalogHex: category.colorHex).opacity(0.12)
+        case .current, .idle:
+            Color.secondary.opacity(0.08)
+        }
+    }
+}
+
+private struct CurrentCategoryBadge: View {
+    let isCompact: Bool
+
+    var body: some View {
+        Circle()
+            .fill(Color.green.opacity(0.9))
+            .frame(width: isCompact ? 6 : 7, height: isCompact ? 6 : 7)
+            .accessibilityLabel("記録中")
     }
 }
 
