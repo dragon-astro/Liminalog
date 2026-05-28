@@ -8,6 +8,8 @@ struct StartChapterIntent: AppIntent, LiveActivityIntent {
     static let title: LocalizedStringResource = "記録開始"
     static let description = IntentDescription("選んだカテゴリで記録を開始します。")
     static let openAppWhenRun = false
+    private static let appGroupID = "group.app.YasudaRyuga.Liminalog"
+    private static let activeCategoryCacheKey = "recording.activeCategoryID"
 
     @Parameter(title: "カテゴリID")
     var categoryID: String
@@ -51,6 +53,7 @@ struct StartChapterIntent: AppIntent, LiveActivityIntent {
         }
 
         try context.save()
+        Self.cacheActiveCategoryID(activeAfterChange?.category?.id)
         WidgetCenter.shared.reloadTimelines(ofKind: "RecordingGridWidget")
 
         if #available(iOS 16.2, *) {
@@ -62,6 +65,15 @@ struct StartChapterIntent: AppIntent, LiveActivityIntent {
         #endif
 
         return .result()
+    }
+
+    private static func cacheActiveCategoryID(_ id: UUID?) {
+        guard let defaults = UserDefaults(suiteName: appGroupID) else { return }
+        if let id {
+            defaults.set(id.uuidString, forKey: activeCategoryCacheKey)
+        } else {
+            defaults.removeObject(forKey: activeCategoryCacheKey)
+        }
     }
 
     @available(iOS 16.2, *)

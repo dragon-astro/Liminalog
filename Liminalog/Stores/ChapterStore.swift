@@ -13,6 +13,8 @@ final class ChapterStore {
     private let scoreStore: ScoreStore
     private let liveActivityCoordinator: LiveActivityCoordinator
     var revision = 0
+    private static let appGroupID = "group.app.YasudaRyuga.Liminalog"
+    private static let activeCategoryCacheKey = "recording.activeCategoryID"
 
     init(modelContext: ModelContext, clock: any LiminalogClock = SystemClock()) {
         self.modelContext = modelContext
@@ -35,6 +37,31 @@ final class ChapterStore {
     private func reloadRecordingGridWidget() {
         guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
         WidgetCenter.shared.reloadTimelines(ofKind: "RecordingGridWidget")
+    }
+
+    private func cacheActiveCategoryID(_ id: UUID?) {
+        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil,
+              let defaults = UserDefaults(suiteName: Self.appGroupID)
+        else { return }
+        if let id {
+            defaults.set(id.uuidString, forKey: Self.activeCategoryCacheKey)
+        } else {
+            defaults.removeObject(forKey: Self.activeCategoryCacheKey)
+        }
+    }
+
+    private func syncActiveCategoryCacheFromStore() {
+        cacheActiveCategoryID(activeChapter?.category?.id)
+    }
+
+    @discardableResult
+    private func saveModelContext() -> Bool {
+        do {
+            try modelContext.save()
+            return true
+        } catch {
+            return false
+        }
     }
 
     // MARK: - Edit locks
@@ -125,7 +152,9 @@ final class ChapterStore {
                 active.updatedAt = now
             }
             // 既に同カテゴリを記録中 → 何も新しく作らずに継続
-            try? modelContext.save()
+            if saveModelContext() {
+                cacheActiveCategoryID(category.id)
+            }
             markChanged()
             updateLiveActivity(categorySet: categorySet)
             return
@@ -139,7 +168,9 @@ final class ChapterStore {
 
         let chapter = Chapter(category: category, startTime: now)
         modelContext.insert(chapter)
-        try? modelContext.save()
+        if saveModelContext() {
+            cacheActiveCategoryID(category.id)
+        }
         markChanged()
         updateLiveActivity(categorySet: categorySet)
     }
@@ -164,7 +195,9 @@ final class ChapterStore {
     func endActiveChapter() {
         let now = clock.now
         guard closeActiveChapters(at: now) else { return }
-        try? modelContext.save()
+        if saveModelContext() {
+            cacheActiveCategoryID(nil)
+        }
         markChanged()
         updateLiveActivity()
     }
@@ -250,7 +283,9 @@ final class ChapterStore {
         chapter.locationName = locationName.flatMap { $0.isEmpty ? nil : $0 }
         chapter.isPublic = isPublic
         chapter.updatedAt = clock.now
-        try? modelContext.save()
+        if saveModelContext() {
+            syncActiveCategoryCacheFromStore()
+        }
         markChanged()
         updateLiveActivity()
         return true
@@ -279,7 +314,9 @@ final class ChapterStore {
     func deleteChapter(_ chapter: Chapter) -> Bool {
         guard !isChapterTimeLocked(chapter, now: clock.now) else { return false }
         modelContext.delete(chapter)
-        try? modelContext.save()
+        if saveModelContext() {
+            syncActiveCategoryCacheFromStore()
+        }
         markChanged()
         updateLiveActivity()
         return true
@@ -350,6 +387,7 @@ final class ChapterStore {
 
     func deleteCategory(_ category: Category) {
         if categoryStore.deleteCategory(category) {
+            syncActiveCategoryCacheFromStore()
             markChanged()
         }
     }

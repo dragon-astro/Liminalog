@@ -888,6 +888,7 @@ refactor: split plan store
 | 2026-05-28 | Codex | Widget と Dynamic Island の即時性/信頼性を再調整。楽観更新は実体保存前の表示先行になり得るため撤回し、`StartChapterIntent` は SwiftData save 成功後に `RecordingGridWidget` の timeline reload と Live Activity update を行う順序へ変更。Widget 側 AppIntent でも `reloadTimelines(ofKind:)` を復活させ、全Widget reloadではなく記録グリッドだけを即時再読込する。表示の正は保存済みChapterに寄せ、保存失敗時にWidget/Islandだけ切り替わる状態を避ける |
 | 2026-05-28 | Codex | Widget 自身の反映遅延をさらに改善。Widget 内 `StartChapterIntent` は保存後すぐ `RecordingGridWidget` の timeline reload を要求してIntentを完了できるようにし、Live Activity への publish は保存済みデータから作った state を後続 `Task` で送る構成へ変更。これにより Widget の再描画を ActivityKit update の待ち時間から切り離しつつ、表示内容は保存済みChapter由来に保つ |
 | 2026-05-28 | Codex | Widget タップ時の処理を追加軽量化。カテゴリ取得は対象IDの `fetchLimit = 1`、active Chapter 取得は `endTime == nil` のpredicate付きfetchへ変更し、Widget entry側も全Chapter取得後filterをやめてactive 1件だけ読むようにした。Live Activity用state生成のカテゴリ/セット再fetchもWidget reload前から外し、保存後の後続Taskで保存済みstoreから再読込する |
+| 2026-05-28 | Codex | Widget active表示の即時性改善として App Group `UserDefaults` に保存成功後の `activeCategoryID` キャッシュを追加。Widget は active表示だけこの軽量キャッシュを優先して読み、SwiftData active fetch はキャッシュ欠落/不正時のfallbackにした。Widget内Intent、Dynamic Island用アプリIntent、アプリ本体の `ChapterStore.start/end/save/delete` でキャッシュを更新/クリアし、表示だけ未保存先行にならないよう「SwiftData保存成功後にキャッシュ更新」の順序を維持 |
 
 ---
 

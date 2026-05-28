@@ -28,6 +28,7 @@ struct WidgetCategory: Identifiable, Hashable {
 private enum RecordingWidgetStore {
     static let appGroupID = "group.app.YasudaRyuga.Liminalog"
     static let widgetKind = "RecordingGridWidget"
+    static let activeCategoryCacheKey = "recording.activeCategoryID"
 
     static var cloudSchema: Schema {
         Schema([
@@ -104,7 +105,8 @@ private enum RecordingWidgetStore {
                 ?? sets.first { $0.isDefault }
                 ?? sets.first
 
-            let active = try fetchActiveChapter(context: context)
+            let cachedActiveCategoryID = cachedActiveCategoryID(validatingWith: categoryByID)
+            let activeCategoryID = try cachedActiveCategoryID ?? fetchActiveChapter(context: context)?.category?.id
 
             guard let selectedSet else {
                 return RecordingGridEntry(
@@ -112,7 +114,7 @@ private enum RecordingWidgetStore {
                     categorySetID: nil,
                     categorySetName: "カテゴリ",
                     cells: Array(repeating: nil, count: CategorySet.slotCount),
-                    activeCategoryID: active?.category?.id,
+                    activeCategoryID: activeCategoryID,
                     message: "カテゴリセットがありません"
                 )
             }
@@ -133,7 +135,7 @@ private enum RecordingWidgetStore {
                 categorySetID: selectedSet.id,
                 categorySetName: selectedSet.name,
                 cells: cells,
-                activeCategoryID: active?.category?.id,
+                activeCategoryID: activeCategoryID,
                 message: nil
             )
         } catch {
@@ -178,6 +180,7 @@ private enum RecordingWidgetStore {
         }
 
         try context.save()
+        cacheActiveCategoryID(categoryID)
         WidgetCenter.shared.reloadTimelines(ofKind: widgetKind)
 
         if #available(iOSApplicationExtension 16.2, *) {
@@ -185,6 +188,25 @@ private enum RecordingWidgetStore {
                 await refreshLiveActivityFromStore()
             }
         }
+    }
+
+    private static func cacheActiveCategoryID(_ id: UUID?) {
+        guard let defaults = UserDefaults(suiteName: appGroupID) else { return }
+        if let id {
+            defaults.set(id.uuidString, forKey: activeCategoryCacheKey)
+        } else {
+            defaults.removeObject(forKey: activeCategoryCacheKey)
+        }
+    }
+
+    private static func cachedActiveCategoryID(validatingWith categoryByID: [UUID: Category]) -> UUID? {
+        guard let value = UserDefaults(suiteName: appGroupID)?.string(forKey: activeCategoryCacheKey),
+              let id = UUID(uuidString: value),
+              categoryByID[id] != nil
+        else {
+            return nil
+        }
+        return id
     }
 
     private static func fetchActiveChapters(
