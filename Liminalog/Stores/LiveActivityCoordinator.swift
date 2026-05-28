@@ -21,4 +21,25 @@ final class LiveActivityCoordinator {
             )
         }
     }
+
+    func update(activeChapter: Chapter?, snapshot: RecordingSurfaceSnapshot) {
+        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
+        guard #available(iOS 16.2, *) else { return }
+
+        Task {
+            let categories = snapshot.categories.prefix(CategorySet.slotCount).map {
+                LiminalogActivityAttributes.IslandCategory(
+                    id: $0.id,
+                    name: $0.name,
+                    colorHex: $0.colorHex,
+                    icon: $0.icon
+                )
+            }
+            await LiveActivityManager.shared.update(
+                activeChapter: activeChapter,
+                categorySetName: snapshot.categorySetName,
+                islandCategories: Array(categories)
+            )
+        }
+    }
 }

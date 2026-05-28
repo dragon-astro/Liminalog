@@ -31,6 +31,7 @@ private enum RecordingWidgetStore {
     static let activeCategoryCacheKey = "recording.activeCategoryID"
     static let pendingCategoryCacheKey = "recording.pendingCategoryID"
     static let enabledCategorySetCacheKey = "recording.enabledCategorySetID"
+    static let surfaceSnapshotCacheKey = "recording.surfaceSnapshot"
 
     static var cloudSchema: Schema {
         Schema([
@@ -85,6 +86,8 @@ private enum RecordingWidgetStore {
     }
 
     static func entry() -> RecordingGridEntry {
+        let snapshot = cachedSurfaceSnapshot()
+
         do {
             let context = ModelContext(try makeContainer())
             let categories = try context.fetch(FetchDescriptor<Category>(
@@ -94,6 +97,12 @@ private enum RecordingWidgetStore {
                 ]
             ))
             let categoryByID = Dictionary(uniqueKeysWithValues: categories.map { ($0.id, $0) })
+
+            let activeCategoryID = try cachedActiveCategoryID() ?? fetchActiveChapter(context: context)?.category?.id
+
+            if let snapshot {
+                return entry(from: snapshot, activeCategoryID: activeCategoryID)
+            }
 
             let sets = try context.fetch(FetchDescriptor<CategorySet>(
                 sortBy: [
@@ -106,9 +115,6 @@ private enum RecordingWidgetStore {
             let selectedSet = requestedID.flatMap { id in sets.first { $0.id == id } }
                 ?? sets.first { $0.isDefault }
                 ?? sets.first
-
-            let cachedActiveCategoryID = cachedActiveCategoryID(validatingWith: categoryByID)
-            let activeCategoryID = try cachedActiveCategoryID ?? fetchActiveChapter(context: context)?.category?.id
 
             guard let selectedSet else {
                 return RecordingGridEntry(
@@ -141,6 +147,9 @@ private enum RecordingWidgetStore {
                 message: nil
             )
         } catch {
+            if let snapshot {
+                return entry(from: snapshot, activeCategoryID: cachedActiveCategoryID())
+            }
             return RecordingGridEntry(
                 date: Date(),
                 categorySetID: nil,
@@ -148,6 +157,34 @@ private enum RecordingWidgetStore {
                 cells: Array(repeating: nil, count: CategorySet.slotCount),
                 activeCategoryID: nil,
                 message: "データを読み込めません"
+            )
+        }
+    }
+
+    private static func entry(
+        from snapshot: RecordingSurfaceSnapshot,
+        activeCategoryID: UUID?
+    ) -> RecordingGridEntry {
+        RecordingGridEntry(
+            date: Date(),
+            categorySetID: snapshot.selectedCategorySetID,
+            categorySetName: snapshot.categorySetName,
+            cells: widgetCells(from: snapshot),
+            activeCategoryID: activeCategoryID,
+            message: nil
+        )
+    }
+
+    private static func widgetCells(from snapshot: RecordingSurfaceSnapshot) -> [WidgetCategory?] {
+        var cells = Array(snapshot.cells.prefix(CategorySet.slotCount))
+        while cells.count < CategorySet.slotCount { cells.append(nil) }
+        return cells.map { cell in
+            guard let cell else { return nil }
+            return WidgetCategory(
+                id: cell.id,
+                name: cell.name,
+                colorHex: cell.colorHex,
+                icon: cell.icon
             )
         }
     }
@@ -214,14 +251,27 @@ private enum RecordingWidgetStore {
         }
     }
 
+    private static func cachedActiveCategoryID() -> UUID? {
+        guard let value = UserDefaults(suiteName: appGroupID)?.string(forKey: activeCategoryCacheKey) else {
+            return nil
+        }
+        return UUID(uuidString: value)
+    }
+
     private static func cachedActiveCategoryID(validatingWith categoryByID: [UUID: Category]) -> UUID? {
-        guard let value = UserDefaults(suiteName: appGroupID)?.string(forKey: activeCategoryCacheKey),
-              let id = UUID(uuidString: value),
+        guard let id = cachedActiveCategoryID(),
               categoryByID[id] != nil
         else {
             return nil
         }
         return id
+    }
+
+    private static func cachedSurfaceSnapshot() -> RecordingSurfaceSnapshot? {
+        guard let data = UserDefaults(suiteName: appGroupID)?.data(forKey: surfaceSnapshotCacheKey) else {
+            return nil
+        }
+        return try? JSONDecoder().decode(RecordingSurfaceSnapshot.self, from: data)
     }
 
     private static func cachedEnabledCategorySetID(validatingWith sets: [CategorySet]) -> UUID? {
@@ -292,6 +342,22 @@ private enum RecordingWidgetStore {
         activeChapter: Chapter?,
         context: ModelContext
     ) -> LiminalogActivityAttributes.ContentState {
+        if let snapshot = cachedSurfaceSnapshot() {
+            let islandCategories = snapshot.categories.prefix(CategorySet.slotCount).map {
+                LiminalogActivityAttributes.IslandCategory(
+                    id: $0.id,
+                    name: $0.name,
+                    colorHex: $0.colorHex,
+                    icon: $0.icon
+                )
+            }
+            return makeActivityState(
+                activeChapter: activeChapter,
+                categorySetName: snapshot.categorySetName,
+                categories: Array(islandCategories)
+            )
+        }
+
         let categories = (try? context.fetch(FetchDescriptor<Category>(
             sortBy: [
                 SortDescriptor(\.sortOrder),

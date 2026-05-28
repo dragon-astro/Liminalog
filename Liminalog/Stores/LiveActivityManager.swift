@@ -9,10 +9,31 @@ final class LiveActivityManager {
 
     @available(iOS 16.2, *)
     func update(activeChapter: Chapter?, categorySetName: String, categories: [Category]) async {
+        let islandCategories = categories.prefix(CategorySet.slotCount).map {
+            LiminalogActivityAttributes.IslandCategory(
+                id: $0.id,
+                name: $0.name,
+                colorHex: $0.colorHex,
+                icon: $0.icon
+            )
+        }
+        await update(
+            activeChapter: activeChapter,
+            categorySetName: categorySetName,
+            islandCategories: islandCategories
+        )
+    }
+
+    @available(iOS 16.2, *)
+    func update(
+        activeChapter: Chapter?,
+        categorySetName: String,
+        islandCategories: [LiminalogActivityAttributes.IslandCategory]
+    ) async {
         let state = makeState(
             activeChapter: activeChapter,
             categorySetName: categorySetName,
-            categories: categories
+            islandCategories: islandCategories
         )
 
         let activities = Activity<LiminalogActivityAttributes>.activities
@@ -45,16 +66,11 @@ final class LiveActivityManager {
     }
 
     @available(iOS 16.2, *)
-    private func makeState(activeChapter: Chapter?, categorySetName: String, categories: [Category]) -> LiminalogActivityAttributes.ContentState {
-        let islandCategories = categories.prefix(CategorySet.slotCount).map {
-            LiminalogActivityAttributes.IslandCategory(
-                id: $0.id,
-                name: $0.name,
-                colorHex: $0.colorHex,
-                icon: $0.icon
-            )
-        }
-
+    private func makeState(
+        activeChapter: Chapter?,
+        categorySetName: String,
+        islandCategories: [LiminalogActivityAttributes.IslandCategory]
+    ) -> LiminalogActivityAttributes.ContentState {
         guard let activeChapter, let category = activeChapter.category else {
             return LiminalogActivityAttributes.ContentState(
                 activeCategoryID: nil,

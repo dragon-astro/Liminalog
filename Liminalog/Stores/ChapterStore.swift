@@ -17,6 +17,7 @@ final class ChapterStore {
     private static let activeCategoryCacheKey = "recording.activeCategoryID"
     private static let pendingCategoryCacheKey = "recording.pendingCategoryID"
     private static let enabledCategorySetCacheKey = "recording.enabledCategorySetID"
+    private static let surfaceSnapshotCacheKey = "recording.surfaceSnapshot"
 
     init(
         modelContext: ModelContext,
@@ -79,6 +80,47 @@ final class ChapterStore {
             defaults.removeObject(forKey: Self.enabledCategorySetCacheKey)
         }
         defaults.synchronize()
+    }
+
+    private func publishRecordingSurfaceSnapshot(categorySet: CategorySet? = nil) -> RecordingSurfaceSnapshot {
+        let snapshot = makeRecordingSurfaceSnapshot(categorySet: categorySet)
+
+        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil,
+              let defaults = UserDefaults(suiteName: Self.appGroupID)
+        else { return snapshot }
+
+        if let id = snapshot.selectedCategorySetID {
+            defaults.set(id.uuidString, forKey: Self.enabledCategorySetCacheKey)
+        } else {
+            defaults.removeObject(forKey: Self.enabledCategorySetCacheKey)
+        }
+
+        if let data = try? JSONEncoder().encode(snapshot) {
+            defaults.set(data, forKey: Self.surfaceSnapshotCacheKey)
+        }
+        defaults.synchronize()
+        return snapshot
+    }
+
+    private func makeRecordingSurfaceSnapshot(categorySet: CategorySet? = nil) -> RecordingSurfaceSnapshot {
+        let selectedSet = categorySet ?? currentCategorySet()
+        let categoryByID = Dictionary(uniqueKeysWithValues: allCategories().map { ($0.id, $0) })
+        let cells: [RecordingSurfaceSnapshot.Cell?] = CategorySet.normalize(selectedSet?.slots ?? [])
+            .map { id in
+                guard let id, let category = categoryByID[id] else { return nil }
+                return RecordingSurfaceSnapshot.Cell(
+                    id: category.id,
+                    name: category.name,
+                    colorHex: category.colorHex,
+                    icon: category.icon
+                )
+            }
+
+        return RecordingSurfaceSnapshot(
+            selectedCategorySetID: selectedSet?.id,
+            categorySetName: selectedSet?.name ?? "カテゴリ",
+            cells: cells
+        )
     }
 
     private func syncActiveCategoryCacheFromStore() {
@@ -441,17 +483,17 @@ final class ChapterStore {
     func setEnabledCategorySetID(_ id: UUID?) {
         let settings = SeedCoordinator.ensureUserSettings(in: modelContext, now: clock.now)
         if settings.enabledCategorySetID == id {
-            cacheEnabledCategorySetID(id)
+            let snapshot = publishRecordingSurfaceSnapshot(categorySet: categorySets().first { $0.id == id })
             reloadRecordingGridWidget()
-            updateLiveActivity(categorySet: categorySets().first { $0.id == id })
+            updateLiveActivity(snapshot: snapshot)
             return
         }
         settings.enabledCategorySetID = id
         settings.updatedAt = clock.now
         guard saveModelContext() else { return }
-        cacheEnabledCategorySetID(id)
+        let snapshot = publishRecordingSurfaceSnapshot(categorySet: categorySets().first { $0.id == id })
         reloadRecordingGridWidget()
-        updateLiveActivity(categorySet: categorySets().first { $0.id == id })
+        updateLiveActivity(snapshot: snapshot)
     }
 
     func syncLiveActivityWithActiveChapter() {
@@ -731,7 +773,12 @@ final class ChapterStore {
     }
 
     private func updateLiveActivity(categorySet: CategorySet? = nil) {
-        liveActivityCoordinator.update(activeChapter: activeChapter, categorySet: categorySet ?? currentCategorySet())
+        let snapshot = publishRecordingSurfaceSnapshot(categorySet: categorySet)
+        updateLiveActivity(snapshot: snapshot)
+    }
+
+    private func updateLiveActivity(snapshot: RecordingSurfaceSnapshot) {
+        liveActivityCoordinator.update(activeChapter: activeChapter, snapshot: snapshot)
     }
 
     private func currentCategorySet() -> CategorySet? {
