@@ -195,12 +195,26 @@ private enum RecordingWidgetStore {
         guard let defaults = UserDefaults(suiteName: appGroupID) else { return }
         if let id {
             defaults.set(id.uuidString, forKey: activeCategoryCacheKey)
-            defaults.set(id.uuidString, forKey: pendingCategoryCacheKey)
+            cachePendingCategoryID(id, defaults: defaults)
         } else {
             defaults.removeObject(forKey: activeCategoryCacheKey)
-            defaults.removeObject(forKey: pendingCategoryCacheKey)
+            cachePendingCategoryID(nil, defaults: defaults)
         }
         defaults.synchronize()
+    }
+
+    static func cachePendingCategoryID(_ id: UUID?) {
+        guard let defaults = UserDefaults(suiteName: appGroupID) else { return }
+        cachePendingCategoryID(id, defaults: defaults)
+        defaults.synchronize()
+    }
+
+    private static func cachePendingCategoryID(_ id: UUID?, defaults: UserDefaults) {
+        if let id {
+            defaults.set(id.uuidString, forKey: pendingCategoryCacheKey)
+        } else {
+            defaults.removeObject(forKey: pendingCategoryCacheKey)
+        }
     }
 
     private static func cachedActiveCategoryID(validatingWith categoryByID: [UUID: Category]) -> UUID? {
@@ -554,6 +568,7 @@ private struct RecordingGridToggleStyle: ToggleStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         Button {
+            RecordingWidgetStore.cachePendingCategoryID(category.id)
             optimisticCategoryIDString = category.id.uuidString
             configuration.isOn.toggle()
         } label: {
