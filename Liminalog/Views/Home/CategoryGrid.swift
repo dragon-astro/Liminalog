@@ -21,7 +21,7 @@ struct CategoryGrid: View {
     var body: some View {
         if categorySets.isEmpty {
             emptyState
-                .onAppear { syncSelection() }
+                .onAppear { syncSelectionAfterLayout() }
                 .onChange(of: categorySets.map(\.id)) { _, _ in syncSelection() }
         } else {
             VStack(spacing: 8) {
@@ -43,7 +43,7 @@ struct CategoryGrid: View {
                 }
             }
             .animation(.easeInOut(duration: 0.22), value: isExpanded)
-            .onAppear { syncSelection() }
+            .onAppear { syncSelectionAfterLayout() }
             .onChange(of: store.activeChapter?.category?.id) { _, newID in
                 activeID = newID
             }
@@ -177,6 +177,13 @@ struct CategoryGrid: View {
             selectedSetID = categorySets.first?.id
         }
         store.setEnabledCategorySetID(selectedSetID)
+    }
+
+    private func syncSelectionAfterLayout() {
+        syncSelection()
+        DispatchQueue.main.async {
+            syncSelection()
+        }
     }
 
     private func persistSelection(_ id: UUID?) {

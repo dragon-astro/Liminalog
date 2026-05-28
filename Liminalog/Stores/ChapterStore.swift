@@ -12,6 +12,7 @@ final class ChapterStore {
     private let planStore: PlanStore
     private let scoreStore: ScoreStore
     private let liveActivityCoordinator: LiveActivityCoordinator
+    private var didDisableUserSettingsPersistence = false
     var revision = 0
     private static let appGroupID = "group.app.YasudaRyuga.Liminalog"
     private static let activeCategoryCacheKey = "recording.activeCategoryID"
@@ -70,16 +71,11 @@ final class ChapterStore {
         defaults.synchronize()
     }
 
-    private func cacheEnabledCategorySetID(_ id: UUID?) {
+    private func cachedEnabledCategorySetID() -> UUID? {
         guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil,
-              let defaults = UserDefaults(suiteName: Self.appGroupID)
-        else { return }
-        if let id {
-            defaults.set(id.uuidString, forKey: Self.enabledCategorySetCacheKey)
-        } else {
-            defaults.removeObject(forKey: Self.enabledCategorySetCacheKey)
-        }
-        defaults.synchronize()
+              let value = UserDefaults(suiteName: Self.appGroupID)?.string(forKey: Self.enabledCategorySetCacheKey)
+        else { return nil }
+        return UUID(uuidString: value)
     }
 
     private func publishRecordingSurfaceSnapshot(categorySet: CategorySet? = nil) -> RecordingSurfaceSnapshot {
@@ -481,19 +477,10 @@ final class ChapterStore {
     }
 
     func setEnabledCategorySetID(_ id: UUID?) {
-        let settings = SeedCoordinator.ensureUserSettings(in: modelContext, now: clock.now)
-        if settings.enabledCategorySetID == id {
-            let snapshot = publishRecordingSurfaceSnapshot(categorySet: categorySets().first { $0.id == id })
-            reloadRecordingGridWidget()
-            updateLiveActivity(snapshot: snapshot)
-            return
-        }
-        settings.enabledCategorySetID = id
-        settings.updatedAt = clock.now
-        guard saveModelContext() else { return }
         let snapshot = publishRecordingSurfaceSnapshot(categorySet: categorySets().first { $0.id == id })
         reloadRecordingGridWidget()
         updateLiveActivity(snapshot: snapshot)
+        persistEnabledCategorySetIDBestEffort(id)
     }
 
     func syncLiveActivityWithActiveChapter() {
@@ -783,9 +770,35 @@ final class ChapterStore {
 
     private func currentCategorySet() -> CategorySet? {
         let sets = categorySets()
-        let settings = SeedCoordinator.ensureUserSettings(in: modelContext, now: clock.now)
-        return settings.enabledCategorySetID.flatMap { id in sets.first { $0.id == id } }
+        let settings = try? modelContext.fetch(FetchDescriptor<UserSettings>(
+            predicate: #Predicate { $0.settingsKey == "default" },
+            sortBy: [SortDescriptor(\.createdAt)]
+        )).first
+        return cachedEnabledCategorySetID().flatMap { id in sets.first { $0.id == id } }
+            ?? settings?.enabledCategorySetID.flatMap { id in sets.first { $0.id == id } }
             ?? sets.first { $0.isDefault }
             ?? sets.first
+    }
+
+    private func persistEnabledCategorySetIDBestEffort(_ id: UUID?) {
+        guard !didDisableUserSettingsPersistence else { return }
+
+        let descriptor = FetchDescriptor<UserSettings>(
+            predicate: #Predicate { $0.settingsKey == "default" },
+            sortBy: [SortDescriptor(\.createdAt)]
+        )
+        let settings = (try? modelContext.fetch(descriptor).first) ?? UserSettings()
+        if settings.modelContext == nil {
+            modelContext.insert(settings)
+        }
+        guard settings.enabledCategorySetID != id else { return }
+        settings.enabledCategorySetID = id
+        settings.updatedAt = clock.now
+        if !saveModelContext() {
+            didDisableUserSettingsPersistence = true
+            #if DEBUG
+            NSLog("Liminalog: skipped UserSettings.enabledCategorySetID persistence; recording surface snapshot was already published")
+            #endif
+        }
     }
 }
