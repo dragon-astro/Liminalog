@@ -438,7 +438,6 @@ final class ChapterStore {
         settings.enabledCategorySetID = id
         settings.updatedAt = clock.now
         guard saveModelContext() else { return }
-        markChanged(reloadWidgets: false)
         reloadRecordingGridWidget()
         updateLiveActivity()
     }

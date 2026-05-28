@@ -11,6 +11,7 @@ struct CategoryGrid: View {
     @State private var selectedSetID: UUID?
     @State private var activeID: UUID? = nil
     @State private var editingSetFromEmptySlot: CategorySet? = nil
+    @State private var selectionPersistenceTask: Task<Void, Never>?
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 10), count: 4)
 
@@ -54,10 +55,10 @@ struct CategoryGrid: View {
                 syncSelection()
             }
             .onChange(of: selectedSetID) { _, newID in
-                let newString = newID?.uuidString ?? ""
-                guard activeSetIDString != newString else { return }
-                activeSetIDString = newString
-                store.setEnabledCategorySetID(newID)
+                scheduleSelectionPersistence(newID)
+            }
+            .onDisappear {
+                persistSelectionImmediately()
             }
             .sheet(item: $editingSetFromEmptySlot) { set in
                 CategorySetEditSheet(categorySet: set)
@@ -179,6 +180,25 @@ struct CategoryGrid: View {
         } else if selectedSetID == nil || !categorySets.contains(where: { $0.id == selectedSetID }) {
             selectedSetID = categorySets.first?.id
         }
+    }
+
+    private func scheduleSelectionPersistence(_ id: UUID?) {
+        let newString = id?.uuidString ?? ""
+        guard activeSetIDString != newString else { return }
+        activeSetIDString = newString
+
+        selectionPersistenceTask?.cancel()
+        selectionPersistenceTask = Task { @MainActor [id] in
+            try? await Task.sleep(nanoseconds: 180_000_000)
+            guard !Task.isCancelled else { return }
+            store.setEnabledCategorySetID(id)
+        }
+    }
+
+    private func persistSelectionImmediately() {
+        selectionPersistenceTask?.cancel()
+        selectionPersistenceTask = nil
+        store.setEnabledCategorySetID(selectedSetID)
     }
 
     private func slottedCategories(for set: CategorySet) -> [Category?] {
