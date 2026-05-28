@@ -104,10 +104,7 @@ private enum RecordingWidgetStore {
                 ?? sets.first { $0.isDefault }
                 ?? sets.first
 
-            let active = try context.fetch(FetchDescriptor<Chapter>())
-                .filter { $0.endTime == nil }
-                .sorted { $0.startTime > $1.startTime }
-                .first
+            let active = try fetchActiveChapter(context: context)
 
             guard let selectedSet else {
                 return RecordingGridEntry(
@@ -158,17 +155,17 @@ private enum RecordingWidgetStore {
         }
 
         let context = ModelContext(try makeContainer())
-        let categories = try context.fetch(FetchDescriptor<Category>())
-        guard let category = categories.first(where: { $0.id == categoryID }) else {
+        var categoryDescriptor = FetchDescriptor<Category>(
+            predicate: #Predicate { $0.id == categoryID }
+        )
+        categoryDescriptor.fetchLimit = 1
+        guard let category = try context.fetch(categoryDescriptor).first else {
             throw WidgetDataError.categoryNotFound
         }
 
         let now = Date()
-        let activeChapters = try context.fetch(FetchDescriptor<Chapter>())
-            .filter { $0.endTime == nil }
-            .sorted { $0.startTime < $1.startTime }
+        let activeChapters = try fetchActiveChapters(context: context, order: .forward)
         let sameCategoryActive = activeChapters.first { $0.category?.id == categoryID }
-        var activeAfterChange = sameCategoryActive
 
         for chapter in activeChapters where chapter.id != sameCategoryActive?.id {
             chapter.endTime = now
@@ -178,31 +175,59 @@ private enum RecordingWidgetStore {
         if sameCategoryActive == nil {
             let chapter = Chapter(category: category, startTime: now)
             context.insert(chapter)
-            activeAfterChange = chapter
-        }
-
-        let liveActivityState: LiminalogActivityAttributes.ContentState?
-        if #available(iOSApplicationExtension 16.2, *) {
-            liveActivityState = makeLiveActivityState(activeChapter: activeAfterChange, context: context)
-        } else {
-            liveActivityState = nil
         }
 
         try context.save()
         WidgetCenter.shared.reloadTimelines(ofKind: widgetKind)
 
-        guard let liveActivityState else { return }
         if #available(iOSApplicationExtension 16.2, *) {
             Task { @MainActor in
-                await publishLiveActivity(state: liveActivityState)
+                await refreshLiveActivityFromStore()
             }
         }
+    }
+
+    private static func fetchActiveChapters(
+        context: ModelContext,
+        order: SortOrder = .reverse
+    ) throws -> [Chapter] {
+        let descriptor = FetchDescriptor<Chapter>(
+            predicate: #Predicate { $0.endTime == nil },
+            sortBy: [SortDescriptor(\.startTime, order: order)]
+        )
+        return try context.fetch(descriptor)
+    }
+
+    private static func fetchActiveChapter(context: ModelContext) throws -> Chapter? {
+        var descriptor = FetchDescriptor<Chapter>(
+            predicate: #Predicate { $0.endTime == nil },
+            sortBy: [SortDescriptor(\.startTime, order: .reverse)]
+        )
+        descriptor.fetchLimit = 1
+        return try context.fetch(descriptor).first
     }
 
     private static func normalizeSlots(_ slots: [UUID?]) -> [UUID?] {
         var result = Array(slots.prefix(CategorySet.slotCount))
         while result.count < CategorySet.slotCount { result.append(nil) }
         return result
+    }
+
+    @available(iOSApplicationExtension 16.2, *)
+    @MainActor
+    private static func refreshLiveActivityFromStore() async {
+        do {
+            let context = ModelContext(try makeContainer())
+            let state = makeLiveActivityState(
+                activeChapter: try fetchActiveChapter(context: context),
+                context: context
+            )
+            await publishLiveActivity(state: state)
+        } catch {
+            #if DEBUG
+            print("Widget Live Activity refresh failed: \(error)")
+            #endif
+        }
     }
 
     @available(iOSApplicationExtension 16.2, *)
