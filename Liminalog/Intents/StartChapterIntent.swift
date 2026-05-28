@@ -2,6 +2,7 @@ import ActivityKit
 import AppIntents
 import Foundation
 import SwiftData
+import WidgetKit
 
 struct StartChapterIntent: AppIntent, LiveActivityIntent {
     static let title: LocalizedStringResource = "記録開始"
@@ -49,11 +50,12 @@ struct StartChapterIntent: AppIntent, LiveActivityIntent {
             activeAfterChange = chapter
         }
 
-        try context.save()
-
         if #available(iOS 16.2, *) {
             await updateLiveActivity(activeChapter: activeAfterChange, context: context)
         }
+
+        try context.save()
+        WidgetCenter.shared.reloadTimelines(ofKind: "RecordingGridWidget")
 
         #if DEBUG
         print("App LiveActivityIntent switched category: \(categoryID.uuidString)")

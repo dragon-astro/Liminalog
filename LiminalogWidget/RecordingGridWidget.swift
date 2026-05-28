@@ -27,6 +27,7 @@ struct WidgetCategory: Identifiable, Hashable {
 
 private enum RecordingWidgetStore {
     static let appGroupID = "group.app.YasudaRyuga.Liminalog"
+    static let widgetKind = "RecordingGridWidget"
 
     static var cloudSchema: Schema {
         Schema([
@@ -55,7 +56,7 @@ private enum RecordingWidgetStore {
         ])
     }
 
-    static func makeContainer() throws -> ModelContainer {
+    static let sharedContainer: Result<ModelContainer, Error> = Result {
         let cloudConfiguration = ModelConfiguration(
             "Cloud",
             schema: cloudSchema,
@@ -74,6 +75,10 @@ private enum RecordingWidgetStore {
             for: schema,
             configurations: [cloudConfiguration, localCacheConfiguration]
         )
+    }
+
+    static func makeContainer() throws -> ModelContainer {
+        try sharedContainer.get()
     }
 
     static func entry() -> RecordingGridEntry {
@@ -176,11 +181,10 @@ private enum RecordingWidgetStore {
             activeAfterChange = chapter
         }
 
-        try context.save()
         if #available(iOSApplicationExtension 16.2, *) {
             await updateLiveActivity(activeChapter: activeAfterChange, context: context)
         }
-        WidgetCenter.shared.reloadAllTimelines()
+        try context.save()
     }
 
     private static func normalizeSlots(_ slots: [UUID?]) -> [UUID?] {
@@ -354,7 +358,7 @@ struct RecordingGridProvider: TimelineProvider {
 }
 
 struct RecordingGridWidget: Widget {
-    let kind = "RecordingGridWidget"
+    let kind = RecordingWidgetStore.widgetKind
 
     var body: some WidgetConfiguration {
         StaticConfiguration(
