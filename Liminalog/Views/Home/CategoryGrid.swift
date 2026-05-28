@@ -47,9 +47,6 @@ struct CategoryGrid: View {
             .onChange(of: store.activeChapter?.category?.id) { _, newID in
                 activeID = newID
             }
-            .onChange(of: store.revision) { _, _ in
-                activeID = store.activeChapter?.category?.id
-            }
             .onChange(of: categorySets.map(\.id)) { _, _ in
                 syncSelection()
             }

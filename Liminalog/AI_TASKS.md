@@ -275,6 +275,7 @@ refactor: split plan store
 - [x] `SharedModelContainer` を実装（App Group URL + CloudKit Private DB）<!-- 担当: Codex, 理由: 既存 ModelContainer の置換・ボイラープレート, 完了: 2026-05-28 -->
 - [x] `LiminalogApp.modelContainer` を `SharedModelContainer.shared` に差し替え <!-- 担当: Codex, 理由: 既存実装の機械置換, 完了: 2026-05-28 -->
 - [x] `CalendarEventCache` 用に第2の `ModelConfiguration`（ローカル限定）を追加 <!-- 担当: Codex, 完了: 2026-05-28 -->
+- [x] DEBUGビルド用の開発ストア世代管理を追加（モデル変更時の古いApp Group SwiftData storeを自動リセット）<!-- 担当: Codex, 完了: 2026-05-29。本番移行はVersionedSchemaで別途対応。世代を上げる時は `currentDevelopmentStoreVersion` を更新。CloudKit補助ディレクトリ `.Cloud_SUPPORT` も一緒に削除する -->
 
 ### 5.2 0:00固定 DayBoundary 導入
 
@@ -304,7 +305,7 @@ refactor: split plan store
 
 - [ ] `HomeView` を `@Query` ベースに書き換え + revision 依存を除去 <!-- 担当: Claude, 理由: SwiftUI整合性 -->
 - [ ] `TimelineView` を `@Query` ベースに書き換え（TickClock分離も）<!-- 担当: Claude -->
-- [ ] `CategoryGrid` を `@Query` ベースに書き換え <!-- 担当: Claude -->
+- [~] `CategoryGrid` を `@Query` ベースに書き換え <!-- 担当: Claude, 進捗: 2026-05-29 Codex が `store.revision` 監視を1箇所撤去。完全なrevision非依存化は残り -->
 - [ ] `CurrentChapterCard` を `@Query` ベースに書き換え <!-- 担当: Claude -->
 - [ ] `CalendarView` / `CalendarDayView` を `@Query` ベースに書き換え <!-- 担当: Claude -->
 - [ ] `DashboardView` を `@Query` ベースに書き換え + 期間 filter 動的化 <!-- 担当: Claude -->
@@ -928,6 +929,7 @@ refactor: split plan store
 | 2026-05-29 | Codex | テーブル切替が Widget / Dynamic Island に反映されない問題を修正。原因は Home の `@AppStorage("activeCategorySetID")` と SwiftData `UserSettings.enabledCategorySetID` の二重管理が残り、外部表示側が `UserSettings` を読むため同期経路が途切れる可能性があったこと。`CategoryGrid.syncSelection/persistSelection` から必ず `ChapterStore.setEnabledCategorySetID` を呼ぶようにし、`setEnabledCategorySetID` は `SeedCoordinator.ensureUserSettings` で default 設定を固定して更新する。さらに App Group UserDefaults に `recording.enabledCategorySetID` を即時キャッシュし、Widget entry / Widget LiveActivity更新 / AppIntent側のカテゴリセット解決はこのキャッシュを優先して読む。これにより SwiftData 反映待ちや重複 `UserSettings` の揺れがあっても、外部表示は直近選択テーブルを使う。検証: `git diff --check` 成功、`xcodebuild -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build-for-testing` 成功 |
 | 2026-05-29 | Codex | 上記修正後もテーブル反映が不安定だったため、根本設計を変更。Widget / Dynamic Island が `UserSettings.enabledCategorySetID` と SwiftData の CategorySet を毎回推測する構造をやめ、アプリ本体が `RecordingSurfaceSnapshot`（選択中セットID・セット名・8スロット分のカテゴリ表示情報）を App Group UserDefaults `recording.surfaceSnapshot` に発行する方式へ変更した。`ChapterStore.updateLiveActivity` はこのスナップショットを発行し、`LiveActivityCoordinator` はスナップショットから Dynamic Island のボタン配列を生成する。`RecordingGridWidget.entry` と Widget側 Live Activity 更新もスナップショットを最優先で描画し、SwiftData はスナップショットがない初回・fallback 用に限定。これにより App/Widget の ModelContainer 差異、SwiftData 保存反映待ち、重複 UserSettings に依存しない外部表示同期へ寄せた。検証: `git diff --check` 成功、`xcodebuild -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build-for-testing` 成功 |
 | 2026-05-29 | Codex | テーブル切替がまだ反映されない原因をシミュレータログで追加調査。実際の詰まりは `UserSettings` のSwiftData保存時に既存ストア側の `ZUSERSETTINGS` テーブルへ新しい `ZPROFILEACCENTCOLORHEX` カラムがなく、保存が失敗して `setEnabledCategorySetID` が早期returnし、スナップショット発行・Widget reload・Live Activity更新まで到達していなかったこと。`ChapterStore.setEnabledCategorySetID` は外部表示用の `RecordingSurfaceSnapshot` 発行、`RecordingGridWidget` reload、Dynamic Island更新をSwiftData保存より先に必ず実行し、`UserSettings.enabledCategorySetID` 保存はbest-effortへ降格。保存失敗後はその起動中の再試行を止め、壊れたローカルDBスキーマが外部表示同期を止めない設計にした。加えて `CategoryGrid` は `TabView` のページ復元が起動直後に選択を戻すケースを避けるため、表示確定後の次runloopでも選択同期を再実行する。Claude向け注意: 根本的なDB移行/リセット戦略は別タスクとして残るが、Widget/Dynamic Islandのテーブル反映はSwiftData保存に依存させないのが今回の確定方針 |
+| 2026-05-29 | Codex | 最優先残タスクのうち、開発中のSwiftDataスキーマ不整合対策を実装。`SharedModelContainer` と `RecordingWidgetStore` に DEBUG限定の `currentDevelopmentStoreVersion` を追加し、世代不一致時は App Group 内の `Cloud.store` / `Local.store` / `LocalCache.store` と `-shm` / `-wal`、`.Cloud_SUPPORT`、外部表示キャッシュを起動前に削除してから `ModelContainer` を作る。これにより `UserSettings` などのモデル変更後に古いSQLiteスキーマが残っても、開発ビルドではクラッシュ/保存失敗を引きずらない。本番リリース後のデータ維持はこの仕組みではなく `VersionedSchema` / `SchemaMigrationPlan` で対応する。あわせて `CategoryGrid` の `store.revision` 監視を1箇所削除し、activeカテゴリ表示は `store.activeChapter?.category?.id` の変化だけで更新するよう軽量化 |
 
 ---
 

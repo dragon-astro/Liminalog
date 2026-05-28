@@ -32,6 +32,8 @@ private enum RecordingWidgetStore {
     static let pendingCategoryCacheKey = "recording.pendingCategoryID"
     static let enabledCategorySetCacheKey = "recording.enabledCategorySetID"
     static let surfaceSnapshotCacheKey = "recording.surfaceSnapshot"
+    private static let developmentStoreVersionKey = "development.storeVersion"
+    private static let currentDevelopmentStoreVersion = 2026052902
 
     static var cloudSchema: Schema {
         Schema([
@@ -61,6 +63,8 @@ private enum RecordingWidgetStore {
     }
 
     static let sharedContainer: Result<ModelContainer, Error> = Result {
+        prepareDevelopmentStoresIfNeeded()
+
         let cloudConfiguration = ModelConfiguration(
             "Cloud",
             schema: cloudSchema,
@@ -83,6 +87,69 @@ private enum RecordingWidgetStore {
 
     static func makeContainer() throws -> ModelContainer {
         try sharedContainer.get()
+    }
+
+    private static func prepareDevelopmentStoresIfNeeded() {
+        #if DEBUG
+        guard let defaults = UserDefaults(suiteName: appGroupID),
+              defaults.integer(forKey: developmentStoreVersionKey) != currentDevelopmentStoreVersion
+        else { return }
+
+        resetDevelopmentStores()
+        defaults.set(currentDevelopmentStoreVersion, forKey: developmentStoreVersionKey)
+        defaults.synchronize()
+        #endif
+    }
+
+    private static func resetDevelopmentStores() {
+        #if DEBUG
+        guard let appGroupURL = FileManager.default.containerURL(
+            forSecurityApplicationGroupIdentifier: appGroupID
+        ) else { return }
+
+        let supportURL = appGroupURL
+            .appendingPathComponent("Library", isDirectory: true)
+            .appendingPathComponent("Application Support", isDirectory: true)
+        let storeNames = [
+            "Cloud.store",
+            "Local.store",
+            "LocalCache.store"
+        ]
+        let suffixes = ["", "-shm", "-wal"]
+
+        for storeName in storeNames {
+            for suffix in suffixes {
+                let url = supportURL.appendingPathComponent(storeName + suffix)
+                guard FileManager.default.fileExists(atPath: url.path) else { continue }
+                do {
+                    try FileManager.default.removeItem(at: url)
+                } catch {
+                    NSLog("LiminalogWidget: failed to remove development store file \(url.lastPathComponent): \(String(describing: error))")
+                }
+            }
+        }
+
+        let cloudSupportURL = supportURL.appendingPathComponent(".Cloud_SUPPORT", isDirectory: true)
+        if FileManager.default.fileExists(atPath: cloudSupportURL.path) {
+            do {
+                try FileManager.default.removeItem(at: cloudSupportURL)
+            } catch {
+                NSLog("LiminalogWidget: failed to remove development CloudKit support directory: \(String(describing: error))")
+            }
+        }
+
+        if let defaults = UserDefaults(suiteName: appGroupID) {
+            [
+                activeCategoryCacheKey,
+                pendingCategoryCacheKey,
+                enabledCategorySetCacheKey,
+                surfaceSnapshotCacheKey
+            ].forEach { defaults.removeObject(forKey: $0) }
+            defaults.synchronize()
+        }
+
+        NSLog("LiminalogWidget: reset development SwiftData stores for schema version \(currentDevelopmentStoreVersion)")
+        #endif
     }
 
     static func entry() -> RecordingGridEntry {
