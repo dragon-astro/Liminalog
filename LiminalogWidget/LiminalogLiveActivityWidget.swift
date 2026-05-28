@@ -11,35 +11,27 @@ struct LiminalogLiveActivityWidget: Widget {
                 .activitySystemActionForegroundColor(Color(hex: context.state.colorHex))
         } dynamicIsland: { context in
             DynamicIsland {
-                DynamicIslandExpandedRegion(.leading) {
-                    CurrentCategoryBadge(state: context.state)
-                }
-
-                DynamicIslandExpandedRegion(.trailing) {
-                    if let startedAt = context.state.startedAt {
-                        Text(timerInterval: startedAt...Date.distantFuture, countsDown: false)
-                            .font(.caption.monospacedDigit().weight(.semibold))
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.trailing)
-                    }
+                DynamicIslandExpandedRegion(.center) {
+                    ExpandedCurrentActivityHeader(state: context.state)
                 }
 
                 DynamicIslandExpandedRegion(.bottom) {
                     LiveActivityCategoryControls(state: context.state)
                 }
             } compactLeading: {
-                CategoryIcon(state: context.state, size: 18)
+                CategoryIcon(state: context.state, size: 12)
+                    .frame(width: 16, height: 16)
             } compactTrailing: {
                 if let startedAt = context.state.startedAt {
                     Text(timerInterval: startedAt...Date.distantFuture, countsDown: false)
-                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                        .font(.system(size: 8, weight: .semibold, design: .monospaced))
                         .foregroundStyle(.secondary)
-                        .frame(maxWidth: 34)
-                        .minimumScaleFactor(0.65)
+                        .frame(width: 28, alignment: .trailing)
+                        .minimumScaleFactor(0.5)
                         .lineLimit(1)
                 }
             } minimal: {
-                CategoryIcon(state: context.state, size: 18)
+                CategoryIcon(state: context.state, size: 12)
             }
             .keylineTint(Color(hex: context.state.colorHex))
         }
@@ -78,26 +70,36 @@ private struct LiveActivityLockScreenView: View {
     }
 }
 
-private struct CurrentCategoryBadge: View {
+private struct ExpandedCurrentActivityHeader: View {
     let state: LiminalogActivityAttributes.ContentState
 
     var body: some View {
-        HStack(spacing: 6) {
-            CategoryIcon(state: state, size: 22)
+        HStack(spacing: 8) {
+            CategoryIcon(state: state, size: 20)
 
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 1) {
                 Text(state.categoryName ?? "記録中")
                     .font(.caption2.weight(.bold))
                     .lineLimit(1)
-                    .minimumScaleFactor(0.6)
+                    .minimumScaleFactor(0.65)
 
-                Text("記録中")
+                Text(state.categorySetName)
                     .font(.system(size: 9, weight: .medium))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.65)
+            }
+
+            if let startedAt = state.startedAt {
+                Text(timerInterval: startedAt...Date.distantFuture, countsDown: false)
+                    .font(.caption2.monospacedDigit().weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.65)
             }
         }
-        .frame(maxWidth: 94, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .center)
+        .padding(.horizontal, 22)
     }
 }
 
@@ -121,7 +123,7 @@ private struct LiveActivityCategoryControls: View {
             .foregroundStyle(.secondary)
             .padding(.top, 2)
         } else {
-            HStack(spacing: 12) {
+            LazyVGrid(columns: columns, spacing: 8) {
                 ForEach(state.categories) { category in
                     Button(intent: StartChapterIntent(categoryID: category.id.uuidString)) {
                         DynamicIslandCategoryButton(
@@ -133,8 +135,13 @@ private struct LiveActivityCategoryControls: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .center)
-            .padding(.horizontal, 18)
+            .padding(.horizontal, 16)
+            .padding(.top, 4)
         }
+    }
+
+    private var columns: [GridItem] {
+        Array(repeating: GridItem(.flexible(), spacing: 6), count: 4)
     }
 }
 
@@ -143,23 +150,35 @@ private struct DynamicIslandCategoryButton: View {
     let isActive: Bool
 
     var body: some View {
-        ZStack {
-            Circle()
-                .fill(Color(hex: category.colorHex).opacity(isActive ? 1 : 0.22))
-                .frame(width: 30, height: 30)
-
-            if isActive {
+        HStack(spacing: 4) {
+            ZStack {
                 Circle()
-                    .stroke(Color(hex: category.colorHex).opacity(0.95), lineWidth: 2)
-                    .frame(width: 36, height: 36)
+                    .fill(Color(hex: category.colorHex).opacity(isActive ? 1 : 0.24))
+                    .frame(width: 18, height: 18)
+                Image(systemName: category.icon ?? "circle.fill")
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundStyle(isActive ? .white : Color(hex: category.colorHex))
             }
 
-            Image(systemName: category.icon ?? "circle.fill")
-                .font(.system(size: 13, weight: .bold))
-                .foregroundStyle(isActive ? .white : Color(hex: category.colorHex))
+            Text(category.name)
+                .font(.system(size: 9, weight: isActive ? .bold : .semibold))
+                .foregroundStyle(isActive ? Color(hex: category.colorHex) : .primary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.55)
         }
-        .frame(width: 40, height: 40)
-        .contentShape(Circle())
+        .padding(.horizontal, 5)
+        .frame(maxWidth: .infinity, minHeight: 28, maxHeight: 28)
+        .background(
+            Capsule()
+                .fill(Color(hex: category.colorHex).opacity(isActive ? 0.22 : 0.1))
+        )
+        .overlay {
+            if isActive {
+                Capsule()
+                    .stroke(Color(hex: category.colorHex).opacity(0.85), lineWidth: 1)
+            }
+        }
+        .contentShape(Capsule())
         .accessibilityLabel(category.name)
     }
 }

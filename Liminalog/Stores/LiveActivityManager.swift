@@ -46,7 +46,7 @@ final class LiveActivityManager {
 
     @available(iOS 16.2, *)
     private func makeState(activeChapter: Chapter?, categorySetName: String, categories: [Category]) -> LiminalogActivityAttributes.ContentState {
-        let islandCategories = categories.prefix(4).map {
+        let islandCategories = categories.prefix(CategorySet.slotCount).map {
             LiminalogActivityAttributes.IslandCategory(
                 id: $0.id,
                 name: $0.name,

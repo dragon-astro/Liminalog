@@ -213,7 +213,7 @@ private enum RecordingWidgetStore {
             ?? sets.first
         let islandCategories = normalizeSlots(selectedSet?.slots ?? [])
             .compactMap { id in id.flatMap { categoryByID[$0] } }
-            .prefix(4)
+            .prefix(CategorySet.slotCount)
             .map {
                 LiminalogActivityAttributes.IslandCategory(
                     id: $0.id,
@@ -233,6 +233,9 @@ private enum RecordingWidgetStore {
             for activity in activities {
                 await activity.update(ActivityContent(state: state, staleDate: nil))
             }
+            #if DEBUG
+            print("Widget Live Activity updated: active=\(state.activeCategoryID?.uuidString ?? "nil"), activities=\(activities.count), categories=\(state.categories.count)")
+            #endif
             return
         }
 
@@ -242,6 +245,9 @@ private enum RecordingWidgetStore {
                 content: ActivityContent(state: state, staleDate: nil),
                 pushType: nil
             )
+            #if DEBUG
+            print("Widget Live Activity requested: active=\(state.activeCategoryID?.uuidString ?? "nil"), categories=\(state.categories.count)")
+            #endif
         } catch {
             #if DEBUG
             print("Widget Live Activity request failed: \(error)")
@@ -283,7 +289,7 @@ private enum RecordingWidgetStore {
     }
 }
 
-struct StartChapterIntent: AppIntent {
+struct StartChapterIntent: AppIntent, LiveActivityIntent {
     static let title: LocalizedStringResource = "記録開始"
     static let description = IntentDescription("選んだカテゴリで記録を開始します。")
     static let openAppWhenRun = false
