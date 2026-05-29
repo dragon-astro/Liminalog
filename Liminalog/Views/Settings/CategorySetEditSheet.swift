@@ -56,27 +56,15 @@ struct CategorySetEditSheet: View {
     // MARK: - Sections
 
     private var settingsSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("セット名")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            VStack(alignment: .leading, spacing: 6) {
-                TextField("例: 平日（空でも自動命名）", text: $name)
-                    .focused($nameFieldFocused)
-                    .submitLabel(.done)
-                    .onSubmit { nameFieldFocused = false }
-
-                Text("空のままだと「セット ◯」が自動で付きます")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
+        TextField("セット名", text: $name)
+            .focused($nameFieldFocused)
+            .submitLabel(.done)
+            .onSubmit { nameFieldFocused = false }
             .padding(14)
             .background(
                 RoundedRectangle(cornerRadius: 14)
                     .fill(Color(.secondarySystemGroupedBackground))
             )
-        }
     }
 
     private var slotSection: some View {
