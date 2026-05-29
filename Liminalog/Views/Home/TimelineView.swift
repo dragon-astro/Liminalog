@@ -241,12 +241,15 @@ struct TimelineView: View {
         }
     }
 
+    @ViewBuilder
     private var timelineHeader: some View {
-        Text(title)
-            .font(.title2.bold())
-            .foregroundStyle(.primary)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.top, 2)
+        if !title.isEmpty {
+            Text(title)
+                .font(.title2.bold())
+                .foregroundStyle(.primary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 2)
+        }
     }
 
     private func focusEntry(_ entry: TimelineEntry) {

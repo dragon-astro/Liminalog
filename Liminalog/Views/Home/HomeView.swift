@@ -3,6 +3,7 @@ import SwiftData
 
 struct HomeView: View {
     @Environment(ChapterStore.self) private var store
+    @Query private var queriedPlans: [PlanBlock]
     @State private var selectedPage: TodayPage = .today
     @State private var editingChapter: Chapter? = nil
     @State private var showingAddSheet = false
@@ -41,7 +42,10 @@ struct HomeView: View {
                     }
                 }
                 ToolbarItem(placement: .principal) {
-                    TodayPageTextTabs(selection: $selectedPage)
+                    TodayPageTextTabs(
+                        selection: $selectedPage,
+                        showsTomorrowIndicator: tomorrowCoverage.hasActionableGap
+                    )
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink(destination: CategorySettingsView()) {
@@ -71,6 +75,10 @@ struct HomeView: View {
     private func relativeDate(_ dayOffset: Int) -> Date {
         Calendar.japanese.date(byAdding: .day, value: dayOffset, to: Date()) ?? Date()
     }
+
+    private var tomorrowCoverage: PlanCoverageSummary {
+        PlanCoverageSummary.make(date: relativeDate(1), plans: queriedPlans)
+    }
 }
 
 private enum TodayPage: String, CaseIterable, Identifiable {
@@ -82,9 +90,9 @@ private enum TodayPage: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .yesterday: "振り返り"
-        case .today: "記録"
-        case .tomorrow: "予定"
+        case .yesterday: "昨日"
+        case .today: "今日"
+        case .tomorrow: "明日"
         }
     }
 
@@ -99,10 +107,11 @@ private enum TodayPage: String, CaseIterable, Identifiable {
 
 private struct TodayPageTextTabs: View {
     @Binding var selection: TodayPage
+    let showsTomorrowIndicator: Bool
     @Namespace private var underlineNamespace
 
     var body: some View {
-        HStack(spacing: 20) {
+        HStack(spacing: 28) {
             ForEach(TodayPage.allCases) { page in
                 Button {
                     withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
@@ -110,19 +119,30 @@ private struct TodayPageTextTabs: View {
                     }
                 } label: {
                     VStack(spacing: 4) {
-                        Text(page.title)
-                            .font(.headline.weight(selection == page ? .bold : .semibold))
-                            .foregroundStyle(selection == page ? Color.primary : Color.secondary.opacity(0.68))
+                        ZStack(alignment: .topTrailing) {
+                            Text(page.title)
+                                .font(.headline.weight(selection == page ? .bold : .semibold))
+                                .foregroundStyle(selection == page ? Color.primary : Color.secondary.opacity(0.68))
+                                .lineLimit(1)
+
+                            if page == .tomorrow, showsTomorrowIndicator {
+                                Circle()
+                                    .fill(Color.orange)
+                                    .frame(width: 6, height: 6)
+                                    .offset(x: 8, y: -1)
+                                    .accessibilityHidden(true)
+                            }
+                        }
 
                         ZStack {
                             Capsule()
                                 .fill(Color.clear)
-                                .frame(width: 24, height: 3)
+                                .frame(width: 22, height: 3)
                             if selection == page {
                                 Capsule()
                                     .fill(Color.accentColor)
                                     .matchedGeometryEffect(id: "today-page-underline", in: underlineNamespace)
-                                    .frame(width: 24, height: 3)
+                                    .frame(width: 22, height: 3)
                             }
                         }
                     }
@@ -133,7 +153,7 @@ private struct TodayPageTextTabs: View {
                 .accessibilityAddTraits(selection == page ? .isSelected : [])
             }
         }
-        .frame(maxWidth: 260)
+        .frame(maxWidth: 220)
     }
 }
 
@@ -143,19 +163,13 @@ private struct TodayRecordPage: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 14) {
-                TodayPageHeader(
-                    eyebrow: Date().japaneseMonthDayShortWeekday,
-                    title: "今日を記録",
-                    subtitle: "今やっていることを軽く残して、あとで1日を見返せるようにする"
-                )
-
                 CurrentChapterCard()
                 // CategoryGrid 内のチェブロンで折りたたみを行う。
                 CategoryGrid()
                 Divider()
                 TimelineView(
                     date: Date(),
-                    title: "今日のタイムライン",
+                    title: "",
                     editingChapter: $editingChapter
                 )
             }
@@ -174,7 +188,8 @@ private struct TomorrowPlanPage: View {
             date: date,
             showsNavigationControls: false,
             allowsDayNavigation: false,
-            contentPadding: 16
+            contentPadding: 16,
+            showsPlanningStatus: true
         )
     }
 }
@@ -189,12 +204,6 @@ private struct YesterdayReviewPage: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 14) {
-                TodayPageHeader(
-                    eyebrow: date.japaneseMonthDayShortWeekday,
-                    title: "昨日を振り返る",
-                    subtitle: "確定した1日をスコアと記録から受け取る"
-                )
-
                 YesterdayScoreCard(summary: scoreSummary)
                 YesterdayInsightCard(
                     summary: scoreSummary,
@@ -271,30 +280,6 @@ private struct YesterdayReviewPage: View {
 
     private var topCategory: (category: Category, duration: TimeInterval)? {
         categoryRows.first
-    }
-}
-
-private struct TodayPageHeader: View {
-    let eyebrow: String
-    let title: String
-    let subtitle: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(eyebrow)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.secondary)
-            Text(title)
-                .font(.largeTitle.bold())
-                .lineLimit(1)
-                .minimumScaleFactor(0.72)
-            Text(subtitle)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.top, 4)
     }
 }
 
