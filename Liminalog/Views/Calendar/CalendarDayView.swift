@@ -41,6 +41,9 @@ struct CalendarDayView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
+                if showsPlanningStatus {
+                    planningDeadlineCard
+                }
                 dayHeader
                 scoreArea
                 importantPlanArea
@@ -122,10 +125,6 @@ struct CalendarDayView: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(headerTitle)
                     .font(.title3.bold())
-                if showsPlanningStatus {
-                    planningDeadlineCard
-                        .padding(.top, 4)
-                }
                 Text(daySummaryText)
                     .font(.caption)
                     .foregroundStyle(.secondary)
