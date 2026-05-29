@@ -123,8 +123,8 @@ struct CalendarDayView: View {
                 Text(headerTitle)
                     .font(.title3.bold())
                 if showsPlanningStatus {
-                    planningDeadlinePill
-                        .padding(.top, 2)
+                    planningDeadlineCard
+                        .padding(.top, 4)
                 }
                 Text(daySummaryText)
                     .font(.caption)
@@ -149,25 +149,36 @@ struct CalendarDayView: View {
         .background(RoundedRectangle(cornerRadius: 12).fill(Color(.secondarySystemGroupedBackground)))
     }
 
-    private var planningDeadlinePill: some View {
+    private var planningDeadlineCard: some View {
         let coverage = planningCoverage
         let tint = coverage.hasActionableGap ? Color.orange : Color.green
-        return Label("残り \(planningDeadlineText)", systemImage: "timer")
-            .font(.caption.weight(.bold))
-            .monospacedDigit()
-            .foregroundStyle(tint)
-            .padding(.horizontal, 9)
-            .padding(.vertical, 5)
+        return HStack(spacing: 8) {
+            Image(systemName: "timer")
+                .font(.caption.weight(.bold))
+            Text("残り \(planningDeadlineText)")
+                .font(.caption.weight(.bold))
+                .monospacedDigit()
+            Spacer(minLength: 10)
+            Circle()
+                .fill(tint)
+                .frame(width: 6, height: 6)
+            Text(coverage.hasActionableGap ? "空きあり" : "見通しあり")
+                .font(.caption2.weight(.semibold))
+        }
+        .foregroundStyle(tint)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .frame(maxWidth: .infinity, alignment: .leading)
             .background(
-                Capsule()
+                RoundedRectangle(cornerRadius: 8)
                     .fill(tint.opacity(0.14))
             )
             .overlay(
-                Capsule()
+                RoundedRectangle(cornerRadius: 8)
                     .stroke(tint.opacity(0.28), lineWidth: 1)
             )
             .accessibilityLabel("明日の予定づくりの残り時間")
-            .accessibilityValue(planningDeadlineText)
+            .accessibilityValue("\(planningDeadlineText)、\(coverage.hasActionableGap ? "空きあり" : "見通しあり")")
     }
 
     private var scoreArea: some View {
