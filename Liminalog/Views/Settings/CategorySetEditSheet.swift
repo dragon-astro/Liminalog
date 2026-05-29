@@ -1,6 +1,5 @@
 import SwiftUI
 import SwiftData
-import UniformTypeIdentifiers
 
 struct CategorySetEditSheet: View {
     @Environment(\.dismiss) private var dismiss
@@ -12,7 +11,7 @@ struct CategorySetEditSheet: View {
     @State private var name = ""
     /// 編集中のスロット状態（長さ 8 で常に保持）
     @State private var slots: [UUID?] = Array(repeating: nil, count: CategorySet.slotCount)
-    @State private var targetedSlotIndex: Int?
+    @State private var selectedSlotIndex: Int?
     @Query(sort: \Category.sortOrder) private var allCategories: [Category]
 
     private var isNew: Bool { categorySet == nil }
@@ -116,8 +115,10 @@ struct CategorySetEditSheet: View {
                     CategoryPaletteItem(
                         category: category,
                         isAssigned: slots.contains(category.id),
-                        dragPayload: dragPayload(for: category.id)
-                    )
+                        isReadyToAssign: selectedSlotIndex != nil
+                    ) {
+                        assignPaletteCategory(category.id)
+                    }
                 }
             }
             .padding(12)
@@ -140,26 +141,19 @@ struct CategorySetEditSheet: View {
 
         SlotCellLabel(index: index, category: category)
         .overlay {
-            if targetedSlotIndex == index {
+            if selectedSlotIndex == index {
                 RoundedRectangle(cornerRadius: 12)
-                    .strokeBorder(Color.accentColor, lineWidth: 2)
+                    .strokeBorder(Color.accentColor, lineWidth: 2.5)
             }
         }
-        .onDrop(
-            of: [CategorySetSlotDraft.payloadType],
-            isTargeted: Binding(
-                get: { targetedSlotIndex == index },
-                set: { isTargeted in
-                    targetedSlotIndex = isTargeted ? index : (targetedSlotIndex == index ? nil : targetedSlotIndex)
-                }
-            )
-        ) { providers in
-            handleDrop(providers, to: index)
+        .onTapGesture {
+            selectedSlotIndex = selectedSlotIndex == index ? nil : index
         }
         .contextMenu {
             slotMenu(at: index, currentCategory: category)
         }
         .accessibilityLabel(category.map { "スロット\(index + 1): \($0.name)" } ?? "スロット\(index + 1): 空き")
+        .accessibilityHint(selectedSlotIndex == index ? "選択中。カテゴリをタップするとこのスロットに入ります。" : "タップするとこのスロットを選択します。")
     }
 
     @ViewBuilder
@@ -233,6 +227,15 @@ struct CategorySetEditSheet: View {
         slots = next
     }
 
+    private func assignPaletteCategory(_ id: UUID) {
+        if let selectedSlotIndex {
+            assignCategory(id, to: selectedSlotIndex)
+            self.selectedSlotIndex = nil
+        } else {
+            assignToFirstAvailableSlot(id)
+        }
+    }
+
     private func assignToFirstAvailableSlot(_ id: UUID) {
         if let existingIndex = slots.firstIndex(of: id) {
             assign(nil, to: existingIndex)
@@ -256,40 +259,6 @@ struct CategorySetEditSheet: View {
         ) else { return false }
         slots = next
         return true
-    }
-
-    private func handleDrop(_ providers: [NSItemProvider], to destination: Int) -> Bool {
-        guard let provider = providers.first(where: { $0.hasItemConformingToTypeIdentifier(CategorySetSlotDraft.payloadType) }) else {
-            return false
-        }
-
-        provider.loadItem(forTypeIdentifier: CategorySetSlotDraft.payloadType, options: nil) { item, _ in
-            let payload: String?
-            if let data = item as? Data {
-                payload = String(data: data, encoding: .utf8)
-            } else if let string = item as? String {
-                payload = string
-            } else if let string = item as? NSString {
-                payload = string as String
-            } else {
-                payload = nil
-            }
-
-            guard let payload else { return }
-            Task { @MainActor in
-                _ = handleDrop([payload], to: destination)
-                targetedSlotIndex = nil
-            }
-        }
-        return true
-    }
-
-    private func dragPayload(forSlotAt index: Int) -> String {
-        CategorySetSlotDraft.slotPayload(for: index)
-    }
-
-    private func dragPayload(for categoryID: UUID) -> String {
-        CategorySetSlotDraft.categoryPayload(for: categoryID)
     }
 
     private func loadInitialState() {
@@ -364,8 +333,6 @@ struct CategorySetSlotDraft {
         "category:\(categoryID.uuidString)"
     }
 
-    static let payloadType = UTType.plainText.identifier
-
     private static func slotIndex(from payload: String) -> Int? {
         guard payload.hasPrefix("slot:") else { return nil }
         return Int(payload.dropFirst("slot:".count))
@@ -431,61 +398,44 @@ private struct SlotCellLabel: View {
 private struct CategoryPaletteItem: View {
     let category: Category
     let isAssigned: Bool
-    let dragPayload: String
+    let isReadyToAssign: Bool
+    let action: () -> Void
 
     var body: some View {
-        VStack(spacing: 6) {
-            ZStack(alignment: .topTrailing) {
-                Circle()
-                    .fill(category.color.opacity(isAssigned ? 0.24 : 0.14))
-                    .frame(width: 42, height: 42)
+        Button(action: action) {
+            VStack(spacing: 6) {
+                ZStack(alignment: .topTrailing) {
+                    Circle()
+                        .fill(category.color.opacity(isAssigned ? 0.24 : 0.14))
+                        .frame(width: 42, height: 42)
 
-                Image(systemName: category.icon ?? "circle.fill")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(category.color)
-                    .frame(width: 42, height: 42)
+                    Image(systemName: category.icon ?? "circle.fill")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(category.color)
+                        .frame(width: 42, height: 42)
 
-                if isAssigned {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(.white, category.color)
-                        .offset(x: 2, y: -2)
+                    if isAssigned {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(.white, category.color)
+                            .offset(x: 2, y: -2)
+                    }
                 }
-            }
-            .contentShape(Circle())
-            .onDrag {
-                NSItemProvider(object: dragPayload as NSString)
-            } preview: {
-                CategoryDragPreview(category: category)
-            }
 
-            Text(category.name)
-                .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(.primary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
+                Text(category.name)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 6)
+            .contentShape(Rectangle())
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 6)
+        .buttonStyle(.plain)
+        .opacity(isReadyToAssign || !isAssigned ? 1 : 0.62)
         .accessibilityLabel("\(category.name)\(isAssigned ? "、割り当て済み" : "")")
-    }
-}
-
-private struct CategoryDragPreview: View {
-    let category: Category
-
-    var body: some View {
-        ZStack {
-            Circle()
-                .fill(category.color.opacity(0.18))
-                .frame(width: 54, height: 54)
-
-            Image(systemName: category.icon ?? "circle.fill")
-                .font(.system(size: 24, weight: .semibold))
-                .foregroundStyle(category.color)
-        }
-        .padding(6)
-        .background(.regularMaterial, in: Circle())
+        .accessibilityHint(isReadyToAssign ? "選択中のスロットに配置します。" : "最初の空きスロットに配置します。")
     }
 }
 
