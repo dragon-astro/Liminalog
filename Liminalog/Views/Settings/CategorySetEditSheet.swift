@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UniformTypeIdentifiers
 
 struct CategorySetEditSheet: View {
     @Environment(\.dismiss) private var dismiss
@@ -11,6 +12,8 @@ struct CategorySetEditSheet: View {
     @State private var name = ""
     /// 編集中のスロット状態（長さ 8 で常に保持）
     @State private var slots: [UUID?] = Array(repeating: nil, count: CategorySet.slotCount)
+    @State private var targetedSlotIndex: Int?
+    @State private var selectedPaletteCategoryID: UUID?
     @Query(sort: \Category.sortOrder) private var allCategories: [Category]
 
     private var isNew: Bool { categorySet == nil }
@@ -55,11 +58,12 @@ struct CategorySetEditSheet: View {
                         ForEach(allCategories) { category in
                             CategoryPaletteItem(
                                 category: category,
-                                isAssigned: slots.contains(category.id)
+                                isAssigned: slots.contains(category.id),
+                                isSelected: selectedPaletteCategoryID == category.id
                             )
-                            .draggable(dragPayload(for: category.id))
+                            .draggable(CategorySetDragPayload(value: dragPayload(for: category.id)))
                             .onTapGesture {
-                                assignToFirstAvailableSlot(category.id)
+                                togglePaletteSelection(category.id)
                             }
                         }
                     }
@@ -99,14 +103,27 @@ struct CategorySetEditSheet: View {
     private func slotCell(at index: Int) -> some View {
         let category = category(for: slots[index])
 
-        Menu {
-            slotMenu(at: index, currentCategory: category)
-        } label: {
-            SlotCellLabel(index: index, category: category)
+        SlotCellLabel(index: index, category: category)
+        .overlay {
+            if targetedSlotIndex == index {
+                RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(Color.accentColor, lineWidth: 2)
+            }
         }
-        .draggable(dragPayload(forSlotAt: index))
-        .dropDestination(for: String.self) { items, _ in
-            _ = handleDrop(items, to: index)
+        .dropDestination(for: CategorySetDragPayload.self) { items, _ in
+            handleDrop(items.map(\.value), to: index)
+        } isTargeted: { isTargeted in
+            targetedSlotIndex = isTargeted ? index : (targetedSlotIndex == index ? nil : targetedSlotIndex)
+        }
+        .draggable(CategorySetDragPayload(value: dragPayload(forSlotAt: index)))
+        .onTapGesture {
+            if let selectedPaletteCategoryID {
+                assignCategory(selectedPaletteCategoryID, to: index)
+                self.selectedPaletteCategoryID = nil
+            }
+        }
+        .contextMenu {
+            slotMenu(at: index, currentCategory: category)
         }
         .accessibilityLabel(category.map { "スロット\(index + 1): \($0.name)" } ?? "スロット\(index + 1): 空き")
     }
@@ -173,12 +190,12 @@ struct CategorySetEditSheet: View {
     }
 
     private func assignCategory(_ id: UUID, to destination: Int) {
-        guard slots.indices.contains(destination), allCategories.contains(where: { $0.id == id }) else { return }
-        var next = slots
-        for index in next.indices where index != destination && next[index] == id {
-            next[index] = nil
-        }
-        next[destination] = id
+        guard let next = CategorySetSlotDraft.assignCategory(
+            id,
+            to: destination,
+            slots: slots,
+            validCategoryIDs: validCategoryIDs
+        ) else { return }
         slots = next
     }
 
@@ -191,46 +208,37 @@ struct CategorySetEditSheet: View {
         assignCategory(id, to: emptyIndex)
     }
 
+    private func togglePaletteSelection(_ id: UUID) {
+        if selectedPaletteCategoryID == id {
+            assignToFirstAvailableSlot(id)
+            selectedPaletteCategoryID = nil
+        } else {
+            selectedPaletteCategoryID = id
+        }
+    }
+
     private func moveSlot(from source: Int, to destination: Int) {
-        guard slots.indices.contains(source), slots.indices.contains(destination) else { return }
-        var next = slots
-        next.swapAt(source, destination)
+        guard let next = CategorySetSlotDraft.moveSlot(from: source, to: destination, slots: slots) else { return }
         slots = next
     }
 
     private func handleDrop(_ items: [String], to destination: Int) -> Bool {
-        guard let payload = items.first else { return false }
-
-        if let source = slotIndex(from: payload) {
-            guard source != destination else { return false }
-            moveSlot(from: source, to: destination)
-            return true
-        }
-
-        if let categoryID = categoryID(from: payload) {
-            assignCategory(categoryID, to: destination)
-            return true
-        }
-
-        return false
+        guard let next = CategorySetSlotDraft.applyDrop(
+            items,
+            to: destination,
+            slots: slots,
+            validCategoryIDs: validCategoryIDs
+        ) else { return false }
+        slots = next
+        return true
     }
 
     private func dragPayload(forSlotAt index: Int) -> String {
-        "slot:\(index)"
+        CategorySetSlotDraft.slotPayload(for: index)
     }
 
     private func dragPayload(for categoryID: UUID) -> String {
-        "category:\(categoryID.uuidString)"
-    }
-
-    private func slotIndex(from payload: String) -> Int? {
-        guard payload.hasPrefix("slot:") else { return nil }
-        return Int(payload.dropFirst("slot:".count))
-    }
-
-    private func categoryID(from payload: String) -> UUID? {
-        guard payload.hasPrefix("category:") else { return nil }
-        return UUID(uuidString: String(payload.dropFirst("category:".count)))
+        CategorySetSlotDraft.categoryPayload(for: categoryID)
     }
 
     private func loadInitialState() {
@@ -249,6 +257,83 @@ struct CategorySetEditSheet: View {
         }
         dismiss()
     }
+
+    private var validCategoryIDs: Set<UUID> {
+        Set(allCategories.map(\.id))
+    }
+}
+
+struct CategorySetSlotDraft {
+    static func assignCategory(
+        _ id: UUID,
+        to destination: Int,
+        slots: [UUID?],
+        validCategoryIDs: Set<UUID>
+    ) -> [UUID?]? {
+        guard slots.indices.contains(destination), validCategoryIDs.contains(id) else { return nil }
+        var next = slots
+        for index in next.indices where index != destination && next[index] == id {
+            next[index] = nil
+        }
+        next[destination] = id
+        return next
+    }
+
+    static func moveSlot(from source: Int, to destination: Int, slots: [UUID?]) -> [UUID?]? {
+        guard slots.indices.contains(source), slots.indices.contains(destination), source != destination else { return nil }
+        var next = slots
+        next.swapAt(source, destination)
+        return next
+    }
+
+    static func applyDrop(
+        _ items: [String],
+        to destination: Int,
+        slots: [UUID?],
+        validCategoryIDs: Set<UUID>
+    ) -> [UUID?]? {
+        guard let payload = items.first else { return nil }
+
+        if let source = slotIndex(from: payload) {
+            return moveSlot(from: source, to: destination, slots: slots)
+        }
+
+        if let categoryID = categoryID(from: payload) {
+            return assignCategory(categoryID, to: destination, slots: slots, validCategoryIDs: validCategoryIDs)
+        }
+
+        return nil
+    }
+
+    static func slotPayload(for index: Int) -> String {
+        "slot:\(index)"
+    }
+
+    static func categoryPayload(for categoryID: UUID) -> String {
+        "category:\(categoryID.uuidString)"
+    }
+
+    private static func slotIndex(from payload: String) -> Int? {
+        guard payload.hasPrefix("slot:") else { return nil }
+        return Int(payload.dropFirst("slot:".count))
+    }
+
+    private static func categoryID(from payload: String) -> UUID? {
+        guard payload.hasPrefix("category:") else { return nil }
+        return UUID(uuidString: String(payload.dropFirst("category:".count)))
+    }
+}
+
+private struct CategorySetDragPayload: Transferable, Codable, Hashable {
+    let value: String
+
+    static var transferRepresentation: some TransferRepresentation {
+        CodableRepresentation(contentType: .liminalogCategorySetDragPayload)
+    }
+}
+
+private extension UTType {
+    static let liminalogCategorySetDragPayload = UTType(exportedAs: "app.YasudaRyuga.Liminalog.category-set-drag-payload")
 }
 
 // MARK: - Slot cell label
@@ -305,6 +390,7 @@ private struct SlotCellLabel: View {
 private struct CategoryPaletteItem: View {
     let category: Category
     let isAssigned: Bool
+    let isSelected: Bool
 
     var body: some View {
         VStack(spacing: 6) {
@@ -336,14 +422,17 @@ private struct CategoryPaletteItem: View {
         .padding(.vertical, 8)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(isAssigned ? category.color.opacity(0.08) : Color(.secondarySystemGroupedBackground))
+                .fill(isAssigned || isSelected ? category.color.opacity(0.08) : Color(.secondarySystemGroupedBackground))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .strokeBorder(isAssigned ? category.color.opacity(0.24) : Color.clear, lineWidth: 1)
+                .strokeBorder(
+                    isSelected ? category.color : (isAssigned ? category.color.opacity(0.24) : Color.clear),
+                    lineWidth: isSelected ? 2 : 1
+                )
         )
         .contentShape(RoundedRectangle(cornerRadius: 12))
-        .accessibilityLabel("\(category.name)\(isAssigned ? "、割り当て済み" : "")")
+        .accessibilityLabel("\(category.name)\(isAssigned ? "、割り当て済み" : "")\(isSelected ? "、選択中" : "")")
     }
 }
 
