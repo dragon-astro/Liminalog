@@ -16,9 +16,21 @@ struct CalendarDayView: View {
     @State private var clock = TickClock(interval: 60)
 
     private let highlightedPlanID: UUID?
+    private let showsNavigationControls: Bool
+    private let allowsDayNavigation: Bool
+    private let contentPadding: CGFloat
 
-    init(date: Date, highlightedPlanID: UUID? = nil) {
+    init(
+        date: Date,
+        highlightedPlanID: UUID? = nil,
+        showsNavigationControls: Bool = true,
+        allowsDayNavigation: Bool = true,
+        contentPadding: CGFloat = 16
+    ) {
         self.highlightedPlanID = highlightedPlanID
+        self.showsNavigationControls = showsNavigationControls
+        self.allowsDayNavigation = allowsDayNavigation
+        self.contentPadding = contentPadding
         _date = State(initialValue: date)
         _pendingCreateDate = State(initialValue: date)
     }
@@ -31,57 +43,50 @@ struct CalendarDayView: View {
                 importantPlanArea
                 timelineArea
             }
-            .padding(16)
+            .padding(contentPadding)
         }
         .background(Color(.systemGroupedBackground))
         .navigationBarBackButtonHidden()
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button {
-                    dismiss()
-                } label: {
-                    Label("戻る", systemImage: "chevron.left")
-                }
-            }
-            ToolbarItem(placement: .topBarTrailing) {
-                dayVisibilityMenu
-            }
-            ToolbarItem(placement: .topBarTrailing) {
-                Menu {
+            if showsNavigationControls {
+                ToolbarItem(placement: .topBarLeading) {
                     Button {
-                        pendingCreateDate = Calendar.japanese.startOfDay(for: date)
-                        pendingPlanStartsAsImportant = true
-                        showingPlanSheet = true
+                        dismiss()
                     } label: {
-                        Label("重要な予定を追加", systemImage: "star")
+                        Label("戻る", systemImage: "chevron.left")
                     }
-
-                    if canCreateTimedPlansForDay {
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    dayVisibilityMenu
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
                         Button {
-                            pendingCreateDate = defaultChapterStart
-                            pendingPlanStartsAsImportant = false
+                            pendingCreateDate = Calendar.japanese.startOfDay(for: date)
+                            pendingPlanStartsAsImportant = true
                             showingPlanSheet = true
                         } label: {
-                            Label("時間つき予定を追加", systemImage: "calendar.badge.plus")
+                            Label("重要な予定を追加", systemImage: "star")
                         }
-                    } else {
-                        Label("今日以前の時間つき予定は追加できません", systemImage: "lock.fill")
+
+                        if canCreateTimedPlansForDay {
+                            Button {
+                                pendingCreateDate = defaultChapterStart
+                                pendingPlanStartsAsImportant = false
+                                showingPlanSheet = true
+                            } label: {
+                                Label("時間つき予定を追加", systemImage: "calendar.badge.plus")
+                            }
+                        } else {
+                            Label("今日以前の時間つき予定は追加できません", systemImage: "lock.fill")
+                        }
+                    } label: {
+                        Image(systemName: "plus")
                     }
-                } label: {
-                    Image(systemName: "plus")
                 }
             }
         }
-        .gesture(
-            DragGesture(minimumDistance: 40)
-                .onEnded { value in
-                    if value.translation.width < -50 {
-                        shiftDay(1)
-                    } else if value.translation.width > 50 {
-                        shiftDay(-1)
-                    }
-                }
-        )
+        .modifier(DayNavigationGestureModifier(isEnabled: allowsDayNavigation, shiftDay: shiftDay(_:)))
         .sheet(item: $editingChapter) { chapter in
             ChapterEditSheet(chapter: chapter)
         }
@@ -101,16 +106,18 @@ struct CalendarDayView: View {
 
     private var dayHeader: some View {
         HStack(spacing: 12) {
-            Button {
-                shiftDay(-1)
-            } label: {
-                Image(systemName: "chevron.left")
-                    .frame(width: 36, height: 36)
+            if allowsDayNavigation {
+                Button {
+                    shiftDay(-1)
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .frame(width: 36, height: 36)
+                }
+                .buttonStyle(.borderless)
             }
-            .buttonStyle(.borderless)
 
             VStack(alignment: .leading, spacing: 3) {
-                Text(date.japaneseMonthDayWeekday)
+                Text(headerTitle)
                     .font(.title3.bold())
                 Text(daySummaryText)
                     .font(.caption)
@@ -121,13 +128,15 @@ struct CalendarDayView: View {
 
             Spacer()
 
-            Button {
-                shiftDay(1)
-            } label: {
-                Image(systemName: "chevron.right")
-                    .frame(width: 36, height: 36)
+            if allowsDayNavigation {
+                Button {
+                    shiftDay(1)
+                } label: {
+                    Image(systemName: "chevron.right")
+                        .frame(width: 36, height: 36)
+                }
+                .buttonStyle(.borderless)
             }
-            .buttonStyle(.borderless)
         }
         .padding(14)
         .background(RoundedRectangle(cornerRadius: 12).fill(Color(.secondarySystemGroupedBackground)))
@@ -272,6 +281,10 @@ struct CalendarDayView: View {
         "重要 \(importantPlans.count)件 / 時間つき予定 \(timedPlans.count)件"
     }
 
+    private var headerTitle: String {
+        allowsDayNavigation ? date.japaneseMonthDayWeekday : "明日の予定"
+    }
+
     private var canCreateTimedPlansForDay: Bool {
         store.canCreatePlan(startTime: date, isAllDay: false)
     }
@@ -368,6 +381,28 @@ struct CalendarDayView: View {
 
     private func shiftDay(_ value: Int) {
         date = Calendar.japanese.date(byAdding: .day, value: value, to: date) ?? date
+    }
+}
+
+private struct DayNavigationGestureModifier: ViewModifier {
+    let isEnabled: Bool
+    let shiftDay: (Int) -> Void
+
+    func body(content: Content) -> some View {
+        if isEnabled {
+            content.gesture(
+                DragGesture(minimumDistance: 40)
+                    .onEnded { value in
+                        if value.translation.width < -50 {
+                            shiftDay(1)
+                        } else if value.translation.width > 50 {
+                            shiftDay(-1)
+                        }
+                    }
+            )
+        } else {
+            content
+        }
     }
 }
 
