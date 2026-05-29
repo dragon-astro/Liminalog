@@ -27,18 +27,14 @@ struct HomeView: View {
             .background(Color(.systemGroupedBackground))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    if selectedPage == .today {
+                if selectedPage == .today {
+                    ToolbarItem(placement: .topBarLeading) {
                         Button {
                             addSheetStart = defaultAddStart
                             showingAddSheet = true
                         } label: {
                             Image(systemName: "plus")
                         }
-                    } else {
-                        Color.clear
-                            .frame(width: 28, height: 28)
-                            .accessibilityHidden(true)
                     }
                 }
                 ToolbarItem(placement: .principal) {

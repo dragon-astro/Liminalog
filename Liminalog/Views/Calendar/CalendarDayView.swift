@@ -41,9 +41,6 @@ struct CalendarDayView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
-                if showsPlanningStatus {
-                    planningStatusCard
-                }
                 dayHeader
                 scoreArea
                 importantPlanArea
@@ -125,6 +122,10 @@ struct CalendarDayView: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(headerTitle)
                     .font(.title3.bold())
+                if showsPlanningStatus {
+                    planningDeadlinePill
+                        .padding(.top, 2)
+                }
                 Text(daySummaryText)
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -148,70 +149,25 @@ struct CalendarDayView: View {
         .background(RoundedRectangle(cornerRadius: 12).fill(Color(.secondarySystemGroupedBackground)))
     }
 
-    private var planningStatusCard: some View {
+    private var planningDeadlinePill: some View {
         let coverage = planningCoverage
-        return VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Label("予定づくりの残り時間", systemImage: "timer")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Text(planningDeadlineText)
-                    .font(.headline.monospacedDigit().weight(.bold))
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.72)
-            }
-
-            VStack(alignment: .leading, spacing: 7) {
-                HStack(spacing: 8) {
-                    Circle()
-                        .fill(coverage.hasActionableGap ? Color.orange : Color.green)
-                        .frame(width: 8, height: 8)
-                    Text(planningStatusText(coverage))
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.75)
-                }
-
-                ProgressView(value: coverage.coverageRatio)
-                    .tint(coverage.hasActionableGap ? .orange : .green)
-                    .accessibilityLabel("明日の予定の入力率")
-                    .accessibilityValue("\(Int((coverage.coverageRatio * 100).rounded()))パーセント")
-            }
-
-            HStack(spacing: 10) {
-                Text(planningFootnote(coverage))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                Spacer(minLength: 8)
-
-                if coverage.hasActionableGap, canCreateTimedPlansForDay {
-                    Button {
-                        pendingCreateDate = coverage.firstGapStart ?? defaultChapterStart
-                        pendingPlanStartsAsImportant = false
-                        showingPlanSheet = true
-                    } label: {
-                        Label("空きに追加", systemImage: "plus.circle.fill")
-                            .font(.caption.weight(.bold))
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.small)
-                }
-            }
-        }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color(.secondarySystemGroupedBackground))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke((coverage.hasActionableGap ? Color.orange : Color.green).opacity(0.18), lineWidth: 1)
-        )
+        let tint = coverage.hasActionableGap ? Color.orange : Color.green
+        return Label("残り \(planningDeadlineText)", systemImage: "timer")
+            .font(.caption.weight(.bold))
+            .monospacedDigit()
+            .foregroundStyle(tint)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 5)
+            .background(
+                Capsule()
+                    .fill(tint.opacity(0.14))
+            )
+            .overlay(
+                Capsule()
+                    .stroke(tint.opacity(0.28), lineWidth: 1)
+            )
+            .accessibilityLabel("明日の予定づくりの残り時間")
+            .accessibilityValue(planningDeadlineText)
     }
 
     private var scoreArea: some View {
@@ -466,21 +422,6 @@ struct CalendarDayView: View {
         date = Calendar.japanese.date(byAdding: .day, value: value, to: date) ?? date
     }
 
-    private func planningStatusText(_ coverage: PlanCoverageSummary) -> String {
-        if coverage.hasActionableGap {
-            return "空き \(readableDuration(coverage.gapDuration))"
-        }
-        return "24時間の見通しあり"
-    }
-
-    private func planningFootnote(_ coverage: PlanCoverageSummary) -> String {
-        if coverage.hasActionableGap {
-            let suffix = coverage.gapCount > 1 ? "\(coverage.gapCount)か所あります" : "あります"
-            return "未予定の時間が\(suffix)。埋め切るより、明日の流れが見えるくらいで大丈夫。"
-        }
-        return "明日の予定は一通り入っています。あとは当日の記録に集中できます。"
-    }
-
     private func compactRemainingDuration(_ seconds: TimeInterval) -> String {
         let totalMinutes = max(Int(seconds / 60), 0)
         let hours = totalMinutes / 60
@@ -490,19 +431,6 @@ struct CalendarDayView: View {
             let remainingHours = hours % 24
             return remainingHours > 0 ? "\(days)日\(remainingHours)時間" : "\(days)日"
         }
-        if hours > 0, minutes > 0 {
-            return "\(hours)時間\(minutes)分"
-        }
-        if hours > 0 {
-            return "\(hours)時間"
-        }
-        return "\(minutes)分"
-    }
-
-    private func readableDuration(_ seconds: TimeInterval) -> String {
-        let totalMinutes = max(Int(seconds / 60), 0)
-        let hours = totalMinutes / 60
-        let minutes = totalMinutes % 60
         if hours > 0, minutes > 0 {
             return "\(hours)時間\(minutes)分"
         }
