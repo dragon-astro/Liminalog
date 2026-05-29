@@ -8,19 +8,24 @@ struct HomeView: View {
     @State private var editingChapter: Chapter? = nil
     @State private var showingAddSheet = false
     @State private var addSheetStart = Date()
+    @State private var clock = TickClock(interval: 30)
 
     var body: some View {
         NavigationStack {
             TabView(selection: $selectedPage) {
-                YesterdayReviewPage(date: relativeDate(-1))
+                YesterdayReviewPage(date: yesterdayDate)
+                    .id(dayID(for: yesterdayDate))
                     .tag(TodayPage.yesterday)
 
                 TodayRecordPage(
+                    date: todayDate,
                     editingChapter: $editingChapter
                 )
+                .id(dayID(for: todayDate))
                 .tag(TodayPage.today)
 
-                TomorrowPlanPage(date: relativeDate(1))
+                TomorrowPlanPage(date: tomorrowDate)
+                    .id(dayID(for: tomorrowDate))
                     .tag(TodayPage.tomorrow)
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
@@ -56,24 +61,44 @@ struct HomeView: View {
                 ChapterCreateSheet(initialDate: addSheetStart)
             }
             .onAppear {
+                clock.start()
                 selectedPage = .today
                 store.seedDefaultCategorySetsIfNeeded()
                 store.syncLiveActivityWithActiveChapter()
+            }
+            .onDisappear {
+                clock.stop()
             }
         }
     }
 
     private var defaultAddStart: Date {
-        let now = Date()
+        let now = clock.now
         return Calendar.japanese.date(byAdding: .minute, value: -30, to: now) ?? now
     }
 
+    private var todayDate: Date {
+        dayID(for: clock.now)
+    }
+
+    private var yesterdayDate: Date {
+        relativeDate(-1)
+    }
+
+    private var tomorrowDate: Date {
+        relativeDate(1)
+    }
+
     private func relativeDate(_ dayOffset: Int) -> Date {
-        Calendar.japanese.date(byAdding: .day, value: dayOffset, to: Date()) ?? Date()
+        Calendar.japanese.date(byAdding: .day, value: dayOffset, to: todayDate) ?? todayDate
+    }
+
+    private func dayID(for date: Date) -> Date {
+        DayBoundary.dayStart(for: date, calendar: .japanese)
     }
 
     private var tomorrowCoverage: PlanCoverageSummary {
-        PlanCoverageSummary.make(date: relativeDate(1), plans: queriedPlans)
+        PlanCoverageSummary.make(date: tomorrowDate, plans: queriedPlans)
     }
 }
 
@@ -154,6 +179,7 @@ private struct TodayPageTextTabs: View {
 }
 
 private struct TodayRecordPage: View {
+    let date: Date
     @Binding var editingChapter: Chapter?
 
     var body: some View {
@@ -164,7 +190,7 @@ private struct TodayRecordPage: View {
                 CategoryGrid()
                 Divider()
                 TimelineView(
-                    date: Date(),
+                    date: date,
                     title: "",
                     editingChapter: $editingChapter
                 )

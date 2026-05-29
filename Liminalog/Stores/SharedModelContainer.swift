@@ -1,4 +1,5 @@
 import Foundation
+import SQLite3
 import SwiftData
 
 enum SharedModelContainer {
@@ -130,13 +131,52 @@ enum SharedModelContainer {
 
     private static func developmentCloudStoreIsMissingRequiredMarkers(supportURL: URL) -> Bool {
         let cloudStoreURL = supportURL.appendingPathComponent("Cloud.store")
-        guard FileManager.default.fileExists(atPath: cloudStoreURL.path),
-              let data = try? Data(contentsOf: cloudStoreURL)
-        else { return false }
+        guard FileManager.default.fileExists(atPath: cloudStoreURL.path) else { return false }
 
-        return requiredDevelopmentStoreMarkers.contains { marker in
-            data.range(of: Data(marker.utf8)) == nil
+        return !developmentStore(
+            at: cloudStoreURL,
+            hasColumns: requiredDevelopmentStoreMarkers,
+            inTable: "ZUSERSETTINGS"
+        )
+    }
+
+    private static func developmentStore(
+        at storeURL: URL,
+        hasColumns requiredColumns: [String],
+        inTable tableName: String
+    ) -> Bool {
+        var database: OpaquePointer?
+        guard sqlite3_open_v2(
+            storeURL.path,
+            &database,
+            SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX,
+            nil
+        ) == SQLITE_OK, let database else {
+            if let database {
+                sqlite3_close(database)
+            }
+            return false
         }
+        defer {
+            sqlite3_close(database)
+        }
+
+        var statement: OpaquePointer?
+        guard sqlite3_prepare_v2(database, "PRAGMA table_info(\(tableName))", -1, &statement, nil) == SQLITE_OK,
+              let statement else {
+            return false
+        }
+        defer {
+            sqlite3_finalize(statement)
+        }
+
+        var columnNames = Set<String>()
+        while sqlite3_step(statement) == SQLITE_ROW {
+            guard let columnText = sqlite3_column_text(statement, 1) else { continue }
+            columnNames.insert(String(cString: columnText))
+        }
+
+        return requiredColumns.allSatisfy { columnNames.contains($0) }
     }
 
     private static func resetDevelopmentStores(supportURL: URL) {
