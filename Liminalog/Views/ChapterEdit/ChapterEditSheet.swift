@@ -15,7 +15,7 @@ struct ChapterEditSheet: View {
     @State private var locationName: String = ""
     @State private var isPublic: Bool = true
     @State private var selectedCategory: Category? = nil
-    @State private var categories: [Category] = []
+    @Query(sort: \Category.sortOrder) private var categories: [Category]
     @State private var showDeleteConfirm = false
 
     var body: some View {
@@ -131,7 +131,6 @@ struct ChapterEditSheet: View {
         locationName = chapter.locationName ?? ""
         isPublic = chapter.isPublic
         selectedCategory = chapter.category
-        categories = store.allCategories()
     }
 
     private var isTimeLocked: Bool {

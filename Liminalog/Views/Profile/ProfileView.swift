@@ -5,11 +5,13 @@ import UIKit
 
 struct ProfileView: View {
     @Environment(\.modelContext) private var modelContext
-    @Environment(ChapterStore.self) private var store
     @Query(sort: \UserSettings.createdAt) private var settingsList: [UserSettings]
+    @Query private var queriedChapters: [Chapter]
+    @Query private var queriedPlans: [PlanBlock]
 
     @State private var isShowingSettings = false
     @State private var isShowingEditProfile = false
+    @State private var clock = TickClock(interval: 60)
 
     private var settings: UserSettings? {
         settingsList.first
@@ -29,7 +31,7 @@ struct ProfileView: View {
     }
 
     private var recentChapters: [Chapter] {
-        store.recentChapters(limit: 10_000)
+        queriedChapters.sorted { $0.startTime > $1.startTime }
     }
 
     private var finishedChapters: [Chapter] {
@@ -69,8 +71,8 @@ struct ProfileView: View {
                 title: "7日連続",
                 systemImage: "flame.fill",
                 tint: "#EB5757",
-                isUnlocked: store.streakCount() >= 7,
-                progressText: "\(min(store.streakCount(), 7))/7"
+                isUnlocked: streakCount >= 7,
+                progressText: "\(min(streakCount, 7))/7"
             ),
             ProfileBadgeModel(
                 title: "10時間",
@@ -102,7 +104,7 @@ struct ProfileView: View {
                     )
 
                     ProfileStatsRow(
-                        streak: store.streakCount(),
+                        streak: streakCount,
                         totalDuration: totalRecordedDuration,
                         friendCount: 0
                     )
@@ -133,8 +135,47 @@ struct ProfileView: View {
             }
             .task {
                 ensureUserSettings()
+                clock.start()
+            }
+            .onDisappear {
+                clock.stop()
             }
         }
+    }
+
+    private var streakCount: Int {
+        let calendar = Calendar.current
+        var count = 0
+        for offset in 0..<365 {
+            guard let target = calendar.date(byAdding: .day, value: -offset, to: clock.now) else { break }
+            let summary = scoreSummary(on: target)
+            guard summary.plannedDuration > 0, summary.totalScore >= 60 else { break }
+            count += 1
+        }
+        return count
+    }
+
+    private func scoreSummary(on date: Date) -> ScoreSummary {
+        ScoreCalculator.summary(
+            date: date,
+            plans: plans(on: date),
+            chapters: chapters(on: date),
+            now: clock.now
+        )
+    }
+
+    private func plans(on date: Date) -> [PlanBlock] {
+        let boundary = DayBoundary(date: date)
+        return queriedPlans
+            .filter { $0.startTime < boundary.dayEnd && $0.endTime > boundary.dayStart }
+            .sorted { $0.startTime < $1.startTime }
+    }
+
+    private func chapters(on date: Date) -> [Chapter] {
+        let boundary = DayBoundary(date: date)
+        return queriedChapters
+            .filter { $0.startTime < boundary.dayEnd && ($0.endTime ?? clock.now) > boundary.dayStart }
+            .sorted { $0.startTime < $1.startTime }
     }
 
     private func ensureUserSettings() {

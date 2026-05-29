@@ -1,8 +1,11 @@
 import SwiftUI
+import SwiftData
 
 struct CalendarDayView: View {
     @Environment(ChapterStore.self) private var store
     @Environment(\.dismiss) private var dismiss
+    @Query private var queriedPlans: [PlanBlock]
+    @Query private var queriedChapters: [Chapter]
 
     @State private var date: Date
     @State private var editingChapter: Chapter?
@@ -10,6 +13,7 @@ struct CalendarDayView: View {
     @State private var pendingCreateDate: Date
     @State private var pendingPlanStartsAsImportant = false
     @State private var showingPlanSheet = false
+    @State private var clock = TickClock(interval: 60)
 
     private let highlightedPlanID: UUID?
 
@@ -87,6 +91,12 @@ struct CalendarDayView: View {
         .sheet(isPresented: $showingPlanSheet) {
             PlanCreateSheet(initialDate: pendingCreateDate, startsAsAllDay: pendingPlanStartsAsImportant)
         }
+        .onAppear {
+            clock.start()
+        }
+        .onDisappear {
+            clock.stop()
+        }
     }
 
     private var dayHeader: some View {
@@ -121,11 +131,10 @@ struct CalendarDayView: View {
         }
         .padding(14)
         .background(RoundedRectangle(cornerRadius: 12).fill(Color(.secondarySystemGroupedBackground)))
-        .id(store.revision)
     }
 
     private var scoreArea: some View {
-        let summary = store.scoreSummary(on: date)
+        let summary = scoreSummary
         return HStack(alignment: .center, spacing: 16) {
             VStack(alignment: .leading, spacing: 4) {
                 Label("スコア", systemImage: "gauge.with.dots.needle.67percent")
@@ -215,7 +224,6 @@ struct CalendarDayView: View {
         }
         .padding(14)
         .background(RoundedRectangle(cornerRadius: 12).fill(Color(.secondarySystemGroupedBackground)))
-        .id(store.revision)
     }
 
     private var timelineArea: some View {
@@ -232,7 +240,7 @@ struct CalendarDayView: View {
     }
 
     private var importantPlans: [PlanBlock] {
-        store.plannedBlocks(on: date)
+        plannedBlocks(on: date)
             .filter { $0.isAllDay || $0.isImportant }
             .sorted {
                 if $0.startTime == $1.startTime {
@@ -243,7 +251,21 @@ struct CalendarDayView: View {
     }
 
     private var timedPlans: [PlanBlock] {
-        store.plannedBlocks(on: date).filter { !$0.isAllDay }
+        plannedBlocks(on: date).filter { !$0.isAllDay }
+    }
+
+    private var dayChapters: [Chapter] {
+        chapters(on: date)
+    }
+
+    private var scoreSummary: ScoreSummary {
+        ScoreCalculator.summary(
+            date: date,
+            plans: plannedBlocks(on: date),
+            chapters: dayChapters,
+            calendar: .japanese,
+            now: clock.now
+        )
     }
 
     private var daySummaryText: String {
@@ -277,13 +299,13 @@ struct CalendarDayView: View {
     /// 日単位の公開設定メニュー。今日のチャプター全体に対して一括で操作する。
     /// アイコンは「全公開: eye」「全非公開: eye.slash」「混在: eye.fill (アクセントカラー)」で表現。
     private var dayVisibilityMenu: some View {
-        let dayChapters = store.chapters(on: date)
-        let allPublic = !dayChapters.isEmpty && dayChapters.allSatisfy(\.isPublic)
-        let allPrivate = !dayChapters.isEmpty && dayChapters.allSatisfy { !$0.isPublic }
-        let isMixed = !dayChapters.isEmpty && !allPublic && !allPrivate
+        let visibleDayChapters = dayChapters
+        let allPublic = !visibleDayChapters.isEmpty && visibleDayChapters.allSatisfy(\.isPublic)
+        let allPrivate = !visibleDayChapters.isEmpty && visibleDayChapters.allSatisfy { !$0.isPublic }
+        let isMixed = !visibleDayChapters.isEmpty && !allPublic && !allPrivate
 
         return Menu {
-            if dayChapters.isEmpty {
+            if visibleDayChapters.isEmpty {
                 Text("この日にチャプターはありません")
             } else {
                 if isMixed {
@@ -291,21 +313,21 @@ struct CalendarDayView: View {
                         .font(.caption)
                 }
                 Button {
-                    store.setChaptersVisibility(dayChapters, isPublic: true)
+                    store.setChaptersVisibility(visibleDayChapters, isPublic: true)
                 } label: {
                     Label("すべて公開", systemImage: "eye")
                 }
                 .disabled(allPublic)
 
                 Button {
-                    store.setChaptersVisibility(dayChapters, isPublic: false)
+                    store.setChaptersVisibility(visibleDayChapters, isPublic: false)
                 } label: {
                     Label("すべて非公開", systemImage: "eye.slash")
                 }
                 .disabled(allPrivate)
 
                 Divider()
-                Text("\(dayChapters.count)件のチャプター")
+                Text("\(visibleDayChapters.count)件のチャプター")
                     .font(.caption)
             }
         } label: {
@@ -313,7 +335,26 @@ struct CalendarDayView: View {
                 .foregroundStyle(isMixed ? Color.accentColor : Color.primary)
         }
         .accessibilityLabel("この日の公開設定")
-        .disabled(dayChapters.isEmpty)
+        .disabled(visibleDayChapters.isEmpty)
+    }
+
+    private func plannedBlocks(on date: Date) -> [PlanBlock] {
+        let boundary = DayBoundary(date: date, calendar: .japanese)
+        return queriedPlans
+            .filter { $0.startTime < boundary.dayEnd && $0.endTime > boundary.dayStart }
+            .sorted { lhs, rhs in
+                if lhs.startTime == rhs.startTime {
+                    return lhs.createdAt < rhs.createdAt
+                }
+                return lhs.startTime < rhs.startTime
+            }
+    }
+
+    private func chapters(on date: Date) -> [Chapter] {
+        let boundary = DayBoundary(date: date, calendar: .japanese)
+        return queriedChapters
+            .filter { $0.startTime < boundary.dayEnd && ($0.endTime ?? clock.now) > boundary.dayStart }
+            .sorted { $0.startTime < $1.startTime }
     }
 
     private var defaultChapterStart: Date {

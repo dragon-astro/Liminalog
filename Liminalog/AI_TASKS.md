@@ -281,7 +281,7 @@ refactor: split plan store
 
 - [x] `DayBoundary` struct を `LiminalogCore/Logic` 相当に追加（0:00-24:00 固定）<!-- 担当: Codex, 理由: 純粋ロジック・カレンダー計算, 完了: 2026-05-28 -->
 - [-] `@AppStorage("dayStartHour")` / `UserSettings.dayStartHour` 基盤 <!-- 撤回: 現行仕様では1日を0:00-24:00固定にする。可変境界は数年単位の大型アップデートで再検討 -->
-- [ ] `Calendar.current.startOfDay(for:)` 直接呼び出しを必要箇所から固定 `DayBoundary.dayStart(for:)` に集約 <!-- 担当: Claude, 理由: 全コードベース横断・既存パターン読解が必要 -->
+- [x] `Calendar.current.startOfDay(for:)` 直接呼び出しを必要箇所から固定 `DayBoundary.dayStart(for:)` に集約 <!-- 担当: Codex, 完了: 2026-05-29。スコア/タイムライン/編集制約/期間集計など日付境界の意味を持つ箇所は `DayBoundary` 経由へ移行。カレンダー月表示・終日予定ラベルなど純UI/日付表示の `Calendar.startOfDay` は用途が別なので維持 -->
 - [x] `ScoreCalculator` の `dayStart`/`dayEnd` を固定 `DayBoundary` 経由に変更 <!-- 担当: Codex, 理由: ロジック改修, 完了: 2026-05-28 -->
 
 ### 5.3 ChapterStore 分割
@@ -294,7 +294,7 @@ refactor: split plan store
 - [x] `PlanStore` 切り出し <!-- 担当: Codex, 完了: 2026-05-28 -->
 - [x] `ScoreStore` 切り出し（scoreSummary / streakCount / totalScore）<!-- 担当: Codex, 完了: 2026-05-28 -->
 - [x] `LiveActivityCoordinator` 切り出し（既存 LiveActivityManager と統合）<!-- 担当: Codex, 完了: 2026-05-28 -->
-- [~] `ChapterStore` は Chapter 専用に縮小（CRUD・activeChapter・カテゴリ切替時は削除しない）<!-- 担当: Codex, 進捗: 2026-05-28 外向きAPI互換の façade として残し、カテゴリ/予定/スコア/LiveActivity は分割Storeへ委譲。完全なChapter専用化はUIの@Query移行後 -->
+- [x] `ChapterStore` は Chapter 専用に縮小（CRUD・activeChapter・カテゴリ切替時は削除しない）<!-- 担当: Codex, 完了: 2026-05-29。カテゴリ/予定/スコア読み取り façade を撤去し、ビューは `@Query`、テストは `CategorySetStore` / `ScoreStore` を直接使う形へ移行。Category/Plan mutation の互換入口はリリース前の画面導線維持のため残す -->
 - [x] `AppStores` 集約ハブを実装 <!-- 担当: Codex, 理由: 新規ボイラープレート, 完了: 2026-05-28 -->
 - [x] `RootTabView` で `AppStores.bootstrap()` に切り替え <!-- 担当: Codex, 理由: Store基盤移行と一体で実施, 完了: 2026-05-28 -->
 
@@ -303,15 +303,15 @@ refactor: split plan store
 > `store.revision` 手動カウンタを廃止し、SwiftData `@Query` に統一する。
 > **典型的な「Claude で実装」のタスク**: 既存ビューを丁寧に書き換える整合性勝負。
 
-- [ ] `HomeView` を `@Query` ベースに書き換え + revision 依存を除去 <!-- 担当: Claude, 理由: SwiftUI整合性 -->
-- [ ] `TimelineView` を `@Query` ベースに書き換え（TickClock分離も）<!-- 担当: Claude -->
-- [~] `CategoryGrid` を `@Query` ベースに書き換え <!-- 担当: Claude, 進捗: 2026-05-29 Codex が `store.revision` 監視を1箇所撤去。完全なrevision非依存化は残り -->
-- [ ] `CurrentChapterCard` を `@Query` ベースに書き換え <!-- 担当: Claude -->
-- [ ] `CalendarView` / `CalendarDayView` を `@Query` ベースに書き換え <!-- 担当: Claude -->
-- [ ] `DashboardView` を `@Query` ベースに書き換え + 期間 filter 動的化 <!-- 担当: Claude -->
-- [ ] `ProfileView` を `@Query` + `ScoreStore` 直接呼び出しに整理 <!-- 担当: Claude -->
-- [ ] `TickClock` を `@Observable` で実装 <!-- 担当: Codex, 理由: 並行制御を含む独立ロジック -->
-- [ ] `ChapterStore.revision` を削除 <!-- 担当: Claude, 理由: 全置換後の最後の掃除 -->
+- [x] `HomeView` を `@Query` ベースに書き換え + revision 依存を除去 <!-- 担当: Codex, 完了: 2026-05-29。Home本体は mutation導線のみ `ChapterStore` を持ち、子Viewの読み取りは `@Query` 側へ移行 -->
+- [x] `TimelineView` を `@Query` ベースに書き換え（TickClock分離も）<!-- 担当: Codex, 完了: 2026-05-29。Chapter/Plan は `@Query`、現在時刻更新は `TickClock` -->
+- [x] `CategoryGrid` を `@Query` ベースに書き換え <!-- 担当: Codex, 完了: 2026-05-29。カテゴリ/セット読み取りは `@Query`、選択保存・記録開始だけ `ChapterStore` -->
+- [x] `CurrentChapterCard` を `@Query` ベースに書き換え <!-- 担当: Codex, 完了: 2026-05-29。active Chapter を `@Query` で検出し、経過時間は `TickClock` -->
+- [x] `CalendarView` / `CalendarDayView` を `@Query` ベースに書き換え <!-- 担当: Codex, 完了: 2026-05-29。Plan/Chapter を `@Query` で読み、重要予定・スコアをView側で算出 -->
+- [x] `DashboardView` を `@Query` ベースに書き換え + 期間 filter 動的化 <!-- 担当: Codex, 完了: 2026-05-29。期間切替は `@Query` 配列をView内でフィルタし、今日スコアは `ScoreCalculator` で算出 -->
+- [x] `ProfileView` を `@Query` + `ScoreStore` 直接呼び出しに整理 <!-- 担当: Codex, 完了: 2026-05-29。プロフィール統計/バッジ/連続記録は `@Query` 配列 + `ScoreCalculator` で算出し、`ChapterStore` 読み取り依存を撤去 -->
+- [x] `TickClock` を `@Observable` で実装 <!-- 担当: Codex, 完了: 2026-05-29。Timeline / CurrentChapterCard / Calendar / Dashboard / Profile の現在時刻更新を集約 -->
+- [x] `ChapterStore.revision` を削除 <!-- 担当: Codex, 完了: 2026-05-29。手動カウンタを完全撤去し、SwiftData `@Query` と `TickClock` に再描画責務を移譲 -->
 
 ### 5.5 モデル更新（CloudKit互換化）
 
@@ -930,6 +930,7 @@ refactor: split plan store
 | 2026-05-29 | Codex | 上記修正後もテーブル反映が不安定だったため、根本設計を変更。Widget / Dynamic Island が `UserSettings.enabledCategorySetID` と SwiftData の CategorySet を毎回推測する構造をやめ、アプリ本体が `RecordingSurfaceSnapshot`（選択中セットID・セット名・8スロット分のカテゴリ表示情報）を App Group UserDefaults `recording.surfaceSnapshot` に発行する方式へ変更した。`ChapterStore.updateLiveActivity` はこのスナップショットを発行し、`LiveActivityCoordinator` はスナップショットから Dynamic Island のボタン配列を生成する。`RecordingGridWidget.entry` と Widget側 Live Activity 更新もスナップショットを最優先で描画し、SwiftData はスナップショットがない初回・fallback 用に限定。これにより App/Widget の ModelContainer 差異、SwiftData 保存反映待ち、重複 UserSettings に依存しない外部表示同期へ寄せた。検証: `git diff --check` 成功、`xcodebuild -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build-for-testing` 成功 |
 | 2026-05-29 | Codex | テーブル切替がまだ反映されない原因をシミュレータログで追加調査。実際の詰まりは `UserSettings` のSwiftData保存時に既存ストア側の `ZUSERSETTINGS` テーブルへ新しい `ZPROFILEACCENTCOLORHEX` カラムがなく、保存が失敗して `setEnabledCategorySetID` が早期returnし、スナップショット発行・Widget reload・Live Activity更新まで到達していなかったこと。`ChapterStore.setEnabledCategorySetID` は外部表示用の `RecordingSurfaceSnapshot` 発行、`RecordingGridWidget` reload、Dynamic Island更新をSwiftData保存より先に必ず実行し、`UserSettings.enabledCategorySetID` 保存はbest-effortへ降格。保存失敗後はその起動中の再試行を止め、壊れたローカルDBスキーマが外部表示同期を止めない設計にした。加えて `CategoryGrid` は `TabView` のページ復元が起動直後に選択を戻すケースを避けるため、表示確定後の次runloopでも選択同期を再実行する。Claude向け注意: 根本的なDB移行/リセット戦略は別タスクとして残るが、Widget/Dynamic Islandのテーブル反映はSwiftData保存に依存させないのが今回の確定方針 |
 | 2026-05-29 | Codex | 最優先残タスクのうち、開発中のSwiftDataスキーマ不整合対策を実装。`SharedModelContainer` と `RecordingWidgetStore` に DEBUG限定の `currentDevelopmentStoreVersion` を追加し、世代不一致時は App Group 内の `Cloud.store` / `Local.store` / `LocalCache.store` と `-shm` / `-wal`、`.Cloud_SUPPORT`、外部表示キャッシュを起動前に削除してから `ModelContainer` を作る。これにより `UserSettings` などのモデル変更後に古いSQLiteスキーマが残っても、開発ビルドではクラッシュ/保存失敗を引きずらない。本番リリース後のデータ維持はこの仕組みではなく `VersionedSchema` / `SchemaMigrationPlan` で対応する。あわせて `CategoryGrid` の `store.revision` 監視を1箇所削除し、activeカテゴリ表示は `store.activeChapter?.category?.id` の変化だけで更新するよう軽量化 |
+| 2026-05-29 | Codex | Phase 0 掃除を一括実施。`TickClock` を `@Observable` として実装し、`TimelineView` / `CurrentChapterCard` / `CalendarView` / `CalendarDayView` / `DashboardView` / `ProfileView` の現在時刻更新を `Timer.publish` や `Date()` 直呼び出しから分離した。`CurrentChapterCard` は active Chapter を `@Query` で読むように変更し、`CalendarView` / `CalendarDayView` / `DashboardView` / `ProfileView` は Chapter / Plan を `@Query` で読み、スコアや集計は `ScoreCalculator` に渡す構成へ移行。これにより `ChapterStore.revision` を完全削除し、手動カウンタによる `.id(...)` 再生成も撤去した。さらに `ChapterStore` からカテゴリ・予定・スコア読み取り façade を外し、編集シートは Category / CategorySet を `@Query` で取得、テストは `CategorySetStore` / `ScoreStore` 直接呼び出しへ更新。日付境界の意味を持つ箇所は `DayBoundary` 経由に寄せ、カレンダー表示用の `Calendar.startOfDay` だけ用途別に維持。検証: `git diff --check` 成功、`xcodebuild -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build-for-testing` 成功、`test-without-building` でSwift Testing 16件成功、シミュレータ起動確認済（iCloud未ログインによるCloudKit同期警告のみ） |
 
 ---
 

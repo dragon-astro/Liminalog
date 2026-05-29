@@ -1,8 +1,11 @@
 import SwiftUI
+import SwiftData
 
 struct DashboardView: View {
-    @Environment(ChapterStore.self) private var store
+    @Query private var queriedChapters: [Chapter]
+    @Query private var queriedPlans: [PlanBlock]
     @State private var period: DashboardPeriod = .today
+    @State private var clock = TickClock(interval: 60)
 
     var body: some View {
         NavigationStack {
@@ -21,12 +24,12 @@ struct DashboardView: View {
                     VStack(spacing: 16) {
                         DashboardPeriodHeader(period: period)
                         if period == .today {
-                            TodayScoreDashboardCard(summary: store.scoreSummary(on: Date()))
+                            TodayScoreDashboardCard(summary: scoreSummary(on: clock.now))
                         }
                         SummaryStrip(chapters: chapters)
                         CategoryShareCard(chapters: chapters)
                         HourHeatmapCard(chapters: chapters)
-                        RecentTrendCard(chapters: store.recentChapters(limit: 30))
+                        RecentTrendCard(chapters: recentChapters(limit: 30))
                     }
                     .padding(.horizontal, 16)
                     .padding(.bottom, 28)
@@ -34,12 +37,47 @@ struct DashboardView: View {
             }
             .background(Color(.systemGroupedBackground))
             .toolbar(.hidden, for: .navigationBar)
+            .onAppear {
+                clock.start()
+            }
+            .onDisappear {
+                clock.stop()
+            }
         }
     }
 
     private var chapters: [Chapter] {
-        let interval = period.dateInterval(containing: Date())
-        return store.chapters(from: interval.start, to: interval.end)
+        let interval = period.dateInterval(containing: clock.now)
+        return queriedChapters
+            .filter { $0.startTime < interval.end && ($0.endTime ?? clock.now) > interval.start }
+            .sorted { $0.startTime < $1.startTime }
+    }
+
+    private func plans(on date: Date) -> [PlanBlock] {
+        let boundary = DayBoundary(date: date)
+        return queriedPlans
+            .filter { $0.startTime < boundary.dayEnd && $0.endTime > boundary.dayStart }
+            .sorted { $0.startTime < $1.startTime }
+    }
+
+    private func chapters(on date: Date) -> [Chapter] {
+        let boundary = DayBoundary(date: date)
+        return queriedChapters
+            .filter { $0.startTime < boundary.dayEnd && ($0.endTime ?? clock.now) > boundary.dayStart }
+            .sorted { $0.startTime < $1.startTime }
+    }
+
+    private func scoreSummary(on date: Date) -> ScoreSummary {
+        ScoreCalculator.summary(
+            date: date,
+            plans: plans(on: date),
+            chapters: chapters(on: date),
+            now: clock.now
+        )
+    }
+
+    private func recentChapters(limit: Int) -> [Chapter] {
+        Array(queriedChapters.sorted { $0.startTime > $1.startTime }.prefix(limit))
     }
 }
 
@@ -104,11 +142,11 @@ enum DashboardPeriod: String, CaseIterable, Identifiable {
     func dateInterval(containing date: Date, calendar: Calendar = .current) -> DateInterval {
         switch self {
         case .today:
-            let start = calendar.startOfDay(for: date)
+            let start = DayBoundary.dayStart(for: date, calendar: calendar)
             let end = calendar.date(byAdding: .day, value: 1, to: start) ?? date
             return DateInterval(start: start, end: end)
         case .week:
-            let todayStart = calendar.startOfDay(for: date)
+            let todayStart = DayBoundary.dayStart(for: date, calendar: calendar)
             let start = calendar.date(byAdding: .day, value: -6, to: todayStart) ?? todayStart
             let end = calendar.date(byAdding: .day, value: 1, to: todayStart) ?? date
             return DateInterval(start: start, end: end)

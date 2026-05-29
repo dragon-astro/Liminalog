@@ -11,7 +11,7 @@ struct CategorySetEditSheet: View {
     @State private var name = ""
     /// 編集中のスロット状態（長さ 8 で常に保持）
     @State private var slots: [UUID?] = Array(repeating: nil, count: CategorySet.slotCount)
-    @State private var allCategories: [Category] = []
+    @Query(sort: \Category.sortOrder) private var allCategories: [Category]
 
     private var isNew: Bool { categorySet == nil }
 
@@ -160,7 +160,6 @@ struct CategorySetEditSheet: View {
     }
 
     private func loadInitialState() {
-        allCategories = store.allCategories()
         if let categorySet {
             name = categorySet.name
             slots = CategorySet.normalize(categorySet.slots)

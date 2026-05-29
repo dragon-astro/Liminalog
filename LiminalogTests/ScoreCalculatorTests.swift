@@ -89,7 +89,7 @@ struct ScoreStoreTests {
         context.insert(unmatchedChapter)
         try context.save()
 
-        let store = ChapterStore(modelContext: context, clock: clock)
+        let store = ScoreStore(modelContext: context, clock: clock)
 
         #expect(store.streakCount(endingAt: todayNoon) == 2)
     }

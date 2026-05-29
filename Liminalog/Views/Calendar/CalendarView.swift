@@ -1,7 +1,9 @@
 import SwiftUI
+import SwiftData
 
 struct CalendarView: View {
-    @Environment(ChapterStore.self) private var store
+    @Query private var queriedPlans: [PlanBlock]
+    @Query private var queriedChapters: [Chapter]
     @State private var visibleMonth = Date()
     @State private var showingMonthPicker = false
     @State private var pickerYear = Calendar.japanese.component(.year, from: Date())
@@ -9,6 +11,7 @@ struct CalendarView: View {
     @State private var showingCalendarSettings = false
     @State private var showingCalendarSearch = false
     @State private var searchTargetDay: CalendarSearchTargetDay?
+    @State private var clock = TickClock(interval: 60)
 
     private let calendar = Calendar.japanese
     private let weekdays = Calendar.japaneseShortWeekdaySymbols
@@ -28,9 +31,8 @@ struct CalendarView: View {
                         dates: monthGridDates,
                         visibleMonth: visibleMonth,
                         importantPlans: importantPlans(on:),
-                        scoreSummary: store.scoreSummary(on:)
+                        scoreSummary: scoreSummary(on:)
                     )
-                    .id(store.revision)
                     .padding(.vertical, 12)
                 }
             }
@@ -54,7 +56,7 @@ struct CalendarView: View {
                 )
             }
             .sheet(isPresented: $showingCalendarSearch) {
-                CalendarPlanSearchSheet(plans: store.allPlannedBlocks()) { plan in
+                CalendarPlanSearchSheet(plans: queriedPlans) { plan in
                     visibleMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: plan.startTime)) ?? visibleMonth
                     searchTargetDay = CalendarSearchTargetDay(date: plan.startTime, planID: plan.id)
                     showingCalendarSearch = false
@@ -73,6 +75,12 @@ struct CalendarView: View {
                         }
                     }
             )
+            .onAppear {
+                clock.start()
+            }
+            .onDisappear {
+                clock.stop()
+            }
         }
     }
 
@@ -163,7 +171,7 @@ struct CalendarView: View {
     private var visibleMonthPlans: [PlanBlock] {
         let monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: visibleMonth)) ?? visibleMonth
         let monthEnd = calendar.date(byAdding: .month, value: 1, to: monthStart) ?? monthStart
-        return store.plannedBlocks(from: monthStart, to: monthEnd)
+        return plannedBlocks(from: monthStart, to: monthEnd)
     }
 
     private var visibleMonthImportantPlans: [PlanBlock] {
@@ -172,7 +180,7 @@ struct CalendarView: View {
 
     private var visibleMonthAverageScoreText: String {
         let summaries = visibleMonthDates
-            .map { store.scoreSummary(on: $0) }
+            .map { scoreSummary(on: $0) }
             .filter { $0.plannedDuration > 0 }
         guard !summaries.isEmpty else { return "未計画" }
         let average = summaries.reduce(0) { $0 + $1.totalScore } / Double(summaries.count)
@@ -180,7 +188,7 @@ struct CalendarView: View {
     }
 
     private func importantPlans(on date: Date) -> [PlanBlock] {
-        store.plannedBlocks(on: date)
+        plannedBlocks(on: date)
             .filter(\.showsInCalendarAsImportant)
             .sorted {
                 if $0.startTime == $1.startTime {
@@ -188,6 +196,39 @@ struct CalendarView: View {
                 }
                 return $0.startTime < $1.startTime
             }
+    }
+
+    private func scoreSummary(on date: Date) -> ScoreSummary {
+        ScoreCalculator.summary(
+            date: date,
+            plans: plannedBlocks(on: date),
+            chapters: chapters(on: date),
+            calendar: calendar,
+            now: clock.now
+        )
+    }
+
+    private func plannedBlocks(on date: Date) -> [PlanBlock] {
+        let boundary = DayBoundary(date: date, calendar: calendar)
+        return plannedBlocks(from: boundary.dayStart, to: boundary.dayEnd)
+    }
+
+    private func plannedBlocks(from start: Date, to end: Date) -> [PlanBlock] {
+        queriedPlans
+            .filter { $0.startTime < end && $0.endTime > start }
+            .sorted { lhs, rhs in
+                if lhs.startTime == rhs.startTime {
+                    return lhs.createdAt < rhs.createdAt
+                }
+                return lhs.startTime < rhs.startTime
+            }
+    }
+
+    private func chapters(on date: Date) -> [Chapter] {
+        let boundary = DayBoundary(date: date, calendar: calendar)
+        return queriedChapters
+            .filter { $0.startTime < boundary.dayEnd && ($0.endTime ?? clock.now) > boundary.dayStart }
+            .sorted { $0.startTime < $1.startTime }
     }
 
     private func shiftMonth(_ value: Int) {

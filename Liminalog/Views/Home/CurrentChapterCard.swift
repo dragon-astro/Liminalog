@@ -1,16 +1,14 @@
 import SwiftUI
-import Combine
+import SwiftData
 
 struct CurrentChapterCard: View {
     @Environment(ChapterStore.self) private var store
-    @State private var elapsedTime: TimeInterval = 0
-
-    let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+    @Query private var activeChapters: [Chapter]
+    @State private var clock = TickClock()
 
     var body: some View {
-        let _ = store.revision
         Group {
-            if let chapter = store.activeChapter, let category = chapter.category {
+            if let chapter = activeChapter, let category = chapter.category {
                 activeCard(chapter: chapter, category: category)
             } else {
                 placeholderCard
@@ -18,6 +16,19 @@ struct CurrentChapterCard: View {
         }
         .frame(maxWidth: .infinity)
         .frame(height: 48)
+        .onAppear {
+            clock.start()
+        }
+        .onDisappear {
+            clock.stop()
+        }
+    }
+
+    private var activeChapter: Chapter? {
+        activeChapters
+            .filter { $0.endTime == nil }
+            .sorted { $0.startTime > $1.startTime }
+            .first
     }
 
     private func activeCard(chapter: Chapter, category: Category) -> some View {
@@ -36,7 +47,7 @@ struct CurrentChapterCard: View {
 
                     Spacer()
 
-                    Text(formatDuration(elapsedTime))
+                    Text(formatDuration(clock.now.timeIntervalSince(chapter.startTime)))
                         .font(.caption.monospacedDigit().weight(.semibold))
                         .foregroundStyle(.secondary)
 
@@ -61,12 +72,6 @@ struct CurrentChapterCard: View {
                 }
                 .padding(.horizontal, 12)
             )
-            .onReceive(timer) { _ in
-                elapsedTime = chapter.durationLive
-            }
-            .onAppear {
-                elapsedTime = chapter.durationLive
-            }
     }
 
     private var placeholderCard: some View {

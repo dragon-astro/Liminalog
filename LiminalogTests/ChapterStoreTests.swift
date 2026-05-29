@@ -189,9 +189,12 @@ struct ChapterStoreTests {
         context.insert(set)
         try context.save()
 
-        let store = ChapterStore(modelContext: context)
-        let slotted = store.slottedCategories(for: set)
-        let assigned = store.assignedCategories(for: set)
+        let categorySetStore = CategorySetStore(
+            modelContext: context,
+            categoryStore: CategoryStore(modelContext: context)
+        )
+        let slotted = categorySetStore.slottedCategories(for: set)
+        let assigned = categorySetStore.assignedCategories(for: set)
 
         #expect(slotted.count == CategorySet.slotCount)
         #expect(slotted[0]?.id == rest.id)

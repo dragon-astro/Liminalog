@@ -1,8 +1,10 @@
 import SwiftUI
+import SwiftData
 
 struct ChapterCreateSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(ChapterStore.self) private var store
+    @Query(sort: \Category.sortOrder) private var categories: [Category]
 
     @State private var startTime = Date()
     @State private var endTime = Date()
@@ -11,11 +13,10 @@ struct ChapterCreateSheet: View {
     @State private var mood: String?
     @State private var locationName = ""
     @State private var isPublic = true
-    @State private var categories: [Category] = []
 
     init(initialDate: Date = Date()) {
         let now = Date()
-        let dayStart = Calendar.current.startOfDay(for: now)
+        let dayStart = DayBoundary.dayStart(for: now)
         var start = min(max(initialDate, dayStart), now)
         var end = min(Calendar.current.date(byAdding: .minute, value: 30, to: start) ?? start, now)
         if end <= start {
@@ -86,7 +87,6 @@ struct ChapterCreateSheet: View {
                 }
             }
             .onAppear {
-                categories = store.allCategories()
                 selectedCategory = categories.first
                 clampToToday()
             }
@@ -95,7 +95,7 @@ struct ChapterCreateSheet: View {
 
     private var todayRange: ClosedRange<Date> {
         let now = Date()
-        let start = Calendar.current.startOfDay(for: now)
+        let start = DayBoundary.dayStart(for: now)
         return start...now
     }
 
@@ -127,7 +127,7 @@ struct ChapterCreateSheet: View {
 
     private func clampToToday() {
         let now = Date()
-        let dayStart = Calendar.current.startOfDay(for: now)
+        let dayStart = DayBoundary.dayStart(for: now)
         startTime = min(max(startTime, dayStart), now)
         endTime = min(max(endTime, startTime), now)
         if endTime <= startTime, let fallbackEnd = Calendar.current.date(byAdding: .minute, value: 1, to: startTime) {

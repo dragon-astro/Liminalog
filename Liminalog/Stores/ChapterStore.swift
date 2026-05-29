@@ -10,10 +10,8 @@ final class ChapterStore {
     private let categoryStore: CategoryStore
     private let categorySetStore: CategorySetStore
     private let planStore: PlanStore
-    private let scoreStore: ScoreStore
     private let liveActivityCoordinator: LiveActivityCoordinator
     private var didDisableUserSettingsPersistence = false
-    var revision = 0
     private static let appGroupID = "group.app.YasudaRyuga.Liminalog"
     private static let activeCategoryCacheKey = "recording.activeCategoryID"
     private static let pendingCategoryCacheKey = "recording.pendingCategoryID"
@@ -26,7 +24,6 @@ final class ChapterStore {
         categoryStore: CategoryStore? = nil,
         categorySetStore: CategorySetStore? = nil,
         planStore: PlanStore? = nil,
-        scoreStore: ScoreStore? = nil,
         liveActivityCoordinator: LiveActivityCoordinator? = nil
     ) {
         self.modelContext = modelContext
@@ -39,14 +36,12 @@ final class ChapterStore {
         self.categoryStore = resolvedCategoryStore
         self.categorySetStore = resolvedCategorySetStore
         self.planStore = planStore ?? PlanStore(modelContext: modelContext, clock: clock)
-        self.scoreStore = scoreStore ?? ScoreStore(modelContext: modelContext, clock: clock)
         self.liveActivityCoordinator = liveActivityCoordinator ?? LiveActivityCoordinator(
             categorySetStore: resolvedCategorySetStore
         )
     }
 
     private func markChanged(reloadWidgets: Bool = true) {
-        revision += 1
         if reloadWidgets && ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil {
             WidgetCenter.shared.reloadAllTimelines()
         }
@@ -100,7 +95,7 @@ final class ChapterStore {
 
     private func makeRecordingSurfaceSnapshot(categorySet: CategorySet? = nil) -> RecordingSurfaceSnapshot {
         let selectedSet = categorySet ?? currentCategorySet()
-        let categoryByID = Dictionary(uniqueKeysWithValues: allCategories().map { ($0.id, $0) })
+        let categoryByID = Dictionary(uniqueKeysWithValues: categoryStore.allCategories().map { ($0.id, $0) })
         let cells: [RecordingSurfaceSnapshot.Cell?] = CategorySet.normalize(selectedSet?.slots ?? [])
             .map { id in
                 guard let id, let category = categoryByID[id] else { return nil }
@@ -254,63 +249,6 @@ final class ChapterStore {
         updateLiveActivity()
     }
 
-    // MARK: - Today's chapters
-
-    func todaysChapters() -> [Chapter] {
-        chapters(on: clock.now)
-    }
-
-    func chapters(on date: Date) -> [Chapter] {
-        let boundary = DayBoundary(date: date)
-        let dayStart = boundary.dayStart
-        let dayEnd = boundary.dayEnd
-        let now = clock.now
-        let descriptor = FetchDescriptor<Chapter>(
-            predicate: #Predicate { $0.startTime < dayEnd },
-            sortBy: [SortDescriptor(\.startTime)]
-        )
-        return ((try? modelContext.fetch(descriptor)) ?? [])
-            .filter { ($0.endTime ?? now) > dayStart }
-    }
-
-    func chapters(from start: Date, to end: Date) -> [Chapter] {
-        let now = clock.now
-        let descriptor = FetchDescriptor<Chapter>(
-            predicate: #Predicate { $0.startTime < end },
-            sortBy: [SortDescriptor(\.startTime)]
-        )
-        return ((try? modelContext.fetch(descriptor)) ?? [])
-            .filter { ($0.endTime ?? now) > start }
-    }
-
-    func recentChapters(limit: Int = 50) -> [Chapter] {
-        var descriptor = FetchDescriptor<Chapter>(
-            sortBy: [SortDescriptor(\.startTime, order: .reverse)]
-        )
-        descriptor.fetchLimit = limit
-        return (try? modelContext.fetch(descriptor)) ?? []
-    }
-
-    // MARK: - Category grid (positional 8 slots)
-
-    /// 8件のスロット配列を返す。空きスロットは `nil`。配列 index がそのままグリッド位置。
-    func slottedCategories(for set: CategorySet) -> [Category?] {
-        categorySetStore.slottedCategories(for: set)
-    }
-
-    /// 割り当て済みカテゴリだけを順序保ったまま返す（Live Activity 等の表示用）
-    func assignedCategories(for set: CategorySet) -> [Category] {
-        categorySetStore.assignedCategories(for: set)
-    }
-
-    func allCategories() -> [Category] {
-        categoryStore.allCategories()
-    }
-
-    func categorySets() -> [CategorySet] {
-        categorySetStore.categorySets()
-    }
-
     // MARK: - Chapter edits
 
     @discardableResult
@@ -376,18 +314,6 @@ final class ChapterStore {
 
     // MARK: - Plans
 
-    func plannedBlocks(on date: Date) -> [PlanBlock] {
-        planStore.plannedBlocks(on: date)
-    }
-
-    func plannedBlocks(from start: Date, to end: Date) -> [PlanBlock] {
-        planStore.plannedBlocks(from: start, to: end)
-    }
-
-    func allPlannedBlocks() -> [PlanBlock] {
-        planStore.allPlannedBlocks()
-    }
-
     @discardableResult
     func addPlanBlock(category: Category?, title: String, startTime: Date, endTime: Date, isAllDay: Bool = false, isImportant: Bool = false, note: String? = nil, isPublic: Bool = true) -> Bool {
         guard planStore.addPlanBlock(category: category, title: title, startTime: startTime, endTime: endTime, isAllDay: isAllDay, isImportant: isImportant, note: note, isPublic: isPublic) else { return false }
@@ -407,20 +333,6 @@ final class ChapterStore {
         guard planStore.deletePlanBlock(plan) else { return false }
         markChanged()
         return true
-    }
-
-    // MARK: - Score
-
-    func scoreSummary(on date: Date) -> ScoreSummary {
-        scoreStore.scoreSummary(on: date)
-    }
-
-    func streakCount(endingAt date: Date = Date()) -> Int {
-        scoreStore.streakCount(endingAt: date)
-    }
-
-    func totalScore(days: Int = 365) -> Int {
-        scoreStore.totalScore(days: days)
     }
 
     // MARK: - Category management
@@ -477,7 +389,7 @@ final class ChapterStore {
     }
 
     func setEnabledCategorySetID(_ id: UUID?) {
-        let snapshot = publishRecordingSurfaceSnapshot(categorySet: categorySets().first { $0.id == id })
+        let snapshot = publishRecordingSurfaceSnapshot(categorySet: categorySetStore.categorySets().first { $0.id == id })
         reloadRecordingGridWidget()
         updateLiveActivity(snapshot: snapshot)
         persistEnabledCategorySetIDBestEffort(id)
@@ -533,14 +445,14 @@ final class ChapterStore {
         let currentSeedVersion = 4
         let calendar = Calendar.current
         let today = DayBoundary.dayStart(for: clock.now, calendar: calendar)
-        let todayPlans = plannedBlocks(on: today).filter { !$0.isAllDay }
+        let todayPlans = planStore.plannedBlocks(on: today).filter { !$0.isAllDay }
         let hasCurrentSeedVersion = UserDefaults.standard.integer(forKey: seedVersionKey) >= currentSeedVersion
 
         if hasCurrentSeedVersion && plansCoverFullDay(todayPlans, on: today) {
             return
         }
 
-        let categories = Dictionary(uniqueKeysWithValues: allCategories().map { ($0.name, $0) })
+        let categories = Dictionary(uniqueKeysWithValues: categoryStore.allCategories().map { ($0.name, $0) })
         let samples: [(String, Int, Int, Int, String)] = [
             ("睡眠", 0, 0, 420, "睡眠"),
             ("休憩", 7, 0, 60, "朝の準備"),
@@ -645,7 +557,7 @@ final class ChapterStore {
 
     private func plansCoverFullDay(_ plans: [PlanBlock], on date: Date) -> Bool {
         let calendar = Calendar.current
-        let dayStart = calendar.startOfDay(for: date)
+        let dayStart = DayBoundary.dayStart(for: date, calendar: calendar)
         guard let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) else { return false }
         let sorted = plans
             .filter { $0.startTime < dayEnd && $0.endTime > dayStart }
@@ -679,7 +591,7 @@ final class ChapterStore {
         let chapterDescriptor = FetchDescriptor<Chapter>()
         guard (try? modelContext.fetchCount(chapterDescriptor)) == 0 else { return }
 
-        let categoriesByName = Dictionary(uniqueKeysWithValues: allCategories().map { ($0.name, $0) })
+        let categoriesByName = Dictionary(uniqueKeysWithValues: categoryStore.allCategories().map { ($0.name, $0) })
         let calendar = Calendar.current
         let today = DayBoundary.dayStart(for: clock.now, calendar: calendar)
 
@@ -769,7 +681,7 @@ final class ChapterStore {
     }
 
     private func currentCategorySet() -> CategorySet? {
-        let sets = categorySets()
+        let sets = categorySetStore.categorySets()
         let settings = try? modelContext.fetch(FetchDescriptor<UserSettings>(
             predicate: #Predicate { $0.settingsKey == "default" },
             sortBy: [SortDescriptor(\.createdAt)]

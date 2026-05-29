@@ -1,8 +1,11 @@
 import SwiftUI
+import SwiftData
 
 struct PlanCreateSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(ChapterStore.self) private var store
+    @Query(sort: \Category.sortOrder) private var categories: [Category]
+    @Query(sort: \CategorySet.sortOrder) private var categorySets: [CategorySet]
 
     private let editingPlan: PlanBlock?
 
@@ -15,8 +18,6 @@ struct PlanCreateSheet: View {
     @State private var selectedCategory: Category?
     @State private var note = ""
     @State private var isPublic = true
-    @State private var categories: [Category] = []
-    @State private var categorySets: [CategorySet] = []
     @State private var showingCategoryPicker = false
 
     init(initialDate: Date = Date(), startsAsAllDay: Bool = false) {
@@ -136,8 +137,6 @@ struct PlanCreateSheet: View {
                 }
             }
             .onAppear {
-                categories = store.allCategories()
-                categorySets = store.categorySets()
                 if selectedCategory == nil {
                     selectedCategory = categories.first
                 }

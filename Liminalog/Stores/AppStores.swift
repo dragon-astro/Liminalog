@@ -31,7 +31,6 @@ final class AppStores {
             categoryStore: categoryStore,
             categorySetStore: categorySetStore,
             planStore: planStore,
-            scoreStore: scoreStore,
             liveActivityCoordinator: liveActivityCoordinator
         )
     }

@@ -1,5 +1,4 @@
 import SwiftUI
-import Combine
 import SwiftData
 
 let currentTimeMarkerID = "current-time-marker"
@@ -110,7 +109,7 @@ struct TimelineView: View {
     var focusedPlanID: UUID?
     @Binding var editingChapter: Chapter?
 
-    @State private var now = Date()
+    @State private var clock = TickClock()
     @State private var editingPlan: PlanBlock?
     @State private var highlightedEntryID: String?
     @State private var quickDetailEntry: TimelineEntry?
@@ -118,7 +117,9 @@ struct TimelineView: View {
     @State private var showingPlanCreate = false
     @State private var gapStartDate: Date = Date()
 
-    private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+    private var now: Date {
+        clock.now
+    }
 
     init(
         date: Date,
@@ -222,11 +223,12 @@ struct TimelineView: View {
                 onDeleteEntry: deleteEntry
             )
         }
-        .onReceive(timer) { date in
-            now = date
-        }
         .onAppear {
+            clock.start()
             focusPlanIfNeeded()
+        }
+        .onDisappear {
+            clock.stop()
         }
         .sheet(item: $editingPlan) { plan in
             PlanCreateSheet(plan: plan)
@@ -345,7 +347,7 @@ struct TimelineView: View {
 
 private extension TimelineView {
     var dayStart: Date {
-        Calendar.current.startOfDay(for: date)
+        DayBoundary.dayStart(for: date)
     }
 
     var dayEnd: Date {
@@ -571,7 +573,7 @@ private struct TimelineBarRow: View {
     var onEntryTap: (TimelineEntry) -> Void
 
     private var dayStart: Date {
-        Calendar.current.startOfDay(for: date)
+        DayBoundary.dayStart(for: date)
     }
 
     private var dayEnd: Date {
