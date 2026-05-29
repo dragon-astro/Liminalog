@@ -13,7 +13,6 @@ struct CategorySetEditSheet: View {
     /// 編集中のスロット状態（長さ 8 で常に保持）
     @State private var slots: [UUID?] = Array(repeating: nil, count: CategorySet.slotCount)
     @State private var targetedSlotIndex: Int?
-    @State private var selectedPaletteCategoryID: UUID?
     @Query(sort: \Category.sortOrder) private var allCategories: [Category]
 
     private var isNew: Bool { categorySet == nil }
@@ -24,54 +23,16 @@ struct CategorySetEditSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section {
-                    TextField("例: 平日（空でも自動命名）", text: $name)
-                        .focused($nameFieldFocused)
-                        .submitLabel(.done)
-                        .onSubmit { nameFieldFocused = false }
-                } header: {
-                    Text("セット名")
-                } footer: {
-                    Text("空のままだと「セット ◯」が自動で付きます")
-                        .font(.caption2)
+            ScrollView {
+                VStack(spacing: 18) {
+                    settingsSection
+                    slotSection
+                    paletteSection
                 }
-
-                Section {
-                    LazyVGrid(columns: columns, spacing: 12) {
-                        ForEach(0..<CategorySet.slotCount, id: \.self) { index in
-                            slotCell(at: index)
-                        }
-                    }
-                    .padding(.vertical, 6)
-                } header: {
-                    HStack {
-                        Text("グリッド位置")
-                        Spacer()
-                        Text("\(assignedCount)/\(CategorySet.slotCount)")
-                            .monospacedDigit()
-                    }
-                }
-
-                Section {
-                    LazyVGrid(columns: paletteColumns, spacing: 10) {
-                        ForEach(allCategories) { category in
-                            CategoryPaletteItem(
-                                category: category,
-                                isAssigned: slots.contains(category.id),
-                                isSelected: selectedPaletteCategoryID == category.id
-                            )
-                            .draggable(CategorySetDragPayload(value: dragPayload(for: category.id)))
-                            .onTapGesture {
-                                togglePaletteSelection(category.id)
-                            }
-                        }
-                    }
-                    .padding(.vertical, 6)
-                } header: {
-                    Text("カテゴリ")
-                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 16)
             }
+            .background(Color(.systemGroupedBackground))
             .scrollDismissesKeyboard(.interactively)
             .navigationTitle(isNew ? "セットを追加" : "セットを編集")
             .navigationBarTitleDisplayMode(.inline)
@@ -93,6 +54,80 @@ struct CategorySetEditSheet: View {
         }
     }
 
+    // MARK: - Sections
+
+    private var settingsSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("セット名")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            VStack(alignment: .leading, spacing: 6) {
+                TextField("例: 平日（空でも自動命名）", text: $name)
+                    .focused($nameFieldFocused)
+                    .submitLabel(.done)
+                    .onSubmit { nameFieldFocused = false }
+
+                Text("空のままだと「セット ◯」が自動で付きます")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(14)
+            .background(
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(Color(.secondarySystemGroupedBackground))
+            )
+        }
+    }
+
+    private var slotSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("グリッド位置")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text("\(assignedCount)/\(CategorySet.slotCount)")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+            }
+
+            LazyVGrid(columns: columns, spacing: 12) {
+                ForEach(0..<CategorySet.slotCount, id: \.self) { index in
+                    slotCell(at: index)
+                }
+            }
+            .padding(12)
+            .background(
+                RoundedRectangle(cornerRadius: 18)
+                    .fill(Color(.secondarySystemGroupedBackground))
+            )
+        }
+    }
+
+    private var paletteSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("カテゴリ")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            LazyVGrid(columns: paletteColumns, spacing: 10) {
+                ForEach(allCategories) { category in
+                    CategoryPaletteItem(
+                        category: category,
+                        isAssigned: slots.contains(category.id),
+                        dragPayload: dragPayload(for: category.id)
+                    )
+                }
+            }
+            .padding(12)
+            .background(
+                RoundedRectangle(cornerRadius: 18)
+                    .fill(Color(.secondarySystemGroupedBackground))
+            )
+        }
+    }
+
     // MARK: - Slot cell
 
     private var paletteColumns: [GridItem] {
@@ -110,17 +145,16 @@ struct CategorySetEditSheet: View {
                     .strokeBorder(Color.accentColor, lineWidth: 2)
             }
         }
-        .dropDestination(for: CategorySetDragPayload.self) { items, _ in
-            handleDrop(items.map(\.value), to: index)
-        } isTargeted: { isTargeted in
-            targetedSlotIndex = isTargeted ? index : (targetedSlotIndex == index ? nil : targetedSlotIndex)
-        }
-        .draggable(CategorySetDragPayload(value: dragPayload(forSlotAt: index)))
-        .onTapGesture {
-            if let selectedPaletteCategoryID {
-                assignCategory(selectedPaletteCategoryID, to: index)
-                self.selectedPaletteCategoryID = nil
-            }
+        .onDrop(
+            of: [CategorySetSlotDraft.payloadType],
+            isTargeted: Binding(
+                get: { targetedSlotIndex == index },
+                set: { isTargeted in
+                    targetedSlotIndex = isTargeted ? index : (targetedSlotIndex == index ? nil : targetedSlotIndex)
+                }
+            )
+        ) { providers in
+            handleDrop(providers, to: index)
         }
         .contextMenu {
             slotMenu(at: index, currentCategory: category)
@@ -208,15 +242,6 @@ struct CategorySetEditSheet: View {
         assignCategory(id, to: emptyIndex)
     }
 
-    private func togglePaletteSelection(_ id: UUID) {
-        if selectedPaletteCategoryID == id {
-            assignToFirstAvailableSlot(id)
-            selectedPaletteCategoryID = nil
-        } else {
-            selectedPaletteCategoryID = id
-        }
-    }
-
     private func moveSlot(from source: Int, to destination: Int) {
         guard let next = CategorySetSlotDraft.moveSlot(from: source, to: destination, slots: slots) else { return }
         slots = next
@@ -230,6 +255,32 @@ struct CategorySetEditSheet: View {
             validCategoryIDs: validCategoryIDs
         ) else { return false }
         slots = next
+        return true
+    }
+
+    private func handleDrop(_ providers: [NSItemProvider], to destination: Int) -> Bool {
+        guard let provider = providers.first(where: { $0.hasItemConformingToTypeIdentifier(CategorySetSlotDraft.payloadType) }) else {
+            return false
+        }
+
+        provider.loadItem(forTypeIdentifier: CategorySetSlotDraft.payloadType, options: nil) { item, _ in
+            let payload: String?
+            if let data = item as? Data {
+                payload = String(data: data, encoding: .utf8)
+            } else if let string = item as? String {
+                payload = string
+            } else if let string = item as? NSString {
+                payload = string as String
+            } else {
+                payload = nil
+            }
+
+            guard let payload else { return }
+            Task { @MainActor in
+                _ = handleDrop([payload], to: destination)
+                targetedSlotIndex = nil
+            }
+        }
         return true
     }
 
@@ -313,6 +364,8 @@ struct CategorySetSlotDraft {
         "category:\(categoryID.uuidString)"
     }
 
+    static let payloadType = UTType.plainText.identifier
+
     private static func slotIndex(from payload: String) -> Int? {
         guard payload.hasPrefix("slot:") else { return nil }
         return Int(payload.dropFirst("slot:".count))
@@ -322,18 +375,6 @@ struct CategorySetSlotDraft {
         guard payload.hasPrefix("category:") else { return nil }
         return UUID(uuidString: String(payload.dropFirst("category:".count)))
     }
-}
-
-private struct CategorySetDragPayload: Transferable, Codable, Hashable {
-    let value: String
-
-    static var transferRepresentation: some TransferRepresentation {
-        CodableRepresentation(contentType: .liminalogCategorySetDragPayload)
-    }
-}
-
-private extension UTType {
-    static let liminalogCategorySetDragPayload = UTType(exportedAs: "app.YasudaRyuga.Liminalog.category-set-drag-payload")
 }
 
 // MARK: - Slot cell label
@@ -390,7 +431,7 @@ private struct SlotCellLabel: View {
 private struct CategoryPaletteItem: View {
     let category: Category
     let isAssigned: Bool
-    let isSelected: Bool
+    let dragPayload: String
 
     var body: some View {
         VStack(spacing: 6) {
@@ -411,6 +452,12 @@ private struct CategoryPaletteItem: View {
                         .offset(x: 2, y: -2)
                 }
             }
+            .contentShape(Circle())
+            .onDrag {
+                NSItemProvider(object: dragPayload as NSString)
+            } preview: {
+                CategoryDragPreview(category: category)
+            }
 
             Text(category.name)
                 .font(.system(size: 10, weight: .medium))
@@ -419,20 +466,26 @@ private struct CategoryPaletteItem: View {
                 .minimumScaleFactor(0.7)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 8)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(isAssigned || isSelected ? category.color.opacity(0.08) : Color(.secondarySystemGroupedBackground))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .strokeBorder(
-                    isSelected ? category.color : (isAssigned ? category.color.opacity(0.24) : Color.clear),
-                    lineWidth: isSelected ? 2 : 1
-                )
-        )
-        .contentShape(RoundedRectangle(cornerRadius: 12))
-        .accessibilityLabel("\(category.name)\(isAssigned ? "、割り当て済み" : "")\(isSelected ? "、選択中" : "")")
+        .padding(.vertical, 6)
+        .accessibilityLabel("\(category.name)\(isAssigned ? "、割り当て済み" : "")")
+    }
+}
+
+private struct CategoryDragPreview: View {
+    let category: Category
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(category.color.opacity(0.18))
+                .frame(width: 54, height: 54)
+
+            Image(systemName: category.icon ?? "circle.fill")
+                .font(.system(size: 24, weight: .semibold))
+                .foregroundStyle(category.color)
+        }
+        .padding(6)
+        .background(.regularMaterial, in: Circle())
     }
 }
 
