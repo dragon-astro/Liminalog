@@ -49,6 +49,24 @@ struct CategorySetEditSheet: View {
                             .monospacedDigit()
                     }
                 }
+
+                Section {
+                    LazyVGrid(columns: paletteColumns, spacing: 10) {
+                        ForEach(allCategories) { category in
+                            CategoryPaletteItem(
+                                category: category,
+                                isAssigned: slots.contains(category.id)
+                            )
+                            .draggable(dragPayload(for: category.id))
+                            .onTapGesture {
+                                assignToFirstAvailableSlot(category.id)
+                            }
+                        }
+                    }
+                    .padding(.vertical, 6)
+                } header: {
+                    Text("カテゴリ")
+                }
             }
             .scrollDismissesKeyboard(.interactively)
             .navigationTitle(isNew ? "セットを追加" : "セットを編集")
@@ -73,6 +91,10 @@ struct CategorySetEditSheet: View {
 
     // MARK: - Slot cell
 
+    private var paletteColumns: [GridItem] {
+        [GridItem(.adaptive(minimum: 74), spacing: 10)]
+    }
+
     @ViewBuilder
     private func slotCell(at index: Int) -> some View {
         let category = category(for: slots[index])
@@ -82,11 +104,9 @@ struct CategorySetEditSheet: View {
         } label: {
             SlotCellLabel(index: index, category: category)
         }
-        .draggable(String(index))
+        .draggable(dragPayload(forSlotAt: index))
         .dropDestination(for: String.self) { items, _ in
-            guard let source = items.first.flatMap(Int.init), source != index else { return false }
-            moveSlot(from: source, to: index)
-            return true
+            _ = handleDrop(items, to: index)
         }
         .accessibilityLabel(category.map { "スロット\(index + 1): \($0.name)" } ?? "スロット\(index + 1): 空き")
     }
@@ -152,11 +172,65 @@ struct CategorySetEditSheet: View {
         slots = next
     }
 
+    private func assignCategory(_ id: UUID, to destination: Int) {
+        guard slots.indices.contains(destination), allCategories.contains(where: { $0.id == id }) else { return }
+        var next = slots
+        for index in next.indices where index != destination && next[index] == id {
+            next[index] = nil
+        }
+        next[destination] = id
+        slots = next
+    }
+
+    private func assignToFirstAvailableSlot(_ id: UUID) {
+        if let existingIndex = slots.firstIndex(of: id) {
+            assign(nil, to: existingIndex)
+            return
+        }
+        guard let emptyIndex = slots.firstIndex(where: { $0 == nil }) else { return }
+        assignCategory(id, to: emptyIndex)
+    }
+
     private func moveSlot(from source: Int, to destination: Int) {
         guard slots.indices.contains(source), slots.indices.contains(destination) else { return }
         var next = slots
         next.swapAt(source, destination)
         slots = next
+    }
+
+    private func handleDrop(_ items: [String], to destination: Int) -> Bool {
+        guard let payload = items.first else { return false }
+
+        if let source = slotIndex(from: payload) {
+            guard source != destination else { return false }
+            moveSlot(from: source, to: destination)
+            return true
+        }
+
+        if let categoryID = categoryID(from: payload) {
+            assignCategory(categoryID, to: destination)
+            return true
+        }
+
+        return false
+    }
+
+    private func dragPayload(forSlotAt index: Int) -> String {
+        "slot:\(index)"
+    }
+
+    private func dragPayload(for categoryID: UUID) -> String {
+        "category:\(categoryID.uuidString)"
+    }
+
+    private func slotIndex(from payload: String) -> Int? {
+        guard payload.hasPrefix("slot:") else { return nil }
+        return Int(payload.dropFirst("slot:".count))
+    }
+
+    private func categoryID(from payload: String) -> UUID? {
+        guard payload.hasPrefix("category:") else { return nil }
+        return UUID(uuidString: String(payload.dropFirst("category:".count)))
     }
 
     private func loadInitialState() {
@@ -225,6 +299,51 @@ private struct SlotCellLabel: View {
 
     private var fillColor: Color {
         category?.color.opacity(0.18) ?? Color(.tertiarySystemGroupedBackground)
+    }
+}
+
+private struct CategoryPaletteItem: View {
+    let category: Category
+    let isAssigned: Bool
+
+    var body: some View {
+        VStack(spacing: 6) {
+            ZStack(alignment: .topTrailing) {
+                Circle()
+                    .fill(category.color.opacity(isAssigned ? 0.24 : 0.14))
+                    .frame(width: 42, height: 42)
+
+                Image(systemName: category.icon ?? "circle.fill")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(category.color)
+                    .frame(width: 42, height: 42)
+
+                if isAssigned {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.white, category.color)
+                        .offset(x: 2, y: -2)
+                }
+            }
+
+            Text(category.name)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(isAssigned ? category.color.opacity(0.08) : Color(.secondarySystemGroupedBackground))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .strokeBorder(isAssigned ? category.color.opacity(0.24) : Color.clear, lineWidth: 1)
+        )
+        .contentShape(RoundedRectangle(cornerRadius: 12))
+        .accessibilityLabel("\(category.name)\(isAssigned ? "、割り当て済み" : "")")
     }
 }
 
