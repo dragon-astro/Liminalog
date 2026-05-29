@@ -33,7 +33,10 @@ private enum RecordingWidgetStore {
     static let enabledCategorySetCacheKey = "recording.enabledCategorySetID"
     static let surfaceSnapshotCacheKey = "recording.surfaceSnapshot"
     private static let developmentStoreVersionKey = "development.storeVersion"
-    private static let currentDevelopmentStoreVersion = 2026052902
+    private static let currentDevelopmentStoreVersion = 2026052903
+    private static let requiredDevelopmentStoreMarkers = [
+        "ZPROFILEACCENTCOLORHEX"
+    ]
 
     static var cloudSchema: Schema {
         Schema([
@@ -92,24 +95,41 @@ private enum RecordingWidgetStore {
     private static func prepareDevelopmentStoresIfNeeded() {
         #if DEBUG
         guard let defaults = UserDefaults(suiteName: appGroupID),
-              defaults.integer(forKey: developmentStoreVersionKey) != currentDevelopmentStoreVersion
+              let appGroupURL = FileManager.default.containerURL(
+                forSecurityApplicationGroupIdentifier: appGroupID
+              )
         else { return }
 
-        resetDevelopmentStores()
+        let supportURL = appGroupURL
+            .appendingPathComponent("Library", isDirectory: true)
+            .appendingPathComponent("Application Support", isDirectory: true)
+
+        guard developmentStoreNeedsReset(defaults: defaults, supportURL: supportURL) else { return }
+
+        resetDevelopmentStores(supportURL: supportURL)
         defaults.set(currentDevelopmentStoreVersion, forKey: developmentStoreVersionKey)
         defaults.synchronize()
         #endif
     }
 
-    private static func resetDevelopmentStores() {
-        #if DEBUG
-        guard let appGroupURL = FileManager.default.containerURL(
-            forSecurityApplicationGroupIdentifier: appGroupID
-        ) else { return }
+    private static func developmentStoreNeedsReset(defaults: UserDefaults, supportURL: URL) -> Bool {
+        defaults.integer(forKey: developmentStoreVersionKey) != currentDevelopmentStoreVersion ||
+            developmentCloudStoreIsMissingRequiredMarkers(supportURL: supportURL)
+    }
 
-        let supportURL = appGroupURL
-            .appendingPathComponent("Library", isDirectory: true)
-            .appendingPathComponent("Application Support", isDirectory: true)
+    private static func developmentCloudStoreIsMissingRequiredMarkers(supportURL: URL) -> Bool {
+        let cloudStoreURL = supportURL.appendingPathComponent("Cloud.store")
+        guard FileManager.default.fileExists(atPath: cloudStoreURL.path),
+              let data = try? Data(contentsOf: cloudStoreURL)
+        else { return false }
+
+        return requiredDevelopmentStoreMarkers.contains { marker in
+            data.range(of: Data(marker.utf8)) == nil
+        }
+    }
+
+    private static func resetDevelopmentStores(supportURL: URL) {
+        #if DEBUG
         let storeNames = [
             "Cloud.store",
             "Local.store",
