@@ -70,7 +70,7 @@ struct CalendarView: View {
             }
             .sheet(item: $selectedDay) { target in
                 NavigationStack {
-                    CalendarDayView(date: target.date, highlightedPlanID: target.planID)
+                    CalendarDayPagerSheet(initialDate: target.date, highlightedPlanID: target.planID)
                 }
                 .presentationDetents([.large])
             }
@@ -249,6 +249,58 @@ struct CalendarView: View {
         case "日": .red
         case "土": .blue
         default: .secondary
+        }
+    }
+}
+
+private struct CalendarDayPagerSheet: View {
+    let initialDate: Date
+    let highlightedPlanID: UUID?
+
+    @State private var anchorDate: Date
+    @State private var selectedOffset = 0
+
+    init(initialDate: Date, highlightedPlanID: UUID?) {
+        self.initialDate = Calendar.japanese.startOfDay(for: initialDate)
+        self.highlightedPlanID = highlightedPlanID
+        _anchorDate = State(initialValue: Calendar.japanese.startOfDay(for: initialDate))
+    }
+
+    var body: some View {
+        TabView(selection: $selectedOffset) {
+            ForEach([-1, 0, 1], id: \.self) { offset in
+                CalendarDayView(
+                    date: pageDate(offset),
+                    highlightedPlanID: highlightedPlanID(for: pageDate(offset)),
+                    allowsDayNavigation: false
+                )
+                .id(pageDate(offset).timeIntervalSince1970)
+                .tag(offset)
+            }
+        }
+        .tabViewStyle(.page(indexDisplayMode: .never))
+        .onChange(of: selectedOffset) { _, newValue in
+            guard newValue != 0 else { return }
+            settlePageShift(newValue)
+        }
+    }
+
+    private func pageDate(_ offset: Int) -> Date {
+        Calendar.japanese.date(byAdding: .day, value: offset, to: anchorDate) ?? anchorDate
+    }
+
+    private func highlightedPlanID(for date: Date) -> UUID? {
+        Calendar.japanese.isDate(date, inSameDayAs: initialDate) ? highlightedPlanID : nil
+    }
+
+    private func settlePageShift(_ offset: Int) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) {
+            anchorDate = pageDate(offset)
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                selectedOffset = 0
+            }
         }
     }
 }

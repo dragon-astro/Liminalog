@@ -1241,7 +1241,7 @@ private struct FriendCalendarView: View {
         }
         .sheet(item: $selectedDay) { target in
             NavigationStack {
-                FriendSharedCalendarDayView(friend: friend, date: target.date)
+                FriendSharedCalendarDayPagerSheet(friend: friend, initialDate: target.date)
             }
             .presentationDetents([.large])
         }
@@ -1420,6 +1420,52 @@ private struct FriendSharedCalendarTargetDay: Identifiable, Hashable {
 
     var id: TimeInterval {
         Calendar.japanese.startOfDay(for: date).timeIntervalSince1970
+    }
+}
+
+private struct FriendSharedCalendarDayPagerSheet: View {
+    let friend: Friend
+
+    @State private var anchorDate: Date
+    @State private var selectedOffset = 0
+
+    init(friend: Friend, initialDate: Date) {
+        self.friend = friend
+        _anchorDate = State(initialValue: Calendar.japanese.startOfDay(for: initialDate))
+    }
+
+    var body: some View {
+        TabView(selection: $selectedOffset) {
+            ForEach([-1, 0, 1], id: \.self) { offset in
+                FriendSharedCalendarDayView(
+                    friend: friend,
+                    date: pageDate(offset),
+                    allowsDayNavigation: false
+                )
+                .id(pageDate(offset).timeIntervalSince1970)
+                .tag(offset)
+            }
+        }
+        .tabViewStyle(.page(indexDisplayMode: .never))
+        .onChange(of: selectedOffset) { _, newValue in
+            guard newValue != 0 else { return }
+            settlePageShift(newValue)
+        }
+    }
+
+    private func pageDate(_ offset: Int) -> Date {
+        Calendar.japanese.date(byAdding: .day, value: offset, to: anchorDate) ?? anchorDate
+    }
+
+    private func settlePageShift(_ offset: Int) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) {
+            anchorDate = pageDate(offset)
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                selectedOffset = 0
+            }
+        }
     }
 }
 
@@ -1933,6 +1979,7 @@ private struct FriendSharedCalendarDayView: View {
     var activities: [FriendSharedActivitySnapshot]? = nil
     var score: FriendCalendarScore? = nil
     var accentColor: Color? = nil
+    var allowsDayNavigation = true
 
     init(
         friend: Friend?,
@@ -1940,13 +1987,15 @@ private struct FriendSharedCalendarDayView: View {
         plans: [FriendSharedPlanSnapshot]? = nil,
         activities: [FriendSharedActivitySnapshot]? = nil,
         score: FriendCalendarScore? = nil,
-        accentColor: Color? = nil
+        accentColor: Color? = nil,
+        allowsDayNavigation: Bool = true
     ) {
         self.friend = friend
         self.plans = plans
         self.activities = activities
         self.score = score
         self.accentColor = accentColor
+        self.allowsDayNavigation = allowsDayNavigation
         _date = State(initialValue: date)
     }
 
@@ -1995,16 +2044,7 @@ private struct FriendSharedCalendarDayView: View {
         .background(Color(.systemGroupedBackground))
         .navigationTitle(date.japaneseMonthDayShortWeekday)
         .navigationBarTitleDisplayMode(.inline)
-        .gesture(
-            DragGesture(minimumDistance: 40)
-                .onEnded { value in
-                    if value.translation.width < -50 {
-                        shiftDay(1)
-                    } else if value.translation.width > 50 {
-                        shiftDay(-1)
-                    }
-                }
-        )
+        .modifier(FriendDayNavigationGestureModifier(isEnabled: allowsDayNavigation, shiftDay: shiftDay(_:)))
     }
 
     private var header: some View {
@@ -2060,6 +2100,28 @@ private struct FriendSharedCalendarDayView: View {
 
     private func shiftDay(_ value: Int) {
         date = Calendar.japanese.date(byAdding: .day, value: value, to: date) ?? date
+    }
+}
+
+private struct FriendDayNavigationGestureModifier: ViewModifier {
+    let isEnabled: Bool
+    let shiftDay: (Int) -> Void
+
+    func body(content: Content) -> some View {
+        if isEnabled {
+            content.gesture(
+                DragGesture(minimumDistance: 40)
+                    .onEnded { value in
+                        if value.translation.width < -50 {
+                            shiftDay(1)
+                        } else if value.translation.width > 50 {
+                            shiftDay(-1)
+                        }
+                    }
+            )
+        } else {
+            content
+        }
     }
 }
 
