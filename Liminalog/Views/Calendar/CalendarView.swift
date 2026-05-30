@@ -2,9 +2,10 @@ import SwiftUI
 import SwiftData
 
 struct CalendarView: View {
-    @Query private var queriedPlans: [PlanBlock]
-    @Query private var queriedChapters: [Chapter]
+    @Environment(\.modelContext) private var modelContext
     @State private var visibleMonth = Date()
+    @State private var visiblePlans: [PlanBlock] = []
+    @State private var visibleChapters: [Chapter] = []
     @State private var showingMonthPicker = false
     @State private var pickerYear = Calendar.japanese.component(.year, from: Date())
     @State private var pickerMonth = Calendar.japanese.component(.month, from: Date())
@@ -30,12 +31,10 @@ struct CalendarView: View {
                 TabView(selection: $selectedMonthOffset) {
                     ForEach([-1, 0, 1], id: \.self) { offset in
                         let month = pageMonth(offset)
+                        let pageData = monthPageData(for: month)
                         VStack(spacing: 0) {
                             CalendarMonthGrid(
-                                dates: monthGridDates(for: month),
-                                visibleMonth: month,
-                                importantPlans: importantPlans(on:),
-                                scoreSummary: scoreSummary(on:),
+                                pageData: pageData,
                                 onOpenDay: { date, planID in
                                     selectedDay = CalendarDayPresentation(date: date, planID: planID)
                                 }
@@ -70,8 +69,8 @@ struct CalendarView: View {
                     }
                 )
             }
-            .sheet(isPresented: $showingCalendarSearch) {
-                CalendarPlanSearchSheet(plans: queriedPlans) { plan in
+            .sheet(isPresented: $showingCalendarSearch, onDismiss: refreshVisibleCalendarData) {
+                CalendarPlanSearchSheet { plan in
                     visibleMonth = monthStart(for: plan.startTime)
                     selectedMonthOffset = 0
                     showingCalendarSearch = false
@@ -84,7 +83,7 @@ struct CalendarView: View {
             .sheet(isPresented: $showingCalendarSettings) {
                 CalendarSettingsSheet()
             }
-            .sheet(item: $selectedDay) { target in
+            .sheet(item: $selectedDay, onDismiss: refreshVisibleCalendarData) { target in
                 NavigationStack {
                     CalendarDayPagerSheet(initialDate: target.date, highlightedPlanID: target.planID)
                 }
@@ -92,9 +91,13 @@ struct CalendarView: View {
             }
             .onAppear {
                 clock.start()
+                refreshVisibleCalendarData()
             }
             .onDisappear {
                 clock.stop()
+            }
+            .onChange(of: visibleMonth) {
+                refreshVisibleCalendarData()
             }
         }
     }
@@ -169,10 +172,6 @@ struct CalendarView: View {
         selectedMonthOffset = 0
     }
 
-    private var monthGridDates: [Date] {
-        monthGridDates(for: visibleMonth)
-    }
-
     private func monthGridDates(for month: Date) -> [Date] {
         let monthStart = monthStart(for: month)
         let monthEnd = calendar.date(byAdding: .month, value: 1, to: monthStart) ?? monthStart
@@ -184,84 +183,105 @@ struct CalendarView: View {
         return (0..<(weekCount * 7)).compactMap { calendar.date(byAdding: .day, value: $0, to: gridStart) }
     }
 
-    private var visibleMonthDates: [Date] {
-        let monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: visibleMonth)) ?? visibleMonth
-        let monthEnd = calendar.date(byAdding: .month, value: 1, to: monthStart) ?? monthStart
-        let dayCount = calendar.dateComponents([.day], from: monthStart, to: monthEnd).day ?? 0
-        return (0..<dayCount).compactMap { calendar.date(byAdding: .day, value: $0, to: monthStart) }
-    }
+    private func monthPageData(for month: Date) -> CalendarMonthPageData {
+        let dates = monthGridDates(for: month)
+        guard let gridStart = dates.first.map({ calendar.startOfDay(for: $0) }),
+              let lastDate = dates.last,
+              let gridEnd = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: lastDate))
+        else {
+            return CalendarMonthPageData(
+                dates: dates,
+                visibleMonth: month,
+                importantPlansByDay: [:],
+                scoreSummariesByDay: [:]
+            )
+        }
 
-    private var visibleMonthPlans: [PlanBlock] {
-        let monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: visibleMonth)) ?? visibleMonth
-        let monthEnd = calendar.date(byAdding: .month, value: 1, to: monthStart) ?? monthStart
-        return plannedBlocks(from: monthStart, to: monthEnd)
-    }
+        let plansInGrid = visiblePlans
+            .filter { $0.startTime < gridEnd && $0.endTime > gridStart }
+            .sorted(by: planSort)
+        let chaptersInGrid = visibleChapters
+            .filter { $0.startTime < gridEnd && ($0.endTime ?? clock.now) > gridStart }
+            .sorted { $0.startTime < $1.startTime }
 
-    private var visibleMonthImportantPlans: [PlanBlock] {
-        visibleMonthPlans.filter(\.showsInCalendarAsImportant)
-    }
+        var importantPlansByDay: [Date: [PlanBlock]] = [:]
+        var scoreSummariesByDay: [Date: ScoreSummary] = [:]
 
-    private var visibleMonthAverageScoreText: String {
-        let summaries = visibleMonthDates
-            .map { scoreSummary(on: $0) }
-            .filter { $0.plannedDuration > 0 }
-        guard !summaries.isEmpty else { return "未計画" }
-        let average = summaries.reduce(0) { $0 + $1.totalScore } / Double(summaries.count)
-        return "\(Int(average.rounded()))"
-    }
-
-    private func importantPlans(on date: Date) -> [PlanBlock] {
-        plannedBlocks(on: date)
-            .filter(\.showsInCalendarAsImportant)
-            .sorted {
-                if $0.startTime == $1.startTime {
-                    return $0.createdAt < $1.createdAt
-                }
-                return $0.startTime < $1.startTime
+        for date in dates {
+            let boundary = DayBoundary(date: date, calendar: calendar)
+            let dayPlans = plansInGrid.filter { $0.startTime < boundary.dayEnd && $0.endTime > boundary.dayStart }
+            let dayChapters = chaptersInGrid.filter {
+                $0.startTime < boundary.dayEnd && ($0.endTime ?? clock.now) > boundary.dayStart
             }
-    }
+            importantPlansByDay[boundary.dayStart] = dayPlans
+                .filter(\.showsInCalendarAsImportant)
+                .sorted(by: planSort)
+            scoreSummariesByDay[boundary.dayStart] = ScoreCalculator.summary(
+                date: date,
+                plans: dayPlans,
+                chapters: dayChapters,
+                calendar: calendar,
+                now: clock.now
+            )
+        }
 
-    private func scoreSummary(on date: Date) -> ScoreSummary {
-        ScoreCalculator.summary(
-            date: date,
-            plans: plannedBlocks(on: date),
-            chapters: chapters(on: date),
-            calendar: calendar,
-            now: clock.now
+        return CalendarMonthPageData(
+            dates: dates,
+            visibleMonth: month,
+            importantPlansByDay: importantPlansByDay,
+            scoreSummariesByDay: scoreSummariesByDay
         )
     }
 
-    private func plannedBlocks(on date: Date) -> [PlanBlock] {
-        let boundary = DayBoundary(date: date, calendar: calendar)
-        return plannedBlocks(from: boundary.dayStart, to: boundary.dayEnd)
+    private func refreshVisibleCalendarData() {
+        let range = calendarFetchRange(around: visibleMonth)
+        let fetchStart = range.start
+        let fetchEnd = range.end
+        let planDescriptor = FetchDescriptor<PlanBlock>(
+            predicate: #Predicate { $0.startTime < fetchEnd && $0.endTime > fetchStart },
+            sortBy: [SortDescriptor(\.startTime)]
+        )
+        visiblePlans = (try? modelContext.fetch(planDescriptor)) ?? []
+
+        let chapterLookbackStart = calendar.date(byAdding: .day, value: -14, to: fetchStart) ?? fetchStart
+        let chapterDescriptor = FetchDescriptor<Chapter>(
+            predicate: #Predicate { $0.startTime >= chapterLookbackStart && $0.startTime < fetchEnd },
+            sortBy: [SortDescriptor(\.startTime)]
+        )
+        let activeDescriptor = FetchDescriptor<Chapter>(
+            predicate: #Predicate { $0.endTime == nil },
+            sortBy: [SortDescriptor(\.startTime)]
+        )
+        var chapters = ((try? modelContext.fetch(chapterDescriptor)) ?? [])
+            .filter { ($0.endTime ?? clock.now) > fetchStart }
+        let activeChapters = ((try? modelContext.fetch(activeDescriptor)) ?? [])
+            .filter { $0.startTime < fetchEnd && ($0.endTime ?? clock.now) > fetchStart }
+        let existingIDs = Set(chapters.map(\.id))
+        chapters.append(contentsOf: activeChapters.filter { !existingIDs.contains($0.id) })
+        visibleChapters = chapters.sorted { $0.startTime < $1.startTime }
     }
 
-    private func plannedBlocks(from start: Date, to end: Date) -> [PlanBlock] {
-        queriedPlans
-            .filter { $0.startTime < end && $0.endTime > start }
-            .sorted { lhs, rhs in
-                if lhs.startTime == rhs.startTime {
-                    return lhs.createdAt < rhs.createdAt
-                }
-                return lhs.startTime < rhs.startTime
-            }
+    private func calendarFetchRange(around month: Date) -> DateInterval {
+        let allDates = [-1, 0, 1].flatMap { monthGridDates(for: pageMonth($0, baseMonth: month)) }
+        let start = allDates.first.map { calendar.startOfDay(for: $0) } ?? monthStart(for: month)
+        let lastDate = allDates.last ?? month
+        let end = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: lastDate)) ?? start
+        return DateInterval(start: start, end: end)
     }
 
-    private func chapters(on date: Date) -> [Chapter] {
-        let boundary = DayBoundary(date: date, calendar: calendar)
-        return queriedChapters
-            .filter { $0.startTime < boundary.dayEnd && ($0.endTime ?? clock.now) > boundary.dayStart }
-            .sorted { $0.startTime < $1.startTime }
-    }
-
-    private func shiftMonth(_ value: Int) {
-        withAnimation(.easeOut(duration: 0.24)) {
-            selectedMonthOffset = value < 0 ? -1 : 1
+    private func planSort(_ lhs: PlanBlock, _ rhs: PlanBlock) -> Bool {
+        if lhs.startTime == rhs.startTime {
+            return lhs.createdAt < rhs.createdAt
         }
+        return lhs.startTime < rhs.startTime
     }
 
     private func pageMonth(_ offset: Int) -> Date {
-        calendar.date(byAdding: .month, value: offset, to: monthStart(for: visibleMonth)) ?? monthStart(for: visibleMonth)
+        pageMonth(offset, baseMonth: visibleMonth)
+    }
+
+    private func pageMonth(_ offset: Int, baseMonth: Date) -> Date {
+        calendar.date(byAdding: .month, value: offset, to: monthStart(for: baseMonth)) ?? monthStart(for: baseMonth)
     }
 
     private func settleMonthShift(_ offset: Int) {
@@ -804,10 +824,10 @@ struct CalendarMonthPickerSheet: View {
 }
 
 private struct CalendarPlanSearchSheet: View {
-    let plans: [PlanBlock]
     let onOpenDay: (PlanBlock) -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @Query(sort: [SortDescriptor(\PlanBlock.startTime)]) private var plans: [PlanBlock]
     @State private var query = ""
     @State private var editingPlan: PlanBlock?
 
@@ -1109,11 +1129,15 @@ struct CalendarWeekdayHeader: View {
     }
 }
 
-private struct CalendarMonthGrid: View {
+private struct CalendarMonthPageData {
     let dates: [Date]
     let visibleMonth: Date
-    let importantPlans: (Date) -> [PlanBlock]
-    let scoreSummary: (Date) -> ScoreSummary
+    let importantPlansByDay: [Date: [PlanBlock]]
+    let scoreSummariesByDay: [Date: ScoreSummary]
+}
+
+private struct CalendarMonthGrid: View {
+    let pageData: CalendarMonthPageData
     let onOpenDay: (Date, UUID?) -> Void
 
     private let spacing: CGFloat = 1
@@ -1124,9 +1148,9 @@ private struct CalendarMonthGrid: View {
             ForEach(Array(weekDates.enumerated()), id: \.offset) { _, dates in
                 CalendarMonthWeekRow(
                     dates: dates,
-                    visibleMonth: visibleMonth,
-                    importantPlans: importantPlans,
-                    scoreSummary: scoreSummary,
+                    visibleMonth: pageData.visibleMonth,
+                    importantPlansByDay: pageData.importantPlansByDay,
+                    scoreSummariesByDay: pageData.scoreSummariesByDay,
                     onOpenDay: onOpenDay,
                     spacing: spacing,
                     cellHeight: cellHeight
@@ -1142,8 +1166,8 @@ private struct CalendarMonthGrid: View {
     }
 
     private var weekDates: [[Date]] {
-        stride(from: 0, to: dates.count, by: 7).map { start in
-            Array(dates[start..<min(start + 7, dates.count)])
+        stride(from: 0, to: pageData.dates.count, by: 7).map { start in
+            Array(pageData.dates[start..<min(start + 7, pageData.dates.count)])
         }
     }
 
@@ -1155,8 +1179,8 @@ private struct CalendarMonthGrid: View {
 private struct CalendarMonthWeekRow: View {
     let dates: [Date]
     let visibleMonth: Date
-    let importantPlans: (Date) -> [PlanBlock]
-    let scoreSummary: (Date) -> ScoreSummary
+    let importantPlansByDay: [Date: [PlanBlock]]
+    let scoreSummariesByDay: [Date: ScoreSummary]
     let onOpenDay: (Date, UUID?) -> Void
     let spacing: CGFloat
     let cellHeight: CGFloat
@@ -1175,9 +1199,9 @@ private struct CalendarMonthWeekRow: View {
                         CalendarMonthDayCell(
                             date: date,
                             visibleMonth: visibleMonth,
-                            importantPlans: importantPlans(date),
+                            importantPlans: importantPlans(on: date),
                             reservedPlanRows: visibleMultiDayPlans.count,
-                            scoreSummary: scoreSummary(date),
+                            scoreSummary: scoreSummary(on: date),
                             cellHeight: cellHeight
                         )
                     }
@@ -1218,7 +1242,7 @@ private struct CalendarMonthWeekRow: View {
     private var multiDayPlans: [PlanBlock] {
         var seenIDs = Set<UUID>()
         return dates
-            .flatMap { importantPlans($0) }
+            .flatMap { importantPlans(on: $0) }
             .filter(\.spansMultipleCalendarDays)
             .filter { plan in
                 guard !seenIDs.contains(plan.id) else { return false }
@@ -1231,6 +1255,22 @@ private struct CalendarMonthWeekRow: View {
                 }
                 return $0.startTime < $1.startTime
             }
+    }
+
+    private func importantPlans(on date: Date) -> [PlanBlock] {
+        importantPlansByDay[calendar.startOfDay(for: date)] ?? []
+    }
+
+    private func scoreSummary(on date: Date) -> ScoreSummary {
+        scoreSummariesByDay[calendar.startOfDay(for: date)] ?? ScoreSummary(
+            date: date,
+            categoryScore: 0,
+            timelineScore: 0,
+            totalScore: 0,
+            plannedDuration: 0,
+            recordedDuration: 0,
+            matchedDuration: 0
+        )
     }
 
     private func segmentFrame(for plan: PlanBlock, in size: CGSize, lane: Int) -> CGRect? {
