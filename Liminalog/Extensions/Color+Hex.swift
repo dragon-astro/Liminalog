@@ -1,6 +1,22 @@
 import SwiftUI
 
 extension Color {
+    // hex文字列→Colorのパースは Scanner を使うため、ボタン等で毎描画ごとに呼ぶと
+    // 積み重なって描画がカクつく。同じhexは結果をキャッシュして再パースを避ける。
+    private static let hexCacheLock = NSLock()
+    nonisolated(unsafe) private static var hexCache: [String: Color] = [:]
+
+    static func cachedHex(_ hex: String) -> Color {
+        hexCacheLock.lock()
+        defer { hexCacheLock.unlock() }
+        if let cached = hexCache[hex] {
+            return cached
+        }
+        let color = Color(hex: hex)
+        hexCache[hex] = color
+        return color
+    }
+
     init(hex: String) {
         let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
         var int: UInt64 = 0

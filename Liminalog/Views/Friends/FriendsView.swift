@@ -1183,16 +1183,24 @@ private struct FriendScoreCard: View {
 
 private struct FriendCalendarView: View {
     let friend: Friend
-    @State private var visibleMonth = Date()
+    @State private var visibleMonth = FriendCalendarView.currentMonthStart
+    @State private var anchorMonth = FriendCalendarView.currentMonthStart
+    @State private var scrolledOffset: Int? = 0
+    @State private var pageDataByMonth: [Date: CalendarMonthPageData] = [:]
     @State private var showingMonthPicker = false
     @State private var showingSearch = false
     @State private var pickerYear = Calendar.japanese.component(.year, from: Date())
     @State private var pickerMonth = Calendar.japanese.component(.month, from: Date())
     @State private var selectedDay: FriendSharedCalendarTargetDay?
-    @State private var selectedMonthOffset = 0
 
     private let calendar = Calendar.japanese
     private let weekdays = Calendar.japaneseShortWeekdaySymbols
+    private let monthOffsets = Array(-480...480)
+
+    private static var currentMonthStart: Date {
+        let cal = Calendar.japanese
+        return cal.date(from: cal.dateComponents([.year, .month], from: Date())) ?? Date()
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -1203,28 +1211,32 @@ private struct FriendCalendarView: View {
                 weekdayColor: weekdayColor(_:)
             )
 
-            TabView(selection: $selectedMonthOffset) {
-                ForEach([-1, 0, 1], id: \.self) { offset in
-                    let month = pageMonth(offset)
-                    VStack(spacing: 0) {
+            ScrollView(.horizontal) {
+                LazyHStack(alignment: .top, spacing: 0) {
+                    ForEach(monthOffsets, id: \.self) { offset in
                         CalendarMonthGrid(
-                            pageData: monthPageData(for: month),
+                            pageData: cachedPageData(for: month(forOffset: offset)),
                             onOpenDay: { date, _ in
                                 selectedDay = FriendSharedCalendarTargetDay(date: date)
                             }
                         )
                         .padding(.vertical, 8)
-
-                        Spacer(minLength: 0)
+                        .containerRelativeFrame(.horizontal)
+                        .id(offset)
                     }
-                    .id(month.timeIntervalSince1970)
-                    .tag(offset)
                 }
+                .scrollTargetLayout()
             }
-            .tabViewStyle(.page(indexDisplayMode: .never))
-            .onChange(of: selectedMonthOffset) { _, newValue in
-                guard newValue != 0 else { return }
-                settleMonthShift(newValue)
+            .scrollTargetBehavior(.paging)
+            .scrollPosition(id: $scrolledOffset, anchor: .center)
+            .defaultScrollAnchor(.center)
+            .scrollIndicators(.hidden)
+            .frame(maxHeight: .infinity, alignment: .top)
+            .onAppear {
+                ensureData(around: scrolledOffset ?? 0)
+            }
+            .onChange(of: scrolledOffset) { _, newValue in
+                handleScroll(to: newValue)
             }
         }
         .background(Color(.systemGroupedBackground))
@@ -1244,8 +1256,7 @@ private struct FriendCalendarView: View {
         }
         .sheet(isPresented: $showingSearch) {
             FriendSharedPlanSearchSheet(friend: friend) { plan in
-                visibleMonth = monthStart(for: plan.startTime)
-                selectedMonthOffset = 0
+                jump(to: plan.startTime)
                 showingSearch = false
                 let target = FriendSharedCalendarTargetDay(date: plan.startTime)
                 DispatchQueue.main.async {
@@ -1330,31 +1341,75 @@ private struct FriendCalendarView: View {
         return (0..<(weekCount * 7)).compactMap { calendar.date(byAdding: .day, value: $0, to: gridStart) }
     }
 
-    private func sharedPlans(on date: Date) -> [FriendSharedPlanSnapshot] {
-        friend.sharedPlans
-            .filter { $0.overlaps(day: date) }
-            .sorted {
-                if $0.startTime == $1.startTime {
-                    return $0.updatedAt < $1.updatedAt
-                }
-                return $0.startTime < $1.startTime
-            }
+    // MARK: - ページング / データ取得（遅延・月単位キャッシュ）
+
+    private func month(forOffset offset: Int) -> Date {
+        calendar.date(byAdding: .month, value: offset, to: anchorMonth) ?? anchorMonth
     }
 
-    private func monthPageData(for month: Date) -> CalendarMonthPageData {
+    private func offset(forMonth month: Date) -> Int {
+        calendar.dateComponents([.month], from: anchorMonth, to: monthStart(for: month)).month ?? 0
+    }
+
+    private func handleScroll(to newValue: Int?) {
+        guard let newValue else { return }
+        let month = month(forOffset: newValue)
+        if visibleMonth != month {
+            visibleMonth = month
+        }
+        ensureData(around: newValue)
+    }
+
+    private func jump(to date: Date) {
+        let targetMonth = monthStart(for: date)
+        let targetOffset = offset(forMonth: targetMonth)
+        visibleMonth = targetMonth
+        ensureData(around: targetOffset)
+        scrolledOffset = targetOffset
+    }
+
+    private func ensureData(around offset: Int) {
+        for off in (offset - 1)...(offset + 1) {
+            let key = monthStart(for: month(forOffset: off))
+            if pageDataByMonth[key] == nil {
+                pageDataByMonth[key] = computePageData(for: month(forOffset: off))
+            }
+        }
+    }
+
+    private func cachedPageData(for month: Date) -> CalendarMonthPageData {
+        if let cached = pageDataByMonth[monthStart(for: month)] {
+            return cached
+        }
+        return computePageData(for: month)
+    }
+
+    private func computePageData(for month: Date) -> CalendarMonthPageData {
         let dates = monthGridDates(for: month)
+        // sharedPlans は呼ぶたびにJSONデコードが走るため、1ページにつき1回だけ取得する。
+        let allPlans = friend.sharedPlans
         var importantPlansByDay: [Date: [CalendarDisplayPlan]] = [:]
         var scoreSummariesByDay: [Date: CalendarDisplayScore] = [:]
 
         for date in dates {
             let dayStart = calendar.startOfDay(for: date)
-            importantPlansByDay[dayStart] = sharedPlans(on: date)
-                .filter(\.showsInCalendarAsImportant)
+            let importantPlans = allPlans
+                .filter { $0.overlaps(day: date) && $0.showsInCalendarAsImportant }
+                .sorted {
+                    if $0.startTime == $1.startTime {
+                        return $0.updatedAt < $1.updatedAt
+                    }
+                    return $0.startTime < $1.startTime
+                }
                 .map(displayPlan(from:))
-            if let score = knownScore(on: date) {
+            let score = knownScore(on: date)
+            // 重要予定もスコアも無い日はセル側がデフォルト（スコアなし/空）で描くため、計算を省く。
+            guard !importantPlans.isEmpty || score != nil else { continue }
+            if !importantPlans.isEmpty {
+                importantPlansByDay[dayStart] = importantPlans
+            }
+            if let score {
                 scoreSummariesByDay[dayStart] = CalendarDisplayScore(value: score.value, hasData: score.hasSharedData)
-            } else {
-                scoreSummariesByDay[dayStart] = CalendarDisplayScore(value: 0, hasData: false)
             }
         }
 
@@ -1385,8 +1440,7 @@ private struct FriendCalendarView: View {
 
     private func applyPickedMonth() {
         let components = DateComponents(year: pickerYear, month: pickerMonth, day: 1)
-        visibleMonth = monthStart(for: calendar.date(from: components) ?? visibleMonth)
-        selectedMonthOffset = 0
+        jump(to: calendar.date(from: components) ?? visibleMonth)
     }
 
     private func knownScore(on date: Date) -> FriendCalendarScore? {
@@ -1397,22 +1451,6 @@ private struct FriendCalendarView: View {
             return FriendCalendarScore(value: friend.yesterdayScore, hasSharedData: true)
         }
         return nil
-    }
-
-    private func pageMonth(_ offset: Int) -> Date {
-        calendar.date(byAdding: .month, value: offset, to: monthStart(for: visibleMonth)) ?? monthStart(for: visibleMonth)
-    }
-
-    private func settleMonthShift(_ offset: Int) {
-        let nextMonth = pageMonth(offset)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) {
-            visibleMonth = nextMonth
-            var transaction = Transaction()
-            transaction.disablesAnimations = true
-            withTransaction(transaction) {
-                selectedMonthOffset = 0
-            }
-        }
     }
 
     private func monthStart(for date: Date) -> Date {

@@ -3,20 +3,27 @@ import SwiftData
 
 struct CalendarView: View {
     @Environment(\.modelContext) private var modelContext
-    @State private var visibleMonth = Date()
-    @State private var visiblePlans: [PlanBlock] = []
-    @State private var visibleChapters: [Chapter] = []
+    @State private var visibleMonth = CalendarView.currentMonthStart
+    @State private var anchorMonth = CalendarView.currentMonthStart
+    @State private var scrolledOffset: Int? = 0
+    @State private var pageDataByMonth: [Date: CalendarMonthPageData] = [:]
     @State private var showingMonthPicker = false
     @State private var pickerYear = Calendar.japanese.component(.year, from: Date())
     @State private var pickerMonth = Calendar.japanese.component(.month, from: Date())
     @State private var showingCalendarSettings = false
     @State private var showingCalendarSearch = false
     @State private var selectedDay: CalendarDayPresentation?
-    @State private var selectedMonthOffset = 0
     @State private var clock = TickClock(interval: 60)
 
     private let calendar = Calendar.japanese
     private let weekdays = Calendar.japaneseShortWeekdaySymbols
+    /// 横スワイプで連続移動できる月の範囲（アンカー月からの相対オフセット）。LazyHStack で遅延描画するため広めでも軽い。
+    private let monthOffsets = Array(-480...480)
+
+    private static var currentMonthStart: Date {
+        let cal = Calendar.japanese
+        return cal.date(from: cal.dateComponents([.year, .month], from: Date())) ?? Date()
+    }
 
     var body: some View {
         NavigationStack {
@@ -28,29 +35,29 @@ struct CalendarView: View {
                     weekdayColor: weekdayColor(_:)
                 )
 
-                TabView(selection: $selectedMonthOffset) {
-                    ForEach([-1, 0, 1], id: \.self) { offset in
-                        let month = pageMonth(offset)
-                        let pageData = monthPageData(for: month)
-                        VStack(spacing: 0) {
+                ScrollView(.horizontal) {
+                    LazyHStack(alignment: .top, spacing: 0) {
+                        ForEach(monthOffsets, id: \.self) { offset in
                             CalendarMonthGrid(
-                                pageData: pageData,
+                                pageData: cachedPageData(for: month(forOffset: offset)),
                                 onOpenDay: { date, planID in
                                     selectedDay = CalendarDayPresentation(date: date, planID: planID)
                                 }
                             )
                             .padding(.vertical, 8)
-
-                            Spacer(minLength: 0)
+                            .containerRelativeFrame(.horizontal)
+                            .id(offset)
                         }
-                        .id(month.timeIntervalSince1970)
-                        .tag(offset)
                     }
+                    .scrollTargetLayout()
                 }
-                .tabViewStyle(.page(indexDisplayMode: .never))
-                .onChange(of: selectedMonthOffset) { _, newValue in
-                    guard newValue != 0 else { return }
-                    settleMonthShift(newValue)
+                .scrollTargetBehavior(.paging)
+                .scrollPosition(id: $scrolledOffset, anchor: .center)
+                .defaultScrollAnchor(.center)
+                .scrollIndicators(.hidden)
+                .frame(maxHeight: .infinity, alignment: .top)
+                .onChange(of: scrolledOffset) { _, newValue in
+                    handleScroll(to: newValue)
                 }
             }
             .background(Color(.systemGroupedBackground))
@@ -69,10 +76,9 @@ struct CalendarView: View {
                     }
                 )
             }
-            .sheet(isPresented: $showingCalendarSearch, onDismiss: refreshVisibleCalendarData) {
+            .sheet(isPresented: $showingCalendarSearch, onDismiss: reloadVisibleData) {
                 CalendarPlanSearchSheet { plan in
-                    visibleMonth = monthStart(for: plan.startTime)
-                    selectedMonthOffset = 0
+                    jump(to: plan.startTime)
                     showingCalendarSearch = false
                     let target = CalendarDayPresentation(date: plan.startTime, planID: plan.id)
                     DispatchQueue.main.async {
@@ -83,7 +89,7 @@ struct CalendarView: View {
             .sheet(isPresented: $showingCalendarSettings) {
                 CalendarSettingsSheet()
             }
-            .sheet(item: $selectedDay, onDismiss: refreshVisibleCalendarData) { target in
+            .sheet(item: $selectedDay, onDismiss: reloadVisibleData) { target in
                 NavigationStack {
                     CalendarDayPagerSheet(initialDate: target.date, highlightedPlanID: target.planID)
                 }
@@ -91,13 +97,10 @@ struct CalendarView: View {
             }
             .onAppear {
                 clock.start()
-                refreshVisibleCalendarData()
+                reloadVisibleData()
             }
             .onDisappear {
                 clock.stop()
-            }
-            .onChange(of: visibleMonth) {
-                refreshVisibleCalendarData()
             }
         }
     }
@@ -168,8 +171,7 @@ struct CalendarView: View {
 
     private func applyPickedMonth() {
         let components = DateComponents(year: pickerYear, month: pickerMonth, day: 1)
-        visibleMonth = monthStart(for: calendar.date(from: components) ?? visibleMonth)
-        selectedMonthOffset = 0
+        jump(to: calendar.date(from: components) ?? visibleMonth)
     }
 
     private func monthGridDates(for month: Date) -> [Date] {
@@ -183,7 +185,62 @@ struct CalendarView: View {
         return (0..<(weekCount * 7)).compactMap { calendar.date(byAdding: .day, value: $0, to: gridStart) }
     }
 
-    private func monthPageData(for month: Date) -> CalendarMonthPageData {
+    // MARK: - ページング / データ取得（遅延・月単位キャッシュ）
+
+    private func month(forOffset offset: Int) -> Date {
+        calendar.date(byAdding: .month, value: offset, to: anchorMonth) ?? anchorMonth
+    }
+
+    private func offset(forMonth month: Date) -> Int {
+        calendar.dateComponents([.month], from: anchorMonth, to: monthStart(for: month)).month ?? 0
+    }
+
+    /// スワイプで現在ページが変わったとき。表示月を更新し、隣接月を先読みする。
+    private func handleScroll(to newValue: Int?) {
+        guard let newValue else { return }
+        let month = month(forOffset: newValue)
+        if visibleMonth != month {
+            visibleMonth = month
+        }
+        ensureData(around: newValue)
+    }
+
+    /// 月ピッカー・検索からの任意月ジャンプ。
+    private func jump(to date: Date) {
+        let targetMonth = monthStart(for: date)
+        let targetOffset = offset(forMonth: targetMonth)
+        visibleMonth = targetMonth
+        ensureData(around: targetOffset)
+        scrolledOffset = targetOffset
+    }
+
+    /// データ変更後（日編集シートを閉じた等）にキャッシュを破棄して現在月周辺を作り直す。
+    private func reloadVisibleData() {
+        pageDataByMonth.removeAll()
+        ensureData(around: scrolledOffset ?? offset(forMonth: visibleMonth))
+    }
+
+    /// 指定オフセット周辺（±1）の月データを未計算なら計算してキャッシュする。
+    private func ensureData(around offset: Int) {
+        let now = clock.now
+        for off in (offset - 1)...(offset + 1) {
+            let key = monthStart(for: month(forOffset: off))
+            if pageDataByMonth[key] == nil {
+                pageDataByMonth[key] = computePageData(for: month(forOffset: off), now: now)
+            }
+        }
+    }
+
+    /// 描画時のフォールバック。未キャッシュ月でも即時に正しく描けるよう同期計算する。
+    private func cachedPageData(for month: Date) -> CalendarMonthPageData {
+        if let cached = pageDataByMonth[monthStart(for: month)] {
+            return cached
+        }
+        return computePageData(for: month, now: clock.now)
+    }
+
+    /// 1ヶ月分のグリッドデータを、その月のグリッド範囲だけ自前で fetch して計算する。
+    private func computePageData(for month: Date, now: Date) -> CalendarMonthPageData {
         let dates = monthGridDates(for: month)
         guard let gridStart = dates.first.map({ calendar.startOfDay(for: $0) }),
               let lastDate = dates.last,
@@ -197,12 +254,28 @@ struct CalendarView: View {
             )
         }
 
-        let plansInGrid = visiblePlans
-            .filter { $0.startTime < gridEnd && $0.endTime > gridStart }
-            .sorted(by: planSort)
-        let chaptersInGrid = visibleChapters
-            .filter { $0.startTime < gridEnd && ($0.endTime ?? clock.now) > gridStart }
-            .sorted { $0.startTime < $1.startTime }
+        let planDescriptor = FetchDescriptor<PlanBlock>(
+            predicate: #Predicate { $0.startTime < gridEnd && $0.endTime > gridStart },
+            sortBy: [SortDescriptor(\.startTime)]
+        )
+        let plansInGrid = ((try? modelContext.fetch(planDescriptor)) ?? []).sorted(by: planSort)
+
+        let lookbackStart = calendar.date(byAdding: .day, value: -14, to: gridStart) ?? gridStart
+        let chapterDescriptor = FetchDescriptor<Chapter>(
+            predicate: #Predicate { $0.startTime >= lookbackStart && $0.startTime < gridEnd },
+            sortBy: [SortDescriptor(\.startTime)]
+        )
+        let activeDescriptor = FetchDescriptor<Chapter>(
+            predicate: #Predicate { $0.endTime == nil },
+            sortBy: [SortDescriptor(\.startTime)]
+        )
+        var chapters = ((try? modelContext.fetch(chapterDescriptor)) ?? [])
+            .filter { ($0.endTime ?? now) > gridStart }
+        let activeChapters = ((try? modelContext.fetch(activeDescriptor)) ?? [])
+            .filter { $0.startTime < gridEnd && ($0.endTime ?? now) > gridStart }
+        let existingIDs = Set(chapters.map(\.id))
+        chapters.append(contentsOf: activeChapters.filter { !existingIDs.contains($0.id) })
+        let chaptersInGrid = chapters.sorted { $0.startTime < $1.startTime }
 
         var importantPlansByDay: [Date: [CalendarDisplayPlan]] = [:]
         var scoreSummariesByDay: [Date: CalendarDisplayScore] = [:]
@@ -211,8 +284,10 @@ struct CalendarView: View {
             let boundary = DayBoundary(date: date, calendar: calendar)
             let dayPlans = plansInGrid.filter { $0.startTime < boundary.dayEnd && $0.endTime > boundary.dayStart }
             let dayChapters = chaptersInGrid.filter {
-                $0.startTime < boundary.dayEnd && ($0.endTime ?? clock.now) > boundary.dayStart
+                $0.startTime < boundary.dayEnd && ($0.endTime ?? now) > boundary.dayStart
             }
+            // データのない日はスコアバッジも重要予定も出ないため、計算自体を省く。
+            guard !dayPlans.isEmpty || !dayChapters.isEmpty else { continue }
             importantPlansByDay[boundary.dayStart] = dayPlans
                 .filter(\.showsInCalendarAsImportant)
                 .sorted(by: planSort)
@@ -223,7 +298,7 @@ struct CalendarView: View {
                     plans: dayPlans,
                     chapters: dayChapters,
                     calendar: calendar,
-                    now: clock.now
+                    now: now
                 )
             )
         }
@@ -236,67 +311,11 @@ struct CalendarView: View {
         )
     }
 
-    private func refreshVisibleCalendarData() {
-        let range = calendarFetchRange(around: visibleMonth)
-        let fetchStart = range.start
-        let fetchEnd = range.end
-        let planDescriptor = FetchDescriptor<PlanBlock>(
-            predicate: #Predicate { $0.startTime < fetchEnd && $0.endTime > fetchStart },
-            sortBy: [SortDescriptor(\.startTime)]
-        )
-        visiblePlans = (try? modelContext.fetch(planDescriptor)) ?? []
-
-        let chapterLookbackStart = calendar.date(byAdding: .day, value: -14, to: fetchStart) ?? fetchStart
-        let chapterDescriptor = FetchDescriptor<Chapter>(
-            predicate: #Predicate { $0.startTime >= chapterLookbackStart && $0.startTime < fetchEnd },
-            sortBy: [SortDescriptor(\.startTime)]
-        )
-        let activeDescriptor = FetchDescriptor<Chapter>(
-            predicate: #Predicate { $0.endTime == nil },
-            sortBy: [SortDescriptor(\.startTime)]
-        )
-        var chapters = ((try? modelContext.fetch(chapterDescriptor)) ?? [])
-            .filter { ($0.endTime ?? clock.now) > fetchStart }
-        let activeChapters = ((try? modelContext.fetch(activeDescriptor)) ?? [])
-            .filter { $0.startTime < fetchEnd && ($0.endTime ?? clock.now) > fetchStart }
-        let existingIDs = Set(chapters.map(\.id))
-        chapters.append(contentsOf: activeChapters.filter { !existingIDs.contains($0.id) })
-        visibleChapters = chapters.sorted { $0.startTime < $1.startTime }
-    }
-
-    private func calendarFetchRange(around month: Date) -> DateInterval {
-        let allDates = [-1, 0, 1].flatMap { monthGridDates(for: pageMonth($0, baseMonth: month)) }
-        let start = allDates.first.map { calendar.startOfDay(for: $0) } ?? monthStart(for: month)
-        let lastDate = allDates.last ?? month
-        let end = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: lastDate)) ?? start
-        return DateInterval(start: start, end: end)
-    }
-
     private func planSort(_ lhs: PlanBlock, _ rhs: PlanBlock) -> Bool {
         if lhs.startTime == rhs.startTime {
             return lhs.createdAt < rhs.createdAt
         }
         return lhs.startTime < rhs.startTime
-    }
-
-    private func pageMonth(_ offset: Int) -> Date {
-        pageMonth(offset, baseMonth: visibleMonth)
-    }
-
-    private func pageMonth(_ offset: Int, baseMonth: Date) -> Date {
-        calendar.date(byAdding: .month, value: offset, to: monthStart(for: baseMonth)) ?? monthStart(for: baseMonth)
-    }
-
-    private func settleMonthShift(_ offset: Int) {
-        let nextMonth = pageMonth(offset)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) {
-            visibleMonth = nextMonth
-            var transaction = Transaction()
-            transaction.disablesAnimations = true
-            withTransaction(transaction) {
-                selectedMonthOffset = 0
-            }
-        }
     }
 
     private func monthStart(for date: Date) -> Date {

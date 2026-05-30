@@ -18,7 +18,7 @@ final class Category {
     @Relationship(deleteRule: .nullify, inverse: \PlanBlock.category)
     var plans: [PlanBlock]? = []
 
-    var color: Color { Color(hex: colorHex) }
+    var color: Color { Color.cachedHex(colorHex) }
 
     init() {}
 

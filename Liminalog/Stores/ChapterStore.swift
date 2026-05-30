@@ -65,7 +65,7 @@ final class ChapterStore {
             defaults.removeObject(forKey: Self.activeCategoryCacheKey)
             defaults.removeObject(forKey: Self.pendingCategoryCacheKey)
         }
-        defaults.synchronize()
+        // synchronize() は同期ディスクフラッシュで重く、現行iOSでは不要（自動永続化される）。
     }
 
     private func cachedEnabledCategorySetID() -> UUID? {
@@ -91,7 +91,6 @@ final class ChapterStore {
         if let data = try? JSONEncoder().encode(snapshot) {
             defaults.set(data, forKey: Self.surfaceSnapshotCacheKey)
         }
-        defaults.synchronize()
         return snapshot
     }
 
@@ -220,7 +219,7 @@ final class ChapterStore {
         if saveModelContext() {
             cacheActiveCategoryID(result.activeChapter?.category?.id)
         }
-        markChanged()
+        reloadRecordingGridWidget()
         updateLiveActivity(categorySet: categorySet)
     }
 

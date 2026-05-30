@@ -5,6 +5,7 @@ struct HomeView: View {
     @Environment(ChapterStore.self) private var store
     @Query private var queriedPlans: [PlanBlock]
     @State private var selectedPage: TodayPage = .today
+    @State private var scrolledPage: TodayPage? = .today
     @State private var editingChapter: Chapter? = nil
     @State private var showingAddSheet = false
     @State private var addSheetStart = Date()
@@ -12,23 +13,32 @@ struct HomeView: View {
 
     var body: some View {
         NavigationStack {
-            TabView(selection: $selectedPage) {
-                YesterdayReviewPage(date: yesterdayDate)
-                    .id(dayID(for: yesterdayDate))
-                    .tag(TodayPage.yesterday)
-
-                TodayRecordPage(
-                    date: todayDate,
-                    editingChapter: $editingChapter
-                )
-                .id(dayID(for: todayDate))
-                .tag(TodayPage.today)
-
-                TomorrowPlanPage(date: tomorrowDate)
-                    .id(dayID(for: tomorrowDate))
-                    .tag(TodayPage.tomorrow)
+            ScrollView(.horizontal) {
+                // 表示中のページだけ生成・@Query購読させる。データ変更時の save カスケードで
+                // 昨日/明日の重いページまで再描画されるのを防ぐ（表示中ページのみ再描画）。
+                LazyHStack(spacing: 0) {
+                    ForEach(TodayPage.allCases) { page in
+                        dayPage(page)
+                            .containerRelativeFrame(.horizontal)
+                            .id(page)
+                    }
+                }
+                .scrollTargetLayout()
             }
-            .tabViewStyle(.page(indexDisplayMode: .never))
+            .scrollTargetBehavior(.paging)
+            .scrollPosition(id: $scrolledPage, anchor: .center)
+            .defaultScrollAnchor(.center)
+            .scrollIndicators(.hidden)
+            .onChange(of: scrolledPage) { _, newValue in
+                if let newValue, newValue != selectedPage {
+                    selectedPage = newValue
+                }
+            }
+            .onChange(of: selectedPage) { _, newValue in
+                if scrolledPage != newValue {
+                    scrolledPage = newValue
+                }
+            }
             .background(Color(.systemGroupedBackground))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -63,12 +73,28 @@ struct HomeView: View {
             .onAppear {
                 clock.start()
                 selectedPage = .today
+                scrolledPage = .today
                 store.seedDefaultCategorySetsIfNeeded()
                 store.syncLiveActivityWithActiveChapter()
             }
             .onDisappear {
                 clock.stop()
             }
+        }
+    }
+
+    @ViewBuilder
+    private func dayPage(_ page: TodayPage) -> some View {
+        switch page {
+        case .yesterday:
+            YesterdayReviewPage(date: yesterdayDate)
+                .id(dayID(for: yesterdayDate))
+        case .today:
+            TodayRecordPage(date: todayDate, editingChapter: $editingChapter)
+                .id(dayID(for: todayDate))
+        case .tomorrow:
+            TomorrowPlanPage(date: tomorrowDate)
+                .id(dayID(for: tomorrowDate))
         }
     }
 

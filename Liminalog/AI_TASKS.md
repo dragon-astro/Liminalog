@@ -183,6 +183,14 @@ Codexの指摘に基づき、プランに加筆修正する。
 - 仕様書だけで判断できない → §9 オープン論点 セクションに追加してユーザーに確認
 - 設計方針が docs/ にない → 先に docs/ を更新してからタスク追記
 
+### 3.5.1 パフォーマンス確認ルール（Release で測る）
+
+- **「重い・カクつく」の判断は必ず Release ビルドで行う。** Debug ビルド + シミュレータの SwiftUI は最適化が効かず、実機 Release の 5〜10倍遅いことがある。
+- Debug シミュレータの体感だけで「重い」と判断して最適化を続けない（過剰最適化・回り道の原因になる）。
+- Release ビルド: `xcodebuild -scheme Liminalog -configuration Release -destination 'platform=iOS Simulator,name=iPhone 17,OS=26.5' build`
+- Release でも残る重さだけを本物のボトルネックとして追う。
+- 2026-05-31 の実体験: 今日タブのカテゴリ切替の「重さ」を Debug で延々追ったが、Release にしただけで「全く気にならない」レベルになった（→ 完了ログ参照）。
+
 ### 3.6 Git 安全運用ルール
 
 このプロジェクトでは、Gitを「後から戻れる復元ポイント」として扱う。Claude / Codex ともに、実装前後で以下を守る。
@@ -717,6 +725,7 @@ refactor: split plan store
 
 | 日付 | 担当 | 内容 |
 |---|---|---|
+| 2026-05-31 | Claude | 今日タブ/カレンダーのパフォーマンス改善一式。原因と対処: (1) カレンダー横ページングが毎描画で42日×3ページ分のスコア再計算をしていた→ページデータをメモ化し refresh 時のみ計算。(2) カレンダー/今日タブの月・日ページングを `TabView(.page)`(UIPageViewController) から `ScrollView+LazyHStack/HStack+.scrollTargetBehavior(.paging)` に統一（横スワイプ三重ネストのジェスチャー競合を解消）。(3) `Color(hex:)` を `Color.cachedHex` でキャッシュ化（毎描画の Scanner パースを除去・アプリ全体に効く）。(4) `TimelineView` の `TickClock` を 1秒→60秒（24hバーの毎秒全再構築を停止。ライブ秒は CurrentChapterCard 担当）。(5) `TimelineView.body` のエントリ計算(フィルタ+gapマージ)を1描画1回に。(6) 日タブを `LazyHStack` 化し save カスケード再描画を表示中ページのみに限定。(7) カテゴリセット切替の `setEnabledCategorySetID`(WidgetCenter+ActivityKit+UserDefaults) をデバウンス、`defaults.synchronize()` 撤去、`startChapter` を `reloadAllTimelines`→`reloadRecordingGridWidget` に。**重要な学び: 体感パフォーマンスは Debug シミュレータでは実機Releaseの5〜10倍遅く判断を誤る。最終的に Release ビルドで「全く気にならない」レベルに。今後 perf は Release で確認すること。** |
 | 2026-05-30 | Codex | 友達の日別詳細に、共有実績の読み取り専用タイムラインを追加。`Friend` に `sharedActivitiesJSON` を追加し、`Chapter.isPublic == true` の実績だけを `FriendSharedActivitySnapshot` として受け取る設計にした。友達カレンダーの日付セルを開くと、24時間バーは予定/実績の2段、下は実績/予定セグメント切替、時間レール付きカードリストで表示され、自分のTodayタイムラインに近い見た目で確認できる。編集・削除・追加はできない。DEBUG seedにはMika/Sora/Ren/Yuiの共有実績を追加し、シミュレータでMika 5/30の実績/予定タブ表示を確認済み。プロフィールカード右上でカード装飾マークがカレンダー/お気に入りボタンと重なっていたため、友達プロフィールヒーローからカード装飾マークだけ削除した。 |
 | 2026-05-30 | Codex | 友達の日別詳細UIを微修正。下部に出していた「共有予定」は意味が曖昧で、実際には重要予定の俯瞰に近かったため削除し、`showsInCalendarAsImportant` の予定だけを「重要な予定」として日付ヘッダー直下に移動した。時間指定予定の詳細確認はタイムラインの予定タブに集約。24時間バーは背景だけだと囲いが弱くカード内で浮いて見えたため、薄い枠線を追加してひとまとまりのバーとして認識しやすくした。シミュレータでMika 5/30の日別画面を確認済み。 |
 | 2026-05-30 | Codex | 友達の日別24時間バーをToday/カレンダー側の `DayOverviewBar` と見比べて再調整。友達側はタイムライン全体カードの中にバーだけを置いていたため、自分側と同じ「24時間バー」ヘッダー付きの独立カード構造に変更し、行間、ラベル幅、角丸、3時間目盛り、15分以上/幅24pt以上のアイコン表示ルールを合わせた。これに伴い、友達タイムライン全体の大きな白カード背景は外し、24時間バー・セグメント・リストが自分側と同じ階層感で並ぶようにした。友達詳細の現在ステータスカードは、アイコンだけでなくカード背景と枠線にも `currentStatusColorHex` を使い、カテゴリ色が画面上で明確に伝わるように変更。シミュレータでToday側バー、Mika詳細ステータス、Mika 5/30日別バーを確認済み。 |

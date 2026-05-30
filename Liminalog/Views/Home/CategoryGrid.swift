@@ -9,8 +9,10 @@ struct CategoryGrid: View {
     @Query(sort: \Category.sortOrder) private var categories: [Category]
 
     @State private var selectedSetID: UUID?
+    @State private var scrolledSetID: UUID?
     @State private var activeID: UUID? = nil
     @State private var editingSetFromEmptySlot: CategorySet? = nil
+    @State private var setSyncTask: Task<Void, Never>?
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 10), count: 4)
 
@@ -28,13 +30,21 @@ struct CategoryGrid: View {
                 headerBar
 
                 if isExpanded {
-                    TabView(selection: $selectedSetID) {
-                        ForEach(categorySets) { set in
-                            gridPage(set: set)
-                                .tag(Optional(set.id))
+                    ScrollView(.horizontal) {
+                        // セット数は少数（数個）なので遅延生成は逆効果。HStack で全ページを
+                        // 事前生成し、スクロール中の body 評価（色のhexパース等）によるヒッチを防ぐ。
+                        HStack(spacing: 0) {
+                            ForEach(categorySets) { set in
+                                gridPage(set: set)
+                                    .containerRelativeFrame(.horizontal)
+                                    .id(set.id)
+                            }
                         }
+                        .scrollTargetLayout()
                     }
-                    .tabViewStyle(.page(indexDisplayMode: .never))
+                    .scrollTargetBehavior(.paging)
+                    .scrollPosition(id: $scrolledSetID, anchor: .center)
+                    .scrollIndicators(.hidden)
                     .frame(height: 196)
 
                     if categorySets.count > 1 {
@@ -49,6 +59,12 @@ struct CategoryGrid: View {
             }
             .onChange(of: categorySets.map(\.id)) { _, _ in
                 syncSelection()
+            }
+            .onChange(of: scrolledSetID) { _, newID in
+                // スクロール追従用IDから選択IDへは一方向で反映。selectedSetID は
+                // scrollPosition に束ねないので、ユーザー操作中に位置を再主張してロックしない。
+                guard let newID, newID != selectedSetID else { return }
+                selectedSetID = newID
             }
             .onChange(of: selectedSetID) { _, newID in
                 persistSelection(newID)
@@ -173,7 +189,11 @@ struct CategoryGrid: View {
         } else if selectedSetID == nil || !categorySets.contains(where: { $0.id == selectedSetID }) {
             selectedSetID = categorySets.first?.id
         }
-        store.setEnabledCategorySetID(selectedSetID)
+        // 復元時はスクロール位置も合わせる（ユーザー操作中は scrolledSetID を触らない）。
+        if scrolledSetID != selectedSetID {
+            scrolledSetID = selectedSetID
+        }
+        scheduleEnabledSetSync(selectedSetID)
     }
 
     private func syncSelectionAfterLayout() {
@@ -188,7 +208,19 @@ struct CategoryGrid: View {
         if activeSetIDString != newString {
             activeSetIDString = newString
         }
-        store.setEnabledCategorySetID(id)
+        scheduleEnabledSetSync(id)
+    }
+
+    /// 有効セットの反映（ウィジェット再読み込み・ライブアクティビティ更新・共有書き込み）は
+    /// クロスプロセスで重い。セット間をスワイプ閲覧するたびに走らせるとカクつくため、
+    /// 選択が落ち着いてから一度だけ反映するようデバウンスする。
+    private func scheduleEnabledSetSync(_ id: UUID?) {
+        setSyncTask?.cancel()
+        setSyncTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(350))
+            guard !Task.isCancelled else { return }
+            store.setEnabledCategorySetID(id)
+        }
     }
 
     private func slottedCategories(for set: CategorySet) -> [Category?] {

@@ -109,7 +109,10 @@ struct TimelineView: View {
     var focusedPlanID: UUID?
     @Binding var editingChapter: Chapter?
 
-    @State private var clock = TickClock()
+    // 24時間バーの現在時刻表示は粗くてよい（1分≒1px未満）。毎秒だとタイムライン全体の
+    // 再構築が毎秒走りスワイプ等がカクつくため、60秒間隔にする。ライブの秒カウントは
+    // CurrentChapterCard 側（軽量テキスト）が担当する。
+    @State private var clock = TickClock(interval: 60)
     @State private var editingPlan: PlanBlock?
     @State private var highlightedEntryID: String?
     @State private var quickDetailEntry: TimelineEntry?
@@ -184,12 +187,17 @@ struct TimelineView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        // エントリ計算（フィルタ＋ソート＋gapマージ）は重いので、1描画で1回だけ実施し
+        // バー・リストで使い回す（従来は computed プロパティ参照で3〜4回再計算していた）。
+        let actual = actualEntries
+        let plan = planEntries
+        let selected = selectedTab == .actual ? actual : plan
+        return VStack(alignment: .leading, spacing: 12) {
             DayOverviewBar(
                 date: date,
                 now: now,
-                planEntries: planEntries.filter { !$0.kind.isGap },
-                actualEntries: actualEntries.filter { !$0.kind.isGap },
+                planEntries: plan.filter { !$0.kind.isGap },
+                actualEntries: actual.filter { !$0.kind.isGap },
                 onEntryTap: focusEntry
             )
             .id(currentTimeMarkerID)
@@ -213,7 +221,7 @@ struct TimelineView: View {
             .accessibilityLabel("タイムライン表示")
 
             TimelineEntryList(
-                entries: selectedEntries,
+                entries: selected,
                 highlightedEntryID: highlightedEntryID,
                 onEntryTap: handleEntryTap,
                 onGapTap: handleGapTap,
