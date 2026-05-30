@@ -32,12 +32,12 @@ struct FriendsView: View {
         return name.isEmpty ? "Liminalogユーザー" : name
     }
 
-    private var ownAccentColorHex: String {
-        settings?.profileAccentColorHex ?? "#2F80ED"
-    }
-
     private var ownIconFrame: ProfileIconFrameStyle {
         ProfileIconFrameCatalog.item(for: settings?.profileIconFrameID)
+    }
+
+    private var ownVisualAccentColor: Color {
+        ownIconFrame.primaryColor
     }
 
     private var ownCardStyle: ProfileCardStyle {
@@ -47,8 +47,7 @@ struct FriendsView: View {
     private var ownInvitePayload: FriendInvitePayload {
         FriendInvitePayload(
             code: FriendInvitePayload.code(from: settings?.id ?? UUID()),
-            displayName: ownDisplayName,
-            accentColorHex: ownAccentColorHex
+            displayName: ownDisplayName
         )
     }
 
@@ -167,11 +166,11 @@ struct FriendsView: View {
             HStack(alignment: .top, spacing: 14) {
                 ZStack {
                     Circle()
-                        .fill(Color(hex: ownAccentColorHex).opacity(0.16))
+                        .fill(ownVisualAccentColor.opacity(0.16))
                         .frame(width: 56, height: 56)
                     Image(systemName: "person.2.wave.2.fill")
                         .font(.title2.weight(.semibold))
-                        .foregroundStyle(Color(hex: ownAccentColorHex))
+                        .foregroundStyle(ownVisualAccentColor)
                 }
 
                 VStack(alignment: .leading, spacing: 6) {
@@ -192,7 +191,7 @@ struct FriendsView: View {
                     .padding(.vertical, 13)
                     .background(
                         RoundedRectangle(cornerRadius: 14)
-                            .fill(Color(hex: ownAccentColorHex))
+                            .fill(Color.accentColor)
                     )
                     .foregroundStyle(.white)
             }
@@ -299,7 +298,7 @@ struct FriendsView: View {
             rank: 0,
             name: ownDisplayName,
             imageName: activeChapter?.category?.icon ?? "person.fill",
-            tint: Color(hex: ownAccentColorHex),
+            tint: ownVisualAccentColor,
             score: selfScore(for: period, anchorDate: anchorDate),
             status: "自分",
             iconFrame: ownIconFrame,
@@ -412,7 +411,6 @@ struct FriendsView: View {
             status: .pendingIncoming,
             inviteCode: payload.code,
             shareURL: payload.url.absoluteString,
-            accentColorHex: payload.accentColorHex,
             now: now
         )
         modelContext.insert(friend)
@@ -1681,7 +1679,7 @@ private struct FriendSharedCalendarDayCell: View {
                     .frame(width: 22, height: 22)
                     .background {
                         if isToday {
-                            Circle().fill(accentColor)
+                            Circle().fill(Color.accentColor)
                         }
                     }
 
@@ -1720,7 +1718,7 @@ private struct FriendSharedCalendarDayCell: View {
         )
         .overlay(
             Rectangle()
-                .stroke(isToday ? accentColor : Color.clear, lineWidth: isToday ? 2.5 : 0)
+                .stroke(isToday ? Color.accentColor : Color.clear, lineWidth: isToday ? 2.5 : 0)
         )
         .opacity(isInVisibleMonth ? 1 : 0.48)
     }

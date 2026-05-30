@@ -59,7 +59,7 @@ struct ProfileShareCard: View {
                     .padding(.vertical, 13)
                     .background(
                         RoundedRectangle(cornerRadius: 14)
-                            .fill(Color(hex: payload.accentColorHex))
+                            .fill(Color.accentColor)
                     )
                     .foregroundStyle(.white)
             }

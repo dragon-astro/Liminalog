@@ -379,12 +379,10 @@ struct FriendInvitePayload: Equatable {
 
     let code: String
     let displayName: String
-    let accentColorHex: String
 
-    init(code: String, displayName: String, accentColorHex: String) {
+    init(code: String, displayName: String) {
         self.code = Self.normalizedCode(code)
         self.displayName = displayName
-        self.accentColorHex = accentColorHex
     }
 
     init?(url: URL) {
@@ -397,8 +395,7 @@ struct FriendInvitePayload: Equatable {
         else { return nil }
 
         let name = components.queryItems?.first(where: { $0.name == "name" })?.value ?? "Liminalogユーザー"
-        let color = components.queryItems?.first(where: { $0.name == "color" })?.value ?? "#2F80ED"
-        self.init(code: code, displayName: name, accentColorHex: color)
+        self.init(code: code, displayName: name)
     }
 
     init?(text: String) {
@@ -413,7 +410,7 @@ struct FriendInvitePayload: Equatable {
 
         let code = Self.normalizedCode(trimmed)
         guard !code.isEmpty else { return nil }
-        self.init(code: code, displayName: "Liminalogユーザー", accentColorHex: "#2F80ED")
+        self.init(code: code, displayName: "Liminalogユーザー")
     }
 
     var url: URL {
@@ -422,8 +419,7 @@ struct FriendInvitePayload: Equatable {
         components.host = Self.host
         components.queryItems = [
             URLQueryItem(name: "code", value: code),
-            URLQueryItem(name: "name", value: displayName),
-            URLQueryItem(name: "color", value: accentColorHex)
+            URLQueryItem(name: "name", value: displayName)
         ]
         return components.url!
     }

@@ -7,15 +7,13 @@ struct FriendInvitePayloadTests {
     func inviteURLRoundTrips() throws {
         let payload = FriendInvitePayload(
             code: "abc-123",
-            displayName: "Ryu",
-            accentColorHex: "#2F80ED"
+            displayName: "Ryu"
         )
 
         let decoded = try #require(FriendInvitePayload(url: payload.url))
 
         #expect(decoded.code == "ABC123")
         #expect(decoded.displayName == "Ryu")
-        #expect(decoded.accentColorHex == "#2F80ED")
     }
 
     @Test

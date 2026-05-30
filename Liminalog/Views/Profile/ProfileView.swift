@@ -29,14 +29,13 @@ struct ProfileView: View {
     }
 
     private var accentColor: Color {
-        Color(hex: settings?.profileAccentColorHex ?? "#2F80ED")
+        iconFrame.primaryColor
     }
 
     private var invitePayload: FriendInvitePayload {
         FriendInvitePayload(
             code: FriendInvitePayload.code(from: settings?.id ?? UUID()),
-            displayName: displayName,
-            accentColorHex: settings?.profileAccentColorHex ?? "#2F80ED"
+            displayName: displayName
         )
     }
 
@@ -264,7 +263,6 @@ struct ProfileView: View {
         target.profileDisplayName = draft.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
         target.profileBio = draft.bio.trimmingCharacters(in: .whitespacesAndNewlines)
         target.profileImageData = draft.imageData
-        target.profileAccentColorHex = draft.accentColorHex
         target.profileBadgeID = draft.badgeID
         target.profileIconFrameID = draft.iconFrameID
         target.profileStreakIconID = draft.streakIconID
@@ -762,7 +760,6 @@ private struct ProfileEditSheet: View {
     @State private var displayName: String
     @State private var bio: String
     @State private var imageData: Data?
-    @State private var accentColorHex: String
     @State private var badgeID: String
     @State private var iconFrameID: String
     @State private var streakIconID: String
@@ -776,7 +773,6 @@ private struct ProfileEditSheet: View {
         _displayName = State(initialValue: settings?.profileDisplayName ?? "")
         _bio = State(initialValue: settings?.profileBio ?? "")
         _imageData = State(initialValue: settings?.profileImageData)
-        _accentColorHex = State(initialValue: settings?.profileAccentColorHex ?? "#2F80ED")
         _badgeID = State(initialValue: ProfileBadgeCatalog.equippedBadge(id: settings?.profileBadgeID, badges: badges).id)
         _iconFrameID = State(initialValue: settings?.profileIconFrameID ?? ProfileIconFrameCatalog.defaultID)
         _streakIconID = State(initialValue: settings?.profileStreakIconID ?? ProfileStreakIconCatalog.defaultID)
@@ -793,7 +789,7 @@ private struct ProfileEditSheet: View {
                         ProfilePhotoView(
                             displayName: displayName.isEmpty ? "L" : displayName,
                             imageData: imageData,
-                            accentColor: Color(hex: accentColorHex),
+                            accentColor: visualAccentColor,
                             frameStyle: ProfileIconFrameCatalog.item(for: iconFrameID),
                             size: 76
                         )
@@ -823,30 +819,6 @@ private struct ProfileEditSheet: View {
                         .lineLimit(3...5)
                 }
 
-                Section("カラー") {
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 4), spacing: 10) {
-                        ForEach(ProfileAccentColor.allCases) { color in
-                            Button {
-                                accentColorHex = color.hex
-                            } label: {
-                                ZStack {
-                                    Circle()
-                                        .fill(Color(hex: color.hex))
-                                        .frame(width: 42, height: 42)
-                                    if accentColorHex == color.hex {
-                                        Image(systemName: "checkmark")
-                                            .font(.headline.weight(.bold))
-                                            .foregroundStyle(.white)
-                                    }
-                                }
-                                .frame(maxWidth: .infinity)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding(.vertical, 4)
-                }
-
                 Section("装備") {
                     ProfileBadgeSelector(
                         badges: badges,
@@ -855,7 +827,7 @@ private struct ProfileEditSheet: View {
 
                     ProfileFrameSelector(
                         selectedID: $iconFrameID,
-                        accentColor: Color(hex: accentColorHex)
+                        accentColor: visualAccentColor
                     )
 
                     ProfileStreakIconSelector(
@@ -864,7 +836,7 @@ private struct ProfileEditSheet: View {
 
                     ProfileCardStyleSelector(
                         selectedID: $cardStyleID,
-                        accentColor: Color(hex: accentColorHex)
+                        accentColor: visualAccentColor
                     )
                 }
             }
@@ -884,7 +856,6 @@ private struct ProfileEditSheet: View {
                                 displayName: displayName,
                                 bio: bio,
                                 imageData: imageData,
-                                accentColorHex: accentColorHex,
                                 badgeID: badgeID,
                                 iconFrameID: iconFrameID,
                                 streakIconID: streakIconID,
@@ -903,6 +874,10 @@ private struct ProfileEditSheet: View {
                 }
             }
         }
+    }
+
+    private var visualAccentColor: Color {
+        ProfileIconFrameCatalog.item(for: iconFrameID).primaryColor
     }
 
     private static func normalizedImageData(from data: Data) -> Data? {
@@ -1133,7 +1108,6 @@ private struct ProfileDraft {
     let displayName: String
     let bio: String
     let imageData: Data?
-    let accentColorHex: String
     let badgeID: String
     let iconFrameID: String
     let streakIconID: String
@@ -1254,20 +1228,6 @@ enum ProfileCardStyleCatalog {
     static func item(for id: String?) -> ProfileCardStyle {
         items.first { $0.id == id } ?? items[0]
     }
-}
-
-private enum ProfileAccentColor: String, CaseIterable, Identifiable {
-    case blue = "#2F80ED"
-    case violet = "#6C5CE7"
-    case green = "#27AE60"
-    case orange = "#F2994A"
-    case red = "#EB5757"
-    case pink = "#D946EF"
-    case teal = "#00A8A8"
-    case gray = "#607D8B"
-
-    var id: String { rawValue }
-    var hex: String { rawValue }
 }
 
 private enum ProfileFormat {

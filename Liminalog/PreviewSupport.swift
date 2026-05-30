@@ -37,7 +37,6 @@ enum PreviewSupport {
         let settings = UserSettings()
         settings.profileDisplayName = "Ryu"
         settings.profileBio = "切り替わる瞬間を記録中"
-        settings.profileAccentColorHex = "#2F80ED"
         context.insert(settings)
 
         let friends = [
