@@ -291,7 +291,6 @@ struct FriendsView: View {
             score: selfScore(for: scorePeriod),
             status: "自分",
             iconFrame: ownIconFrame,
-            cardStyle: ownCardStyle,
             isMe: true,
             friend: nil
         )
@@ -306,7 +305,6 @@ struct FriendsView: View {
                 score: friend.score(for: scorePeriod),
                 status: friend.currentStatusTitle.isEmpty ? "オフライン" : friend.currentStatusTitle,
                 iconFrame: friend.iconFrameStyle,
-                cardStyle: friend.cardStyle,
                 isMe: false,
                 friend: friend
             )
@@ -464,16 +462,11 @@ private struct RankingCard: View {
         .padding(13)
         .background(
             RoundedRectangle(cornerRadius: 17)
-                .fill(entry.cardStyle.backgroundColor)
-                .overlay(alignment: .bottom) {
-                    FriendCardRhythmStrip(accentColor: entry.cardStyle.stripColor(accentColor: entry.tint))
-                        .clipShape(RoundedRectangle(cornerRadius: 17, style: .continuous))
-                }
-                .clipShape(RoundedRectangle(cornerRadius: 17, style: .continuous))
+                .fill(entry.isMe ? Color(.tertiarySystemGroupedBackground) : Color(.secondarySystemGroupedBackground))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 17)
-                .stroke(entry.cardStyle.borderColor(accentColor: entry.tint), lineWidth: entry.isMe ? max(1, entry.cardStyle.borderWidth) : 1)
+                .stroke(Color.primary.opacity(entry.isMe ? 0.16 : 0.06), lineWidth: 1)
         )
     }
 
@@ -593,10 +586,13 @@ private struct FriendRow: View {
                 .background(Circle().fill(Color(.tertiarySystemGroupedBackground)))
         }
         .padding(15)
-        .background(FriendCardBackground(cardStyle: friend.cardStyle, accentColor: Color(hex: friend.accentColorHex), cornerRadius: 17))
+        .background(
+            RoundedRectangle(cornerRadius: 17)
+                .fill(Color(.secondarySystemGroupedBackground))
+        )
         .overlay(
             RoundedRectangle(cornerRadius: 17)
-                .stroke(friend.cardStyle.borderColor(accentColor: Color(hex: friend.accentColorHex)), lineWidth: 1)
+                .stroke(Color.primary.opacity(0.06), lineWidth: 1)
         )
         .contentShape(RoundedRectangle(cornerRadius: 17))
     }
@@ -1094,7 +1090,6 @@ private struct FriendRankingEntry: Identifiable {
     let score: Double
     let status: String
     let iconFrame: ProfileIconFrameStyle
-    let cardStyle: ProfileCardStyle
     let isMe: Bool
     let friend: Friend?
 
@@ -1108,7 +1103,6 @@ private struct FriendRankingEntry: Identifiable {
             score: score,
             status: status,
             iconFrame: iconFrame,
-            cardStyle: cardStyle,
             isMe: isMe,
             friend: friend
         )
