@@ -534,28 +534,33 @@ private struct RankingCard: View {
 
 private struct FriendRow: View {
     let friend: Friend
+    private let nameColumnWidth: CGFloat = 92
 
     var body: some View {
         HStack(spacing: 12) {
             FriendAvatar(friend: friend, size: 46)
 
             VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 8) {
-                    Text(friend.displayName)
-                        .font(.subheadline.weight(.bold))
-                        .lineLimit(1)
+                HStack(spacing: 10) {
+                    HStack(spacing: 5) {
+                        Text(friend.displayName)
+                            .font(.subheadline.weight(.bold))
+                            .lineLimit(1)
 
-                    if friend.isFavorite {
-                        Image(systemName: "star.fill")
-                            .font(.caption2.weight(.bold))
-                            .foregroundStyle(.yellow)
+                        if friend.isFavorite {
+                            Image(systemName: "star.fill")
+                                .font(.caption2.weight(.bold))
+                                .foregroundStyle(.yellow)
+                        }
                     }
+                    .frame(width: nameColumnWidth, alignment: .leading)
 
                     FriendStatusPill(
                         title: friend.currentStatusTitle.isEmpty ? "オフライン" : friend.currentStatusTitle,
                         systemImage: friend.currentStatusIcon,
                         tint: Color(hex: friend.currentStatusColorHex)
                     )
+                    .layoutPriority(1)
                 }
 
                 Text(friendMoodText)
