@@ -99,6 +99,7 @@ enum SeedCoordinator {
                 streakIconID: "spark",
                 cardStyleID: "mint",
                 sharedPlans: mikaSharedPlans(now: now),
+                sharedActivities: mikaSharedActivities(now: now),
                 isFavorite: true,
                 updatedAt: calendar.date(byAdding: .minute, value: -8, to: now) ?? now,
                 now: now
@@ -123,6 +124,7 @@ enum SeedCoordinator {
                 streakIconID: "sun",
                 cardStyleID: "glass",
                 sharedPlans: soraSharedPlans(now: now),
+                sharedActivities: soraSharedActivities(now: now),
                 isFavorite: false,
                 updatedAt: calendar.date(byAdding: .minute, value: -21, to: now) ?? now,
                 now: now
@@ -147,6 +149,7 @@ enum SeedCoordinator {
                 streakIconID: "bolt",
                 cardStyleID: "dawn",
                 sharedPlans: renSharedPlans(now: now),
+                sharedActivities: renSharedActivities(now: now),
                 isFavorite: false,
                 updatedAt: calendar.date(byAdding: .minute, value: -37, to: now) ?? now,
                 now: now
@@ -171,6 +174,7 @@ enum SeedCoordinator {
                 streakIconID: "flame",
                 cardStyleID: "clean",
                 sharedPlans: yuiSharedPlans(now: now),
+                sharedActivities: yuiSharedActivities(now: now),
                 isFavorite: false,
                 updatedAt: calendar.date(byAdding: .hour, value: -3, to: now) ?? now,
                 now: now
@@ -198,6 +202,7 @@ enum SeedCoordinator {
         streakIconID: String,
         cardStyleID: String,
         sharedPlans: [FriendSharedPlanSnapshot],
+        sharedActivities: [FriendSharedActivitySnapshot],
         isFavorite: Bool,
         updatedAt: Date,
         now: Date
@@ -228,6 +233,7 @@ enum SeedCoordinator {
         friend.yearScore = yearScore
         friend.streakCount = streakCount
         friend.setSharedPlans(sharedPlans)
+        friend.setSharedActivities(sharedActivities)
         friend.isFavorite = isFavorite
         friend.updatedAt = now
         return friend
@@ -256,6 +262,7 @@ enum SeedCoordinator {
         existing.yearScore = debugFriend.yearScore
         existing.streakCount = debugFriend.streakCount
         existing.sharedPlansJSON = debugFriend.sharedPlansJSON
+        existing.sharedActivitiesJSON = debugFriend.sharedActivitiesJSON
         existing.isFavorite = debugFriend.isFavorite
         existing.updatedAt = debugFriend.updatedAt
     }
@@ -326,6 +333,70 @@ enum SeedCoordinator {
             categoryTitle: title,
             categoryIconName: icon,
             categoryColorHex: color,
+            updatedAt: now
+        )
+    }
+
+    private static func mikaSharedActivities(now: Date) -> [FriendSharedActivitySnapshot] {
+        [
+            sharedActivity(title: "朝の準備", dayOffset: 0, startHour: 7, startMinute: 20, durationMinutes: 40, icon: "sunrise.fill", color: "#F2994A", now: now),
+            sharedActivity(title: "勉強", dayOffset: 0, startHour: 9, startMinute: 0, durationMinutes: 150, icon: "book.closed.fill", color: "#2F80ED", note: "レポート構成", now: now),
+            sharedActivity(title: "休憩", dayOffset: 0, startHour: 11, startMinute: 30, durationMinutes: 35, icon: "cup.and.saucer.fill", color: "#27AE60", now: now),
+            sharedActivity(title: "ゼミ準備", dayOffset: 0, startHour: 13, startMinute: 10, durationMinutes: 130, icon: "graduationcap.fill", color: "#6C5CE7", now: now),
+            sharedActivity(title: "移動", dayOffset: 0, startHour: 16, startMinute: 0, durationMinutes: 45, icon: "tram.fill", color: "#607D8B", now: now),
+            sharedActivity(title: "勉強", dayOffset: -1, startHour: 19, startMinute: 30, durationMinutes: 110, icon: "book.closed.fill", color: "#2F80ED", now: now)
+        ]
+    }
+
+    private static func soraSharedActivities(now: Date) -> [FriendSharedActivitySnapshot] {
+        [
+            sharedActivity(title: "睡眠", dayOffset: 0, startHour: 0, startMinute: 0, durationMinutes: 430, icon: "moon.zzz.fill", color: "#6C5CE7", now: now),
+            sharedActivity(title: "休憩", dayOffset: 0, startHour: 10, startMinute: 20, durationMinutes: 80, icon: "cup.and.saucer.fill", color: "#27AE60", now: now),
+            sharedActivity(title: "英語", dayOffset: 0, startHour: 14, startMinute: 0, durationMinutes: 75, icon: "text.book.closed.fill", color: "#2F80ED", now: now),
+            sharedActivity(title: "音楽", dayOffset: -1, startHour: 21, startMinute: 0, durationMinutes: 120, icon: "music.note", color: "#D946EF", now: now)
+        ]
+    }
+
+    private static func renSharedActivities(now: Date) -> [FriendSharedActivitySnapshot] {
+        [
+            sharedActivity(title: "仕事", dayOffset: 0, startHour: 8, startMinute: 45, durationMinutes: 185, icon: "briefcase.fill", color: "#6C5CE7", now: now),
+            sharedActivity(title: "資料作成", dayOffset: 0, startHour: 13, startMinute: 0, durationMinutes: 160, icon: "doc.text.fill", color: "#607D8B", now: now),
+            sharedActivity(title: "休憩", dayOffset: 0, startHour: 16, startMinute: 15, durationMinutes: 35, icon: "cup.and.saucer.fill", color: "#27AE60", now: now),
+            sharedActivity(title: "仕事", dayOffset: -1, startHour: 20, startMinute: 15, durationMinutes: 140, icon: "briefcase.fill", color: "#6C5CE7", now: now)
+        ]
+    }
+
+    private static func yuiSharedActivities(now: Date) -> [FriendSharedActivitySnapshot] {
+        [
+            sharedActivity(title: "回復", dayOffset: 0, startHour: 9, startMinute: 30, durationMinutes: 90, icon: "sparkles", color: "#EB5757", now: now),
+            sharedActivity(title: "散歩", dayOffset: 0, startHour: 15, startMinute: 0, durationMinutes: 45, icon: "figure.walk", color: "#27AE60", now: now),
+            sharedActivity(title: "カフェ", dayOffset: -1, startHour: 13, startMinute: 0, durationMinutes: 75, icon: "cup.and.saucer.fill", color: "#F2994A", now: now)
+        ]
+    }
+
+    private static func sharedActivity(
+        title: String,
+        dayOffset: Int,
+        startHour: Int,
+        startMinute: Int,
+        durationMinutes: Int,
+        icon: String,
+        color: String,
+        note: String? = nil,
+        now: Date
+    ) -> FriendSharedActivitySnapshot {
+        let calendar = Calendar.japanese
+        let baseDay = calendar.startOfDay(for: calendar.date(byAdding: .day, value: dayOffset, to: now) ?? now)
+        let start = calendar.date(byAdding: DateComponents(hour: startHour, minute: startMinute), to: baseDay) ?? baseDay
+        let end = calendar.date(byAdding: .minute, value: durationMinutes, to: start) ?? start
+        return FriendSharedActivitySnapshot(
+            title: title,
+            startTime: start,
+            endTime: end,
+            categoryTitle: title,
+            categoryIconName: icon,
+            categoryColorHex: color,
+            note: note,
             updatedAt: now
         )
     }

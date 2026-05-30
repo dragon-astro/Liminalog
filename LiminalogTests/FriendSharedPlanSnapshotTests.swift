@@ -67,4 +67,53 @@ struct FriendSharedPlanSnapshotTests {
         #expect(plan.overlaps(day: thirdDay))
         #expect(!plan.overlaps(day: dayAfter))
     }
+
+    @Test
+    func activitySnapshotsOnlyIncludePublicChaptersAndUseNowForActiveChapter() {
+        let calendar = Calendar.japanese
+        let base = calendar.date(from: DateComponents(year: 2026, month: 5, day: 30, hour: 9))!
+        let now = calendar.date(byAdding: .hour, value: 5, to: base)!
+        let category = Category(name: "勉強", colorHex: "#4F8BFF", icon: "book.fill")
+        let privateCategory = Category(name: "秘密", colorHex: "#EB5757", icon: "lock.fill")
+
+        let activePublic = Chapter(category: category, startTime: calendar.date(byAdding: .hour, value: 2, to: base)!)
+        activePublic.isPublic = true
+
+        let privateChapter = Chapter(category: privateCategory, startTime: calendar.date(byAdding: .hour, value: 1, to: base)!)
+        privateChapter.endTime = calendar.date(byAdding: .hour, value: 2, to: base)!
+        privateChapter.isPublic = false
+
+        let earlierPublic = Chapter(category: category, startTime: base)
+        earlierPublic.endTime = calendar.date(byAdding: .hour, value: 1, to: base)!
+        earlierPublic.note = "集中できた"
+
+        let snapshots = FriendSharedActivitySnapshot.snapshots(from: [activePublic, privateChapter, earlierPublic], now: now)
+
+        #expect(snapshots.map(\.title) == ["勉強", "勉強"])
+        #expect(snapshots[0].note == "集中できた")
+        #expect(snapshots[1].endTime == now)
+        #expect(snapshots[1].categoryIconName == "book.fill")
+        #expect(snapshots[1].categoryColorHex == "#4F8BFF")
+    }
+
+    @Test
+    func multiDayActivityOverlapsEachCoveredDay() {
+        let calendar = Calendar.japanese
+        let start = calendar.date(from: DateComponents(year: 2026, month: 5, day: 30, hour: 23))!
+        let end = calendar.date(byAdding: .hour, value: 3, to: start)!
+        let activity = FriendSharedActivitySnapshot(
+            title: "作業",
+            startTime: start,
+            endTime: end
+        )
+
+        let firstDay = calendar.startOfDay(for: start)
+        let secondDay = calendar.date(byAdding: .day, value: 1, to: firstDay)!
+        let dayAfter = calendar.date(byAdding: .day, value: 2, to: firstDay)!
+
+        #expect(activity.spansMultipleCalendarDays)
+        #expect(activity.overlaps(day: firstDay))
+        #expect(activity.overlaps(day: secondDay))
+        #expect(!activity.overlaps(day: dayAfter))
+    }
 }

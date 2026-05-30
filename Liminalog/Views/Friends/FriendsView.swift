@@ -1035,10 +1035,6 @@ private struct FriendProfileHero: View {
         .padding(.vertical, 28)
         .background {
             FriendCardBackground(cardStyle: friend.cardStyle, accentColor: accentColor, cornerRadius: 8)
-                .overlay(alignment: .topTrailing) {
-                    ProfileCardStyleMark(style: friend.cardStyle, accentColor: accentColor)
-                        .padding(16)
-                }
                 .overlay {
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
                         .stroke(friend.cardStyle.borderColor(accentColor: accentColor), lineWidth: friend.cardStyle.borderWidth)
@@ -1199,6 +1195,7 @@ private struct FriendCalendarView: View {
                     visibleMonth: visibleMonth,
                     importantPlans: importantPlans(on:),
                     allPlans: sharedPlans(on:),
+                    allActivities: sharedActivities(on:),
                     score: knownScore(on:),
                     accentColor: Color(hex: friend.accentColorHex)
                 )
@@ -1355,6 +1352,17 @@ private struct FriendCalendarView: View {
             }
     }
 
+    private func sharedActivities(on date: Date) -> [FriendSharedActivitySnapshot] {
+        friend.sharedActivities
+            .filter { $0.overlaps(day: date) }
+            .sorted {
+                if $0.startTime == $1.startTime {
+                    return $0.updatedAt < $1.updatedAt
+                }
+                return $0.startTime < $1.startTime
+            }
+    }
+
     private func prepareMonthPicker() {
         pickerYear = calendar.component(.year, from: visibleMonth)
         pickerMonth = calendar.component(.month, from: visibleMonth)
@@ -1406,6 +1414,7 @@ private struct FriendSharedCalendarMonthGrid: View {
     let visibleMonth: Date
     let importantPlans: (Date) -> [FriendSharedPlanSnapshot]
     let allPlans: (Date) -> [FriendSharedPlanSnapshot]
+    let allActivities: (Date) -> [FriendSharedActivitySnapshot]
     let score: (Date) -> FriendCalendarScore?
     let accentColor: Color
 
@@ -1419,6 +1428,7 @@ private struct FriendSharedCalendarMonthGrid: View {
                     visibleMonth: visibleMonth,
                     importantPlans: importantPlans,
                     allPlans: allPlans,
+                    allActivities: allActivities,
                     score: score,
                     accentColor: accentColor,
                     spacing: spacing
@@ -1445,6 +1455,7 @@ private struct FriendSharedCalendarWeekRow: View {
     let visibleMonth: Date
     let importantPlans: (Date) -> [FriendSharedPlanSnapshot]
     let allPlans: (Date) -> [FriendSharedPlanSnapshot]
+    let allActivities: (Date) -> [FriendSharedActivitySnapshot]
     let score: (Date) -> FriendCalendarScore?
     let accentColor: Color
     let spacing: CGFloat
@@ -1458,7 +1469,7 @@ private struct FriendSharedCalendarWeekRow: View {
             HStack(spacing: spacing) {
                 ForEach(dates, id: \.self) { date in
                     NavigationLink {
-                        FriendSharedCalendarDayView(friend: nil, date: date, plans: allPlans(date), score: score(date), accentColor: accentColor)
+                        FriendSharedCalendarDayView(friend: nil, date: date, plans: allPlans(date), activities: allActivities(date), score: score(date), accentColor: accentColor)
                     } label: {
                         FriendSharedCalendarDayCell(
                             date: date,
@@ -1477,7 +1488,7 @@ private struct FriendSharedCalendarWeekRow: View {
                 ForEach(Array(visibleMultiDayPlans.enumerated()), id: \.element.id) { lane, plan in
                     if let frame = segmentFrame(for: plan, in: proxy.size, lane: lane) {
                         NavigationLink {
-                            FriendSharedCalendarDayView(friend: nil, date: plan.startTime, plans: allPlans(plan.startTime), score: score(plan.startTime), accentColor: accentColor)
+                            FriendSharedCalendarDayView(friend: nil, date: plan.startTime, plans: allPlans(plan.startTime), activities: allActivities(plan.startTime), score: score(plan.startTime), accentColor: accentColor)
                         } label: {
                             FriendSharedMultiDayPlanBar(
                                 plan: plan,
@@ -1902,12 +1913,18 @@ private struct FriendSharedCalendarDayView: View {
     let friend: Friend?
     let date: Date
     var plans: [FriendSharedPlanSnapshot]? = nil
+    var activities: [FriendSharedActivitySnapshot]? = nil
     var score: FriendCalendarScore? = nil
     var accentColor: Color? = nil
 
     private var resolvedPlans: [FriendSharedPlanSnapshot] {
         if let plans { return plans }
         return friend?.sharedPlans.filter { $0.overlaps(day: date) }.sorted { $0.startTime < $1.startTime } ?? []
+    }
+
+    private var resolvedActivities: [FriendSharedActivitySnapshot] {
+        if let activities { return activities }
+        return friend?.sharedActivities.filter { $0.overlaps(day: date) }.sorted { $0.startTime < $1.startTime } ?? []
     }
 
     private var resolvedScore: FriendCalendarScore? {
@@ -1932,6 +1949,12 @@ private struct FriendSharedCalendarDayView: View {
             VStack(alignment: .leading, spacing: 16) {
                 header
                 scoreCard
+                FriendSharedTimelineView(
+                    date: date,
+                    plans: resolvedPlans.filter { !$0.isAllDay },
+                    activities: resolvedActivities,
+                    accentColor: tint
+                )
                 plansCard
             }
             .padding(16)
@@ -1945,7 +1968,7 @@ private struct FriendSharedCalendarDayView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text(date.japaneseMonthDayShortWeekday)
                 .font(.title3.bold())
-            Text("共有された予定")
+            Text("共有された予定と実績")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -1995,6 +2018,556 @@ private struct FriendSharedCalendarDayView: View {
         .padding(16)
         .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemGroupedBackground)))
     }
+}
+
+private enum FriendTimelineTab: String, CaseIterable, Identifiable {
+    case actual
+    case plan
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .actual: "実績"
+        case .plan: "予定"
+        }
+    }
+}
+
+private struct FriendTimelineDisplayEntry: Identifiable {
+    let id: String
+    let title: String
+    let start: Date
+    let end: Date
+    let clippedStart: Date
+    let clippedEnd: Date
+    let categoryIconName: String
+    let categoryColorHex: String
+    let note: String?
+    let mood: String?
+    let locationName: String?
+    let isGap: Bool
+    let isPlan: Bool
+
+    var color: Color {
+        Color(hex: categoryColorHex)
+    }
+
+    var clippedDuration: TimeInterval {
+        max(clippedEnd.timeIntervalSince(clippedStart), 0)
+    }
+
+    var durationText: String {
+        friendTimelineDurationText(clippedDuration)
+    }
+}
+
+private struct FriendSharedTimelineView: View {
+    let date: Date
+    let plans: [FriendSharedPlanSnapshot]
+    let activities: [FriendSharedActivitySnapshot]
+    let accentColor: Color
+
+    @State private var selectedTab = FriendTimelineTab.actual
+
+    private var actualEntries: [FriendTimelineDisplayEntry] {
+        entries(from: activities)
+    }
+
+    private var planEntries: [FriendTimelineDisplayEntry] {
+        entries(from: plans)
+    }
+
+    private var selectedEntries: [FriendTimelineDisplayEntry] {
+        switch selectedTab {
+        case .actual:
+            actualEntries
+        case .plan:
+            planEntries
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 7) {
+                Image(systemName: "clock")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(accentColor)
+                Text("1日のタイムライン")
+                    .font(.headline)
+            }
+
+            FriendTimelineOverviewBar(
+                date: date,
+                planEntries: planEntries.filter { !$0.isGap },
+                actualEntries: actualEntries.filter { !$0.isGap },
+                accentColor: accentColor
+            )
+
+            Picker("表示", selection: $selectedTab) {
+                ForEach(FriendTimelineTab.allCases) { tab in
+                    Text(tab.label).tag(tab)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            if selectedEntries.contains(where: { !$0.isGap }) {
+                FriendTimelineReadOnlyList(entries: selectedEntries)
+            } else {
+                HStack(spacing: 10) {
+                    Image(systemName: "clock.badge.questionmark")
+                        .foregroundStyle(.secondary)
+                    Text(selectedTab == .actual ? "共有された実績はありません" : "共有された時間指定予定はありません")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+                .padding(14)
+                .background(RoundedRectangle(cornerRadius: 10).fill(Color(.tertiarySystemGroupedBackground)))
+            }
+        }
+        .padding(16)
+        .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemGroupedBackground)))
+    }
+
+    private func entries(from activities: [FriendSharedActivitySnapshot]) -> [FriendTimelineDisplayEntry] {
+        let rawEntries = activities.map { activity in
+            FriendTimelineDisplayEntry(
+                id: "activity-\(activity.id.uuidString)",
+                title: activity.title,
+                start: activity.startTime,
+                end: activity.endTime,
+                clippedStart: max(activity.startTime, dayStart),
+                clippedEnd: min(activity.endTime, dayEnd),
+                categoryIconName: activity.categoryIconName,
+                categoryColorHex: activity.categoryColorHex,
+                note: activity.note,
+                mood: activity.mood,
+                locationName: activity.locationName,
+                isGap: false,
+                isPlan: false
+            )
+        }
+        return withGaps(rawEntries)
+    }
+
+    private func entries(from plans: [FriendSharedPlanSnapshot]) -> [FriendTimelineDisplayEntry] {
+        let rawEntries = plans.map { plan in
+            FriendTimelineDisplayEntry(
+                id: "plan-\(plan.id.uuidString)",
+                title: plan.title,
+                start: plan.startTime,
+                end: plan.endTime,
+                clippedStart: max(plan.startTime, dayStart),
+                clippedEnd: min(plan.endTime, dayEnd),
+                categoryIconName: plan.categoryIconName,
+                categoryColorHex: plan.categoryColorHex,
+                note: nil,
+                mood: nil,
+                locationName: nil,
+                isGap: false,
+                isPlan: true
+            )
+        }
+        return withGaps(rawEntries)
+    }
+
+    private func withGaps(_ entries: [FriendTimelineDisplayEntry]) -> [FriendTimelineDisplayEntry] {
+        let sortedEntries = entries
+            .filter { $0.clippedEnd > $0.clippedStart }
+            .sorted {
+                if $0.clippedStart == $1.clippedStart {
+                    return $0.clippedEnd < $1.clippedEnd
+                }
+                return $0.clippedStart < $1.clippedStart
+            }
+
+        var result: [FriendTimelineDisplayEntry] = []
+        var cursor = dayStart
+
+        for entry in sortedEntries {
+            if entry.clippedStart.timeIntervalSince(cursor) >= 60 {
+                result.append(gapEntry(start: cursor, end: entry.clippedStart, isPlan: entry.isPlan))
+            }
+            result.append(entry)
+            if entry.clippedEnd > cursor {
+                cursor = entry.clippedEnd
+            }
+        }
+
+        if dayEnd.timeIntervalSince(cursor) >= 60 {
+            result.append(gapEntry(start: cursor, end: dayEnd, isPlan: sortedEntries.first?.isPlan ?? false))
+        }
+
+        return result
+    }
+
+    private func gapEntry(start: Date, end: Date, isPlan: Bool) -> FriendTimelineDisplayEntry {
+        FriendTimelineDisplayEntry(
+            id: "gap-\(isPlan ? "plan" : "actual")-\(start.timeIntervalSince1970)-\(end.timeIntervalSince1970)",
+            title: isPlan ? "予定なし" : "未記録",
+            start: start,
+            end: end,
+            clippedStart: start,
+            clippedEnd: end,
+            categoryIconName: isPlan ? "calendar.badge.minus" : "moon.zzz",
+            categoryColorHex: "#8E8E93",
+            note: nil,
+            mood: nil,
+            locationName: nil,
+            isGap: true,
+            isPlan: isPlan
+        )
+    }
+
+    private var dayStart: Date {
+        Calendar.japanese.startOfDay(for: date)
+    }
+
+    private var dayEnd: Date {
+        Calendar.japanese.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart
+    }
+}
+
+private struct FriendTimelineOverviewBar: View {
+    let date: Date
+    let planEntries: [FriendTimelineDisplayEntry]
+    let actualEntries: [FriendTimelineDisplayEntry]
+    let accentColor: Color
+
+    var body: some View {
+        VStack(spacing: 7) {
+            FriendTimelineBarRow(label: "予定", date: date, entries: planEntries, accentColor: accentColor)
+            FriendTimelineBarRow(label: "実績", date: date, entries: actualEntries, accentColor: accentColor)
+            FriendTimelineHourScale()
+                .padding(.leading, 38)
+        }
+        .padding(10)
+        .background(RoundedRectangle(cornerRadius: 10).fill(Color(.tertiarySystemGroupedBackground)))
+    }
+}
+
+private struct FriendTimelineBarRow: View {
+    let label: String
+    let date: Date
+    let entries: [FriendTimelineDisplayEntry]
+    let accentColor: Color
+
+    private var dayStart: Date { Calendar.japanese.startOfDay(for: date) }
+    private var dayEnd: Date { Calendar.japanese.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text(label)
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.secondary)
+                .frame(width: 30, alignment: .trailing)
+
+            GeometryReader { proxy in
+                ZStack(alignment: .leading) {
+                    Rectangle()
+                        .fill(Color(.systemGroupedBackground))
+
+                    ForEach(entries) { entry in
+                        Rectangle()
+                            .fill(entry.color)
+                            .frame(width: max(segmentWidth(for: entry, width: proxy.size.width), 1), height: 18)
+                            .offset(x: xOffset(for: entry.clippedStart, width: proxy.size.width))
+                    }
+
+                    if Calendar.japanese.isDateInToday(date) {
+                        Rectangle()
+                            .fill(accentColor)
+                            .frame(width: 2, height: 22)
+                            .offset(x: xOffset(for: Date(), width: proxy.size.width))
+                    }
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+            }
+            .frame(height: 22)
+        }
+    }
+
+    private func xOffset(for target: Date, width: CGFloat) -> CGFloat {
+        let clipped = min(max(target, dayStart), dayEnd)
+        let ratio = clipped.timeIntervalSince(dayStart) / dayEnd.timeIntervalSince(dayStart)
+        return max(0, min(width, width * ratio))
+    }
+
+    private func segmentWidth(for entry: FriendTimelineDisplayEntry, width: CGFloat) -> CGFloat {
+        let duration = max(entry.clippedEnd.timeIntervalSince(entry.clippedStart), 60)
+        return width * duration / dayEnd.timeIntervalSince(dayStart)
+    }
+}
+
+private struct FriendTimelineHourScale: View {
+    private let marks = Array(stride(from: 0, through: 24, by: 3))
+
+    var body: some View {
+        GeometryReader { proxy in
+            ZStack(alignment: .topLeading) {
+                ForEach(marks, id: \.self) { hour in
+                    VStack(spacing: 3) {
+                        Rectangle()
+                            .fill(Color(.separator).opacity(0.4))
+                            .frame(width: 1, height: 5)
+                        Text("\(hour)")
+                            .font(.caption2.monospacedDigit())
+                            .foregroundStyle(.tertiary)
+                    }
+                    .frame(width: 24)
+                    .offset(x: proxy.size.width * CGFloat(hour) / 24 - 12)
+                }
+            }
+        }
+        .frame(height: 20)
+    }
+}
+
+private struct FriendTimelineReadOnlyList: View {
+    let entries: [FriendTimelineDisplayEntry]
+
+    var body: some View {
+        LazyVStack(spacing: 0) {
+            ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
+                FriendTimelineEntryRow(
+                    entry: entry,
+                    showsStartTime: !isContiguousWithPrevious(at: index),
+                    showsEndTime: index + 1 < entries.count,
+                    connectsToPrevious: isContiguousWithPrevious(at: index),
+                    connectsToNext: isContiguousWithNext(at: index)
+                )
+            }
+        }
+        .padding(.vertical, 2)
+    }
+
+    private func isContiguousWithPrevious(at index: Int) -> Bool {
+        guard index > 0 else { return false }
+        return Calendar.japanese.isDate(entries[index - 1].clippedEnd, equalTo: entries[index].clippedStart, toGranularity: .minute)
+    }
+
+    private func isContiguousWithNext(at index: Int) -> Bool {
+        guard index + 1 < entries.count else { return false }
+        return Calendar.japanese.isDate(entries[index].clippedEnd, equalTo: entries[index + 1].clippedStart, toGranularity: .minute)
+    }
+}
+
+private enum FriendTimelineCardMetrics {
+    static let entryHeight: CGFloat = 62
+    static let gapHeight: CGFloat = 48
+    static let rowVerticalPadding: CGFloat = 5
+}
+
+private struct FriendTimelineEntryRow: View {
+    let entry: FriendTimelineDisplayEntry
+    let showsStartTime: Bool
+    let showsEndTime: Bool
+    let connectsToPrevious: Bool
+    let connectsToNext: Bool
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 8) {
+            FriendTimelineTimeRail(
+                entry: entry,
+                height: rowHeight,
+                showsStartTime: showsStartTime,
+                showsEndTime: showsEndTime,
+                connectsToPrevious: connectsToPrevious,
+                connectsToNext: connectsToNext
+            )
+
+            if entry.isGap {
+                FriendTimelineGapCard(entry: entry)
+                    .padding(.vertical, FriendTimelineCardMetrics.rowVerticalPadding)
+            } else {
+                FriendTimelineEntryCard(entry: entry)
+                    .padding(.vertical, FriendTimelineCardMetrics.rowVerticalPadding)
+            }
+        }
+    }
+
+    private var rowHeight: CGFloat {
+        let cardHeight = entry.isGap ? FriendTimelineCardMetrics.gapHeight : FriendTimelineCardMetrics.entryHeight
+        return cardHeight + FriendTimelineCardMetrics.rowVerticalPadding * 2
+    }
+}
+
+private struct FriendTimelineTimeRail: View {
+    let entry: FriendTimelineDisplayEntry
+    let height: CGFloat
+    let showsStartTime: Bool
+    let showsEndTime: Bool
+    let connectsToPrevious: Bool
+    let connectsToNext: Bool
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ZStack {
+                if showsStartTime {
+                    Text(entry.clippedStart.shortTime)
+                        .friendTimelineBoundaryTimeStyle()
+                        .frame(width: 42, height: 14, alignment: .trailing)
+                        .position(x: 21, y: topBoundaryY)
+                }
+
+                if showsEndTime {
+                    Text(entry.clippedEnd.shortTime)
+                        .friendTimelineBoundaryTimeStyle()
+                        .frame(width: 42, height: 14, alignment: .trailing)
+                        .position(x: 21, y: bottomBoundaryY)
+                }
+            }
+            .frame(width: 42, height: height)
+
+            ZStack {
+                Rectangle()
+                    .fill(lineColor)
+                    .frame(width: entry.isGap ? 1.7 : 2.4)
+                    .frame(height: lineHeight)
+                    .position(x: 4, y: lineMidY)
+
+                if showsStartTime {
+                    Circle()
+                        .fill(markerColor)
+                        .frame(width: 7, height: 7)
+                        .position(x: 4, y: topBoundaryY)
+                }
+
+                Circle()
+                    .strokeBorder(markerColor.opacity(entry.isGap ? 0.55 : 0.82), lineWidth: entry.isGap ? 1.4 : 1.6)
+                    .background(Circle().fill(Color(.systemGroupedBackground)))
+                    .frame(width: 7, height: 7)
+                    .position(x: 4, y: bottomBoundaryY)
+            }
+            .frame(width: 8, height: height)
+        }
+        .frame(width: 56, height: height)
+    }
+
+    private var topBoundaryY: CGFloat { FriendTimelineCardMetrics.rowVerticalPadding }
+    private var bottomBoundaryY: CGFloat { height - FriendTimelineCardMetrics.rowVerticalPadding }
+    private var lineStartY: CGFloat { connectsToPrevious ? 0 : topBoundaryY }
+    private var lineEndY: CGFloat { connectsToNext ? height : bottomBoundaryY }
+    private var lineHeight: CGFloat { max(lineEndY - lineStartY, 0) }
+    private var lineMidY: CGFloat { lineStartY + lineHeight / 2 }
+    private var markerColor: Color { entry.isGap ? Color(.separator).opacity(0.5) : entry.color }
+    private var lineColor: Color { entry.isGap ? Color(.separator).opacity(0.34) : entry.color.opacity(0.42) }
+}
+
+private extension Text {
+    func friendTimelineBoundaryTimeStyle() -> some View {
+        self
+            .font(.caption2.monospacedDigit().weight(.semibold))
+            .foregroundStyle(.primary)
+            .fixedSize(horizontal: true, vertical: false)
+    }
+}
+
+private struct FriendTimelineEntryCard: View {
+    let entry: FriendTimelineDisplayEntry
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: entry.categoryIconName)
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(entry.color)
+                .frame(width: 28)
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 7) {
+                    Text(entry.title)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+
+                    Spacer(minLength: 8)
+
+                    Text(entry.durationText)
+                        .font(.caption.monospacedDigit().weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
+                }
+
+                let items = metadataItems
+                if !items.isEmpty {
+                    HStack(spacing: 7) {
+                        ForEach(Array(items.prefix(2).enumerated()), id: \.offset) { _, item in
+                            Label(item.text, systemImage: item.icon)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+                    }
+                }
+            }
+        }
+        .frame(height: FriendTimelineCardMetrics.entryHeight)
+        .padding(.horizontal, 12)
+        .background(RoundedRectangle(cornerRadius: 9).fill(entry.color.opacity(entry.isPlan ? 0.06 : 0.08)))
+        .overlay(alignment: .leading) {
+            RoundedRectangle(cornerRadius: 2)
+                .fill(entry.color)
+                .frame(width: 4, height: FriendTimelineCardMetrics.entryHeight - 14)
+                .padding(.leading, 4)
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 9)
+                .stroke(Color(.separator).opacity(0.18), lineWidth: 1)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private var metadataItems: [(icon: String, text: String)] {
+        var items: [(icon: String, text: String)] = []
+        if let note = entry.note, !note.isEmpty {
+            items.append(("text.bubble", note))
+        }
+        if let mood = entry.mood, !mood.isEmpty {
+            items.append(("face.smiling", mood))
+        }
+        if let location = entry.locationName, !location.isEmpty {
+            items.append(("mappin.and.ellipse", location))
+        }
+        return items
+    }
+}
+
+private struct FriendTimelineGapCard: View {
+    let entry: FriendTimelineDisplayEntry
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: entry.categoryIconName)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.tertiary)
+                .frame(width: 28)
+
+            Text(entry.title)
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.tertiary)
+                .lineLimit(1)
+
+            Spacer()
+        }
+        .frame(height: FriendTimelineCardMetrics.gapHeight)
+        .padding(.horizontal, 12)
+        .background(RoundedRectangle(cornerRadius: 9).fill(Color(.tertiarySystemGroupedBackground).opacity(0.72)))
+    }
+}
+
+private func friendTimelineDurationText(_ seconds: TimeInterval) -> String {
+    let totalMinutes = max(Int((seconds / 60).rounded()), 0)
+    let hours = totalMinutes / 60
+    let minutes = totalMinutes % 60
+    if hours > 0 && minutes > 0 {
+        return "\(hours)時間\(minutes)分"
+    }
+    if hours > 0 {
+        return "\(hours)時間"
+    }
+    return "\(minutes)分"
 }
 
 private struct FriendSharedPlanRow: View {
