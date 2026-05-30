@@ -292,6 +292,7 @@ private struct ProfileHero: View {
                         .font(.title2.weight(.bold))
                         .lineLimit(2)
                         .minimumScaleFactor(0.82)
+                        .padding(.trailing, 76)
 
                     EquippedBadgePill(badge: equippedBadge)
 
@@ -301,13 +302,10 @@ private struct ProfileHero: View {
                         .lineLimit(2)
                         .frame(minHeight: 36, alignment: .topLeading)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .layoutPriority(1)
 
                 Spacer(minLength: 0)
-
-                HStack(spacing: 8) {
-                    ProfileHeroActionButton(systemImage: "pencil", label: "編集", action: onEdit)
-                    ProfileHeroActionButton(systemImage: "square.and.arrow.up", label: "シェア", action: onShare)
-                }
             }
         }
         .padding(.horizontal, 18)
@@ -322,6 +320,14 @@ private struct ProfileHero: View {
                 .overlay(alignment: .topTrailing) {
                     ProfileCardStyleMark(style: cardStyle, accentColor: accentColor)
                         .padding(16)
+                }
+                .overlay(alignment: .topTrailing) {
+                    HStack(spacing: 8) {
+                        ProfileHeroActionButton(systemImage: "pencil", label: "編集", action: onEdit)
+                        ProfileHeroActionButton(systemImage: "square.and.arrow.up", label: "シェア", action: onShare)
+                    }
+                    .padding(.top, 52)
+                    .padding(.trailing, 40)
                 }
         }
         .overlay {
