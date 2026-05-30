@@ -574,8 +574,8 @@ private struct ProfileCollectionSection: View {
 
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
                 ProfileEquipmentTile(title: "バッジ", value: equippedBadge.title, systemImage: equippedBadge.systemImage, tint: Color(hex: equippedBadge.tint))
-                ProfileEquipmentTile(title: "フレーム", value: iconFrame.title, systemImage: iconFrame.systemImage, tint: iconFrame.primaryColor)
-                ProfileEquipmentTile(title: "カード", value: cardStyle.title, systemImage: cardStyle.systemImage, tint: cardStyle.markColor(accentColor: iconFrame.primaryColor))
+                ProfileEquipmentFrameTile(title: "フレーム", value: iconFrame.title, frameStyle: iconFrame)
+                ProfileEquipmentCardStyleTile(title: "カード", value: cardStyle.title, cardStyle: cardStyle, accentColor: iconFrame.primaryColor)
                 ProfileEquipmentTile(title: "連続", value: streakIcon.title, systemImage: streakIcon.systemImage, tint: Color(hex: streakIcon.tintHex))
             }
 
@@ -645,11 +645,57 @@ private struct ProfileEquipmentTile: View {
     let tint: Color
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        ProfileEquipmentTileShell(title: title, value: value) {
             Image(systemName: systemImage)
                 .font(.headline.weight(.bold))
                 .foregroundStyle(tint)
                 .frame(height: 20)
+        }
+    }
+}
+
+private struct ProfileEquipmentFrameTile: View {
+    let title: String
+    let value: String
+    let frameStyle: ProfileIconFrameStyle
+
+    var body: some View {
+        ProfileEquipmentTileShell(title: title, value: value) {
+            ZStack {
+                Circle()
+                    .fill(frameStyle.primaryColor.opacity(0.14))
+                    .frame(width: 22, height: 22)
+
+                ProfileIconFrameView(style: frameStyle, accentColor: frameStyle.primaryColor, size: 28)
+            }
+            .frame(width: 32, height: 24, alignment: .leading)
+        }
+    }
+}
+
+private struct ProfileEquipmentCardStyleTile: View {
+    let title: String
+    let value: String
+    let cardStyle: ProfileCardStyle
+    let accentColor: Color
+
+    var body: some View {
+        ProfileEquipmentTileShell(title: title, value: value) {
+            ProfileMiniCardStyleView(style: cardStyle, accentColor: accentColor)
+                .frame(width: 42, height: 24)
+        }
+    }
+}
+
+private struct ProfileEquipmentTileShell<Preview: View>: View {
+    let title: String
+    let value: String
+    @ViewBuilder let preview: () -> Preview
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            preview()
+                .frame(height: 24, alignment: .leading)
             Text(value)
                 .font(.caption.weight(.semibold))
                 .lineLimit(1)
@@ -660,8 +706,54 @@ private struct ProfileEquipmentTile: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(9)
-        .frame(minHeight: 74, alignment: .leading)
+        .frame(minHeight: 78, alignment: .leading)
         .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+}
+
+private struct ProfileMiniCardStyleView: View {
+    let style: ProfileCardStyle
+    let accentColor: Color
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 4, style: .continuous)
+            .fill(style.backgroundColor)
+            .overlay(alignment: .bottom) {
+                ProfileMiniRhythmStrip(accentColor: style.stripColor(accentColor: accentColor))
+                    .frame(height: 3)
+            }
+            .overlay(alignment: .topTrailing) {
+                ProfileCardStyleMark(style: style, accentColor: accentColor)
+                    .scaleEffect(0.48)
+                    .frame(width: 12, height: 12)
+                    .padding(3)
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .stroke(style.borderColor(accentColor: accentColor), lineWidth: max(1, style.borderWidth))
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+    }
+}
+
+private struct ProfileMiniRhythmStrip: View {
+    let accentColor: Color
+
+    var body: some View {
+        GeometryReader { proxy in
+            HStack(spacing: 0) {
+                accentColor.opacity(0.35)
+                    .frame(width: proxy.size.width * 0.28)
+                Color.clear
+                    .frame(width: proxy.size.width * 0.1)
+                accentColor.opacity(0.18)
+                    .frame(width: proxy.size.width * 0.36)
+                Color.clear
+                accentColor.opacity(0.25)
+                    .frame(width: proxy.size.width * 0.16)
+            }
+            .frame(width: proxy.size.width, height: proxy.size.height, alignment: .leading)
+        }
     }
 }
 
