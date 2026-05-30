@@ -12,6 +12,7 @@ struct ProfileView: View {
 
     @State private var isShowingSettings = false
     @State private var isShowingEditProfile = false
+    @State private var isShowingShareProfile = false
     @State private var clock = TickClock(interval: 60)
 
     private var settings: UserSettings? {
@@ -29,6 +30,14 @@ struct ProfileView: View {
 
     private var accentColor: Color {
         Color(hex: settings?.profileAccentColorHex ?? "#2F80ED")
+    }
+
+    private var invitePayload: FriendInvitePayload {
+        FriendInvitePayload(
+            code: FriendInvitePayload.code(from: settings?.id ?? UUID()),
+            displayName: displayName,
+            accentColorHex: settings?.profileAccentColorHex ?? "#2F80ED"
+        )
     }
 
     private var recentChapters: [Chapter] {
@@ -101,7 +110,8 @@ struct ProfileView: View {
                         bio: bio,
                         imageData: settings?.profileImageData,
                         accentColor: accentColor,
-                        onEdit: { isShowingEditProfile = true }
+                        onEdit: { isShowingEditProfile = true },
+                        onShare: { isShowingShareProfile = true }
                     )
 
                     ProfileStatsRow(
@@ -133,6 +143,9 @@ struct ProfileView: View {
             }
             .sheet(isPresented: $isShowingEditProfile) {
                 ProfileEditSheet(settings: settings, onSave: saveProfile)
+            }
+            .sheet(isPresented: $isShowingShareProfile) {
+                ProfileShareSheet(payload: invitePayload)
             }
             .task {
                 ensureUserSettings()
@@ -215,6 +228,7 @@ private struct ProfileHero: View {
     let imageData: Data?
     let accentColor: Color
     let onEdit: () -> Void
+    let onShare: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -235,13 +249,23 @@ private struct ProfileHero: View {
                 }
             }
 
-            Button(action: onEdit) {
-                Label("編集", systemImage: "pencil")
-                    .font(.subheadline.weight(.semibold))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
+            HStack(spacing: 10) {
+                Button(action: onEdit) {
+                    Label("編集", systemImage: "pencil")
+                        .font(.subheadline.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                }
+                .buttonStyle(.bordered)
+
+                Button(action: onShare) {
+                    Label("シェア", systemImage: "square.and.arrow.up")
+                        .font(.subheadline.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                }
+                .buttonStyle(.borderedProminent)
             }
-            .buttonStyle(.bordered)
             .tint(accentColor)
         }
     }

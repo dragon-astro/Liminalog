@@ -58,6 +58,126 @@ enum SeedCoordinator {
         }
     }
 
+    #if DEBUG
+    static func seedDebugFriendsIfNeeded(in context: ModelContext, now: Date = Date()) {
+        let descriptor = FetchDescriptor<Friend>(
+            sortBy: [SortDescriptor(\.createdAt)]
+        )
+        let friends = (try? context.fetch(descriptor)) ?? []
+        guard !friends.contains(where: { $0.userRecordID.hasPrefix("debug.") }) else { return }
+
+        let calendar = Calendar.current
+        let debugFriends = [
+            makeDebugFriend(
+                displayName: "Mika",
+                handle: "@mika",
+                userRecordID: "debug.mika",
+                icon: "leaf.fill",
+                color: "#27AE60",
+                statusTitle: "勉強",
+                statusIcon: "book.closed.fill",
+                statusColor: "#2F80ED",
+                todayScore: 92,
+                yesterdayScore: 76,
+                weekScore: 84,
+                isFavorite: true,
+                updatedAt: calendar.date(byAdding: .minute, value: -8, to: now) ?? now,
+                now: now
+            ),
+            makeDebugFriend(
+                displayName: "Sora",
+                handle: "@sora",
+                userRecordID: "debug.sora",
+                icon: "moon.stars.fill",
+                color: "#6C5CE7",
+                statusTitle: "休憩",
+                statusIcon: "cup.and.saucer.fill",
+                statusColor: "#27AE60",
+                todayScore: 71,
+                yesterdayScore: 88,
+                weekScore: 79,
+                isFavorite: false,
+                updatedAt: calendar.date(byAdding: .minute, value: -21, to: now) ?? now,
+                now: now
+            ),
+            makeDebugFriend(
+                displayName: "Ren",
+                handle: "@ren",
+                userRecordID: "debug.ren",
+                icon: "bolt.fill",
+                color: "#F2994A",
+                statusTitle: "仕事",
+                statusIcon: "briefcase.fill",
+                statusColor: "#6C5CE7",
+                todayScore: 64,
+                yesterdayScore: 58,
+                weekScore: 67,
+                isFavorite: false,
+                updatedAt: calendar.date(byAdding: .minute, value: -37, to: now) ?? now,
+                now: now
+            ),
+            makeDebugFriend(
+                displayName: "Yui",
+                handle: "@yui",
+                userRecordID: "debug.yui",
+                icon: "sparkles",
+                color: "#EB5757",
+                statusTitle: "",
+                statusIcon: "circle.dashed",
+                statusColor: "#8E8E93",
+                todayScore: 38,
+                yesterdayScore: 94,
+                weekScore: 72,
+                isFavorite: false,
+                updatedAt: calendar.date(byAdding: .hour, value: -3, to: now) ?? now,
+                now: now
+            )
+        ]
+
+        debugFriends.forEach(context.insert)
+        try? context.save()
+    }
+
+    private static func makeDebugFriend(
+        displayName: String,
+        handle: String,
+        userRecordID: String,
+        icon: String,
+        color: String,
+        statusTitle: String,
+        statusIcon: String,
+        statusColor: String,
+        todayScore: Double,
+        yesterdayScore: Double,
+        weekScore: Double,
+        isFavorite: Bool,
+        updatedAt: Date,
+        now: Date
+    ) -> Friend {
+        let friend = Friend(
+            displayName: displayName,
+            handle: handle,
+            status: .accepted,
+            inviteCode: "DEBUG-\(displayName.uppercased())",
+            accentColorHex: color,
+            avatarSystemImage: icon,
+            now: now
+        )
+        friend.userRecordID = userRecordID
+        friend.currentStatusTitle = statusTitle
+        friend.currentStatusIcon = statusIcon
+        friend.currentStatusColorHex = statusColor
+        friend.currentStatusUpdatedAt = updatedAt
+        friend.lastSeenAt = updatedAt
+        friend.todayScore = todayScore
+        friend.yesterdayScore = yesterdayScore
+        friend.weekScore = weekScore
+        friend.isFavorite = isFavorite
+        friend.updatedAt = now
+        return friend
+    }
+    #endif
+
     private static func merge(_ duplicate: UserSettings, into primary: UserSettings) {
         if primary.profileDisplayName.isEmpty {
             primary.profileDisplayName = duplicate.profileDisplayName

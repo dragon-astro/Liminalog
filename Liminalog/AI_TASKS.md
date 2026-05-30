@@ -538,9 +538,10 @@ refactor: split plan store
 
 - [x] `Friend` モデル定義 <!-- 担当: Codex, 完了: 2026-05-30。CloudKit実共有前のローカル関係モデルとして、pendingIncoming/pendingOutgoing/accepted/blocked、現在ステータス、短期スコア、招待コード、favoriteを保持 -->
 - [ ] `ShareCoordinator` 実装（CKShare 作成・参加・受諾）<!-- 担当: Codex, 理由: CloudKit 複雑async -->
-- [x] 招待リンク生成・送信 UI <!-- 担当: Codex, 完了: 2026-05-30。11-friends-designに合わせ、ID検索ではなくリンク/QRベースに変更。`liminalog://friend-invite` URL、QR表示、ShareLinkを実装 -->
+- [x] 招待リンク生成・送信 UI <!-- 担当: Codex, 完了: 2026-05-30。11-friends-designに合わせ、ID検索ではなくリンク/QRベースに変更。`liminalog://friend-invite` URL、QR表示、ShareLinkを実装。2026-05-30追記: Instagram/BeRealに倣い、主導線をプロフィール画面の「シェア」へ移動 -->
+- [x] プロフィール画面からのプロフィール共有導線 <!-- 担当: Codex, 完了: 2026-05-30。`ProfileShareSheet` を共通化し、プロフィール画面から自分の招待QR/リンクを共有できるようにした。友達タブは「友達を探す」ではなく、空状態の共有CTAと受信導線に限定 -->
 - [~] 招待受信時のディープリンクハンドリング <!-- 担当: Codex, 進捗: 2026-05-30。URL Scheme登録とRootTab→FriendsViewへの受け渡しを実装。Universal Link/CKShare受諾はDeveloper登録後のShareCoordinatorで追加 -->
-- [x] `FriendsAddView`（リンク/QR招待版）<!-- 担当: Codex, 完了: 2026-05-30。初期仕様のメール/iCloud検索は11-friends-designで廃止し、リンク/QRのみへ変更 -->
+- [x] `FriendsAddView`（受け取った招待入力版）<!-- 担当: Codex, 完了: 2026-05-30。初期仕様のメール/iCloud検索は11-friends-designで廃止。プロフィール共有は `ProfileShareSheet` に分離し、FriendsAddView は受け取ったリンク/コードを pendingIncoming 化する入力に限定 -->
 - [ ] `CKSubscription` 設定（友達のレコード更新監視）<!-- 担当: Codex -->
 - [ ] バックグラウンド通知ハンドラ <!-- 担当: Codex -->
 
@@ -567,6 +568,7 @@ refactor: split plan store
 - [x] `RankingScrollStrip`（横スクロール）<!-- 担当: Codex, 完了: 2026-05-30。FriendsView内に今日/昨日/今週セグメント付き横スクロールランキングを実装 -->
 - [x] 友達プロフィールリスト（達成率・現在ステータス）<!-- 担当: Codex, 完了: 2026-05-30。accepted friendsをカード行で表示し、現在ステータス/対象期間スコア/詳細遷移を実装 -->
 - [x] お気に入り友達の上部固定 <!-- 担当: Codex, 完了: 2026-05-30。accepted friendsのソートでfavoriteを先頭固定し、詳細からtoggle可能 -->
+- [x] DEBUG用の架空フレンドseed <!-- 担当: Codex, 完了: 2026-05-30。`LiminalogSeedDevFriends` UserDefaults または `-LiminalogSeedDevFriends` 起動引数が有効なDEBUGビルドだけ、Mika/Sora/Ren/Yui の4人をローカルに生成。友達0人状態を壊さず、UI確認時だけ利用する -->
 
 ### 8.6 カテゴリマッピング
 
@@ -715,6 +717,7 @@ refactor: split plan store
 
 | 日付 | 担当 | 内容 |
 |---|---|---|
+| 2026-05-30 | Codex | 友達追加導線をInstagram/BeRealに近い「プロフィール → プロフィールをシェア」中心に変更。`ProfileShareSheet` を新設してQR/招待コード/ShareLinkを共通化し、プロフィール画面のシェアボタンと友達タブ空状態から同じ共有カードを開く。友達タブ右上は受け取った招待入力専用にした。DEBUGでは `LiminalogSeedDevFriends` フラグで4人の架空フレンドをseedし、ランキング/現在ステータス/友達リストの見え方をシミュレータ確認できるようにした。 |
 | 2026-05-28 | Codex | Phase 1: `RecordingGridWidget` を追加。Widget Extension 側に最小の SwiftData 共有モデルと App Group 用 ModelContainer を置き、`RecordingGridProvider` がカテゴリセット/カテゴリ/active Chapter を読む。systemSmall は4枠、systemMedium は8枠表示。 |
 | 2026-05-28 | Codex | Phase 1: `StartChapterIntent` / `SelectCategorySetIntent` を実装。Widget 設定でカテゴリセットを選択でき、カテゴリボタンから App Group SwiftData に直接 Chapter を書き込む。書き込み時は active Chapter を収束し、同カテゴリは継続、別カテゴリは直前を終了して新規開始する。 |
 | 2026-05-28 | Codex | Phase 1: `LiminalogWidgetBundle` のメインWidgetを静的な `LiminalogStatusWidget` から `RecordingGridWidget` へ変更。`CategoryGrid` の選択セットは `UserSettings.enabledCategorySetID` にも保存し、Widget 側のデフォルト表示セットとアプリ側の普段使いセットが揃うようにした。 |

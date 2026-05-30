@@ -1,7 +1,5 @@
-import CoreImage.CIFilterBuiltins
 import SwiftData
 import SwiftUI
-import UIKit
 
 struct FriendsView: View {
     @Environment(\.modelContext) private var modelContext
@@ -15,6 +13,7 @@ struct FriendsView: View {
     @State private var clock = TickClock(interval: 30)
     @State private var scorePeriod: FriendScorePeriod = .today
     @State private var isShowingAddFriend = false
+    @State private var isShowingProfileShare = false
     @State private var inviteInitialText = ""
     @State private var selectedFriend: Friend?
 
@@ -109,10 +108,12 @@ struct FriendsView: View {
                 pendingInviteURL = nil
             }) {
                 FriendAddSheet(
-                    ownPayload: ownInvitePayload,
                     initialText: inviteInitialText,
                     onSubmitInvite: addFriendFromInvite
                 )
+            }
+            .sheet(isPresented: $isShowingProfileShare) {
+                ProfileShareSheet(payload: ownInvitePayload)
             }
             .task {
                 ensureUserSettings()
@@ -144,13 +145,13 @@ struct FriendsView: View {
                 inviteInitialText = ""
                 isShowingAddFriend = true
             } label: {
-                Image(systemName: "person.badge.plus")
+                Image(systemName: "link.badge.plus")
                     .font(.headline.weight(.semibold))
                     .frame(width: 42, height: 42)
                     .background(Circle().fill(Color(.secondarySystemGroupedBackground)))
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("友達を追加")
+            .accessibilityLabel("招待を受け取る")
         }
     }
 
@@ -183,7 +184,7 @@ struct FriendsView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("ひとり目を招待")
+                    Text("プロフィールをシェア")
                         .font(.headline.weight(.bold))
                     Text("リンクかQRでつながる")
                         .font(.subheadline)
@@ -192,10 +193,9 @@ struct FriendsView: View {
             }
 
             Button {
-                inviteInitialText = ""
-                isShowingAddFriend = true
+                isShowingProfileShare = true
             } label: {
-                Label("招待を作る", systemImage: "qrcode")
+                Label("プロフィールを共有", systemImage: "square.and.arrow.up")
                     .font(.headline.weight(.semibold))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 13)
@@ -206,6 +206,17 @@ struct FriendsView: View {
                     .foregroundStyle(.white)
             }
             .buttonStyle(.plain)
+
+            Button {
+                inviteInitialText = ""
+                isShowingAddFriend = true
+            } label: {
+                Label("招待を受け取った", systemImage: "link")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 11)
+            }
+            .buttonStyle(.bordered)
         }
         .padding(18)
         .background(
@@ -911,18 +922,15 @@ private struct FriendScoreCard: View {
 private struct FriendAddSheet: View {
     @Environment(\.dismiss) private var dismiss
 
-    let ownPayload: FriendInvitePayload
     let onSubmitInvite: (FriendInvitePayload) -> FriendInviteSubmitResult
 
     @State private var receivedText: String
     @State private var errorText: String?
 
     init(
-        ownPayload: FriendInvitePayload,
         initialText: String,
         onSubmitInvite: @escaping (FriendInvitePayload) -> FriendInviteSubmitResult
     ) {
-        self.ownPayload = ownPayload
         self.onSubmitInvite = onSubmitInvite
         self._receivedText = State(initialValue: initialText)
     }
@@ -931,13 +939,12 @@ private struct FriendAddSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    inviteCard
                     receiveCard
                 }
                 .padding(18)
             }
             .background(Color(.systemGroupedBackground))
-            .navigationTitle("友達を追加")
+            .navigationTitle("招待を受け取る")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -947,52 +954,6 @@ private struct FriendAddSheet: View {
                 }
             }
         }
-    }
-
-    private var inviteCard: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Text("あなたの招待")
-                    .font(.headline.weight(.bold))
-                Spacer()
-                Text(ownPayload.code)
-                    .font(.caption.monospaced().weight(.bold))
-                    .foregroundStyle(.secondary)
-            }
-
-            HStack(spacing: 16) {
-                QRCodeView(url: ownPayload.url)
-                    .frame(width: 116, height: 116)
-
-                VStack(alignment: .leading, spacing: 12) {
-                    Text(ownPayload.displayName)
-                        .font(.title3.weight(.bold))
-                        .lineLimit(1)
-
-                    ShareLink(
-                        item: ownPayload.url,
-                        subject: Text("Liminalogの招待"),
-                        message: Text(ownPayload.shareMessage)
-                    ) {
-                        Label("共有", systemImage: "square.and.arrow.up")
-                            .font(.headline.weight(.semibold))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 11)
-                            .background(
-                                RoundedRectangle(cornerRadius: 13)
-                                    .fill(Color(hex: ownPayload.accentColorHex))
-                            )
-                            .foregroundStyle(.white)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-        }
-        .padding(18)
-        .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(Color(.secondarySystemGroupedBackground))
-        )
     }
 
     private var receiveCard: some View {
@@ -1046,46 +1007,6 @@ private struct FriendAddSheet: View {
         case .failure(let message):
             errorText = message
         }
-    }
-}
-
-private struct QRCodeView: View {
-    let url: URL
-
-    var body: some View {
-        Group {
-            if let image = QRCodeRenderer.image(from: url.absoluteString) {
-                Image(uiImage: image)
-                    .interpolation(.none)
-                    .resizable()
-                    .scaledToFit()
-                    .padding(10)
-                    .background(
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(Color.white)
-                    )
-            } else {
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color(.tertiarySystemGroupedBackground))
-                    .overlay {
-                        Image(systemName: "qrcode")
-                    }
-            }
-        }
-    }
-}
-
-private enum QRCodeRenderer {
-    static func image(from string: String) -> UIImage? {
-        let filter = CIFilter.qrCodeGenerator()
-        filter.message = Data(string.utf8)
-        filter.correctionLevel = "M"
-
-        guard let output = filter.outputImage else { return nil }
-        let scaled = output.transformed(by: CGAffineTransform(scaleX: 10, y: 10))
-        let context = CIContext()
-        guard let cgImage = context.createCGImage(scaled, from: scaled.extent) else { return nil }
-        return UIImage(cgImage: cgImage)
     }
 }
 

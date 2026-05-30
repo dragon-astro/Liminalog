@@ -1,3 +1,4 @@
+import Foundation
 import SwiftData
 
 @Observable
@@ -39,6 +40,13 @@ final class AppStores {
     func bootstrap() -> ChapterStore {
         SeedCoordinator.ensureUserSettings(in: modelContext)
         SeedCoordinator.consolidateBuiltInVisibilityPresets(in: modelContext)
+        #if DEBUG
+        let shouldSeedDevFriends = UserDefaults.standard.bool(forKey: "LiminalogSeedDevFriends")
+            || ProcessInfo.processInfo.arguments.contains("-LiminalogSeedDevFriends")
+        if shouldSeedDevFriends {
+            SeedCoordinator.seedDebugFriendsIfNeeded(in: modelContext)
+        }
+        #endif
         chapterStore.pruneShortChapters()
         chapterStore.seedDefaultCategorySetsIfNeeded()
         return chapterStore
