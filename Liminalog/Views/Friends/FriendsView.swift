@@ -1017,6 +1017,7 @@ private struct FriendProfileHero: View {
                             .foregroundStyle(.yellow)
                     }
                 }
+                .padding(.trailing, 76)
 
                 FriendBadgePill(badge: badge)
 
@@ -1028,11 +1029,6 @@ private struct FriendProfileHero: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .layoutPriority(1)
-
-            HStack(spacing: 8) {
-                FriendProfileActionButton(systemImage: "calendar", label: "カレンダー", action: onCalendar)
-                FriendProfileActionButton(systemImage: friend.isFavorite ? "star.fill" : "star", label: "お気に入り", action: onFavorite)
-            }
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 28)
@@ -1042,6 +1038,15 @@ private struct FriendProfileHero: View {
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
                         .stroke(friend.cardStyle.borderColor(accentColor: accentColor), lineWidth: friend.cardStyle.borderWidth)
                 }
+        }
+        .overlay(alignment: .topTrailing) {
+            HStack(spacing: 8) {
+                FriendProfileActionButton(systemImage: "calendar", label: "カレンダー", action: onCalendar)
+                FriendProfileActionButton(systemImage: friend.isFavorite ? "star.fill" : "star", label: "お気に入り", action: onFavorite)
+            }
+            .padding(.top, 22)
+            .padding(.trailing, 14)
+            .zIndex(2)
         }
     }
 }
@@ -1054,9 +1059,14 @@ private struct FriendProfileActionButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: systemImage)
-                .font(.footnote.weight(.semibold))
-                .frame(width: 30, height: 30)
+                .font(.subheadline.weight(.bold))
+                .frame(width: 44, height: 44)
                 .background(.thinMaterial, in: Circle())
+                .overlay {
+                    Circle()
+                        .stroke(Color.primary.opacity(0.05), lineWidth: 1)
+                }
+                .contentShape(Circle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)
@@ -1197,15 +1207,9 @@ private struct FriendCalendarView: View {
                 ForEach([-1, 0, 1], id: \.self) { offset in
                     let month = pageMonth(offset)
                     VStack(spacing: 0) {
-                        FriendSharedCalendarMonthGrid(
-                            dates: monthGridDates(for: month),
-                            visibleMonth: month,
-                            importantPlans: importantPlans(on:),
-                            allPlans: sharedPlans(on:),
-                            allActivities: sharedActivities(on:),
-                            score: knownScore(on:),
-                            accentColor: Color(hex: friend.accentColorHex),
-                            onOpenDay: { date in
+                        CalendarMonthGrid(
+                            pageData: monthPageData(for: month),
+                            onOpenDay: { date, _ in
                                 selectedDay = FriendSharedCalendarTargetDay(date: date)
                             }
                         )
@@ -1326,11 +1330,6 @@ private struct FriendCalendarView: View {
         return (0..<(weekCount * 7)).compactMap { calendar.date(byAdding: .day, value: $0, to: gridStart) }
     }
 
-    private func importantPlans(on date: Date) -> [FriendSharedPlanSnapshot] {
-        sharedPlans(on: date)
-            .filter(\.showsInCalendarAsImportant)
-    }
-
     private func sharedPlans(on date: Date) -> [FriendSharedPlanSnapshot] {
         friend.sharedPlans
             .filter { $0.overlaps(day: date) }
@@ -1342,15 +1341,41 @@ private struct FriendCalendarView: View {
             }
     }
 
-    private func sharedActivities(on date: Date) -> [FriendSharedActivitySnapshot] {
-        friend.sharedActivities
-            .filter { $0.overlaps(day: date) }
-            .sorted {
-                if $0.startTime == $1.startTime {
-                    return $0.updatedAt < $1.updatedAt
-                }
-                return $0.startTime < $1.startTime
+    private func monthPageData(for month: Date) -> CalendarMonthPageData {
+        let dates = monthGridDates(for: month)
+        var importantPlansByDay: [Date: [CalendarDisplayPlan]] = [:]
+        var scoreSummariesByDay: [Date: CalendarDisplayScore] = [:]
+
+        for date in dates {
+            let dayStart = calendar.startOfDay(for: date)
+            importantPlansByDay[dayStart] = sharedPlans(on: date)
+                .filter(\.showsInCalendarAsImportant)
+                .map(displayPlan(from:))
+            if let score = knownScore(on: date) {
+                scoreSummariesByDay[dayStart] = CalendarDisplayScore(value: score.value, hasData: score.hasSharedData)
+            } else {
+                scoreSummariesByDay[dayStart] = CalendarDisplayScore(value: 0, hasData: false)
             }
+        }
+
+        return CalendarMonthPageData(
+            dates: dates,
+            visibleMonth: month,
+            importantPlansByDay: importantPlansByDay,
+            scoreSummariesByDay: scoreSummariesByDay
+        )
+    }
+
+    private func displayPlan(from plan: FriendSharedPlanSnapshot) -> CalendarDisplayPlan {
+        CalendarDisplayPlan(
+            id: plan.id,
+            title: plan.title,
+            startTime: plan.startTime,
+            endTime: plan.endTime,
+            isAllDay: plan.isAllDay,
+            categoryColorHex: plan.categoryColorHex,
+            createdAt: plan.updatedAt
+        )
     }
 
     private func prepareMonthPicker() {
@@ -1462,517 +1487,6 @@ private struct FriendSharedCalendarDayPagerSheet: View {
                 selectedOffset = 0
             }
         }
-    }
-}
-
-private struct FriendSharedCalendarMonthGrid: View {
-    let dates: [Date]
-    let visibleMonth: Date
-    let importantPlans: (Date) -> [FriendSharedPlanSnapshot]
-    let allPlans: (Date) -> [FriendSharedPlanSnapshot]
-    let allActivities: (Date) -> [FriendSharedActivitySnapshot]
-    let score: (Date) -> FriendCalendarScore?
-    let accentColor: Color
-    let onOpenDay: (Date) -> Void
-
-    private let spacing: CGFloat = 1
-
-    var body: some View {
-        VStack(spacing: spacing) {
-            ForEach(Array(weekDates.enumerated()), id: \.offset) { _, week in
-                FriendSharedCalendarWeekRow(
-                    dates: week,
-                    visibleMonth: visibleMonth,
-                    importantPlans: importantPlans,
-                    allPlans: allPlans,
-                    allActivities: allActivities,
-                    score: score,
-                    accentColor: accentColor,
-                    onOpenDay: onOpenDay,
-                    spacing: spacing,
-                    cellHeight: cellHeight
-                )
-            }
-        }
-        .background(Color(.separator).opacity(0.32))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(Color(.separator).opacity(0.28), lineWidth: 1)
-        )
-    }
-
-    private var weekDates: [[Date]] {
-        stride(from: 0, to: dates.count, by: 7).map { start in
-            Array(dates[start..<min(start + 7, dates.count)])
-        }
-    }
-
-    private var cellHeight: CGFloat {
-        CalendarMonthDayCell.cellHeight(forWeekCount: weekDates.count)
-    }
-}
-
-private struct FriendSharedCalendarWeekRow: View {
-    let dates: [Date]
-    let visibleMonth: Date
-    let importantPlans: (Date) -> [FriendSharedPlanSnapshot]
-    let allPlans: (Date) -> [FriendSharedPlanSnapshot]
-    let allActivities: (Date) -> [FriendSharedActivitySnapshot]
-    let score: (Date) -> FriendCalendarScore?
-    let accentColor: Color
-    let onOpenDay: (Date) -> Void
-    let spacing: CGFloat
-    let cellHeight: CGFloat
-
-    @AppStorage("calendarPlanTitleFontSize") private var planTitleFontSize = 6.0
-
-    private let calendar = Calendar.japanese
-
-    var body: some View {
-        ZStack(alignment: .topLeading) {
-            HStack(spacing: spacing) {
-                ForEach(dates, id: \.self) { date in
-                    Button {
-                        onOpenDay(date)
-                    } label: {
-                        FriendSharedCalendarDayCell(
-                            date: date,
-                            visibleMonth: visibleMonth,
-                            plans: importantPlans(date),
-                            reservedPlanRows: visibleMultiDayPlans.count,
-                            score: score(date),
-                            accentColor: accentColor,
-                            cellHeight: cellHeight
-                        )
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-
-            GeometryReader { proxy in
-                ForEach(Array(visibleMultiDayPlans.enumerated()), id: \.element.id) { lane, plan in
-                    if let frame = segmentFrame(for: plan, in: proxy.size, lane: lane) {
-                        Button {
-                            onOpenDay(plan.startTime)
-                        } label: {
-                            FriendSharedMultiDayPlanBar(
-                                plan: plan,
-                                roundsLeading: roundsLeadingEdge(for: plan),
-                                roundsTrailing: roundsTrailingEdge(for: plan)
-                            )
-                        }
-                        .buttonStyle(.plain)
-                        .frame(width: frame.width, height: labelHeight)
-                        .position(x: frame.midX, y: frame.midY)
-                    }
-                }
-            }
-            .frame(height: cellHeight)
-        }
-        .frame(height: cellHeight)
-    }
-
-    private var visibleMultiDayPlans: [FriendSharedPlanSnapshot] {
-        let plans = multiDayPlans
-        guard plans.count > maxVisiblePlanRows else { return plans }
-        return Array(plans.prefix(maxVisiblePlanRows))
-    }
-
-    private var multiDayPlans: [FriendSharedPlanSnapshot] {
-        var seenIDs = Set<UUID>()
-        return dates
-            .flatMap { importantPlans($0) }
-            .filter(\.spansMultipleCalendarDays)
-            .filter { plan in
-                guard !seenIDs.contains(plan.id) else { return false }
-                seenIDs.insert(plan.id)
-                return true
-            }
-            .sorted {
-                if $0.startTime == $1.startTime {
-                    return $0.updatedAt < $1.updatedAt
-                }
-                return $0.startTime < $1.startTime
-            }
-    }
-
-    private func segmentFrame(for plan: FriendSharedPlanSnapshot, in size: CGSize, lane: Int) -> CGRect? {
-        guard let weekStart = dates.first.map(calendar.startOfDay(for:)),
-              let lastDate = dates.last,
-              let weekEnd = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: lastDate))
-        else { return nil }
-
-        let startIndex = max(0, calendar.dateComponents([.day], from: weekStart, to: max(calendar.startOfDay(for: plan.startTime), weekStart)).day ?? 0)
-        let endIndex = min(7, exclusiveDayIndex(for: min(plan.endTime, weekEnd), from: weekStart))
-        guard endIndex > startIndex else { return nil }
-
-        let columnWidth = (size.width - spacing * 6) / 7
-        let x = CGFloat(startIndex) * (columnWidth + spacing) + 3
-        let width = CGFloat(endIndex - startIndex) * columnWidth + CGFloat(endIndex - startIndex - 1) * spacing - 6
-        let y = planListTop + CGFloat(lane) * rowStride
-        return CGRect(x: x, y: y, width: max(width, 2), height: labelHeight)
-    }
-
-    private func exclusiveDayIndex(for end: Date, from weekStart: Date) -> Int {
-        let endDay = calendar.startOfDay(for: end)
-        let exclusiveEndDay: Date
-        if abs(end.timeIntervalSince(endDay)) < 0.001 {
-            exclusiveEndDay = endDay
-        } else {
-            exclusiveEndDay = calendar.date(byAdding: .day, value: 1, to: endDay) ?? endDay
-        }
-        return calendar.dateComponents([.day], from: weekStart, to: exclusiveEndDay).day ?? 0
-    }
-
-    private func roundsLeadingEdge(for plan: FriendSharedPlanSnapshot) -> Bool {
-        guard let weekStart = dates.first.map(calendar.startOfDay(for:)) else { return true }
-        return plan.startTime >= weekStart
-    }
-
-    private func roundsTrailingEdge(for plan: FriendSharedPlanSnapshot) -> Bool {
-        guard let lastDate = dates.last,
-              let weekEnd = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: lastDate))
-        else { return true }
-        return plan.endTime <= weekEnd
-    }
-
-    private var maxVisiblePlanRows: Int {
-        let verticalPadding: CGFloat = 8
-        let headerHeight: CGFloat = 22
-        let headerToPlansSpacing: CGFloat = 4
-        let availableHeight = cellHeight - verticalPadding - headerHeight - headerToPlansSpacing
-        return max(Int((availableHeight + planRowSpacing) / rowStride), 0)
-    }
-
-    private var planListTop: CGFloat { 4 + 22 + 4 }
-    private var labelHeight: CGFloat { max(11, CGFloat(planTitleFontSize) + 5) }
-    private var planRowSpacing: CGFloat { 2 }
-    private var rowStride: CGFloat { labelHeight + planRowSpacing }
-}
-
-private struct FriendSharedCalendarDayCell: View {
-    let date: Date
-    let visibleMonth: Date
-    let plans: [FriendSharedPlanSnapshot]
-    let reservedPlanRows: Int
-    let score: FriendCalendarScore?
-    let accentColor: Color
-    let cellHeight: CGFloat
-
-    @AppStorage("calendarPlanTitleFontSize") private var planTitleFontSize = 6.0
-
-    private var isToday: Bool {
-        Calendar.japanese.isDateInToday(date)
-    }
-
-    private var isInVisibleMonth: Bool {
-        Calendar.japanese.isDate(date, equalTo: visibleMonth, toGranularity: .month)
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Text("\(Calendar.japanese.component(.day, from: date))")
-                    .font(.caption.weight(isToday ? .bold : .semibold))
-                    .foregroundStyle(isToday ? .white : dateNumberColor)
-                    .frame(width: 22, height: 22)
-                    .background {
-                        if isToday {
-                            Circle().fill(Color.accentColor)
-                        }
-                    }
-
-                Spacer(minLength: 0)
-
-                FriendCalendarScoreBadge(score: score)
-            }
-
-            VStack(alignment: .leading, spacing: 2) {
-                if reservedPlanRows > 0 {
-                    Color.clear
-                        .frame(height: CGFloat(reservedPlanRows) * rowStride)
-                }
-
-                ForEach(visibleSingleDayPlans) { plan in
-                    FriendSharedPlanLabel(plan: plan, date: date)
-                }
-
-                let overflow = max(singleDayPlans.count - visibleSingleDayPlans.count, 0)
-                if overflow > 0 {
-                    Text("+\(overflow)件")
-                        .font(.system(size: 6, weight: .regular))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-            }
-
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, 3)
-        .padding(.vertical, 4)
-        .frame(maxWidth: .infinity, minHeight: cellHeight, alignment: .topLeading)
-        .background(
-            Rectangle()
-                .fill(isInVisibleMonth ? Color(.secondarySystemGroupedBackground) : Color(.tertiarySystemGroupedBackground).opacity(0.5))
-        )
-        .overlay(
-            Rectangle()
-                .stroke(isToday ? Color.accentColor : Color.clear, lineWidth: isToday ? 2.5 : 0)
-        )
-        .opacity(isInVisibleMonth ? 1 : 0.48)
-    }
-
-    private var dateNumberColor: Color {
-        let weekday = Calendar.japanese.component(.weekday, from: date)
-        if weekday == 1 { return .red }
-        if weekday == 7 { return .blue }
-        return .primary
-    }
-
-    private var singleDayPlans: [FriendSharedPlanSnapshot] {
-        plans.filter { !$0.spansMultipleCalendarDays }
-    }
-
-    private var visibleSingleDayPlans: [FriendSharedPlanSnapshot] {
-        let capacity = maxVisiblePlanRows
-        guard capacity > 0 else { return [] }
-        guard singleDayPlans.count > capacity else { return singleDayPlans }
-        return Array(singleDayPlans.prefix(max(capacity - 1, 0)))
-    }
-
-    private var maxVisiblePlanRows: Int {
-        let verticalPadding: CGFloat = 8
-        let headerHeight: CGFloat = 22
-        let headerToPlansSpacing: CGFloat = 4
-        let availableHeight = cellHeight - verticalPadding - headerHeight - headerToPlansSpacing
-        return max(Int((availableHeight + planRowSpacing) / rowStride) - reservedPlanRows, 0)
-    }
-
-    private var labelHeight: CGFloat { max(11, CGFloat(planTitleFontSize) + 5) }
-    private var planRowSpacing: CGFloat { 2 }
-    private var rowStride: CGFloat { labelHeight + planRowSpacing }
-}
-
-private struct FriendCalendarScoreBadge: View {
-    let score: FriendCalendarScore?
-
-    var body: some View {
-        Text(scoreText)
-            .font(.system(size: 9, weight: .bold, design: .rounded))
-            .foregroundStyle(scoreColor)
-            .monospacedDigit()
-            .frame(minWidth: 21, minHeight: 17)
-            .padding(.horizontal, 3)
-            .background(Capsule().fill(scoreColor.opacity(score == nil ? 0.08 : 0.12)))
-            .overlay(Capsule().stroke(scoreColor.opacity(score == nil ? 0.14 : 0.24), lineWidth: 1))
-    }
-
-    private var scoreText: String {
-        guard let score, score.hasSharedData else { return "-" }
-        return "\(Int(score.value.rounded()))"
-    }
-
-    private var scoreColor: Color {
-        guard let score, score.hasSharedData else { return .secondary }
-        switch score.value {
-        case 85...:
-            return .green
-        case 65..<85:
-            return .teal
-        case 40..<65:
-            return .orange
-        case 1..<40:
-            return .red
-        default:
-            return .secondary
-        }
-    }
-}
-
-private struct FriendSharedPlanLabel: View {
-    let plan: FriendSharedPlanSnapshot
-    let date: Date
-
-    @AppStorage("calendarTimedPlanLabelStyle") private var timedPlanLabelStyleRaw = CalendarPlanLabelStyle.background.rawValue
-    @AppStorage("calendarAllDayPlanLabelStyle") private var allDayPlanLabelStyleRaw = CalendarPlanLabelStyle.background.rawValue
-    @AppStorage("calendarPlanTitleFontSize") private var titleFontSize = 6.0
-    @AppStorage("calendarPlanTitleBold") private var titleBold = false
-    @AppStorage("calendarDimPastPlans") private var dimPastPlans = true
-    @AppStorage("calendarStrikePastPlans") private var strikePastPlans = false
-
-    var body: some View {
-        HStack(spacing: 3) {
-            if let timePrefix {
-                Text(timePrefix)
-                    .font(.system(size: timeFontSize, weight: .medium, design: .rounded))
-                    .foregroundStyle(timeColor)
-                    .monospacedDigit()
-                    .lineLimit(1)
-                    .fixedSize(horizontal: true, vertical: false)
-                    .strikethrough(shouldStrikePastPlan, color: timeColor)
-            }
-
-            Color.clear
-                .overlay(alignment: .leading) {
-                    Text(plan.title)
-                        .font(.system(size: titleFontSize, weight: titleBold ? .bold : .regular))
-                        .foregroundStyle(titleColor)
-                        .lineLimit(1)
-                        .fixedSize(horizontal: true, vertical: false)
-                        .strikethrough(shouldStrikePastPlan, color: titleColor)
-                }
-                .clipped()
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(height: labelHeight)
-        .padding(.horizontal, 3)
-        .background(backgroundShape)
-        .overlay(borderShape)
-        .padding(.leading, continuesFromPreviousDay ? -3 : 0)
-        .padding(.trailing, continuesToNextDay ? -3 : 0)
-        .opacity(isPastPlan && dimPastPlans ? 0.38 : 1)
-    }
-
-    @ViewBuilder
-    private var backgroundShape: some View {
-        if labelStyle == .background {
-            FriendCalendarContinuationShape(
-                roundsLeading: !continuesFromPreviousDay,
-                roundsTrailing: !continuesToNextDay
-            )
-            .fill(color.opacity(0.14))
-        }
-    }
-
-    @ViewBuilder
-    private var borderShape: some View {
-        if labelStyle == .background {
-            FriendCalendarContinuationShape(
-                roundsLeading: !continuesFromPreviousDay,
-                roundsTrailing: !continuesToNextDay
-            )
-            .stroke(color.opacity(0.24), lineWidth: 0.7)
-        } else if labelStyle == .underline {
-            Rectangle()
-                .fill(color.opacity(0.28))
-                .frame(height: markerHeight)
-                .frame(maxHeight: .infinity, alignment: .bottom)
-                .padding(.bottom, markerBottomPadding)
-        }
-    }
-
-    private var color: Color { Color(hex: plan.categoryColorHex) }
-    private var labelStyle: CalendarPlanLabelStyle {
-        let rawValue = plan.isAllDay ? allDayPlanLabelStyleRaw : timedPlanLabelStyleRaw
-        return CalendarPlanLabelStyle(rawValue: rawValue) ?? .background
-    }
-    private var titleColor: Color { labelStyle == .background ? .primary : color }
-    private var timeColor: Color { labelStyle == .background ? .secondary : color.opacity(0.75) }
-    private var timeFontSize: Double { max(4, titleFontSize - 1) }
-    private var labelHeight: CGFloat { max(11, CGFloat(titleFontSize) + 5) }
-    private var markerHeight: CGFloat { max(4, CGFloat(titleFontSize) * 0.5) }
-    private var markerBottomPadding: CGFloat { max(1, CGFloat(titleFontSize) * 0.08) }
-    private var isPastPlan: Bool { min(plan.endTime, dayEnd) <= Date() }
-    private var shouldStrikePastPlan: Bool { isPastPlan && strikePastPlans }
-    private var dayStart: Date { Calendar.japanese.startOfDay(for: date) }
-    private var dayEnd: Date { Calendar.japanese.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart }
-    private var continuesFromPreviousDay: Bool { plan.startTime < dayStart }
-    private var continuesToNextDay: Bool { plan.endTime > dayEnd }
-    private var timePrefix: String? {
-        if plan.isAllDay || continuesFromPreviousDay { return nil }
-        return plan.startTime.shortTime
-    }
-}
-
-private struct FriendSharedMultiDayPlanBar: View {
-    let plan: FriendSharedPlanSnapshot
-    let roundsLeading: Bool
-    let roundsTrailing: Bool
-
-    @AppStorage("calendarMultiDayPlanLabelStyle") private var multiDayPlanLabelStyleRaw = CalendarPlanLabelStyle.background.rawValue
-    @AppStorage("calendarPlanTitleFontSize") private var titleFontSize = 6.0
-    @AppStorage("calendarPlanTitleBold") private var titleBold = false
-    @AppStorage("calendarDimPastPlans") private var dimPastPlans = true
-    @AppStorage("calendarStrikePastPlans") private var strikePastPlans = false
-
-    var body: some View {
-        Color.clear
-            .overlay {
-                Text(plan.title)
-                    .font(.system(size: titleFontSize, weight: titleBold ? .bold : .regular))
-                    .foregroundStyle(titleColor)
-                    .lineLimit(1)
-                    .fixedSize(horizontal: true, vertical: false)
-                    .strikethrough(isPastPlan && strikePastPlans, color: titleColor)
-            }
-            .background(backgroundShape)
-            .overlay(decorationOverlay)
-            .clipped()
-            .opacity(isPastPlan && dimPastPlans ? 0.38 : 1)
-    }
-
-    @ViewBuilder
-    private var backgroundShape: some View {
-        if labelStyle == .background {
-            FriendCalendarContinuationShape(roundsLeading: roundsLeading, roundsTrailing: roundsTrailing)
-                .fill(color.opacity(0.14))
-        }
-    }
-
-    @ViewBuilder
-    private var decorationOverlay: some View {
-        if labelStyle == .background {
-            FriendCalendarContinuationShape(roundsLeading: roundsLeading, roundsTrailing: roundsTrailing)
-                .stroke(color.opacity(0.24), lineWidth: 0.7)
-        } else if labelStyle == .underline {
-            Rectangle()
-                .fill(color.opacity(0.28))
-                .frame(height: markerHeight)
-                .frame(maxHeight: .infinity, alignment: .bottom)
-                .padding(.bottom, markerBottomPadding)
-        }
-    }
-
-    private var labelStyle: CalendarPlanLabelStyle {
-        CalendarPlanLabelStyle(rawValue: multiDayPlanLabelStyleRaw) ?? .background
-    }
-    private var color: Color { Color(hex: plan.categoryColorHex) }
-    private var titleColor: Color { labelStyle == .background ? .primary : color }
-    private var markerHeight: CGFloat { max(4, CGFloat(titleFontSize) * 0.5) }
-    private var markerBottomPadding: CGFloat { max(1, CGFloat(titleFontSize) * 0.08) }
-    private var isPastPlan: Bool { plan.endTime <= Date() }
-}
-
-private struct FriendCalendarContinuationShape: Shape {
-    let roundsLeading: Bool
-    let roundsTrailing: Bool
-
-    func path(in rect: CGRect) -> Path {
-        let radius = min(rect.height / 2, 4)
-        let leadingRadius = roundsLeading ? radius : 0
-        let trailingRadius = roundsTrailing ? radius : 0
-
-        var path = Path()
-        path.move(to: CGPoint(x: rect.minX + leadingRadius, y: rect.minY))
-        path.addLine(to: CGPoint(x: rect.maxX - trailingRadius, y: rect.minY))
-        if trailingRadius > 0 {
-            path.addQuadCurve(to: CGPoint(x: rect.maxX, y: rect.minY + trailingRadius), control: CGPoint(x: rect.maxX, y: rect.minY))
-        }
-        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - trailingRadius))
-        if trailingRadius > 0 {
-            path.addQuadCurve(to: CGPoint(x: rect.maxX - trailingRadius, y: rect.maxY), control: CGPoint(x: rect.maxX, y: rect.maxY))
-        }
-        path.addLine(to: CGPoint(x: rect.minX + leadingRadius, y: rect.maxY))
-        if leadingRadius > 0 {
-            path.addQuadCurve(to: CGPoint(x: rect.minX, y: rect.maxY - leadingRadius), control: CGPoint(x: rect.minX, y: rect.maxY))
-        }
-        path.addLine(to: CGPoint(x: rect.minX, y: rect.minY + leadingRadius))
-        if leadingRadius > 0 {
-            path.addQuadCurve(to: CGPoint(x: rect.minX + leadingRadius, y: rect.minY), control: CGPoint(x: rect.minX, y: rect.minY))
-        }
-        path.closeSubpath()
-        return path
     }
 }
 

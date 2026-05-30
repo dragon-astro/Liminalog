@@ -204,8 +204,8 @@ struct CalendarView: View {
             .filter { $0.startTime < gridEnd && ($0.endTime ?? clock.now) > gridStart }
             .sorted { $0.startTime < $1.startTime }
 
-        var importantPlansByDay: [Date: [PlanBlock]] = [:]
-        var scoreSummariesByDay: [Date: ScoreSummary] = [:]
+        var importantPlansByDay: [Date: [CalendarDisplayPlan]] = [:]
+        var scoreSummariesByDay: [Date: CalendarDisplayScore] = [:]
 
         for date in dates {
             let boundary = DayBoundary(date: date, calendar: calendar)
@@ -216,12 +216,15 @@ struct CalendarView: View {
             importantPlansByDay[boundary.dayStart] = dayPlans
                 .filter(\.showsInCalendarAsImportant)
                 .sorted(by: planSort)
-            scoreSummariesByDay[boundary.dayStart] = ScoreCalculator.summary(
-                date: date,
-                plans: dayPlans,
-                chapters: dayChapters,
-                calendar: calendar,
-                now: clock.now
+                .map(CalendarDisplayPlan.init(plan:))
+            scoreSummariesByDay[boundary.dayStart] = CalendarDisplayScore(
+                summary: ScoreCalculator.summary(
+                    date: date,
+                    plans: dayPlans,
+                    chapters: dayChapters,
+                    calendar: calendar,
+                    now: clock.now
+                )
             )
         }
 
@@ -1129,14 +1132,87 @@ struct CalendarWeekdayHeader: View {
     }
 }
 
-private struct CalendarMonthPageData {
-    let dates: [Date]
-    let visibleMonth: Date
-    let importantPlansByDay: [Date: [PlanBlock]]
-    let scoreSummariesByDay: [Date: ScoreSummary]
+struct CalendarDisplayScore: Hashable {
+    let value: Double
+    let hasData: Bool
+
+    init(value: Double, hasData: Bool) {
+        self.value = value
+        self.hasData = hasData
+    }
+
+    init(summary: ScoreSummary) {
+        self.value = summary.totalScore
+        self.hasData = summary.plannedDuration > 0
+    }
 }
 
-private struct CalendarMonthGrid: View {
+struct CalendarDisplayPlan: Identifiable, Hashable {
+    let id: UUID
+    let title: String
+    let startTime: Date
+    let endTime: Date
+    let isAllDay: Bool
+    let categoryColorHex: String
+    let createdAt: Date
+
+    init(
+        id: UUID,
+        title: String,
+        startTime: Date,
+        endTime: Date,
+        isAllDay: Bool,
+        categoryColorHex: String,
+        createdAt: Date
+    ) {
+        self.id = id
+        self.title = title
+        self.startTime = startTime
+        self.endTime = endTime
+        self.isAllDay = isAllDay
+        self.categoryColorHex = categoryColorHex
+        self.createdAt = createdAt
+    }
+
+    init(plan: PlanBlock) {
+        self.init(
+            id: plan.id,
+            title: plan.title,
+            startTime: plan.startTime,
+            endTime: plan.endTime,
+            isAllDay: plan.isAllDay,
+            categoryColorHex: plan.category?.colorHex ?? "#2F80ED",
+            createdAt: plan.createdAt
+        )
+    }
+
+    var color: Color {
+        Color(hex: categoryColorHex)
+    }
+
+    var spansMultipleCalendarDays: Bool {
+        let calendar = Calendar.japanese
+        let startDay = calendar.startOfDay(for: startTime)
+        let endReference = isAllDay ? endTime.addingTimeInterval(-1) : endTime.addingTimeInterval(-0.001)
+        return !calendar.isDate(startDay, inSameDayAs: endReference)
+    }
+
+    func overlaps(day: Date) -> Bool {
+        let calendar = Calendar.japanese
+        let dayStart = calendar.startOfDay(for: day)
+        let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart
+        return startTime < dayEnd && endTime > dayStart
+    }
+}
+
+struct CalendarMonthPageData {
+    let dates: [Date]
+    let visibleMonth: Date
+    let importantPlansByDay: [Date: [CalendarDisplayPlan]]
+    let scoreSummariesByDay: [Date: CalendarDisplayScore]
+}
+
+struct CalendarMonthGrid: View {
     let pageData: CalendarMonthPageData
     let onOpenDay: (Date, UUID?) -> Void
 
@@ -1179,8 +1255,8 @@ private struct CalendarMonthGrid: View {
 private struct CalendarMonthWeekRow: View {
     let dates: [Date]
     let visibleMonth: Date
-    let importantPlansByDay: [Date: [PlanBlock]]
-    let scoreSummariesByDay: [Date: ScoreSummary]
+    let importantPlansByDay: [Date: [CalendarDisplayPlan]]
+    let scoreSummariesByDay: [Date: CalendarDisplayScore]
     let onOpenDay: (Date, UUID?) -> Void
     let spacing: CGFloat
     let cellHeight: CGFloat
@@ -1232,14 +1308,14 @@ private struct CalendarMonthWeekRow: View {
         .frame(height: cellHeight)
     }
 
-    private var visibleMultiDayPlans: [PlanBlock] {
+    private var visibleMultiDayPlans: [CalendarDisplayPlan] {
         let capacity = maxVisiblePlanRows
         let plans = multiDayPlans
         guard plans.count > capacity else { return plans }
         return Array(plans.prefix(max(capacity, 0)))
     }
 
-    private var multiDayPlans: [PlanBlock] {
+    private var multiDayPlans: [CalendarDisplayPlan] {
         var seenIDs = Set<UUID>()
         return dates
             .flatMap { importantPlans(on: $0) }
@@ -1257,23 +1333,15 @@ private struct CalendarMonthWeekRow: View {
             }
     }
 
-    private func importantPlans(on date: Date) -> [PlanBlock] {
+    private func importantPlans(on date: Date) -> [CalendarDisplayPlan] {
         importantPlansByDay[calendar.startOfDay(for: date)] ?? []
     }
 
-    private func scoreSummary(on date: Date) -> ScoreSummary {
-        scoreSummariesByDay[calendar.startOfDay(for: date)] ?? ScoreSummary(
-            date: date,
-            categoryScore: 0,
-            timelineScore: 0,
-            totalScore: 0,
-            plannedDuration: 0,
-            recordedDuration: 0,
-            matchedDuration: 0
-        )
+    private func scoreSummary(on date: Date) -> CalendarDisplayScore {
+        scoreSummariesByDay[calendar.startOfDay(for: date)] ?? CalendarDisplayScore(value: 0, hasData: false)
     }
 
-    private func segmentFrame(for plan: PlanBlock, in size: CGSize, lane: Int) -> CGRect? {
+    private func segmentFrame(for plan: CalendarDisplayPlan, in size: CGSize, lane: Int) -> CGRect? {
         guard let weekStart = dates.first.map(calendar.startOfDay(for:)),
               let lastDate = dates.last,
               let weekEnd = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: lastDate))
@@ -1303,12 +1371,12 @@ private struct CalendarMonthWeekRow: View {
         return calendar.dateComponents([.day], from: weekStart, to: exclusiveEndDay).day ?? 0
     }
 
-    private func roundsLeadingEdge(for plan: PlanBlock) -> Bool {
+    private func roundsLeadingEdge(for plan: CalendarDisplayPlan) -> Bool {
         guard let weekStart = dates.first.map(calendar.startOfDay(for:)) else { return true }
         return plan.startTime >= weekStart
     }
 
-    private func roundsTrailingEdge(for plan: PlanBlock) -> Bool {
+    private func roundsTrailingEdge(for plan: CalendarDisplayPlan) -> Bool {
         guard let lastDate = dates.last,
               let weekEnd = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: lastDate))
         else {
@@ -1349,9 +1417,9 @@ struct CalendarMonthDayCell: View {
 
     let date: Date
     let visibleMonth: Date
-    let importantPlans: [PlanBlock]
+    let importantPlans: [CalendarDisplayPlan]
     let reservedPlanRows: Int
-    let scoreSummary: ScoreSummary
+    let scoreSummary: CalendarDisplayScore
     let cellHeight: CGFloat
 
     @AppStorage("calendarPlanTitleFontSize") private var planTitleFontSize = 6.0
@@ -1428,11 +1496,11 @@ struct CalendarMonthDayCell: View {
         return .primary
     }
 
-    private var singleDayImportantPlans: [PlanBlock] {
+    private var singleDayImportantPlans: [CalendarDisplayPlan] {
         importantPlans.filter { !$0.spansMultipleCalendarDays }
     }
 
-    private var visibleImportantPlans: [PlanBlock] {
+    private var visibleImportantPlans: [CalendarDisplayPlan] {
         let capacity = maxVisiblePlanRows
         guard capacity > 0 else { return [] }
         guard singleDayImportantPlans.count > capacity else {
@@ -1464,7 +1532,7 @@ struct CalendarMonthDayCell: View {
 }
 
 private struct CalendarScoreBadge: View {
-    let summary: ScoreSummary
+    let summary: CalendarDisplayScore
 
     @ViewBuilder
     var body: some View {
@@ -1476,30 +1544,30 @@ private struct CalendarScoreBadge: View {
             .padding(.horizontal, 3)
             .background(
                 Capsule()
-                    .fill(scoreColor.opacity(summary.plannedDuration > 0 ? 0.12 : 0.08))
+                    .fill(scoreColor.opacity(summary.hasData ? 0.12 : 0.08))
             )
             .overlay(
                 Capsule()
-                    .stroke(scoreColor.opacity(summary.plannedDuration > 0 ? 0.24 : 0.14), lineWidth: 1)
+                    .stroke(scoreColor.opacity(summary.hasData ? 0.24 : 0.14), lineWidth: 1)
             )
             .accessibilityLabel(accessibilityText)
     }
 
     private var scoreText: String {
-        guard summary.plannedDuration > 0 else { return "-" }
-        return "\(Int(summary.totalScore.rounded()))"
+        guard summary.hasData else { return "-" }
+        return "\(Int(summary.value.rounded()))"
     }
 
     private var accessibilityText: String {
-        guard summary.plannedDuration > 0 else { return "スコアなし" }
-        return "スコア \(Int(summary.totalScore.rounded()))"
+        guard summary.hasData else { return "スコアなし" }
+        return "スコア \(Int(summary.value.rounded()))"
     }
 
     private var scoreColor: Color {
-        guard summary.plannedDuration > 0 else {
+        guard summary.hasData else {
             return .secondary
         }
-        switch summary.totalScore {
+        switch summary.value {
         case 85...:
             return .green
         case 65..<85:
@@ -1515,7 +1583,7 @@ private struct CalendarScoreBadge: View {
 }
 
 private struct CalendarImportantPlanLabel: View {
-    let plan: PlanBlock
+    let plan: CalendarDisplayPlan
     let date: Date
 
     @AppStorage("calendarTimedPlanLabelStyle") private var timedPlanLabelStyleRaw = CalendarPlanLabelStyle.background.rawValue
@@ -1592,7 +1660,7 @@ private struct CalendarImportantPlanLabel: View {
     }
 
     private var color: Color {
-        plan.category?.color ?? Color.accentColor
+        plan.color
     }
 
     private var labelStyle: CalendarPlanLabelStyle {
@@ -1657,7 +1725,7 @@ private struct CalendarImportantPlanLabel: View {
 }
 
 private struct CalendarMultiDayPlanBar: View {
-    let plan: PlanBlock
+    let plan: CalendarDisplayPlan
     let roundsLeading: Bool
     let roundsTrailing: Bool
 
@@ -1717,7 +1785,7 @@ private struct CalendarMultiDayPlanBar: View {
     }
 
     private var color: Color {
-        plan.category?.color ?? Color.accentColor
+        plan.color
     }
 
     private var titleColor: Color {

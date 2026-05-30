@@ -276,4 +276,7 @@
 
 - 友達デイビューのタイムラインは `TimelineDisplaySnapshot` → `SharedTimelineReadOnlyView` に移行済み。
 - これにより友達側の24時間バー、カード、時間レール、ギャップ表示は Today/Timeline の正準実装を使う。
-- 友達月カレンダーと友達プロフィールHero/Stats/Collectionは、まだ暫定forkのまま。次段階で同じ表示用ViewModel方針へ寄せる。
+- 友達月カレンダーは `FriendSharedPlanSnapshot` を `CalendarDisplayPlan`、友達スコアを `CalendarDisplayScore` へ変換し、正準 `CalendarMonthGrid` に移行済み。
+- これにより月グリッド、週行、日セル、複数日バー、予定ラベル、スコアバッジは自分/友達で同一実装を使う。
+- 友達プロフィールカード右上のカレンダー/お気に入りは44ptタップ領域にし、カード装飾より前面に置く。詳細から友達カレンダーへ入る導線なので、装飾やテキストレイアウト変更時にヒット判定を潰さないこと。
+- 友達プロフィールHero/Stats/Collectionは、まだ暫定forkのまま。自分用プロフィールと操作差（編集/共有 vs カレンダー/お気に入り/管理）が大きいため、次段階で「見た目だけ共有し、操作は注入する」境界を決めてから寄せる。
