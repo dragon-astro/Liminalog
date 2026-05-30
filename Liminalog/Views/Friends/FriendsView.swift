@@ -1948,6 +1948,7 @@ private struct FriendSharedCalendarDayView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 header
+                importantPlansCard
                 scoreCard
                 FriendSharedTimelineView(
                     date: date,
@@ -1955,7 +1956,6 @@ private struct FriendSharedCalendarDayView: View {
                     activities: resolvedActivities,
                     accentColor: tint
                 )
-                plansCard
             }
             .padding(16)
         }
@@ -1993,30 +1993,26 @@ private struct FriendSharedCalendarDayView: View {
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(tint.opacity(0.2), lineWidth: 1))
     }
 
-    private var plansCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 7) {
-                Image(systemName: "star.fill")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.yellow)
-                Text("共有予定")
-                    .font(.headline)
-            }
+    @ViewBuilder
+    private var importantPlansCard: some View {
+        let importantPlans = resolvedPlans.filter(\.showsInCalendarAsImportant)
+        if !importantPlans.isEmpty {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 7) {
+                    Image(systemName: "star.fill")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.yellow)
+                    Text("重要な予定")
+                        .font(.headline)
+                }
 
-            if resolvedPlans.isEmpty {
-                Text("共有された予定はありません")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.vertical, 4)
-            } else {
-                ForEach(resolvedPlans) { plan in
+                ForEach(importantPlans) { plan in
                     FriendSharedPlanRow(plan: plan)
                 }
             }
+            .padding(16)
+            .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemGroupedBackground)))
         }
-        .padding(16)
-        .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemGroupedBackground)))
     }
 }
 
@@ -2244,6 +2240,10 @@ private struct FriendTimelineOverviewBar: View {
         }
         .padding(10)
         .background(RoundedRectangle(cornerRadius: 10).fill(Color(.tertiarySystemGroupedBackground)))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color(.separator).opacity(0.24), lineWidth: 1)
+        )
     }
 }
 
