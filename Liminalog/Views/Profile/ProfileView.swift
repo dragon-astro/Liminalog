@@ -568,28 +568,13 @@ private struct ProfileCollectionSection: View {
                 ProfileEquipmentTile(title: "連続", value: streakIcon.title, systemImage: streakIcon.systemImage, tint: Color(hex: streakIcon.tintHex))
             }
 
-            VStack(alignment: .leading, spacing: 12) {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 14) {
-                        ForEach(badges) { badge in
-                            ProfileCollectionBadge(badge: badge, isEquipped: badge.id == equippedBadge.id)
-                        }
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 14) {
+                    ForEach(badges) { badge in
+                        ProfileCollectionBadge(badge: badge, isEquipped: badge.id == equippedBadge.id)
                     }
-                    .padding(.vertical, 2)
                 }
-
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 14) {
-                        ForEach(ProfileCardStyleCatalog.items) { item in
-                            ProfileCollectionCardStyle(
-                                style: item,
-                                isEquipped: item.id == cardStyle.id,
-                                accentColor: iconFrame.primaryColor
-                            )
-                        }
-                    }
-                    .padding(.vertical, 2)
-                }
+                .padding(.vertical, 2)
             }
         }
     }
@@ -639,56 +624,6 @@ private struct ProfileCollectionBadge: View {
         }
         .frame(width: 78)
         .opacity(badge.isUnlocked ? 1 : 0.55)
-    }
-}
-
-private struct ProfileCollectionCardStyle: View {
-    let style: ProfileCardStyle
-    let isEquipped: Bool
-    let accentColor: Color
-
-    var body: some View {
-        VStack(spacing: 8) {
-            ZStack(alignment: .bottomLeading) {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(style.backgroundColor)
-                ProfileCardStylePreview(style: style, accentColor: accentColor)
-                    .padding(.horizontal, 8)
-                    .padding(.bottom, 9)
-                Image(systemName: style.systemImage)
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(style.markColor(accentColor: accentColor))
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
-            .frame(width: 62, height: 62)
-            .overlay {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(
-                        isEquipped ? style.markColor(accentColor: accentColor) : Color(.separator).opacity(0.28),
-                        lineWidth: isEquipped ? 2 : 1
-                    )
-            }
-            .overlay(alignment: .bottomTrailing) {
-                if isEquipped {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(style.markColor(accentColor: accentColor))
-                        .background(Color(.secondarySystemGroupedBackground), in: Circle())
-                        .offset(x: 4, y: 4)
-                }
-            }
-
-            Text(style.title)
-                .font(.caption2.weight(.semibold))
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-
-            Text("カード")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-        }
-        .frame(width: 78)
     }
 }
 
