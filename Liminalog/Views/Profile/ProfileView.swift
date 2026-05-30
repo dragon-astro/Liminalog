@@ -277,7 +277,7 @@ private struct ProfileHero: View {
     let onShare: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 20) {
             HStack(alignment: .top, spacing: 14) {
                 ProfilePhotoView(
                     displayName: displayName,
@@ -300,7 +300,7 @@ private struct ProfileHero: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
-                        .frame(minHeight: 36, alignment: .topLeading)
+                        .frame(minHeight: 42, alignment: .topLeading)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .layoutPriority(1)
@@ -309,7 +309,7 @@ private struct ProfileHero: View {
             }
         }
         .padding(.horizontal, 18)
-        .padding(.vertical, 22)
+        .padding(.vertical, 28)
         .background {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(cardStyle.backgroundColor)
@@ -326,8 +326,8 @@ private struct ProfileHero: View {
                         ProfileHeroActionButton(systemImage: "pencil", label: "編集", action: onEdit)
                         ProfileHeroActionButton(systemImage: "square.and.arrow.up", label: "シェア", action: onShare)
                     }
-                    .padding(.top, 52)
-                    .padding(.trailing, 40)
+                    .padding(.top, 18)
+                    .padding(.trailing, 18)
                 }
         }
         .overlay {
