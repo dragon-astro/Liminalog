@@ -212,6 +212,44 @@ struct ChapterStoreTests {
         }
     }
 
+    @Test("開発用予定seedは5月全日を24時間埋めて重要予定の見せ場も作る")
+    func previewPlanSeedPopulatesFullMonthShowcaseData() throws {
+        let versionKey = "LiminalogPreviewPlanSeedVersion"
+        UserDefaults.standard.removeObject(forKey: versionKey)
+        defer { UserDefaults.standard.removeObject(forKey: versionKey) }
+
+        let calendar = Calendar.current
+        let now = try #require(calendar.date(from: DateComponents(year: 2026, month: 5, day: 31, hour: 10, minute: 15)))
+        let clock = MutableTestClock(now: now)
+        let container = try TestModelContainer.make()
+        let context = container.mainContext
+        let store = ChapterStore(modelContext: context, clock: clock)
+
+        store.seedPreviewPlansIfNeeded()
+
+        let plans = try context.fetch(FetchDescriptor<PlanBlock>(sortBy: [SortDescriptor(\.startTime)]))
+        let monthStart = try #require(calendar.date(from: calendar.dateComponents([.year, .month], from: now)))
+        let monthEnd = try #require(calendar.date(byAdding: .month, value: 1, to: monthStart))
+        let timedPlans = plans.filter { !$0.isAllDay }
+
+        var dayCount = 0
+        var cursor = monthStart
+        while cursor < monthEnd {
+            let dayEnd = try #require(calendar.date(byAdding: .day, value: 1, to: cursor))
+            let dayPlans = timedPlans.filter { $0.startTime < dayEnd && $0.endTime > cursor }
+            #expect(plansCoverFullDayForTest(dayPlans, dayStart: cursor, dayEnd: dayEnd))
+            dayCount += 1
+            cursor = dayEnd
+        }
+
+        #expect(dayCount == 31)
+        #expect(plans.contains { $0.isImportant && !$0.isAllDay && $0.title == "中間発表" })
+        #expect(plans.contains { $0.isImportant && !$0.isAllDay && $0.title == "デイリー共有" })
+        #expect(plans.contains { $0.isImportant && $0.isAllDay && $0.title == "集中制作週間" })
+        #expect(plans.contains { $0.isImportant && $0.isAllDay && $0.startTime < monthStart && $0.endTime > monthStart })
+        #expect(plans.contains { $0.isImportant && $0.isAllDay && $0.startTime < monthEnd && $0.endTime > monthEnd })
+    }
+
     @Test("CategorySetのスロット順と空きスロットを保ってカテゴリを解決する")
     func categorySetSlotsResolveInGridOrder() throws {
         let container = try TestModelContainer.make()
@@ -240,5 +278,26 @@ struct ChapterStoreTests {
         #expect(slotted[2]?.id == study.id)
         #expect(slotted[3]?.id == work.id)
         #expect(assigned.map(\.id) == [rest.id, study.id, work.id])
+    }
+
+    private func plansCoverFullDayForTest(_ plans: [PlanBlock], dayStart: Date, dayEnd: Date) -> Bool {
+        let sorted = plans
+            .map { (start: max($0.startTime, dayStart), end: min($0.endTime, dayEnd)) }
+            .filter { $0.end > $0.start }
+            .sorted { $0.start < $1.start }
+        guard !sorted.isEmpty else { return false }
+
+        var cursor = dayStart
+        let tolerance: TimeInterval = 1
+        for plan in sorted {
+            if plan.start.timeIntervalSince(cursor) > tolerance {
+                return false
+            }
+            cursor = max(cursor, plan.end)
+            if cursor >= dayEnd {
+                return true
+            }
+        }
+        return dayEnd.timeIntervalSince(cursor) <= tolerance
     }
 }
