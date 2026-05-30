@@ -1261,14 +1261,9 @@ private struct FriendCalendarView: View {
 
     private var calendarTopBar: some View {
         HStack(spacing: 12) {
-            Button {
-                shiftMonth(-1)
-            } label: {
-                Image(systemName: "chevron.left")
-                    .font(.title3.weight(.semibold))
-                    .frame(width: 44, height: 44)
-            }
-            .buttonStyle(.borderless)
+            Color.clear
+                .frame(width: 44, height: 44)
+                .accessibilityHidden(true)
 
             Button {
                 prepareMonthPicker()
@@ -1379,12 +1374,6 @@ private struct FriendCalendarView: View {
             return FriendCalendarScore(value: friend.yesterdayScore, hasSharedData: true)
         }
         return nil
-    }
-
-    private func shiftMonth(_ value: Int) {
-        withAnimation(.easeOut(duration: 0.24)) {
-            selectedMonthOffset = value < 0 ? -1 : 1
-        }
     }
 
     private func pageMonth(_ offset: Int) -> Date {
