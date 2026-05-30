@@ -30,7 +30,7 @@ struct CalendarView: View {
                 TabView(selection: $selectedMonthOffset) {
                     ForEach([-1, 0, 1], id: \.self) { offset in
                         let month = pageMonth(offset)
-                        ScrollView {
+                        VStack(spacing: 0) {
                             CalendarMonthGrid(
                                 dates: monthGridDates(for: month),
                                 visibleMonth: month,
@@ -41,6 +41,8 @@ struct CalendarView: View {
                                 }
                             )
                             .padding(.vertical, 8)
+
+                            Spacer(minLength: 0)
                         }
                         .id(month.timeIntervalSince1970)
                         .tag(offset)

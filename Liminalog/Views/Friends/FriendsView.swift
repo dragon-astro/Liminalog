@@ -1198,7 +1198,7 @@ private struct FriendCalendarView: View {
             TabView(selection: $selectedMonthOffset) {
                 ForEach([-1, 0, 1], id: \.self) { offset in
                     let month = pageMonth(offset)
-                    ScrollView {
+                    VStack(spacing: 0) {
                         FriendSharedCalendarMonthGrid(
                             dates: monthGridDates(for: month),
                             visibleMonth: month,
@@ -1213,9 +1213,7 @@ private struct FriendCalendarView: View {
                         )
                         .padding(.vertical, 8)
 
-                        sharedCalendarNote
-                            .padding(.horizontal, 18)
-                            .padding(.bottom, 28)
+                        Spacer(minLength: 0)
                     }
                     .id(month.timeIntervalSince1970)
                     .tag(offset)
@@ -1313,32 +1311,6 @@ private struct FriendCalendarView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 14)
         .background(Color(.secondarySystemGroupedBackground))
-    }
-
-    private var sharedCalendarNote: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 10) {
-                Image(systemName: "lock.shield")
-                    .font(.headline.weight(.bold))
-                    .foregroundStyle(Color(hex: friend.accentColorHex))
-                    .frame(width: 34, height: 34)
-                    .background(Circle().fill(Color(hex: friend.accentColorHex).opacity(0.14)))
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("公開された予定だけを表示")
-                        .font(.subheadline.weight(.bold))
-                    Text("友達が共有した重要予定と日別スコアを読み取り専用で確認できます")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                }
-            }
-        }
-        .padding(15)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
-        )
     }
 
     private var calendarYearRange: ClosedRange<Int> {
