@@ -922,12 +922,13 @@ private struct FriendDetailView: View {
 
     private var statusCard: some View {
         HStack(spacing: 13) {
+            let statusColor = Color(hex: friend.currentStatusColorHex)
             ZStack {
                 Circle()
-                    .fill(Color(hex: friend.currentStatusColorHex).opacity(0.18))
+                    .fill(statusColor.opacity(0.18))
                 Image(systemName: friend.currentStatusIcon)
                     .font(.title3.weight(.bold))
-                    .foregroundStyle(Color(hex: friend.currentStatusColorHex))
+                    .foregroundStyle(statusColor)
             }
             .frame(width: 50, height: 50)
 
@@ -944,7 +945,11 @@ private struct FriendDetailView: View {
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 18)
-                .fill(Color(.secondarySystemGroupedBackground))
+                .fill(Color(hex: friend.currentStatusColorHex).opacity(0.1))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 18)
+                .stroke(Color(hex: friend.currentStatusColorHex).opacity(0.22), lineWidth: 1)
         )
     }
 
@@ -2122,8 +2127,6 @@ private struct FriendSharedTimelineView: View {
                 .background(RoundedRectangle(cornerRadius: 10).fill(Color(.tertiarySystemGroupedBackground)))
             }
         }
-        .padding(16)
-        .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemGroupedBackground)))
     }
 
     private func entries(from activities: [FriendSharedActivitySnapshot]) -> [FriendTimelineDisplayEntry] {
@@ -2232,17 +2235,29 @@ private struct FriendTimelineOverviewBar: View {
     let accentColor: Color
 
     var body: some View {
-        VStack(spacing: 7) {
-            FriendTimelineBarRow(label: "予定", date: date, entries: planEntries, accentColor: accentColor)
-            FriendTimelineBarRow(label: "実績", date: date, entries: actualEntries, accentColor: accentColor)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: "clock")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Text("24時間バー")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Spacer()
+            }
+
+            VStack(spacing: 7) {
+                FriendTimelineBarRow(label: "予定", date: date, entries: planEntries, accentColor: accentColor)
+                FriendTimelineBarRow(label: "実績", date: date, entries: actualEntries, accentColor: accentColor)
+            }
+
             FriendTimelineHourScale()
                 .padding(.leading, 38)
         }
-        .padding(10)
-        .background(RoundedRectangle(cornerRadius: 10).fill(Color(.tertiarySystemGroupedBackground)))
-        .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .stroke(Color(.separator).opacity(0.24), lineWidth: 1)
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color(.secondarySystemGroupedBackground))
         )
     }
 }
@@ -2264,22 +2279,27 @@ private struct FriendTimelineBarRow: View {
                 .frame(width: 30, alignment: .trailing)
 
             GeometryReader { proxy in
+                let width = proxy.size.width
                 ZStack(alignment: .leading) {
-                    Rectangle()
-                        .fill(Color(.systemGroupedBackground))
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color(.tertiarySystemGroupedBackground))
 
                     ForEach(entries) { entry in
-                        Rectangle()
-                            .fill(entry.color)
-                            .frame(width: max(segmentWidth(for: entry, width: proxy.size.width), 1), height: 18)
-                            .offset(x: xOffset(for: entry.clippedStart, width: proxy.size.width))
+                        let segmentWidth = segmentWidth(for: entry, width: width)
+                        FriendTimelineBarSegmentView(
+                            entry: entry,
+                            width: segmentWidth,
+                            showsIcon: shouldShowIcon(entry: entry, width: segmentWidth)
+                        )
+                        .frame(width: max(segmentWidth, 28), height: 18, alignment: .leading)
+                        .offset(x: xOffset(for: entry.clippedStart, width: width))
                     }
 
                     if Calendar.japanese.isDateInToday(date) {
                         Rectangle()
                             .fill(accentColor)
                             .frame(width: 2, height: 22)
-                            .offset(x: xOffset(for: Date(), width: proxy.size.width))
+                            .offset(x: xOffset(for: Date(), width: width))
                     }
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 6))
@@ -2297,6 +2317,33 @@ private struct FriendTimelineBarRow: View {
     private func segmentWidth(for entry: FriendTimelineDisplayEntry, width: CGFloat) -> CGFloat {
         let duration = max(entry.clippedEnd.timeIntervalSince(entry.clippedStart), 60)
         return width * duration / dayEnd.timeIntervalSince(dayStart)
+    }
+
+    private func shouldShowIcon(entry: FriendTimelineDisplayEntry, width: CGFloat) -> Bool {
+        entry.clippedDuration >= 15 * 60 && width >= 24
+    }
+}
+
+private struct FriendTimelineBarSegmentView: View {
+    let entry: FriendTimelineDisplayEntry
+    let width: CGFloat
+    let showsIcon: Bool
+
+    var body: some View {
+        ZStack(alignment: .leading) {
+            Rectangle()
+                .fill(entry.color)
+                .frame(width: width, height: 18)
+
+            if showsIcon {
+                Image(systemName: entry.categoryIconName)
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(width: min(width, 18), height: 18)
+                    .accessibilityHidden(true)
+            }
+        }
+        .contentShape(Rectangle())
     }
 }
 
@@ -2321,6 +2368,7 @@ private struct FriendTimelineHourScale: View {
             }
         }
         .frame(height: 20)
+        .accessibilityHidden(true)
     }
 }
 
