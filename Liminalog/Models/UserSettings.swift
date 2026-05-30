@@ -12,6 +12,7 @@ final class UserSettings {
     var profileBadgeID: String = "starter"
     var profileIconFrameID: String = "halo"
     var profileStreakIconID: String = "flame"
+    var profileCardStyleID: String = "clean"
     var defaultVisibility: VisibilityScope = VisibilityScope.all
     var themeName: String = "default"
     var enabledCategorySetID: UUID?

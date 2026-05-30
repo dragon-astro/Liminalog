@@ -126,6 +126,10 @@ struct ProfileView: View {
         ProfileStreakIconCatalog.item(for: settings?.profileStreakIconID)
     }
 
+    private var cardStyle: ProfileCardStyle {
+        ProfileCardStyleCatalog.item(for: settings?.profileCardStyleID)
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -137,6 +141,7 @@ struct ProfileView: View {
                         accentColor: accentColor,
                         equippedBadge: equippedBadge,
                         iconFrame: iconFrame,
+                        cardStyle: cardStyle,
                         onEdit: { isShowingEditProfile = true },
                         onShare: { isShowingShareProfile = true }
                     )
@@ -152,7 +157,8 @@ struct ProfileView: View {
                         badges: badges,
                         equippedBadge: equippedBadge,
                         iconFrame: iconFrame,
-                        streakIcon: streakIcon
+                        streakIcon: streakIcon,
+                        cardStyle: cardStyle
                     )
                 }
                 .padding(.horizontal, 20)
@@ -253,6 +259,7 @@ struct ProfileView: View {
         target.profileBadgeID = draft.badgeID
         target.profileIconFrameID = draft.iconFrameID
         target.profileStreakIconID = draft.streakIconID
+        target.profileCardStyleID = draft.cardStyleID
         target.updatedAt = Date()
         try? modelContext.save()
     }
@@ -265,11 +272,12 @@ private struct ProfileHero: View {
     let accentColor: Color
     let equippedBadge: ProfileBadgeModel
     let iconFrame: ProfileIconFrameStyle
+    let cardStyle: ProfileCardStyle
     let onEdit: () -> Void
     let onShare: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .top, spacing: 14) {
                 ProfilePhotoView(
                     displayName: displayName,
@@ -302,19 +310,38 @@ private struct ProfileHero: View {
                 }
             }
         }
-        .padding(16)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 22)
         .background {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
+                .fill(cardStyle.backgroundColor)
                 .overlay(alignment: .bottom) {
-                    ProfileHeroRhythmStrip(accentColor: accentColor)
+                    ProfileHeroRhythmStrip(accentColor: cardStyle.stripColor(accentColor: accentColor))
                         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                }
+                .overlay(alignment: .topTrailing) {
+                    ProfileCardStyleMark(style: cardStyle, accentColor: accentColor)
+                        .padding(16)
                 }
         }
         .overlay {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(accentColor.opacity(0.18), lineWidth: 1)
+                .stroke(cardStyle.borderColor(accentColor: accentColor), lineWidth: cardStyle.borderWidth)
         }
+    }
+}
+
+private struct ProfileCardStyleMark: View {
+    let style: ProfileCardStyle
+    let accentColor: Color
+
+    var body: some View {
+        Image(systemName: style.systemImage)
+            .font(.caption.weight(.bold))
+            .foregroundStyle(style.markColor(accentColor: accentColor))
+            .frame(width: 24, height: 24)
+            .background(.ultraThinMaterial, in: Circle())
+            .opacity(style.id == ProfileCardStyleCatalog.defaultID ? 0 : 1)
     }
 }
 
@@ -521,25 +548,42 @@ private struct ProfileCollectionSection: View {
     let equippedBadge: ProfileBadgeModel
     let iconFrame: ProfileIconFrameStyle
     let streakIcon: ProfileStreakIconStyle
+    let cardStyle: ProfileCardStyle
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("装備とコレクション")
                 .font(.headline)
 
-            HStack(spacing: 10) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 2), spacing: 10) {
                 ProfileEquipmentTile(title: "バッジ", value: equippedBadge.title, systemImage: equippedBadge.systemImage, tint: Color(hex: equippedBadge.tint))
                 ProfileEquipmentTile(title: "フレーム", value: iconFrame.title, systemImage: iconFrame.systemImage, tint: iconFrame.primaryColor)
+                ProfileEquipmentTile(title: "カード", value: cardStyle.title, systemImage: cardStyle.systemImage, tint: cardStyle.markColor(accentColor: iconFrame.primaryColor))
                 ProfileEquipmentTile(title: "連続", value: streakIcon.title, systemImage: streakIcon.systemImage, tint: Color(hex: streakIcon.tintHex))
             }
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 14) {
-                    ForEach(badges) { badge in
-                        ProfileCollectionBadge(badge: badge, isEquipped: badge.id == equippedBadge.id)
+            VStack(alignment: .leading, spacing: 12) {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 14) {
+                        ForEach(badges) { badge in
+                            ProfileCollectionBadge(badge: badge, isEquipped: badge.id == equippedBadge.id)
+                        }
                     }
+                    .padding(.vertical, 2)
                 }
-                .padding(.vertical, 2)
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 14) {
+                        ForEach(ProfileCardStyleCatalog.items) { item in
+                            ProfileCollectionCardStyle(
+                                style: item,
+                                isEquipped: item.id == cardStyle.id,
+                                accentColor: iconFrame.primaryColor
+                            )
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
             }
         }
     }
@@ -592,6 +636,56 @@ private struct ProfileCollectionBadge: View {
     }
 }
 
+private struct ProfileCollectionCardStyle: View {
+    let style: ProfileCardStyle
+    let isEquipped: Bool
+    let accentColor: Color
+
+    var body: some View {
+        VStack(spacing: 8) {
+            ZStack(alignment: .bottomLeading) {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(style.backgroundColor)
+                ProfileCardStylePreview(style: style, accentColor: accentColor)
+                    .padding(.horizontal, 8)
+                    .padding(.bottom, 9)
+                Image(systemName: style.systemImage)
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(style.markColor(accentColor: accentColor))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            .frame(width: 62, height: 62)
+            .overlay {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(
+                        isEquipped ? style.markColor(accentColor: accentColor) : Color(.separator).opacity(0.28),
+                        lineWidth: isEquipped ? 2 : 1
+                    )
+            }
+            .overlay(alignment: .bottomTrailing) {
+                if isEquipped {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(style.markColor(accentColor: accentColor))
+                        .background(Color(.secondarySystemGroupedBackground), in: Circle())
+                        .offset(x: 4, y: 4)
+                }
+            }
+
+            Text(style.title)
+                .font(.caption2.weight(.semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+
+            Text("カード")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+        }
+        .frame(width: 78)
+    }
+}
+
 private struct ProfileEquipmentTile: View {
     let title: String
     let value: String
@@ -614,6 +708,7 @@ private struct ProfileEquipmentTile: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(10)
+        .frame(minHeight: 78, alignment: .leading)
         .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 }
@@ -627,6 +722,7 @@ private struct ProfileEditSheet: View {
     @State private var badgeID: String
     @State private var iconFrameID: String
     @State private var streakIconID: String
+    @State private var cardStyleID: String
     @State private var selectedPhoto: PhotosPickerItem?
 
     let badges: [ProfileBadgeModel]
@@ -640,6 +736,7 @@ private struct ProfileEditSheet: View {
         _badgeID = State(initialValue: ProfileBadgeCatalog.equippedBadge(id: settings?.profileBadgeID, badges: badges).id)
         _iconFrameID = State(initialValue: settings?.profileIconFrameID ?? ProfileIconFrameCatalog.defaultID)
         _streakIconID = State(initialValue: settings?.profileStreakIconID ?? ProfileStreakIconCatalog.defaultID)
+        _cardStyleID = State(initialValue: settings?.profileCardStyleID ?? ProfileCardStyleCatalog.defaultID)
         self.badges = badges
         self.onSave = onSave
     }
@@ -720,6 +817,11 @@ private struct ProfileEditSheet: View {
                     ProfileStreakIconSelector(
                         selectedID: $streakIconID
                     )
+
+                    ProfileCardStyleSelector(
+                        selectedID: $cardStyleID,
+                        accentColor: Color(hex: accentColorHex)
+                    )
                 }
             }
             .navigationTitle("プロフィール編集")
@@ -741,7 +843,8 @@ private struct ProfileEditSheet: View {
                                 accentColorHex: accentColorHex,
                                 badgeID: badgeID,
                                 iconFrameID: iconFrameID,
-                                streakIconID: streakIconID
+                                streakIconID: streakIconID,
+                                cardStyleID: cardStyleID
                             )
                         )
                         dismiss()
@@ -912,6 +1015,76 @@ private struct ProfileStreakIconSelector: View {
     }
 }
 
+private struct ProfileCardStyleSelector: View {
+    @Binding var selectedID: String
+    let accentColor: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("プロフィールカード")
+                .font(.subheadline.weight(.semibold))
+
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 2), spacing: 10) {
+                ForEach(ProfileCardStyleCatalog.items) { item in
+                    Button {
+                        selectedID = item.id
+                    } label: {
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Image(systemName: item.systemImage)
+                                    .font(.headline.weight(.bold))
+                                    .foregroundStyle(item.markColor(accentColor: accentColor))
+                                Spacer()
+                                if selectedID == item.id {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .font(.caption.weight(.bold))
+                                        .foregroundStyle(item.markColor(accentColor: accentColor))
+                                }
+                            }
+
+                            Text(item.title)
+                                .font(.caption.weight(.semibold))
+                                .lineLimit(1)
+
+                            ProfileCardStylePreview(style: item, accentColor: accentColor)
+                        }
+                        .padding(10)
+                        .background(item.backgroundColor, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .stroke(selectedID == item.id ? item.borderColor(accentColor: accentColor) : Color(.separator).opacity(0.12), lineWidth: selectedID == item.id ? 2 : 1)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+private struct ProfileCardStylePreview: View {
+    let style: ProfileCardStyle
+    let accentColor: Color
+
+    var body: some View {
+        HStack(spacing: 4) {
+            style.stripColor(accentColor: accentColor)
+                .frame(width: 28)
+            Color.clear
+                .frame(width: 8)
+            style.stripColor(accentColor: accentColor).opacity(0.45)
+                .frame(width: 42)
+            Color.clear
+            style.stripColor(accentColor: accentColor).opacity(0.65)
+                .frame(width: 24)
+        }
+        .frame(height: 5)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .clipShape(Capsule())
+    }
+}
+
 private struct ProfileDraft {
     let displayName: String
     let bio: String
@@ -920,6 +1093,7 @@ private struct ProfileDraft {
     let badgeID: String
     let iconFrameID: String
     let streakIconID: String
+    let cardStyleID: String
 }
 
 private struct ProfileBadgeModel: Identifiable {
@@ -993,6 +1167,47 @@ private enum ProfileStreakIconCatalog {
     ]
 
     static func item(for id: String?) -> ProfileStreakIconStyle {
+        items.first { $0.id == id } ?? items[0]
+    }
+}
+
+@MainActor
+private struct ProfileCardStyle: Identifiable {
+    let id: String
+    let title: String
+    let systemImage: String
+    let backgroundHex: String
+    let markHex: String?
+    let stripOpacity: Double
+    let borderWidth: CGFloat
+
+    var backgroundColor: Color {
+        Color(hex: backgroundHex)
+    }
+
+    func markColor(accentColor: Color) -> Color {
+        markHex.map(Color.init(hex:)) ?? accentColor
+    }
+
+    func stripColor(accentColor: Color) -> Color {
+        markColor(accentColor: accentColor).opacity(stripOpacity)
+    }
+
+    func borderColor(accentColor: Color) -> Color {
+        markColor(accentColor: accentColor).opacity(borderWidth > 1 ? 0.55 : 0.18)
+    }
+}
+
+private enum ProfileCardStyleCatalog {
+    static let defaultID = "clean"
+    static let items: [ProfileCardStyle] = [
+        ProfileCardStyle(id: "clean", title: "Clean", systemImage: "rectangle", backgroundHex: "#FFFFFF", markHex: nil, stripOpacity: 0.35, borderWidth: 1),
+        ProfileCardStyle(id: "glass", title: "Glass", systemImage: "sparkle.magnifyingglass", backgroundHex: "#F7FBFF", markHex: "#2F80ED", stripOpacity: 0.38, borderWidth: 1),
+        ProfileCardStyle(id: "dawn", title: "Dawn", systemImage: "sunrise.fill", backgroundHex: "#FFF8F0", markHex: "#F2994A", stripOpacity: 0.42, borderWidth: 1),
+        ProfileCardStyle(id: "mint", title: "Mint", systemImage: "leaf.fill", backgroundHex: "#F2FBF6", markHex: "#27AE60", stripOpacity: 0.38, borderWidth: 1)
+    ]
+
+    static func item(for id: String?) -> ProfileCardStyle {
         items.first { $0.id == id } ?? items[0]
     }
 }

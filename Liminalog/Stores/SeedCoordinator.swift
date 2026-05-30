@@ -233,6 +233,9 @@ enum SeedCoordinator {
         if primary.profileStreakIconID == "flame", duplicate.profileStreakIconID != "flame" {
             primary.profileStreakIconID = duplicate.profileStreakIconID
         }
+        if primary.profileCardStyleID == "clean", duplicate.profileCardStyleID != "clean" {
+            primary.profileCardStyleID = duplicate.profileCardStyleID
+        }
         if primary.themeName == "default", duplicate.themeName != "default" {
             primary.themeName = duplicate.themeName
         }
