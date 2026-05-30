@@ -558,7 +558,7 @@ private struct FriendRow: View {
                     )
                 }
 
-                Text(friend.handle.isEmpty ? "プロフィールを見る" : friend.handle)
+                Text(friendMoodText)
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -582,6 +582,11 @@ private struct FriendRow: View {
                 .stroke(Color.primary.opacity(0.06), lineWidth: 1)
         )
         .contentShape(RoundedRectangle(cornerRadius: 17))
+    }
+
+    private var friendMoodText: String {
+        let mood = friend.currentMoodText.trimmingCharacters(in: .whitespacesAndNewlines)
+        return mood.isEmpty ? "ひとこと未設定" : mood
     }
 }
 
@@ -774,7 +779,7 @@ private struct FriendDetailView: View {
                     }
                 }
 
-                Text(friend.handle.isEmpty ? friend.status.label : friend.handle)
+                Text(friendMoodText)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -863,6 +868,11 @@ private struct FriendDetailView: View {
         } catch {
             NSLog("Liminalog: failed to save Friend detail changes: \(String(describing: error))")
         }
+    }
+
+    private var friendMoodText: String {
+        let mood = friend.currentMoodText.trimmingCharacters(in: .whitespacesAndNewlines)
+        return mood.isEmpty ? (friend.handle.isEmpty ? friend.status.label : friend.handle) : mood
     }
 }
 

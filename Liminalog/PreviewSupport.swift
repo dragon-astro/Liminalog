@@ -48,6 +48,7 @@ enum PreviewSupport {
         friends[0].currentStatusTitle = "勉強"
         friends[0].currentStatusIcon = "book.closed.fill"
         friends[0].currentStatusColorHex = "#2F80ED"
+        friends[0].currentMoodText = "今日はレポート仕上げます！"
         friends[0].todayScore = 86
         friends[0].yesterdayScore = 74
         friends[0].weekScore = 81
@@ -56,6 +57,7 @@ enum PreviewSupport {
         friends[1].currentStatusTitle = "休憩"
         friends[1].currentStatusIcon = "cup.and.saucer.fill"
         friends[1].currentStatusColorHex = "#27AE60"
+        friends[1].currentMoodText = "ちょっと疲れた、休憩中"
         friends[1].todayScore = 68
         friends[1].yesterdayScore = 91
         friends[1].weekScore = 77

@@ -536,7 +536,7 @@ refactor: split plan store
 
 ### 8.2 CKShare 友達関係
 
-- [x] `Friend` モデル定義 <!-- 担当: Codex, 完了: 2026-05-30。CloudKit実共有前のローカル関係モデルとして、pendingIncoming/pendingOutgoing/accepted/blocked、現在ステータス、短期スコア、招待コード、favoriteを保持 -->
+- [x] `Friend` モデル定義 <!-- 担当: Codex, 完了: 2026-05-30。CloudKit実共有前のローカル関係モデルとして、pendingIncoming/pendingOutgoing/accepted/blocked、現在ステータス、今の気持ち/ひとこと、短期スコア、招待コード、favoriteを保持 -->
 - [ ] `ShareCoordinator` 実装（CKShare 作成・参加・受諾）<!-- 担当: Codex, 理由: CloudKit 複雑async -->
 - [x] 招待リンク生成・送信 UI <!-- 担当: Codex, 完了: 2026-05-30。11-friends-designに合わせ、ID検索ではなくリンク/QRベースに変更。`liminalog://friend-invite` URL、QR表示、ShareLinkを実装。2026-05-30追記: Instagram/BeRealに倣い、主導線をプロフィール画面の「シェア」へ移動 -->
 - [x] プロフィール画面からのプロフィール共有導線 <!-- 担当: Codex, 完了: 2026-05-30。`ProfileShareSheet` を共通化し、プロフィール画面から自分の招待QR/リンクを共有できるようにした。友達タブは「友達を探す」ではなく、空状態の共有CTAと受信導線に限定 -->
@@ -566,9 +566,9 @@ refactor: split plan store
 
 - [~] ランキング集計ロジック（今日/昨日/今週・タイブレーク仕様要確認）<!-- 担当: Codex, 進捗: 2026-05-30。自分は既存ScoreCalculator、友達はFriendスナップショットのtoday/yesterday/weekScoreでソート。CKShare経由の友達スコア更新は未接続 -->
 - [x] `RankingScrollStrip`（横スクロール）<!-- 担当: Codex, 完了: 2026-05-30。FriendsView内に今日/昨日/今週セグメント付き横スクロールランキングを実装 -->
-- [x] 友達プロフィールリスト（達成率・現在ステータス）<!-- 担当: Codex, 完了: 2026-05-30。accepted friendsをカード行で表示し、現在ステータス/対象期間スコア/詳細遷移を実装 -->
+- [x] 友達プロフィールリスト（今の気持ち・現在ステータス）<!-- 担当: Codex, 完了: 2026-05-30。accepted friendsをカード行で表示し、名前横の現在ステータスピル、@handleの代わりになる今の気持ち/ひとこと、詳細遷移を実装。スコアはランキング側に寄せ、友達行では主役にしない -->
 - [x] お気に入り友達の上部固定 <!-- 担当: Codex, 完了: 2026-05-30。accepted friendsのソートでfavoriteを先頭固定し、詳細からtoggle可能 -->
-- [x] DEBUG用の架空フレンドseed <!-- 担当: Codex, 完了: 2026-05-30。`LiminalogSeedDevFriends` UserDefaults または `-LiminalogSeedDevFriends` 起動引数が有効なDEBUGビルドだけ、Mika/Sora/Ren/Yui の4人をローカルに生成。友達0人状態を壊さず、UI確認時だけ利用する -->
+- [x] DEBUG用の架空フレンドseed <!-- 担当: Codex, 完了: 2026-05-30。`LiminalogSeedDevFriends` UserDefaults または `-LiminalogSeedDevFriends` 起動引数が有効なDEBUGビルドだけ、Mika/Sora/Ren/Yui の4人をローカルに生成。今の気持ち/ひとこともseedし、既存debug友達にもbackfillする。友達0人状態を壊さず、UI確認時だけ利用する -->
 
 ### 8.6 カテゴリマッピング
 

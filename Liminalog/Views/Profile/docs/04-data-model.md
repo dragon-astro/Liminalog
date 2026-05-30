@@ -279,12 +279,20 @@ public final class Friend {
     public var id: UUID = UUID()
     public var userRecordID: String = ""           // CKRecord.ID の文字列表現
     public var displayName: String = ""
+    public var handle: String = ""                 // 表示名とは別の識別用。友達一覧では主表示にしない
     public var iconURL: String? = nil
     public var bio: String? = nil
     public var status: FriendStatus = .pending
     public var isFavorite: Bool = false
     public var shareURL: String? = nil             // CKShare URL
     public var visibilityPresetID: UUID? = nil     // 自分から見るときのフィルター
+    public var currentStatusTitle: String = ""     // 今何をしているか（カテゴリ名）
+    public var currentStatusIcon: String = "circle.dashed"
+    public var currentStatusColorHex: String = "#8E8E93"
+    public var currentMoodText: String = ""        // 今の気持ち/ひとこと。「頑張ってます」「疲れた」など
+    public var todayScore: Double = 0
+    public var yesterdayScore: Double = 0
+    public var weekScore: Double = 0
     public var lastSeenAt: Date? = nil
     public var createdAt: Date = Date()
 

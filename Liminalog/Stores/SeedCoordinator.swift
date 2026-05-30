@@ -64,10 +64,21 @@ enum SeedCoordinator {
             sortBy: [SortDescriptor(\.createdAt)]
         )
         let friends = (try? context.fetch(descriptor)) ?? []
-        guard !friends.contains(where: { $0.userRecordID.hasPrefix("debug.") }) else { return }
 
+        let debugFriends = makeDebugFriends(now: now)
+        for debugFriend in debugFriends {
+            if let existing = friends.first(where: { $0.userRecordID == debugFriend.userRecordID }) {
+                updateDebugFriend(existing, from: debugFriend)
+            } else {
+                context.insert(debugFriend)
+            }
+        }
+        try? context.save()
+    }
+
+    private static func makeDebugFriends(now: Date) -> [Friend] {
         let calendar = Calendar.current
-        let debugFriends = [
+        return [
             makeDebugFriend(
                 displayName: "Mika",
                 handle: "@mika",
@@ -77,6 +88,7 @@ enum SeedCoordinator {
                 statusTitle: "勉強",
                 statusIcon: "book.closed.fill",
                 statusColor: "#2F80ED",
+                moodText: "今日はレポート仕上げます！",
                 todayScore: 92,
                 yesterdayScore: 76,
                 weekScore: 84,
@@ -93,6 +105,7 @@ enum SeedCoordinator {
                 statusTitle: "休憩",
                 statusIcon: "cup.and.saucer.fill",
                 statusColor: "#27AE60",
+                moodText: "ちょっと疲れた、休憩中",
                 todayScore: 71,
                 yesterdayScore: 88,
                 weekScore: 79,
@@ -109,6 +122,7 @@ enum SeedCoordinator {
                 statusTitle: "仕事",
                 statusIcon: "briefcase.fill",
                 statusColor: "#6C5CE7",
+                moodText: "締切まで集中",
                 todayScore: 64,
                 yesterdayScore: 58,
                 weekScore: 67,
@@ -125,6 +139,7 @@ enum SeedCoordinator {
                 statusTitle: "",
                 statusIcon: "circle.dashed",
                 statusColor: "#8E8E93",
+                moodText: "今日はゆっくりします",
                 todayScore: 38,
                 yesterdayScore: 94,
                 weekScore: 72,
@@ -133,9 +148,6 @@ enum SeedCoordinator {
                 now: now
             )
         ]
-
-        debugFriends.forEach(context.insert)
-        try? context.save()
     }
 
     private static func makeDebugFriend(
@@ -147,6 +159,7 @@ enum SeedCoordinator {
         statusTitle: String,
         statusIcon: String,
         statusColor: String,
+        moodText: String,
         todayScore: Double,
         yesterdayScore: Double,
         weekScore: Double,
@@ -167,6 +180,7 @@ enum SeedCoordinator {
         friend.currentStatusTitle = statusTitle
         friend.currentStatusIcon = statusIcon
         friend.currentStatusColorHex = statusColor
+        friend.currentMoodText = moodText
         friend.currentStatusUpdatedAt = updatedAt
         friend.lastSeenAt = updatedAt
         friend.todayScore = todayScore
@@ -175,6 +189,25 @@ enum SeedCoordinator {
         friend.isFavorite = isFavorite
         friend.updatedAt = now
         return friend
+    }
+
+    private static func updateDebugFriend(_ existing: Friend, from debugFriend: Friend) {
+        existing.displayName = debugFriend.displayName
+        existing.handle = debugFriend.handle
+        existing.avatarSystemImage = debugFriend.avatarSystemImage
+        existing.accentColorHex = debugFriend.accentColorHex
+        existing.status = debugFriend.status
+        existing.currentStatusTitle = debugFriend.currentStatusTitle
+        existing.currentStatusIcon = debugFriend.currentStatusIcon
+        existing.currentStatusColorHex = debugFriend.currentStatusColorHex
+        existing.currentMoodText = debugFriend.currentMoodText
+        existing.currentStatusUpdatedAt = debugFriend.currentStatusUpdatedAt
+        existing.lastSeenAt = debugFriend.lastSeenAt
+        existing.todayScore = debugFriend.todayScore
+        existing.yesterdayScore = debugFriend.yesterdayScore
+        existing.weekScore = debugFriend.weekScore
+        existing.isFavorite = debugFriend.isFavorite
+        existing.updatedAt = debugFriend.updatedAt
     }
     #endif
 

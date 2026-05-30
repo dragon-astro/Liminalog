@@ -40,6 +40,7 @@ final class Friend {
     var currentStatusTitle: String = ""
     var currentStatusIcon: String = "circle.dashed"
     var currentStatusColorHex: String = "#8E8E93"
+    var currentMoodText: String = ""
     var currentStatusStartedAt: Date?
     var currentStatusUpdatedAt: Date?
     var todayScore: Double = 0
@@ -87,6 +88,7 @@ final class Friend {
         self.currentStatusTitle = ""
         self.currentStatusIcon = "circle.dashed"
         self.currentStatusColorHex = "#8E8E93"
+        self.currentMoodText = ""
         self.currentStatusStartedAt = nil
         self.currentStatusUpdatedAt = nil
         self.todayScore = 0
