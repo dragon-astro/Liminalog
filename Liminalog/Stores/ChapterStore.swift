@@ -17,6 +17,8 @@ final class ChapterStore {
     private static let pendingCategoryCacheKey = "recording.pendingCategoryID"
     private static let enabledCategorySetCacheKey = "recording.enabledCategorySetID"
     private static let surfaceSnapshotCacheKey = "recording.surfaceSnapshot"
+    private static let devSampleChapterSeedVersionKey = "LiminalogDevSampleChapterSeedVersion"
+    private static let currentDevSampleChapterSeedVersion = 2
 
     init(
         modelContext: ModelContext,
@@ -583,49 +585,66 @@ final class ChapterStore {
     }
 
     /// DEBUG ビルド用: Chapter のサンプルデータを seed する。
-    /// 既に Chapter が 1 件でもあれば何もしない（冪等）。
-    /// 過去 4 日分の記録 + 今日のタイムライン + 現在記録中のチャプター を生成する。
+    /// 明示フラグで使うスクリーンショット/デモ用データのため、世代更新時は既存の開発用
+    /// Chapter を作り直す。リリースビルドでは RootTabView 側から呼ばれない。
     func seedDevSampleChaptersIfNeeded() {
         seedDefaultCategoriesIfNeeded()
 
         let chapterDescriptor = FetchDescriptor<Chapter>()
-        guard (try? modelContext.fetchCount(chapterDescriptor)) == 0 else { return }
+        let existingChapters = (try? modelContext.fetch(chapterDescriptor)) ?? []
+        let hasCurrentSeedVersion = UserDefaults.standard.integer(
+            forKey: Self.devSampleChapterSeedVersionKey
+        ) >= Self.currentDevSampleChapterSeedVersion
+
+        if hasCurrentSeedVersion && !existingChapters.isEmpty {
+            return
+        }
+
+        if !existingChapters.isEmpty {
+            existingChapters.forEach { modelContext.delete($0) }
+            try? modelContext.save()
+        }
 
         let categoriesByName = Dictionary(uniqueKeysWithValues: categoryStore.allCategories().map { ($0.name, $0) })
         let calendar = Calendar.current
-        let today = DayBoundary.dayStart(for: clock.now, calendar: calendar)
+        let now = clock.now
+        let today = DayBoundary.dayStart(for: now, calendar: calendar)
 
-        // 今日のタイムライン: 朝〜夕方までのチャプター + 現在記録中のもの
-        // (categoryName, hour, minutes, note?, mood?, location?, isPublic)
-        let todaySamples: [(String, Int, Int, String?, String?, String?, Bool)] = [
-            ("睡眠", 0, 420, nil, "😴", nil, false),
-            ("勉強", 9, 90, "英語の復習", "💪", "図書館", true),
-            ("移動", 11, 30, nil, nil, "電車", true),
-            ("仕事", 13, 120, "UI整理", "🔥", nil, true),
-            ("休憩", 16, 30, "コーヒー", "☕️", "カフェ", false),
+        // 今日のタイムライン: 0:00から現在時刻まで、未来や重複が出ないよう24時間テンプレートを順に切る。
+        // (categoryName, hour, startMinute, durationMinutes, note?, mood?, location?, isPublic)
+        let todaySamples: [(String, Int, Int, Int, String?, String?, String?, Bool)] = [
+            ("睡眠", 0, 0, 420, nil, "😴", nil, false),
+            ("休憩", 7, 0, 60, "朝の準備", nil, nil, false),
+            ("移動", 8, 0, 60, nil, nil, "電車", true),
+            ("勉強", 9, 0, 120, "英語の復習", "💪", "図書館", true),
+            ("移動", 11, 0, 45, nil, nil, "電車", true),
+            ("休憩", 11, 45, 75, "昼休み", "🍱", nil, true),
+            ("仕事", 13, 0, 180, "UI整理", "🔥", nil, true),
+            ("休憩", 16, 0, 30, "コーヒー", "☕️", "カフェ", false),
+            ("勉強", 16, 30, 90, "復習", nil, nil, true),
+            ("移動", 18, 0, 60, nil, nil, "電車", true),
+            ("趣味", 19, 0, 150, "アプリの試作", "🤩", nil, true),
+            ("休憩", 21, 30, 60, "夜の休憩", nil, nil, false),
+            ("睡眠", 22, 30, 90, nil, "😴", nil, false),
         ]
-        for (name, hour, minutes, note, mood, location, isPublic) in todaySamples {
+        for (name, hour, startMinute, minutes, note, mood, location, isPublic) in todaySamples {
             guard
                 let category = categoriesByName[name],
                 let start = calendar.date(byAdding: .hour, value: hour, to: today),
-                let end = calendar.date(byAdding: .minute, value: minutes, to: start)
+                let adjustedStart = calendar.date(byAdding: .minute, value: startMinute, to: start),
+                let plannedEnd = calendar.date(byAdding: .minute, value: minutes, to: adjustedStart),
+                adjustedStart < now
             else { continue }
-            let chapter = Chapter(category: category, startTime: start)
-            chapter.endTime = end
+            let chapter = Chapter(category: category, startTime: adjustedStart)
+            chapter.endTime = plannedEnd <= now ? plannedEnd : nil
             chapter.note = note
             chapter.mood = mood
             chapter.locationName = location
             chapter.isPublic = isPublic
             modelContext.insert(chapter)
-        }
-
-        // 現在記録中のチャプター（30分前から）
-        if let trendyCategory = categoriesByName["趣味"] ?? categoriesByName.values.first,
-           let recentStart = calendar.date(byAdding: .minute, value: -30, to: clock.now) {
-            let active = Chapter(category: trendyCategory, startTime: recentStart)
-            active.note = "アプリの試作"
-            active.mood = "🤩"
-            modelContext.insert(active)
+            if plannedEnd > now {
+                break
+            }
         }
 
         // 過去 4 日分: ダッシュボード・カレンダーの動作確認用
@@ -667,8 +686,15 @@ final class ChapterStore {
             modelContext.insert(chapter)
         }
 
-        try? modelContext.save()
+        if saveModelContext() {
+            syncActiveCategoryCacheFromStore()
+        }
+        UserDefaults.standard.set(
+            Self.currentDevSampleChapterSeedVersion,
+            forKey: Self.devSampleChapterSeedVersionKey
+        )
         markChanged()
+        updateLiveActivity()
     }
 
     private func updateLiveActivity(categorySet: CategorySet? = nil) {

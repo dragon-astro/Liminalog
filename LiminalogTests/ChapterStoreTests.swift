@@ -174,6 +174,44 @@ struct ChapterStoreTests {
         #expect(inserted.first?.endTime == nil)
     }
 
+    @Test("開発用Chapter seedは未来と重複を作らず現在の1件だけをactiveにする")
+    func devSampleChapterSeedAvoidsFutureAndOverlaps() throws {
+        let versionKey = "LiminalogDevSampleChapterSeedVersion"
+        UserDefaults.standard.removeObject(forKey: versionKey)
+        defer { UserDefaults.standard.removeObject(forKey: versionKey) }
+
+        let calendar = Calendar.liminalogTest
+        let now = try #require(calendar.date(from: DateComponents(year: 2026, month: 5, day: 28, hour: 10, minute: 15)))
+        let clock = MutableTestClock(now: now)
+        let container = try TestModelContainer.make()
+        let context = container.mainContext
+        let staleCategory = Category(name: "古いダミー", colorHex: "#999999")
+        context.insert(staleCategory)
+        let staleActive = Chapter(category: staleCategory, startTime: try #require(calendar.date(from: DateComponents(year: 2026, month: 5, day: 28))))
+        context.insert(staleActive)
+        try context.save()
+
+        let store = ChapterStore(modelContext: context, clock: clock)
+        store.seedDevSampleChaptersIfNeeded()
+
+        let chapters = try context.fetch(FetchDescriptor<Chapter>(sortBy: [SortDescriptor(\.startTime)]))
+        #expect(!chapters.isEmpty)
+        #expect(chapters.filter { $0.endTime == nil }.count == 1)
+        #expect(chapters.allSatisfy { $0.startTime <= now })
+        #expect(chapters.allSatisfy { ($0.endTime ?? now) <= now })
+        #expect(!chapters.contains { $0.category?.name == "古いダミー" })
+
+        for index in chapters.indices {
+            for laterIndex in chapters.indices.dropFirst(index + 1) {
+                let first = chapters[index]
+                let second = chapters[laterIndex]
+                let firstEnd = first.endTime ?? now
+                let secondEnd = second.endTime ?? now
+                #expect(firstEnd <= second.startTime || secondEnd <= first.startTime)
+            }
+        }
+    }
+
     @Test("CategorySetのスロット順と空きスロットを保ってカテゴリを解決する")
     func categorySetSlotsResolveInGridOrder() throws {
         let container = try TestModelContainer.make()
