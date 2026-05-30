@@ -553,12 +553,6 @@ private struct FriendRow: View {
                         .font(.subheadline.weight(.bold))
                         .lineLimit(1)
 
-                    FriendInlineStreak(
-                        count: friend.streakCount,
-                        systemImage: friend.streakIconStyle.systemImage,
-                        tint: Color(hex: friend.streakIconStyle.tintHex)
-                    )
-
                     if friend.isFavorite {
                         Image(systemName: "star.fill")
                             .font(.caption2.weight(.bold))
@@ -566,10 +560,18 @@ private struct FriendRow: View {
                     }
                 }
 
-                Text(friendMoodText)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary.opacity(0.74))
-                    .lineLimit(1)
+                HStack(spacing: 6) {
+                    FriendInlineStreak(
+                        count: friend.streakCount,
+                        systemImage: friend.streakIconStyle.systemImage,
+                        tint: Color(hex: friend.streakIconStyle.tintHex)
+                    )
+
+                    Text(friendMoodText)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary.opacity(0.74))
+                        .lineLimit(1)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .layoutPriority(1)
