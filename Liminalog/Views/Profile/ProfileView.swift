@@ -147,13 +147,6 @@ struct ProfileView: View {
                         friendCount: acceptedFriendCount,
                         streakIcon: streakIcon
                     )
-
-                    ProfileCollectionSection(
-                        badges: badges,
-                        equippedBadge: equippedBadge,
-                        iconFrame: iconFrame,
-                        streakIcon: streakIcon
-                    )
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 18)
@@ -301,11 +294,6 @@ private struct ProfileHero: View {
                     ProfileHeroActionButton(systemImage: "square.and.arrow.up", label: "シェア", action: onShare)
                 }
             }
-
-            HStack(spacing: 10) {
-                EquippedItemChip(title: "フレーム", value: iconFrame.title, systemImage: iconFrame.systemImage, tint: accentColor)
-                EquippedItemChip(title: "バッジ", value: equippedBadge.title, systemImage: equippedBadge.systemImage, tint: Color(hex: equippedBadge.tint))
-            }
         }
         .padding(16)
         .background {
@@ -358,35 +346,6 @@ private struct EquippedBadgePill: View {
     }
 }
 
-private struct EquippedItemChip: View {
-    let title: String
-    let value: String
-    let systemImage: String
-    let tint: Color
-
-    var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: systemImage)
-                .font(.caption.weight(.bold))
-                .foregroundStyle(tint)
-                .frame(width: 18)
-
-            VStack(alignment: .leading, spacing: 1) {
-                Text(title)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                Text(value)
-                    .font(.caption.weight(.semibold))
-                    .lineLimit(1)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-    }
-}
-
 private struct ProfileHeroRhythmStrip: View {
     let accentColor: Color
 
@@ -421,8 +380,6 @@ private struct ProfilePhotoView: View {
 
     var body: some View {
         ZStack {
-            ProfileIconFrameView(style: frameStyle, accentColor: accentColor, size: size + 16)
-
             Circle()
                 .fill(accentColor.gradient)
                 .frame(width: size, height: size)
@@ -438,6 +395,8 @@ private struct ProfilePhotoView: View {
                     .font(.system(size: size * 0.42, weight: .bold))
                     .foregroundStyle(.white)
             }
+
+            ProfileIconFrameView(style: frameStyle, accentColor: accentColor, size: size + 16)
         }
         .frame(width: size + 16, height: size + 16)
         .overlay {
@@ -547,116 +506,6 @@ private struct ProfileStatTile: View {
                 .clipShape(Capsule())
                 .padding(10)
         }
-    }
-}
-
-private struct ProfileCollectionSection: View {
-    let badges: [ProfileBadgeModel]
-    let equippedBadge: ProfileBadgeModel
-    let iconFrame: ProfileIconFrameStyle
-    let streakIcon: ProfileStreakIconStyle
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            ProfileSectionHeader(title: "装備とコレクション")
-
-            HStack(spacing: 10) {
-                ProfileEquipmentTile(title: "バッジ", value: equippedBadge.title, systemImage: equippedBadge.systemImage, tint: Color(hex: equippedBadge.tint))
-                ProfileEquipmentTile(title: "フレーム", value: iconFrame.title, systemImage: iconFrame.systemImage, tint: iconFrame.primaryColor)
-                ProfileEquipmentTile(title: "連続", value: streakIcon.title, systemImage: streakIcon.systemImage, tint: Color(hex: streakIcon.tintHex))
-            }
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 14) {
-                    ForEach(badges) { badge in
-                        ProfileCollectionBadge(badge: badge, isEquipped: badge.id == equippedBadge.id)
-                    }
-                }
-                .padding(.vertical, 2)
-            }
-        }
-    }
-}
-
-private struct ProfileCollectionBadge: View {
-    let badge: ProfileBadgeModel
-    let isEquipped: Bool
-
-    private var tint: Color {
-        Color(hex: badge.tint)
-    }
-
-    var body: some View {
-        VStack(spacing: 8) {
-            ZStack {
-                Circle()
-                    .fill(badge.isUnlocked ? tint.opacity(0.18) : Color(.secondarySystemGroupedBackground))
-                Circle()
-                    .stroke(
-                        isEquipped ? tint : (badge.isUnlocked ? tint.opacity(0.65) : Color(.separator).opacity(0.4)),
-                        lineWidth: isEquipped ? 2 : 1
-                    )
-                Image(systemName: badge.isUnlocked ? badge.systemImage : "lock.fill")
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(badge.isUnlocked ? tint : Color.secondary)
-            }
-            .frame(width: 62, height: 62)
-            .overlay(alignment: .bottomTrailing) {
-                if isEquipped {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(tint)
-                        .background(Color(.secondarySystemGroupedBackground), in: Circle())
-                }
-            }
-
-            Text(badge.title)
-                .font(.caption2.weight(.semibold))
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-
-            Text(badge.progressText)
-                .font(.caption2.monospacedDigit())
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-        }
-        .frame(width: 78)
-        .opacity(badge.isUnlocked ? 1 : 0.55)
-    }
-}
-
-private struct ProfileEquipmentTile: View {
-    let title: String
-    let value: String
-    let systemImage: String
-    let tint: Color
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Image(systemName: systemImage)
-                .font(.headline.weight(.bold))
-                .foregroundStyle(tint)
-                .frame(height: 20)
-            Text(value)
-                .font(.caption.weight(.semibold))
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-            Text(title)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(10)
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-    }
-}
-
-private struct ProfileSectionHeader: View {
-    let title: String
-
-    var body: some View {
-        Text(title)
-            .font(.headline)
     }
 }
 
