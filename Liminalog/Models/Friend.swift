@@ -117,6 +117,8 @@ final class Friend {
 
     func score(for period: FriendScorePeriod) -> Double {
         switch period {
+        case .day:
+            yesterdayScore
         case .today:
             todayScore
         case .yesterday:
@@ -132,6 +134,7 @@ final class Friend {
 }
 
 enum FriendScorePeriod: String, CaseIterable, Identifiable {
+    case day
     case today
     case yesterday
     case week
@@ -141,11 +144,13 @@ enum FriendScorePeriod: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 
     static var detailCases: [FriendScorePeriod] {
-        [.week, .month, .year]
+        [.day, .week, .month, .year]
     }
 
     var label: String {
         switch self {
+        case .day:
+            "日間"
         case .today:
             "今日"
         case .yesterday:

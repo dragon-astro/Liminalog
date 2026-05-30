@@ -346,7 +346,7 @@ private struct ProfileHero: View {
     }
 }
 
-private struct ProfileCardStyleMark: View {
+struct ProfileCardStyleMark: View {
     let style: ProfileCardStyle
     let accentColor: Color
 
@@ -524,7 +524,7 @@ private struct ProfileStatsRow: View {
     }
 }
 
-private struct ProfileStatTile: View {
+struct ProfileStatTile: View {
     let title: String
     let value: String
     let systemImage: String
@@ -638,7 +638,7 @@ private struct ProfileCollectionBadge: View {
     }
 }
 
-private struct ProfileEquipmentTile: View {
+struct ProfileEquipmentTile: View {
     let title: String
     let value: String
     let systemImage: String
@@ -654,7 +654,7 @@ private struct ProfileEquipmentTile: View {
     }
 }
 
-private struct ProfileEquipmentFrameTile: View {
+struct ProfileEquipmentFrameTile: View {
     let title: String
     let value: String
     let frameStyle: ProfileIconFrameStyle
@@ -673,7 +673,7 @@ private struct ProfileEquipmentFrameTile: View {
     }
 }
 
-private struct ProfileEquipmentCardStyleTile: View {
+struct ProfileEquipmentCardStyleTile: View {
     let title: String
     let value: String
     let cardStyle: ProfileCardStyle
@@ -687,7 +687,7 @@ private struct ProfileEquipmentCardStyleTile: View {
     }
 }
 
-private struct ProfileEquipmentTileShell<Preview: View>: View {
+struct ProfileEquipmentTileShell<Preview: View>: View {
     let title: String
     let value: String
     @ViewBuilder let preview: () -> Preview
@@ -711,7 +711,7 @@ private struct ProfileEquipmentTileShell<Preview: View>: View {
     }
 }
 
-private struct ProfileMiniCardStyleView: View {
+struct ProfileMiniCardStyleView: View {
     let style: ProfileCardStyle
     let accentColor: Color
 
@@ -736,7 +736,7 @@ private struct ProfileMiniCardStyleView: View {
     }
 }
 
-private struct ProfileMiniRhythmStrip: View {
+struct ProfileMiniRhythmStrip: View {
     let accentColor: Color
 
     var body: some View {

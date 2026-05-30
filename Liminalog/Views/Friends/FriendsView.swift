@@ -11,7 +11,8 @@ struct FriendsView: View {
     @Query private var plans: [PlanBlock]
 
     @State private var clock = TickClock(interval: 30)
-    @State private var rankingDetailPeriod: FriendScorePeriod = .week
+    @State private var rankingDetailPeriod: FriendScorePeriod = .day
+    @State private var rankingAnchorDate = Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date()
     @State private var isShowingAddFriend = false
     @State private var isShowingProfileShare = false
     @State private var isShowingRankingDetail = false
@@ -124,7 +125,8 @@ struct FriendsView: View {
             .sheet(isPresented: $isShowingRankingDetail) {
                 FriendRankingListSheet(
                     period: $rankingDetailPeriod,
-                    entries: rankingEntries(for: rankingDetailPeriod),
+                    anchorDate: $rankingAnchorDate,
+                    entries: rankingEntries(for: rankingDetailPeriod, anchorDate: rankingAnchorDate),
                     onSelectFriend: { friend in
                         selectedFriend = friend
                     }
@@ -220,7 +222,8 @@ struct FriendsView: View {
                 SectionTitle(title: "昨日のランキング", count: yesterdayRankingEntries.count)
                 Spacer()
                 Button {
-                    rankingDetailPeriod = .week
+                    rankingDetailPeriod = .day
+                    rankingAnchorDate = Calendar.current.date(byAdding: .day, value: -1, to: clock.now) ?? clock.now
                     isShowingRankingDetail = true
                 } label: {
                     HStack(spacing: 5) {
@@ -290,14 +293,14 @@ struct FriendsView: View {
         rankingEntries(for: .yesterday)
     }
 
-    private func rankingEntries(for period: FriendScorePeriod) -> [FriendRankingEntry] {
+    private func rankingEntries(for period: FriendScorePeriod, anchorDate: Date? = nil) -> [FriendRankingEntry] {
         let selfEntry = FriendRankingEntry(
             id: "me",
             rank: 0,
             name: ownDisplayName,
             imageName: activeChapter?.category?.icon ?? "person.fill",
             tint: Color(hex: ownAccentColorHex),
-            score: selfScore(for: period),
+            score: selfScore(for: period, anchorDate: anchorDate),
             status: "自分",
             iconFrame: ownIconFrame,
             isMe: true,
@@ -332,8 +335,10 @@ struct FriendsView: View {
             }
     }
 
-    private func selfScore(for period: FriendScorePeriod) -> Double {
+    private func selfScore(for period: FriendScorePeriod, anchorDate: Date?) -> Double {
         switch period {
+        case .day:
+            return score(on: anchorDate ?? clock.now).totalScore
         case .today:
             return score(on: clock.now).totalScore
         case .yesterday:
@@ -342,24 +347,37 @@ struct FriendsView: View {
             }
             return score(on: yesterday).totalScore
         case .week:
-            return averageSelfScore(days: 7)
+            return averageSelfScore(in: dateInterval(.weekOfYear, containing: anchorDate ?? clock.now))
         case .month:
-            return averageSelfScore(days: 30)
+            return averageSelfScore(in: dateInterval(.month, containing: anchorDate ?? clock.now))
         case .year:
-            return averageSelfScore(days: 365)
+            return averageSelfScore(in: dateInterval(.year, containing: anchorDate ?? clock.now))
         }
     }
 
-    private func averageSelfScore(days: Int) -> Double {
-        let scores = (0..<days).compactMap { offset -> Double? in
-            guard let date = Calendar.current.date(byAdding: .day, value: -offset, to: clock.now) else {
-                return nil
-            }
+    private func averageSelfScore(in interval: DateInterval) -> Double {
+        var date = interval.start
+        var scores: [Double] = []
+        let calendar = Calendar.japanese
+
+        while date < interval.end {
             let summary = score(on: date)
-            return summary.plannedDuration > 0 ? summary.totalScore : nil
+            if summary.plannedDuration > 0 {
+                scores.append(summary.totalScore)
+            }
+            guard let nextDate = calendar.date(byAdding: .day, value: 1, to: date) else {
+                break
+            }
+            date = nextDate
         }
+
         guard !scores.isEmpty else { return 0 }
         return scores.reduce(0, +) / Double(scores.count)
+    }
+
+    private func dateInterval(_ component: Calendar.Component, containing date: Date) -> DateInterval {
+        let boundary = DayBoundary(date: date, calendar: .japanese)
+        return Calendar.japanese.dateInterval(of: component, for: date) ?? DateInterval(start: boundary.dayStart, end: boundary.dayEnd)
     }
 
     private func score(on date: Date) -> ScoreSummary {
@@ -828,22 +846,46 @@ private struct FriendDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     let friend: Friend
+    @State private var isShowingCalendar = false
+
+    private var accentColor: Color {
+        Color(hex: friend.accentColorHex)
+    }
+
+    private var badge: FriendBadgeDisplay {
+        FriendBadgeDisplayCatalog.item(for: friend.profileBadgeID)
+    }
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                hero
+            VStack(alignment: .leading, spacing: 24) {
+                FriendProfileHero(
+                    friend: friend,
+                    badge: badge,
+                    onCalendar: { isShowingCalendar = true },
+                    onFavorite: {
+                        friend.isFavorite.toggle()
+                        friend.updatedAt = Date()
+                        save()
+                    }
+                )
+
+                FriendProfileStatsRow(friend: friend)
+
                 statusCard
-                scoreCards
+                FriendProfileCollectionSection(friend: friend, badge: badge)
                 controls
             }
-            .padding(.horizontal, 18)
-            .padding(.top, 16)
-            .padding(.bottom, 30)
+            .padding(.horizontal, 20)
+            .padding(.top, 18)
+            .padding(.bottom, 36)
         }
         .background(Color(.systemGroupedBackground))
         .navigationTitle(friend.displayName)
         .navigationBarTitleDisplayMode(.inline)
+        .navigationDestination(isPresented: $isShowingCalendar) {
+            FriendCalendarView(friend: friend)
+        }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
@@ -878,40 +920,6 @@ private struct FriendDetailView: View {
         }
     }
 
-    private var hero: some View {
-        HStack(alignment: .center, spacing: 16) {
-            FriendAvatar(friend: friend, size: 76)
-
-            VStack(alignment: .leading, spacing: 7) {
-                HStack(spacing: 7) {
-                    Text(friend.displayName)
-                        .font(.title3.weight(.bold))
-                        .lineLimit(1)
-                    if friend.isFavorite {
-                        Image(systemName: "star.fill")
-                            .font(.caption.weight(.bold))
-                            .foregroundStyle(.yellow)
-                    }
-                }
-
-                Text(friendMoodText)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
-
-            Spacer()
-        }
-        .padding(18)
-        .background(
-            FriendCardBackground(cardStyle: friend.cardStyle, accentColor: Color(hex: friend.accentColorHex), cornerRadius: 20)
-        )
-        .overlay {
-            RoundedRectangle(cornerRadius: 20)
-                .stroke(friend.cardStyle.borderColor(accentColor: Color(hex: friend.accentColorHex)), lineWidth: 1)
-        }
-    }
-
     private var statusCard: some View {
         HStack(spacing: 13) {
             ZStack {
@@ -940,14 +948,6 @@ private struct FriendDetailView: View {
         )
     }
 
-    private var scoreCards: some View {
-        HStack(spacing: 10) {
-            FriendScoreCard(title: "今日", value: friend.todayScore, tint: Color(hex: friend.accentColorHex))
-            FriendScoreCard(title: "昨日", value: friend.yesterdayScore, tint: .blue)
-            FriendScoreCard(title: "今週", value: friend.weekScore, tint: .green)
-        }
-    }
-
     private var controls: some View {
         VStack(spacing: 10) {
             if friend.status == .pendingIncoming {
@@ -964,19 +964,6 @@ private struct FriendDetailView: View {
                 }
                 .buttonStyle(.borderedProminent)
             }
-
-            Button {
-                friend.isFavorite.toggle()
-                friend.updatedAt = Date()
-                save()
-            } label: {
-                Label(friend.isFavorite ? "お気に入り済み" : "お気に入り", systemImage: friend.isFavorite ? "star.fill" : "star")
-                    .font(.subheadline.weight(.semibold))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
-            }
-            .buttonStyle(.bordered)
-            .tint(Color(hex: friend.accentColorHex))
         }
     }
 
@@ -991,6 +978,170 @@ private struct FriendDetailView: View {
     private var friendMoodText: String {
         let mood = friend.currentMoodText.trimmingCharacters(in: .whitespacesAndNewlines)
         return mood.isEmpty ? (friend.handle.isEmpty ? friend.status.label : friend.handle) : mood
+    }
+}
+
+private struct FriendProfileHero: View {
+    let friend: Friend
+    let badge: FriendBadgeDisplay
+    let onCalendar: () -> Void
+    let onFavorite: () -> Void
+
+    private var accentColor: Color {
+        Color(hex: friend.accentColorHex)
+    }
+
+    private var moodText: String {
+        let mood = friend.currentMoodText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !mood.isEmpty { return mood }
+        return friend.bio?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false ? friend.bio ?? "" : "近況はまだありません"
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 14) {
+            FriendAvatar(friend: friend, size: 92)
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 7) {
+                    Text(friend.displayName)
+                        .font(.title2.weight(.bold))
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.82)
+
+                    if friend.isFavorite {
+                        Image(systemName: "star.fill")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(.yellow)
+                    }
+                }
+                .padding(.trailing, 76)
+
+                FriendBadgePill(badge: badge)
+
+                Text(moodText)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .frame(minHeight: 42, alignment: .topLeading)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .layoutPriority(1)
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 28)
+        .background {
+            FriendCardBackground(cardStyle: friend.cardStyle, accentColor: accentColor, cornerRadius: 8)
+                .overlay(alignment: .topTrailing) {
+                    ProfileCardStyleMark(style: friend.cardStyle, accentColor: accentColor)
+                        .padding(16)
+                }
+                .overlay(alignment: .topTrailing) {
+                    HStack(spacing: 8) {
+                        FriendProfileActionButton(systemImage: "calendar", label: "カレンダー", action: onCalendar)
+                        FriendProfileActionButton(systemImage: friend.isFavorite ? "star.fill" : "star", label: "お気に入り", action: onFavorite)
+                    }
+                    .padding(.top, 18)
+                    .padding(.trailing, 18)
+                }
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(friend.cardStyle.borderColor(accentColor: accentColor), lineWidth: friend.cardStyle.borderWidth)
+        }
+    }
+}
+
+private struct FriendProfileActionButton: View {
+    let systemImage: String
+    let label: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.footnote.weight(.semibold))
+                .frame(width: 30, height: 30)
+                .background(.thinMaterial, in: Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+    }
+}
+
+private struct FriendBadgePill: View {
+    let badge: FriendBadgeDisplay
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: badge.systemImage)
+                .font(.caption2.weight(.bold))
+            Text(badge.title)
+                .font(.caption2.weight(.bold))
+        }
+        .foregroundStyle(Color(hex: badge.tintHex))
+        .padding(.horizontal, 7)
+        .padding(.vertical, 4)
+        .background(Color(hex: badge.tintHex).opacity(0.12), in: Capsule())
+        .lineLimit(1)
+    }
+}
+
+private struct FriendProfileStatsRow: View {
+    let friend: Friend
+
+    var body: some View {
+        HStack(spacing: 10) {
+            ProfileStatTile(title: "ストリーク", value: "\(friend.streakCount)日", systemImage: friend.streakIconStyle.systemImage, tint: Color(hex: friend.streakIconStyle.tintHex))
+            ProfileStatTile(title: "昨日", value: "\(Int(round(friend.yesterdayScore)))pt", systemImage: "star.fill", tint: Color(hex: "#F2994A"))
+            ProfileStatTile(title: "今週", value: "\(Int(round(friend.weekScore)))pt", systemImage: "chart.line.uptrend.xyaxis", tint: Color(hex: "#27AE60"))
+        }
+    }
+}
+
+private struct FriendProfileCollectionSection: View {
+    let friend: Friend
+    let badge: FriendBadgeDisplay
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("装備とコレクション")
+                .font(.headline)
+
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
+                ProfileEquipmentTile(title: "バッジ", value: badge.title, systemImage: badge.systemImage, tint: Color(hex: badge.tintHex))
+                ProfileEquipmentFrameTile(title: "フレーム", value: friend.iconFrameStyle.title, frameStyle: friend.iconFrameStyle)
+                ProfileEquipmentCardStyleTile(title: "カード", value: friend.cardStyle.title, cardStyle: friend.cardStyle, accentColor: Color(hex: friend.accentColorHex))
+                ProfileEquipmentTile(title: "連続", value: friend.streakIconStyle.title, systemImage: friend.streakIconStyle.systemImage, tint: Color(hex: friend.streakIconStyle.tintHex))
+            }
+        }
+    }
+}
+
+private struct FriendBadgeDisplay {
+    let id: String
+    let title: String
+    let systemImage: String
+    let tintHex: String
+}
+
+private enum FriendBadgeDisplayCatalog {
+    static func item(for id: String?) -> FriendBadgeDisplay {
+        switch id {
+        case "first_record":
+            FriendBadgeDisplay(id: "first_record", title: "はじめの記録", systemImage: "sparkles", tintHex: "#2F80ED")
+        case "three_days":
+            FriendBadgeDisplay(id: "three_days", title: "3日記録", systemImage: "calendar.badge.checkmark", tintHex: "#27AE60")
+        case "seven_streak":
+            FriendBadgeDisplay(id: "seven_streak", title: "7日連続", systemImage: "flame.fill", tintHex: "#EB5757")
+        case "ten_hours":
+            FriendBadgeDisplay(id: "ten_hours", title: "10時間", systemImage: "clock.fill", tintHex: "#6C5CE7")
+        case "morning":
+            FriendBadgeDisplay(id: "morning", title: "朝の記録", systemImage: "sunrise.fill", tintHex: "#F2994A")
+        default:
+            FriendBadgeDisplay(id: "starter", title: "ルーキー", systemImage: "person.crop.circle.fill.badge.checkmark", tintHex: "#2F80ED")
+        }
     }
 }
 
@@ -1024,6 +1175,206 @@ private struct FriendScoreCard: View {
             RoundedRectangle(cornerRadius: 16)
                 .fill(Color(.secondarySystemGroupedBackground))
         )
+    }
+}
+
+private struct FriendCalendarView: View {
+    let friend: Friend
+    @State private var visibleMonth = Date()
+
+    private let calendar = Calendar.japanese
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: 6), count: 7)
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                monthHeader
+                weekdayHeader
+                calendarGrid
+                sharedCalendarNote
+            }
+            .padding(.horizontal, 18)
+            .padding(.top, 16)
+            .padding(.bottom, 36)
+        }
+        .background(Color(.systemGroupedBackground))
+        .navigationTitle("\(friend.displayName)のカレンダー")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var monthHeader: some View {
+        HStack(spacing: 12) {
+            Button {
+                moveMonth(by: -1)
+            } label: {
+                Image(systemName: "chevron.left")
+                    .font(.subheadline.weight(.black))
+                    .frame(width: 34, height: 34)
+                    .background(Circle().fill(Color(.secondarySystemGroupedBackground)))
+            }
+            .buttonStyle(.plain)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(monthTitle)
+                    .font(.title2.weight(.bold))
+                Text("共有カレンダー")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Button {
+                moveMonth(by: 1)
+            } label: {
+                Image(systemName: "chevron.right")
+                    .font(.subheadline.weight(.black))
+                    .frame(width: 34, height: 34)
+                    .background(Circle().fill(Color(.secondarySystemGroupedBackground)))
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private var weekdayHeader: some View {
+        LazyVGrid(columns: columns, spacing: 0) {
+            ForEach(calendar.shortWeekdaySymbols, id: \.self) { weekday in
+                Text(weekday)
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity)
+            }
+        }
+    }
+
+    private var calendarGrid: some View {
+        LazyVGrid(columns: columns, spacing: 6) {
+            ForEach(Array(monthCells.enumerated()), id: \.offset) { _, date in
+                if let date {
+                    FriendCalendarDayCell(
+                        date: date,
+                        score: knownScore(on: date),
+                        isToday: calendar.isDateInToday(date),
+                        accentColor: Color(hex: friend.accentColorHex)
+                    )
+                } else {
+                    Color.clear
+                        .frame(height: 72)
+                }
+            }
+        }
+    }
+
+    private var sharedCalendarNote: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                Image(systemName: "lock.shield")
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(Color(hex: friend.accentColorHex))
+                    .frame(width: 34, height: 34)
+                    .background(Circle().fill(Color(hex: friend.accentColorHex).opacity(0.14)))
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("共有予定は同期後に表示")
+                        .font(.subheadline.weight(.bold))
+                    Text("今は友達から届いている日別スコアだけを表示します")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+            }
+        }
+        .padding(15)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color(.secondarySystemGroupedBackground))
+        )
+    }
+
+    private var monthTitle: String {
+        "\(calendar.component(.year, from: visibleMonth))年\(calendar.component(.month, from: visibleMonth))月"
+    }
+
+    private var monthCells: [Date?] {
+        guard
+            let interval = calendar.dateInterval(of: .month, for: visibleMonth),
+            let dayRange = calendar.range(of: .day, in: .month, for: visibleMonth)
+        else { return [] }
+
+        let firstWeekday = calendar.component(.weekday, from: interval.start)
+        let leadingBlankCount = (firstWeekday - calendar.firstWeekday + 7) % 7
+        let dates = dayRange.compactMap { day in
+            calendar.date(byAdding: .day, value: day - 1, to: interval.start)
+        }
+        let rawCells: [Date?] = Array(repeating: nil, count: leadingBlankCount) + dates.map(Optional.some)
+        let trailingBlankCount = (7 - rawCells.count % 7) % 7
+        return rawCells + Array(repeating: nil, count: trailingBlankCount)
+    }
+
+    private func knownScore(on date: Date) -> Double? {
+        if calendar.isDateInToday(date) {
+            return friend.todayScore
+        }
+        if let yesterday = calendar.date(byAdding: .day, value: -1, to: Date()), calendar.isDate(date, inSameDayAs: yesterday) {
+            return friend.yesterdayScore
+        }
+        return nil
+    }
+
+    private func moveMonth(by offset: Int) {
+        visibleMonth = calendar.date(byAdding: .month, value: offset, to: visibleMonth) ?? visibleMonth
+    }
+}
+
+private struct FriendCalendarDayCell: View {
+    let date: Date
+    let score: Double?
+    let isToday: Bool
+    let accentColor: Color
+
+    private var calendar: Calendar {
+        .japanese
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Text("\(calendar.component(.day, from: date))")
+                .font(.caption.weight(.bold))
+                .foregroundStyle(isToday ? accentColor : .primary)
+
+            Spacer(minLength: 0)
+
+            if let score {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("\(Int(round(score)))")
+                        .font(.caption2.weight(.black))
+                        .monospacedDigit()
+                    Capsule()
+                        .fill(accentColor.opacity(0.18))
+                        .frame(height: 4)
+                        .overlay(alignment: .leading) {
+                            GeometryReader { proxy in
+                                Capsule()
+                                    .fill(accentColor)
+                                    .frame(width: proxy.size.width * min(max(score / 100, 0), 1))
+                            }
+                        }
+                }
+            } else {
+                Circle()
+                    .fill(Color.secondary.opacity(0.18))
+                    .frame(width: 4, height: 4)
+            }
+        }
+        .padding(8)
+        .frame(maxWidth: .infinity, minHeight: 72, alignment: .topLeading)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color(.secondarySystemGroupedBackground))
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(isToday ? accentColor : Color.primary.opacity(0.05), lineWidth: isToday ? 2 : 1)
+        }
     }
 }
 
@@ -1126,12 +1477,14 @@ private enum FriendInviteSubmitResult {
 private struct FriendRankingListSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Binding var period: FriendScorePeriod
+    @Binding var anchorDate: Date
     let entries: [FriendRankingEntry]
     let onSelectFriend: (Friend) -> Void
+    @State private var isShowingPeriodPicker = false
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 14) {
+            VStack(spacing: 12) {
                 Picker("期間", selection: $period) {
                     ForEach(FriendScorePeriod.detailCases) { period in
                         Text(period.label).tag(period)
@@ -1140,6 +1493,23 @@ private struct FriendRankingListSheet: View {
                 .pickerStyle(.segmented)
                 .padding(.horizontal, 18)
                 .padding(.top, 12)
+
+                Button {
+                    isShowingPeriodPicker = true
+                } label: {
+                    HStack(spacing: 6) {
+                        Text(RankingPeriodFormatter.label(for: period, anchorDate: anchorDate))
+                            .font(.subheadline.weight(.bold))
+                            .monospacedDigit()
+                        Image(systemName: "chevron.down")
+                            .font(.caption.weight(.black))
+                    }
+                    .foregroundStyle(.primary)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 9)
+                    .background(Capsule().fill(Color(.secondarySystemGroupedBackground)))
+                }
+                .buttonStyle(.plain)
 
                 ScrollView {
                     LazyVStack(spacing: 10) {
@@ -1162,6 +1532,9 @@ private struct FriendRankingListSheet: View {
             .background(Color(.systemGroupedBackground))
             .navigationTitle("ランキング")
             .navigationBarTitleDisplayMode(.inline)
+            .sheet(isPresented: $isShowingPeriodPicker) {
+                FriendRankingPeriodPickerSheet(period: period, anchorDate: $anchorDate)
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("閉じる") {
@@ -1169,6 +1542,159 @@ private struct FriendRankingListSheet: View {
                     }
                 }
             }
+        }
+    }
+}
+
+private struct FriendRankingPeriodPickerSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let period: FriendScorePeriod
+    @Binding var anchorDate: Date
+    @State private var selectedDate: Date
+    @State private var selectedYear: Int
+    @State private var selectedMonth: Int
+
+    private let calendar = Calendar.japanese
+
+    init(period: FriendScorePeriod, anchorDate: Binding<Date>) {
+        let date = anchorDate.wrappedValue
+        let calendar = Calendar.japanese
+        self.period = period
+        self._anchorDate = anchorDate
+        self._selectedDate = State(initialValue: date)
+        self._selectedYear = State(initialValue: calendar.component(.year, from: date))
+        self._selectedMonth = State(initialValue: calendar.component(.month, from: date))
+    }
+
+    var body: some View {
+        NavigationStack {
+            pickerContent
+                .padding(.horizontal, 12)
+                .navigationTitle(pickerTitle)
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("キャンセル") {
+                            dismiss()
+                        }
+                    }
+
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("完了") {
+                            applySelection()
+                            dismiss()
+                        }
+                    }
+                }
+        }
+        .presentationDetents([.height(300)])
+    }
+
+    @ViewBuilder
+    private var pickerContent: some View {
+        switch period {
+        case .day, .week:
+            DatePicker(
+                "",
+                selection: $selectedDate,
+                displayedComponents: .date
+            )
+            .datePickerStyle(.wheel)
+            .labelsHidden()
+        case .month:
+            HStack(spacing: 0) {
+                yearPicker
+                monthPicker
+            }
+        case .year:
+            yearPicker
+        case .today, .yesterday:
+            EmptyView()
+        }
+    }
+
+    private var yearPicker: some View {
+        Picker("年", selection: $selectedYear) {
+            ForEach(Array(yearRange), id: \.self) { year in
+                Text(verbatim: "\(year)年").tag(year)
+            }
+        }
+        .pickerStyle(.wheel)
+        .frame(maxWidth: .infinity)
+    }
+
+    private var monthPicker: some View {
+        Picker("月", selection: $selectedMonth) {
+            ForEach(1...12, id: \.self) { month in
+                Text("\(month)月").tag(month)
+            }
+        }
+        .pickerStyle(.wheel)
+        .frame(maxWidth: .infinity)
+    }
+
+    private var yearRange: ClosedRange<Int> {
+        let currentYear = calendar.component(.year, from: Date())
+        return (currentYear - 5)...(currentYear + 1)
+    }
+
+    private var pickerTitle: String {
+        switch period {
+        case .day:
+            "日付を選択"
+        case .week:
+            "週を選択"
+        case .month:
+            "年月を選択"
+        case .year:
+            "年を選択"
+        case .today, .yesterday:
+            "期間を選択"
+        }
+    }
+
+    private func applySelection() {
+        switch period {
+        case .day, .week:
+            anchorDate = selectedDate
+        case .month:
+            anchorDate = calendar.date(from: DateComponents(year: selectedYear, month: selectedMonth, day: 1)) ?? anchorDate
+        case .year:
+            anchorDate = calendar.date(from: DateComponents(year: selectedYear, month: 1, day: 1)) ?? anchorDate
+        case .today, .yesterday:
+            break
+        }
+    }
+}
+
+private enum RankingPeriodFormatter {
+    static func label(for period: FriendScorePeriod, anchorDate: Date) -> String {
+        let calendar = Calendar.japanese
+        switch period {
+        case .day:
+            let year = calendar.component(.year, from: anchorDate)
+            let month = calendar.component(.month, from: anchorDate)
+            let day = calendar.component(.day, from: anchorDate)
+            return "\(year)年\(month)月\(day)日"
+        case .week:
+            let interval = calendar.dateInterval(of: .weekOfYear, for: anchorDate) ?? DateInterval(start: anchorDate, duration: 7 * 24 * 60 * 60)
+            let end = calendar.date(byAdding: .day, value: -1, to: interval.end) ?? interval.end
+            let year = calendar.component(.year, from: interval.start)
+            let startMonth = calendar.component(.month, from: interval.start)
+            let startDay = calendar.component(.day, from: interval.start)
+            let endMonth = calendar.component(.month, from: end)
+            let endDay = calendar.component(.day, from: end)
+            return "\(year) \(startMonth)/\(startDay)-\(endMonth)/\(endDay)"
+        case .month:
+            let year = calendar.component(.year, from: anchorDate)
+            let month = calendar.component(.month, from: anchorDate)
+            return "\(year)年\(month)月"
+        case .year:
+            return "\(calendar.component(.year, from: anchorDate))年"
+        case .today:
+            return "今日"
+        case .yesterday:
+            return "昨日"
         }
     }
 }
