@@ -553,6 +553,12 @@ private struct FriendRow: View {
                         .font(.subheadline.weight(.bold))
                         .lineLimit(1)
 
+                    FriendInlineStreak(
+                        count: friend.streakCount,
+                        systemImage: friend.streakIconStyle.systemImage,
+                        tint: Color(hex: friend.streakIconStyle.tintHex)
+                    )
+
                     if friend.isFavorite {
                         Image(systemName: "star.fill")
                             .font(.caption2.weight(.bold))
@@ -568,19 +574,11 @@ private struct FriendRow: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .layoutPriority(1)
 
-            HStack(spacing: 7) {
-                FriendSquareMetric(
-                    title: "\(friend.streakCount)日",
-                    systemImage: friend.streakIconStyle.systemImage,
-                    tint: Color(hex: friend.streakIconStyle.tintHex)
-                )
-
-                FriendSquareMetric(
-                    title: friend.currentStatusTitle.isEmpty ? "オフ" : friend.currentStatusTitle,
-                    systemImage: friend.currentStatusIcon,
-                    tint: Color(hex: friend.currentStatusColorHex)
-                )
-            }
+            FriendSquareMetric(
+                title: friend.currentStatusTitle.isEmpty ? "オフ" : friend.currentStatusTitle,
+                systemImage: friend.currentStatusIcon,
+                tint: Color(hex: friend.currentStatusColorHex)
+            )
 
             Image(systemName: "chevron.right")
                 .font(.caption.weight(.black))
@@ -603,6 +601,27 @@ private struct FriendRow: View {
     private var friendMoodText: String {
         let mood = friend.currentMoodText.trimmingCharacters(in: .whitespacesAndNewlines)
         return mood.isEmpty ? "ひとこと未設定" : mood
+    }
+}
+
+private struct FriendInlineStreak: View {
+    let count: Int
+    let systemImage: String
+    let tint: Color
+
+    var body: some View {
+        HStack(spacing: 2) {
+            Image(systemName: systemImage)
+                .font(.caption2.weight(.bold))
+            Text("\(count)")
+                .font(.caption2.weight(.bold))
+                .monospacedDigit()
+        }
+        .foregroundStyle(tint)
+        .padding(.horizontal, 5)
+        .padding(.vertical, 2)
+        .background(Capsule().fill(tint.opacity(0.12)))
+        .accessibilityLabel("ストリーク \(count)日")
     }
 }
 
