@@ -50,6 +50,7 @@ final class Friend {
     var todayScore: Double = 0
     var yesterdayScore: Double = 0
     var weekScore: Double = 0
+    var streakCount: Int = 0
     var lastSeenAt: Date?
     var acceptedAt: Date?
     var blockedAt: Date?
@@ -102,6 +103,7 @@ final class Friend {
         self.todayScore = 0
         self.yesterdayScore = 0
         self.weekScore = 0
+        self.streakCount = 0
         self.lastSeenAt = nil
         self.acceptedAt = status == .accepted ? now : nil
         self.blockedAt = status == .blocked ? now : nil

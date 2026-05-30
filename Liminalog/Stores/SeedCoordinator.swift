@@ -92,6 +92,7 @@ enum SeedCoordinator {
                 todayScore: 92,
                 yesterdayScore: 76,
                 weekScore: 84,
+                streakCount: 12,
                 iconFrameID: "halo",
                 streakIconID: "spark",
                 cardStyleID: "mint",
@@ -112,6 +113,7 @@ enum SeedCoordinator {
                 todayScore: 71,
                 yesterdayScore: 88,
                 weekScore: 79,
+                streakCount: 5,
                 iconFrameID: "crown",
                 streakIconID: "sun",
                 cardStyleID: "glass",
@@ -132,6 +134,7 @@ enum SeedCoordinator {
                 todayScore: 64,
                 yesterdayScore: 58,
                 weekScore: 67,
+                streakCount: 2,
                 iconFrameID: "signal",
                 streakIconID: "bolt",
                 cardStyleID: "dawn",
@@ -152,6 +155,7 @@ enum SeedCoordinator {
                 todayScore: 38,
                 yesterdayScore: 94,
                 weekScore: 72,
+                streakCount: 0,
                 iconFrameID: "focus",
                 streakIconID: "flame",
                 cardStyleID: "clean",
@@ -175,6 +179,7 @@ enum SeedCoordinator {
         todayScore: Double,
         yesterdayScore: Double,
         weekScore: Double,
+        streakCount: Int,
         iconFrameID: String,
         streakIconID: String,
         cardStyleID: String,
@@ -204,6 +209,7 @@ enum SeedCoordinator {
         friend.todayScore = todayScore
         friend.yesterdayScore = yesterdayScore
         friend.weekScore = weekScore
+        friend.streakCount = streakCount
         friend.isFavorite = isFavorite
         friend.updatedAt = now
         return friend
@@ -228,6 +234,7 @@ enum SeedCoordinator {
         existing.todayScore = debugFriend.todayScore
         existing.yesterdayScore = debugFriend.yesterdayScore
         existing.weekScore = debugFriend.weekScore
+        existing.streakCount = debugFriend.streakCount
         existing.isFavorite = debugFriend.isFavorite
         existing.updatedAt = debugFriend.updatedAt
     }

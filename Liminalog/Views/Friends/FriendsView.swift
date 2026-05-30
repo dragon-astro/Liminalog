@@ -542,33 +542,22 @@ private struct RankingCard: View {
 
 private struct FriendRow: View {
     let friend: Friend
-    private let nameColumnWidth: CGFloat = 92
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 11) {
             FriendAvatar(friend: friend, size: 46)
 
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 10) {
-                    HStack(spacing: 5) {
-                        Text(friend.displayName)
-                            .font(.subheadline.weight(.bold))
-                            .lineLimit(1)
+            VStack(alignment: .leading, spacing: 7) {
+                HStack(spacing: 5) {
+                    Text(friend.displayName)
+                        .font(.subheadline.weight(.bold))
+                        .lineLimit(1)
 
-                        if friend.isFavorite {
-                            Image(systemName: "star.fill")
-                                .font(.caption2.weight(.bold))
-                                .foregroundStyle(.yellow)
-                        }
+                    if friend.isFavorite {
+                        Image(systemName: "star.fill")
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(.yellow)
                     }
-                    .frame(width: nameColumnWidth, alignment: .leading)
-
-                    FriendStatusPill(
-                        title: friend.currentStatusTitle.isEmpty ? "オフライン" : friend.currentStatusTitle,
-                        systemImage: friend.currentStatusIcon,
-                        tint: Color(hex: friend.currentStatusColorHex)
-                    )
-                    .layoutPriority(1)
                 }
 
                 Text(friendMoodText)
@@ -576,8 +565,22 @@ private struct FriendRow: View {
                     .foregroundStyle(.secondary.opacity(0.74))
                     .lineLimit(1)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .layoutPriority(1)
 
-            Spacer()
+            HStack(spacing: 7) {
+                FriendSquareMetric(
+                    title: "\(friend.streakCount)日",
+                    systemImage: friend.streakIconStyle.systemImage,
+                    tint: Color(hex: friend.streakIconStyle.tintHex)
+                )
+
+                FriendSquareMetric(
+                    title: friend.currentStatusTitle.isEmpty ? "オフ" : friend.currentStatusTitle,
+                    systemImage: friend.currentStatusIcon,
+                    tint: Color(hex: friend.currentStatusColorHex)
+                )
+            }
 
             Image(systemName: "chevron.right")
                 .font(.caption.weight(.black))
@@ -603,26 +606,27 @@ private struct FriendRow: View {
     }
 }
 
-private struct FriendStatusPill: View {
+private struct FriendSquareMetric: View {
     let title: String
     let systemImage: String
     let tint: Color
 
     var body: some View {
-        HStack(spacing: 5) {
-            Circle()
-                .fill(tint)
-                .frame(width: 6, height: 6)
+        VStack(spacing: 4) {
             Image(systemName: systemImage)
-                .font(.caption2.weight(.bold))
+                .font(.caption.weight(.bold))
+                .frame(height: 15)
             Text(title)
                 .font(.caption2.weight(.bold))
                 .lineLimit(1)
+                .minimumScaleFactor(0.68)
         }
         .foregroundStyle(tint)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(Capsule().fill(tint.opacity(0.13)))
+        .frame(width: 46, height: 46)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(tint.opacity(0.12))
+        )
     }
 }
 
