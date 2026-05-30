@@ -517,8 +517,8 @@ private struct ProfileStatsRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            ProfileStatTile(title: "連続", value: "\(streak)日", systemImage: streakIcon.systemImage, tint: Color(hex: streakIcon.tintHex))
-            ProfileStatTile(title: "累計獲得", value: "\(totalScore)pt", systemImage: "star.fill", tint: Color(hex: "#F2994A"))
+            ProfileStatTile(title: "ストリーク", value: "\(streak)日", systemImage: streakIcon.systemImage, tint: Color(hex: streakIcon.tintHex))
+            ProfileStatTile(title: "累計スコア", value: "\(totalScore)pt", systemImage: "star.fill", tint: Color(hex: "#F2994A"))
             ProfileStatTile(title: "友達", value: "\(friendCount)人", systemImage: "person.2.fill", tint: Color(hex: "#27AE60"))
         }
     }
