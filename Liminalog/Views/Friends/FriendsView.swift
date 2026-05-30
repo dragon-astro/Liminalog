@@ -1153,7 +1153,6 @@ private struct FriendRankingListSheet: View {
                                 FriendRankingListRow(entry: entry)
                             }
                             .buttonStyle(.plain)
-                            .disabled(entry.friend == nil)
                         }
                     }
                     .padding(.horizontal, 18)
@@ -1209,11 +1208,11 @@ private struct FriendRankingListRow: View {
                     .foregroundStyle(.secondary)
             }
 
-            if entry.friend != nil {
-                Image(systemName: "chevron.right")
-                    .font(.caption.weight(.black))
-                    .foregroundStyle(.secondary)
-            }
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.black))
+                .foregroundStyle(.secondary)
+                .frame(width: 12)
+                .opacity(entry.friend == nil ? 0 : 1)
         }
         .padding(13)
         .background(
