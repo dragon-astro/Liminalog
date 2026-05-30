@@ -432,63 +432,23 @@ private struct RankingCard: View {
     let entry: FriendRankingEntry
 
     var body: some View {
-        if entry.rank <= 3 {
-            topRankCard
-        } else {
-            standardRankCard
-        }
-    }
-
-    private var topRankCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .top) {
-                rankBadge
-                Spacer()
-                scoreBlock(font: .title.weight(.black))
-            }
-
-            Spacer(minLength: 0)
-
-            HStack(spacing: 10) {
-                rankingAvatar(size: 42, isTopRank: true)
-
-                Text(entry.name)
-                    .font(.headline.weight(.black))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
-            }
-        }
-        .frame(width: 154, height: 132, alignment: .leading)
-        .padding(14)
-        .foregroundStyle(topRankTextColor)
-        .background(topRankBackground)
-        .overlay(
-            RoundedRectangle(cornerRadius: 20)
-                .stroke(.white.opacity(0.42), lineWidth: 1)
-        )
-        .shadow(color: topRankShadowColor, radius: 14, y: 7)
-    }
-
-    private var standardRankCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top) {
-                Text("#\(entry.rank)")
-                    .font(.headline.weight(.black))
-                    .foregroundStyle(.secondary)
+            HStack {
+                rankBadge
                 Spacer()
                 scoreBlock(font: .title3.weight(.black))
             }
 
             HStack(spacing: 9) {
-                rankingAvatar(size: 34, isTopRank: false)
+                rankingAvatar
 
                 Text(entry.name)
                     .font(.subheadline.weight(.bold))
                     .lineLimit(1)
-                    .minimumScaleFactor(0.78)
+                .minimumScaleFactor(0.78)
             }
         }
-        .frame(width: 126, height: 104, alignment: .leading)
+        .frame(width: 136, alignment: .leading)
         .padding(13)
         .background(
             RoundedRectangle(cornerRadius: 17)
@@ -501,15 +461,29 @@ private struct RankingCard: View {
     }
 
     private var rankBadge: some View {
-        HStack(spacing: 5) {
-            Image(systemName: rankSymbol)
-                .font(.caption.weight(.black))
-            Text("#\(entry.rank)")
-                .font(.subheadline.weight(.black))
+        Group {
+            if entry.rank <= 3 {
+                HStack(spacing: 5) {
+                    Image(systemName: rankSymbol)
+                        .font(.caption.weight(.black))
+                    Text("#\(entry.rank)")
+                        .font(.caption.weight(.black))
+                }
+                .foregroundStyle(rankColor)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5)
+                .background(Capsule().fill(rankColor.opacity(0.14)))
+                .overlay {
+                    Capsule()
+                        .stroke(rankColor.opacity(0.5), lineWidth: 1)
+                }
+            } else {
+                Text("#\(entry.rank)")
+                    .font(.caption.weight(.black))
+                    .foregroundStyle(.secondary)
+                    .padding(.vertical, 5)
+            }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(Capsule().fill(.white.opacity(0.26)))
     }
 
     private func scoreBlock(font: Font) -> some View {
@@ -524,37 +498,15 @@ private struct RankingCard: View {
         }
     }
 
-    private func rankingAvatar(size: CGFloat, isTopRank: Bool) -> some View {
+    private var rankingAvatar: some View {
         ZStack {
             Circle()
-                .fill(isTopRank ? .white.opacity(0.22) : Color(.tertiarySystemGroupedBackground))
+                .fill(entry.tint.opacity(0.18))
             Image(systemName: entry.imageName)
-                .font(.system(size: size * 0.42, weight: .bold))
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(entry.tint)
         }
-        .frame(width: size, height: size)
-    }
-
-    private var topRankBackground: some ShapeStyle {
-        LinearGradient(colors: topRankColors, startPoint: .topLeading, endPoint: .bottomTrailing)
-    }
-
-    private var topRankColors: [Color] {
-        switch entry.rank {
-        case 1:
-            [Color(red: 1.0, green: 0.76, blue: 0.25), Color(red: 0.94, green: 0.42, blue: 0.12)]
-        case 2:
-            [Color(red: 0.78, green: 0.82, blue: 0.90), Color(red: 0.45, green: 0.52, blue: 0.66)]
-        default:
-            [Color(red: 0.86, green: 0.56, blue: 0.30), Color(red: 0.55, green: 0.30, blue: 0.18)]
-        }
-    }
-
-    private var topRankTextColor: Color {
-        entry.rank == 2 ? .black.opacity(0.86) : .white
-    }
-
-    private var topRankShadowColor: Color {
-        topRankColors.last?.opacity(0.22) ?? .black.opacity(0.12)
+        .frame(width: 34, height: 34)
     }
 
     private var rankSymbol: String {
@@ -565,6 +517,17 @@ private struct RankingCard: View {
             "medal.fill"
         default:
             "rosette"
+        }
+    }
+
+    private var rankColor: Color {
+        switch entry.rank {
+        case 1:
+            Color(red: 0.95, green: 0.58, blue: 0.08)
+        case 2:
+            Color(red: 0.48, green: 0.54, blue: 0.64)
+        default:
+            Color(red: 0.68, green: 0.40, blue: 0.20)
         }
     }
 }
