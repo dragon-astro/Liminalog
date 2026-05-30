@@ -1204,10 +1204,10 @@ struct ProfileStreakIconStyle: Identifiable {
 enum ProfileStreakIconCatalog {
     static let defaultID = "flame"
     static let items: [ProfileStreakIconStyle] = [
-        ProfileStreakIconStyle(id: "flame", title: "Flame", systemImage: "flame.fill", tintHex: "#EB5757"),
-        ProfileStreakIconStyle(id: "bolt", title: "Bolt", systemImage: "bolt.fill", tintHex: "#F2C94C"),
-        ProfileStreakIconStyle(id: "sun", title: "Sun", systemImage: "sun.max.fill", tintHex: "#F2994A"),
-        ProfileStreakIconStyle(id: "spark", title: "Spark", systemImage: "sparkles", tintHex: "#6C5CE7")
+        ProfileStreakIconStyle(id: "flame", title: "赤い炎", systemImage: "flame.fill", tintHex: "#EB5757"),
+        ProfileStreakIconStyle(id: "bolt", title: "金の炎", systemImage: "flame.fill", tintHex: "#F2C94C"),
+        ProfileStreakIconStyle(id: "sun", title: "橙の炎", systemImage: "flame.fill", tintHex: "#F2994A"),
+        ProfileStreakIconStyle(id: "spark", title: "紫の炎", systemImage: "flame.fill", tintHex: "#6C5CE7")
     ]
 
     static func item(for id: String?) -> ProfileStreakIconStyle {
