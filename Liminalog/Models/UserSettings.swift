@@ -9,6 +9,9 @@ final class UserSettings {
     var profileBio: String = ""
     var profileImageData: Data?
     var profileAccentColorHex: String = "#2F80ED"
+    var profileBadgeID: String = "starter"
+    var profileIconFrameID: String = "halo"
+    var profileStreakIconID: String = "flame"
     var defaultVisibility: VisibilityScope = VisibilityScope.all
     var themeName: String = "default"
     var enabledCategorySetID: UUID?

@@ -224,6 +224,15 @@ enum SeedCoordinator {
         if primary.profileAccentColorHex == "#2F80ED", duplicate.profileAccentColorHex != "#2F80ED" {
             primary.profileAccentColorHex = duplicate.profileAccentColorHex
         }
+        if primary.profileBadgeID == "starter", duplicate.profileBadgeID != "starter" {
+            primary.profileBadgeID = duplicate.profileBadgeID
+        }
+        if primary.profileIconFrameID == "halo", duplicate.profileIconFrameID != "halo" {
+            primary.profileIconFrameID = duplicate.profileIconFrameID
+        }
+        if primary.profileStreakIconID == "flame", duplicate.profileStreakIconID != "flame" {
+            primary.profileStreakIconID = duplicate.profileStreakIconID
+        }
         if primary.themeName == "default", duplicate.themeName != "default" {
             primary.themeName = duplicate.themeName
         }

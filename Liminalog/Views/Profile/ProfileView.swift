@@ -64,6 +64,15 @@ struct ProfileView: View {
     private var badges: [ProfileBadgeModel] {
         [
             ProfileBadgeModel(
+                id: "starter",
+                title: "ルーキー",
+                systemImage: "person.crop.circle.fill.badge.checkmark",
+                tint: "#2F80ED",
+                isUnlocked: true,
+                progressText: "初期"
+            ),
+            ProfileBadgeModel(
+                id: "first_record",
                 title: "はじめの記録",
                 systemImage: "sparkles",
                 tint: "#2F80ED",
@@ -71,6 +80,7 @@ struct ProfileView: View {
                 progressText: recentChapters.isEmpty ? "0/1" : "達成"
             ),
             ProfileBadgeModel(
+                id: "three_days",
                 title: "3日記録",
                 systemImage: "calendar.badge.checkmark",
                 tint: "#27AE60",
@@ -78,6 +88,7 @@ struct ProfileView: View {
                 progressText: "\(min(recordedDays.count, 3))/3"
             ),
             ProfileBadgeModel(
+                id: "seven_streak",
                 title: "7日連続",
                 systemImage: "flame.fill",
                 tint: "#EB5757",
@@ -85,6 +96,7 @@ struct ProfileView: View {
                 progressText: "\(min(streakCount, 7))/7"
             ),
             ProfileBadgeModel(
+                id: "ten_hours",
                 title: "10時間",
                 systemImage: "clock.fill",
                 tint: "#6C5CE7",
@@ -92,6 +104,7 @@ struct ProfileView: View {
                 progressText: "\(min(Int(totalRecordedDuration / 3600), 10))/10h"
             ),
             ProfileBadgeModel(
+                id: "morning",
                 title: "朝の記録",
                 systemImage: "sunrise.fill",
                 tint: "#F2994A",
@@ -99,6 +112,18 @@ struct ProfileView: View {
                 progressText: finishedChapters.contains { Calendar.current.component(.hour, from: $0.startTime) < 9 } ? "達成" : "未達成"
             )
         ]
+    }
+
+    private var equippedBadge: ProfileBadgeModel {
+        ProfileBadgeCatalog.equippedBadge(id: settings?.profileBadgeID, badges: badges)
+    }
+
+    private var iconFrame: ProfileIconFrameStyle {
+        ProfileIconFrameCatalog.item(for: settings?.profileIconFrameID)
+    }
+
+    private var streakIcon: ProfileStreakIconStyle {
+        ProfileStreakIconCatalog.item(for: settings?.profileStreakIconID)
     }
 
     var body: some View {
@@ -110,6 +135,8 @@ struct ProfileView: View {
                         bio: bio,
                         imageData: settings?.profileImageData,
                         accentColor: accentColor,
+                        equippedBadge: equippedBadge,
+                        iconFrame: iconFrame,
                         onEdit: { isShowingEditProfile = true },
                         onShare: { isShowingShareProfile = true }
                     )
@@ -117,10 +144,16 @@ struct ProfileView: View {
                     ProfileStatsRow(
                         streak: streakCount,
                         totalDuration: totalRecordedDuration,
-                        friendCount: acceptedFriendCount
+                        friendCount: acceptedFriendCount,
+                        streakIcon: streakIcon
                     )
 
-                    ProfileCollectionSection(badges: badges)
+                    ProfileCollectionSection(
+                        badges: badges,
+                        equippedBadge: equippedBadge,
+                        iconFrame: iconFrame,
+                        streakIcon: streakIcon
+                    )
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 18)
@@ -142,7 +175,7 @@ struct ProfileView: View {
                 SettingsView()
             }
             .sheet(isPresented: $isShowingEditProfile) {
-                ProfileEditSheet(settings: settings, onSave: saveProfile)
+                ProfileEditSheet(settings: settings, badges: badges, onSave: saveProfile)
             }
             .sheet(isPresented: $isShowingShareProfile) {
                 ProfileShareSheet(payload: invitePayload)
@@ -217,6 +250,9 @@ struct ProfileView: View {
         target.profileBio = draft.bio.trimmingCharacters(in: .whitespacesAndNewlines)
         target.profileImageData = draft.imageData
         target.profileAccentColorHex = draft.accentColorHex
+        target.profileBadgeID = draft.badgeID
+        target.profileIconFrameID = draft.iconFrameID
+        target.profileStreakIconID = draft.streakIconID
         target.updatedAt = Date()
         try? modelContext.save()
     }
@@ -227,47 +263,152 @@ private struct ProfileHero: View {
     let bio: String
     let imageData: Data?
     let accentColor: Color
+    let equippedBadge: ProfileBadgeModel
+    let iconFrame: ProfileIconFrameStyle
     let onEdit: () -> Void
     let onShare: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack(alignment: .center, spacing: 16) {
-                ProfilePhotoView(displayName: displayName, imageData: imageData, accentColor: accentColor, size: 88)
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top, spacing: 14) {
+                ProfilePhotoView(
+                    displayName: displayName,
+                    imageData: imageData,
+                    accentColor: accentColor,
+                    frameStyle: iconFrame,
+                    size: 92
+                )
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text(displayName)
                         .font(.title2.weight(.bold))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.75)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.82)
 
-                    Text(bio.isEmpty ? " " : bio)
+                    EquippedBadgePill(badge: equippedBadge)
+
+                    Text(bio.isEmpty ? "プロフィールを育てよう" : bio)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
                         .frame(minHeight: 36, alignment: .topLeading)
                 }
+
+                Spacer(minLength: 0)
+
+                HStack(spacing: 8) {
+                    ProfileHeroActionButton(systemImage: "pencil", label: "編集", action: onEdit)
+                    ProfileHeroActionButton(systemImage: "square.and.arrow.up", label: "シェア", action: onShare)
+                }
             }
 
             HStack(spacing: 10) {
-                Button(action: onEdit) {
-                    Label("編集", systemImage: "pencil")
-                        .font(.subheadline.weight(.semibold))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                }
-                .buttonStyle(.bordered)
-
-                Button(action: onShare) {
-                    Label("シェア", systemImage: "square.and.arrow.up")
-                        .font(.subheadline.weight(.semibold))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                }
-                .buttonStyle(.borderedProminent)
+                EquippedItemChip(title: "フレーム", value: iconFrame.title, systemImage: iconFrame.systemImage, tint: accentColor)
+                EquippedItemChip(title: "バッジ", value: equippedBadge.title, systemImage: equippedBadge.systemImage, tint: Color(hex: equippedBadge.tint))
             }
-            .tint(accentColor)
         }
+        .padding(16)
+        .background {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color(.secondarySystemGroupedBackground))
+                .overlay(alignment: .bottom) {
+                    ProfileHeroRhythmStrip(accentColor: accentColor)
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                }
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(accentColor.opacity(0.18), lineWidth: 1)
+        }
+    }
+}
+
+private struct ProfileHeroActionButton: View {
+    let systemImage: String
+    let label: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.footnote.weight(.semibold))
+                .frame(width: 30, height: 30)
+                .background(.thinMaterial, in: Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+    }
+}
+
+private struct EquippedBadgePill: View {
+    let badge: ProfileBadgeModel
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: badge.systemImage)
+                .font(.caption2.weight(.bold))
+            Text(badge.title)
+                .font(.caption2.weight(.bold))
+        }
+        .foregroundStyle(Color(hex: badge.tint))
+        .padding(.horizontal, 7)
+        .padding(.vertical, 4)
+        .background(Color(hex: badge.tint).opacity(0.12), in: Capsule())
+        .lineLimit(1)
+    }
+}
+
+private struct EquippedItemChip: View {
+    let title: String
+    let value: String
+    let systemImage: String
+    let tint: Color
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: systemImage)
+                .font(.caption.weight(.bold))
+                .foregroundStyle(tint)
+                .frame(width: 18)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                Text(value)
+                    .font(.caption.weight(.semibold))
+                    .lineLimit(1)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+}
+
+private struct ProfileHeroRhythmStrip: View {
+    let accentColor: Color
+
+    var body: some View {
+        HStack(spacing: 0) {
+            accentColor.opacity(0.35)
+                .frame(width: 46)
+            Color.clear
+                .frame(width: 18)
+            accentColor.opacity(0.18)
+                .frame(width: 72)
+            Color.clear
+                .frame(width: 28)
+            accentColor.opacity(0.28)
+                .frame(width: 40)
+            Color.clear
+            accentColor.opacity(0.22)
+                .frame(width: 84)
+        }
+        .frame(height: 5)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .opacity(0.85)
     }
 }
 
@@ -275,12 +416,16 @@ private struct ProfilePhotoView: View {
     let displayName: String
     let imageData: Data?
     let accentColor: Color
+    let frameStyle: ProfileIconFrameStyle
     let size: CGFloat
 
     var body: some View {
         ZStack {
+            ProfileIconFrameView(style: frameStyle, accentColor: accentColor, size: size + 16)
+
             Circle()
                 .fill(accentColor.gradient)
+                .frame(width: size, height: size)
 
             if let imageData, let image = UIImage(data: imageData) {
                 Image(uiImage: image)
@@ -294,10 +439,11 @@ private struct ProfilePhotoView: View {
                     .foregroundStyle(.white)
             }
         }
-        .frame(width: size, height: size)
+        .frame(width: size + 16, height: size + 16)
         .overlay {
             Circle()
                 .stroke(.white.opacity(0.75), lineWidth: 2)
+                .frame(width: size, height: size)
         }
         .shadow(color: accentColor.opacity(0.2), radius: 14, y: 6)
     }
@@ -307,16 +453,65 @@ private struct ProfilePhotoView: View {
     }
 }
 
+private struct ProfileIconFrameView: View {
+    let style: ProfileIconFrameStyle
+    let accentColor: Color
+    let size: CGFloat
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .strokeBorder(style.secondaryColor.opacity(0.24), lineWidth: style.lineWidth + 4)
+
+            switch style.id {
+            case "signal":
+                Circle()
+                    .trim(from: 0.06, to: 0.38)
+                    .stroke(style.primaryColor, style: StrokeStyle(lineWidth: style.lineWidth, lineCap: .round))
+                    .rotationEffect(.degrees(-28))
+                Circle()
+                    .trim(from: 0.56, to: 0.86)
+                    .stroke(style.secondaryColor, style: StrokeStyle(lineWidth: style.lineWidth, lineCap: .round))
+                    .rotationEffect(.degrees(-28))
+            case "crown":
+                Circle()
+                    .stroke(style.primaryColor.opacity(0.9), style: StrokeStyle(lineWidth: style.lineWidth, lineCap: .round, dash: [10, 5]))
+                Image(systemName: "crown.fill")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(style.primaryColor)
+                    .padding(6)
+                    .background(Color(.secondarySystemGroupedBackground), in: Circle())
+                    .offset(x: size * 0.28, y: -size * 0.28)
+            case "focus":
+                Circle()
+                    .stroke(style.primaryColor, lineWidth: style.lineWidth)
+                ForEach(0..<4, id: \.self) { index in
+                    Capsule()
+                        .fill(style.secondaryColor)
+                        .frame(width: 4, height: 12)
+                        .offset(y: -size * 0.47)
+                        .rotationEffect(.degrees(Double(index) * 90))
+                }
+            default:
+                Circle()
+                    .stroke(style.primaryColor, lineWidth: style.lineWidth)
+            }
+        }
+        .frame(width: size, height: size)
+    }
+}
+
 private struct ProfileStatsRow: View {
     let streak: Int
     let totalDuration: TimeInterval
     let friendCount: Int
+    let streakIcon: ProfileStreakIconStyle
 
     var body: some View {
         HStack(spacing: 10) {
-            ProfileStatTile(title: "連続", value: "\(streak)日", systemImage: "flame.fill")
-            ProfileStatTile(title: "累計", value: ProfileFormat.duration(totalDuration), systemImage: "clock.fill")
-            ProfileStatTile(title: "友達", value: "\(friendCount)人", systemImage: "person.2.fill")
+            ProfileStatTile(title: "連続", value: "\(streak)日", systemImage: streakIcon.systemImage, tint: Color(hex: streakIcon.tintHex))
+            ProfileStatTile(title: "累計", value: ProfileFormat.duration(totalDuration), systemImage: "clock.fill", tint: Color(hex: "#2F80ED"))
+            ProfileStatTile(title: "友達", value: "\(friendCount)人", systemImage: "person.2.fill", tint: Color(hex: "#27AE60"))
         }
     }
 }
@@ -325,12 +520,13 @@ private struct ProfileStatTile: View {
     let title: String
     let value: String
     let systemImage: String
+    let tint: Color
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Image(systemName: systemImage)
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(.tint)
+                .foregroundStyle(tint)
             Text(value)
                 .font(.headline.monospacedDigit())
                 .lineLimit(1)
@@ -342,23 +538,38 @@ private struct ProfileStatTile: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
         .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(Color(.secondarySystemGroupedBackground))
         )
+        .overlay(alignment: .topTrailing) {
+            tint.opacity(0.18)
+                .frame(width: 26, height: 4)
+                .clipShape(Capsule())
+                .padding(10)
+        }
     }
 }
 
 private struct ProfileCollectionSection: View {
     let badges: [ProfileBadgeModel]
+    let equippedBadge: ProfileBadgeModel
+    let iconFrame: ProfileIconFrameStyle
+    let streakIcon: ProfileStreakIconStyle
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            ProfileSectionHeader(title: "コレクション")
+        VStack(alignment: .leading, spacing: 14) {
+            ProfileSectionHeader(title: "装備とコレクション")
+
+            HStack(spacing: 10) {
+                ProfileEquipmentTile(title: "バッジ", value: equippedBadge.title, systemImage: equippedBadge.systemImage, tint: Color(hex: equippedBadge.tint))
+                ProfileEquipmentTile(title: "フレーム", value: iconFrame.title, systemImage: iconFrame.systemImage, tint: iconFrame.primaryColor)
+                ProfileEquipmentTile(title: "連続", value: streakIcon.title, systemImage: streakIcon.systemImage, tint: Color(hex: streakIcon.tintHex))
+            }
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 14) {
                     ForEach(badges) { badge in
-                        ProfileCollectionBadge(badge: badge)
+                        ProfileCollectionBadge(badge: badge, isEquipped: badge.id == equippedBadge.id)
                     }
                 }
                 .padding(.vertical, 2)
@@ -369,6 +580,7 @@ private struct ProfileCollectionSection: View {
 
 private struct ProfileCollectionBadge: View {
     let badge: ProfileBadgeModel
+    let isEquipped: Bool
 
     private var tint: Color {
         Color(hex: badge.tint)
@@ -380,12 +592,23 @@ private struct ProfileCollectionBadge: View {
                 Circle()
                     .fill(badge.isUnlocked ? tint.opacity(0.18) : Color(.secondarySystemGroupedBackground))
                 Circle()
-                    .stroke(badge.isUnlocked ? tint.opacity(0.65) : Color(.separator).opacity(0.4), lineWidth: 1)
+                    .stroke(
+                        isEquipped ? tint : (badge.isUnlocked ? tint.opacity(0.65) : Color(.separator).opacity(0.4)),
+                        lineWidth: isEquipped ? 2 : 1
+                    )
                 Image(systemName: badge.isUnlocked ? badge.systemImage : "lock.fill")
                     .font(.title3.weight(.semibold))
                     .foregroundStyle(badge.isUnlocked ? tint : Color.secondary)
             }
             .frame(width: 62, height: 62)
+            .overlay(alignment: .bottomTrailing) {
+                if isEquipped {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(tint)
+                        .background(Color(.secondarySystemGroupedBackground), in: Circle())
+                }
+            }
 
             Text(badge.title)
                 .font(.caption2.weight(.semibold))
@@ -399,6 +622,32 @@ private struct ProfileCollectionBadge: View {
         }
         .frame(width: 78)
         .opacity(badge.isUnlocked ? 1 : 0.55)
+    }
+}
+
+private struct ProfileEquipmentTile: View {
+    let title: String
+    let value: String
+    let systemImage: String
+    let tint: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Image(systemName: systemImage)
+                .font(.headline.weight(.bold))
+                .foregroundStyle(tint)
+                .frame(height: 20)
+            Text(value)
+                .font(.caption.weight(.semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+            Text(title)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10)
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 }
 
@@ -417,15 +666,23 @@ private struct ProfileEditSheet: View {
     @State private var bio: String
     @State private var imageData: Data?
     @State private var accentColorHex: String
+    @State private var badgeID: String
+    @State private var iconFrameID: String
+    @State private var streakIconID: String
     @State private var selectedPhoto: PhotosPickerItem?
 
+    let badges: [ProfileBadgeModel]
     let onSave: (ProfileDraft) -> Void
 
-    init(settings: UserSettings?, onSave: @escaping (ProfileDraft) -> Void) {
+    init(settings: UserSettings?, badges: [ProfileBadgeModel], onSave: @escaping (ProfileDraft) -> Void) {
         _displayName = State(initialValue: settings?.profileDisplayName ?? "")
         _bio = State(initialValue: settings?.profileBio ?? "")
         _imageData = State(initialValue: settings?.profileImageData)
         _accentColorHex = State(initialValue: settings?.profileAccentColorHex ?? "#2F80ED")
+        _badgeID = State(initialValue: ProfileBadgeCatalog.equippedBadge(id: settings?.profileBadgeID, badges: badges).id)
+        _iconFrameID = State(initialValue: settings?.profileIconFrameID ?? ProfileIconFrameCatalog.defaultID)
+        _streakIconID = State(initialValue: settings?.profileStreakIconID ?? ProfileStreakIconCatalog.defaultID)
+        self.badges = badges
         self.onSave = onSave
     }
 
@@ -438,6 +695,7 @@ private struct ProfileEditSheet: View {
                             displayName: displayName.isEmpty ? "L" : displayName,
                             imageData: imageData,
                             accentColor: Color(hex: accentColorHex),
+                            frameStyle: ProfileIconFrameCatalog.item(for: iconFrameID),
                             size: 76
                         )
 
@@ -489,6 +747,22 @@ private struct ProfileEditSheet: View {
                     }
                     .padding(.vertical, 4)
                 }
+
+                Section("装備") {
+                    ProfileBadgeSelector(
+                        badges: badges,
+                        selectedID: $badgeID
+                    )
+
+                    ProfileFrameSelector(
+                        selectedID: $iconFrameID,
+                        accentColor: Color(hex: accentColorHex)
+                    )
+
+                    ProfileStreakIconSelector(
+                        selectedID: $streakIconID
+                    )
+                }
             }
             .navigationTitle("プロフィール編集")
             .navigationBarTitleDisplayMode(.inline)
@@ -506,7 +780,10 @@ private struct ProfileEditSheet: View {
                                 displayName: displayName,
                                 bio: bio,
                                 imageData: imageData,
-                                accentColorHex: accentColorHex
+                                accentColorHex: accentColorHex,
+                                badgeID: badgeID,
+                                iconFrameID: iconFrameID,
+                                streakIconID: streakIconID
                             )
                         )
                         dismiss()
@@ -537,20 +814,229 @@ private struct ProfileEditSheet: View {
     }
 }
 
+private struct ProfileBadgeSelector: View {
+    let badges: [ProfileBadgeModel]
+    @Binding var selectedID: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("バッジ")
+                .font(.subheadline.weight(.semibold))
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(badges) { badge in
+                        ProfileSelectableBadge(badge: badge, isSelected: selectedID == badge.id) {
+                            guard badge.isUnlocked else { return }
+                            selectedID = badge.id
+                        }
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+private struct ProfileSelectableBadge: View {
+    let badge: ProfileBadgeModel
+    let isSelected: Bool
+    let action: () -> Void
+
+    private var tint: Color {
+        Color(hex: badge.tint)
+    }
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 7) {
+                ZStack {
+                    Circle()
+                        .fill(badge.isUnlocked ? tint.opacity(0.16) : Color(.tertiarySystemGroupedBackground))
+                    Image(systemName: badge.isUnlocked ? badge.systemImage : "lock.fill")
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(badge.isUnlocked ? tint : Color.secondary)
+                }
+                .frame(width: 44, height: 44)
+
+                Text(badge.title)
+                    .font(.caption2.weight(.semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+            .frame(width: 74)
+            .padding(.vertical, 8)
+            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(isSelected ? tint : .clear, lineWidth: 2)
+            }
+            .opacity(badge.isUnlocked ? 1 : 0.45)
+        }
+        .buttonStyle(.plain)
+        .disabled(!badge.isUnlocked)
+    }
+}
+
+private struct ProfileFrameSelector: View {
+    @Binding var selectedID: String
+    let accentColor: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("アイコンフレーム")
+                .font(.subheadline.weight(.semibold))
+
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 2), spacing: 10) {
+                ForEach(ProfileIconFrameCatalog.items) { item in
+                    Button {
+                        selectedID = item.id
+                    } label: {
+                        HStack(spacing: 10) {
+                            ProfileIconFrameView(style: item, accentColor: accentColor, size: 44)
+                                .frame(width: 48, height: 48)
+                            Text(item.title)
+                                .font(.caption.weight(.semibold))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .padding(10)
+                        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .stroke(selectedID == item.id ? item.primaryColor : .clear, lineWidth: 2)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+private struct ProfileStreakIconSelector: View {
+    @Binding var selectedID: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("ストリーク")
+                .font(.subheadline.weight(.semibold))
+
+            HStack(spacing: 10) {
+                ForEach(ProfileStreakIconCatalog.items) { item in
+                    Button {
+                        selectedID = item.id
+                    } label: {
+                        VStack(spacing: 7) {
+                            Image(systemName: item.systemImage)
+                                .font(.title3.weight(.bold))
+                                .foregroundStyle(Color(hex: item.tintHex))
+                                .frame(width: 44, height: 44)
+                                .background(Color(hex: item.tintHex).opacity(0.14), in: Circle())
+                            Text(item.title)
+                                .font(.caption2.weight(.semibold))
+                                .lineLimit(1)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .stroke(selectedID == item.id ? Color(hex: item.tintHex) : .clear, lineWidth: 2)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .padding(.vertical, 4)
+    }
+}
+
 private struct ProfileDraft {
     let displayName: String
     let bio: String
     let imageData: Data?
     let accentColorHex: String
+    let badgeID: String
+    let iconFrameID: String
+    let streakIconID: String
 }
 
 private struct ProfileBadgeModel: Identifiable {
-    let id = UUID()
+    let id: String
     let title: String
     let systemImage: String
     let tint: String
     let isUnlocked: Bool
     let progressText: String
+}
+
+private enum ProfileBadgeCatalog {
+    static func equippedBadge(id: String?, badges: [ProfileBadgeModel]) -> ProfileBadgeModel {
+        if let id, let selected = badges.first(where: { $0.id == id && $0.isUnlocked }) {
+            return selected
+        }
+        if let unlocked = badges.first(where: \.isUnlocked) {
+            return unlocked
+        }
+        return badges.first ?? ProfileBadgeModel(
+            id: "starter",
+            title: "ルーキー",
+            systemImage: "person.crop.circle.fill.badge.checkmark",
+            tint: "#2F80ED",
+            isUnlocked: true,
+            progressText: "初期"
+        )
+    }
+}
+
+private struct ProfileIconFrameStyle: Identifiable {
+    let id: String
+    let title: String
+    let systemImage: String
+    let primaryHex: String
+    let secondaryHex: String
+    let lineWidth: CGFloat
+
+    var primaryColor: Color { Color(hex: primaryHex) }
+    var secondaryColor: Color { Color(hex: secondaryHex) }
+}
+
+private enum ProfileIconFrameCatalog {
+    static let defaultID = "halo"
+    static let items: [ProfileIconFrameStyle] = [
+        ProfileIconFrameStyle(id: "halo", title: "Halo", systemImage: "circle", primaryHex: "#2F80ED", secondaryHex: "#8AB4FF", lineWidth: 3),
+        ProfileIconFrameStyle(id: "signal", title: "Signal", systemImage: "dot.radiowaves.left.and.right", primaryHex: "#00A8A8", secondaryHex: "#F2994A", lineWidth: 4),
+        ProfileIconFrameStyle(id: "crown", title: "Crown", systemImage: "crown.fill", primaryHex: "#F2C94C", secondaryHex: "#6C5CE7", lineWidth: 3),
+        ProfileIconFrameStyle(id: "focus", title: "Focus", systemImage: "scope", primaryHex: "#EB5757", secondaryHex: "#27AE60", lineWidth: 3)
+    ]
+
+    static func item(for id: String?) -> ProfileIconFrameStyle {
+        items.first { $0.id == id } ?? items[0]
+    }
+}
+
+private struct ProfileStreakIconStyle: Identifiable {
+    let id: String
+    let title: String
+    let systemImage: String
+    let tintHex: String
+}
+
+private enum ProfileStreakIconCatalog {
+    static let defaultID = "flame"
+    static let items: [ProfileStreakIconStyle] = [
+        ProfileStreakIconStyle(id: "flame", title: "Flame", systemImage: "flame.fill", tintHex: "#EB5757"),
+        ProfileStreakIconStyle(id: "bolt", title: "Bolt", systemImage: "bolt.fill", tintHex: "#F2C94C"),
+        ProfileStreakIconStyle(id: "sun", title: "Sun", systemImage: "sun.max.fill", tintHex: "#F2994A"),
+        ProfileStreakIconStyle(id: "spark", title: "Spark", systemImage: "sparkles", tintHex: "#6C5CE7")
+    ]
+
+    static func item(for id: String?) -> ProfileStreakIconStyle {
+        items.first { $0.id == id } ?? items[0]
+    }
 }
 
 private enum ProfileAccentColor: String, CaseIterable, Identifiable {
