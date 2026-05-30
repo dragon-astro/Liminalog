@@ -309,6 +309,18 @@ public enum FriendStatus: String, Codable {
 }
 ```
 
+**実装追記（2026-05-31）**
+
+初期リリース実装では、友達共有データは `SharedTimeline` 別エンティティではなく、`Friend` に非正規化したスナップショットキャッシュとして保持する。
+
+- `todayScore` / `yesterdayScore` / `weekScore` / `monthScore` / `yearScore` / `streakCount` を `Friend` に保持し、友達一覧・ランキング・プロフィール詳細を高速に描画する
+- `sharedPlansJSON` は `[FriendSharedPlanSnapshot]`、`sharedActivitiesJSON` は `[FriendSharedActivitySnapshot]` のJSON文字列を保持する
+- 友達の予定/実績は自分の `PlanBlock` / `Chapter` とは永続化責務が違うため、生モデルへ統合しない
+- 表示は `TimelineDisplaySnapshot` のような軽量表示モデルへ変換し、Today/Timelineの正準ビューへ渡す
+- Phase 3 の CloudKit 共有実装では、各スコアフィールドとJSONスナップショットを「誰が・いつ再計算して・どの粒度で同期するか」を `ShareCoordinator` 側で確定する
+
+この方式は MVP の体験速度とUI実装を優先したもの。将来リアクション/コメントや日単位の履歴同期が厚くなった場合、下記 `SharedTimeline` は「公開済み履歴の正本」または「同期単位」として復活させる余地を残す。
+
 ### 4.2 FriendCategoryMapping
 
 ```swift
@@ -360,6 +372,8 @@ public final class Comment {
 - 表示時に「自分のChapter or 友達のChapter」を ID で引く
 
 ### 4.4 SharedTimeline
+
+> 現行実装メモ: MVPでは `Friend.sharedPlansJSON` / `Friend.sharedActivitiesJSON` を友達ごとの表示用キャッシュとして使うため、`SharedTimeline` はまだ実装しない。ここは Phase 3 で「翌日公開」「日単位の公開履歴」「リアクション/コメントの対象解決」が必要になったときの正規化候補として保持する。
 
 ```swift
 @Model

@@ -992,6 +992,7 @@ refactor: split plan store
 | 2026-05-31 | Codex | DEBUG用の実績ダミーデータがタイムラインを壊す問題を修正。原因は `seedDevSampleChaptersIfNeeded` が今日の固定実績サンプルを作った後、別途「30分前から記録中」の趣味Chapterを追加しており、深夜〜朝に起動すると `睡眠 0:00-7:00` と active 趣味が重なること。`LiminalogSeedDevData` が有効なDEBUG時だけ開発用Chapter seedに世代を持たせ、世代更新時は既存Chapterを作り直す方針へ変更。今日の実績は予定seedと同じ24時間テンプレートから、0:00〜現在時刻までを順に生成し、現在時刻を含む1件だけを `endTime == nil` にする。これにより未来の実績と重複実績が入らず、App Store説明画像用のデモデータも安定して再生成できる。検証: `git diff --check` 成功、`xcodebuild ... build-for-testing` 成功。`xcodebuild ... test -only-testing:LiminalogTests/ChapterStoreTests` はビルド後のシミュレータ実行待ちで返らず中断。修正済みアプリを `-LiminalogSeedDevData -LiminalogSeedPreviewData` で起動し、App Group SQLiteで Chapter 重複0件・未来Chapter0件・active1件を確認、Todayタイムラインの表示もスクリーンショット確認 |
 | 2026-05-31 | Codex | App Store説明画像/講師レビュー用に、DEBUG seedを5月全日デモへ拡張。`seedPreviewPlansIfNeeded` は現在月に重なるPlanBlockを世代更新で作り直し、5月1日〜31日の各日を時間つき予定で0:00〜24:00まで埋める。さらに時間つき重要予定（中間発表、歯医者、デイリー共有など）と、月跨ぎ/週跨ぎの時間未指定重要予定（連休プロジェクト、集中制作週間、展示準備、リリース準備など）を追加し、月カレンダーの横長バーや重要予定表示を見せられる構成にした。`seedDevSampleChaptersIfNeeded` は開発用Chapter seed世代を3へ上げ、5月1日から当日現在までの実績を再生成する。睡眠はDB上でも日付跨ぎChapterとして1件で保持し、日中の実績は日ごとのテンプレートでカテゴリを変化させる。今日分は未来実績を作らず、現在時刻を含む1件だけ `endTime == nil` にするため、タイムライン重複やactive複数を避ける。`RootTabView` では `LiminalogSeedDevData` 指定時にも予定seedを先に走らせ、実績だけ入って予定が古いままになる事故を避ける。Claude向け注意: `LiminalogSeedPreviewData` / `LiminalogSeedDevData` を付けたDEBUG起動では5月に重なる既存予定/既存実績をスクショ用に作り直す。通常保存ロジックではなくデモseed専用の挙動。検証: `git diff --check` 成功、`xcodebuild ... build-for-testing` 成功。targeted test はシミュレータ実行待ちで返らず中断。修正済みアプリを `-LiminalogSeedDevData YES` で起動し、App Group SQLiteで5月31日分の時間つき予定が各日86400秒、時間つき予定重複0、実績重複0、未来実績0、active1、日跨ぎ実績30件、重要予定15件を確認。Today画面スクリーンショットでも予定バーが24時間、実績バーが現在時刻まで表示されることを確認 |
 | 2026-05-31 | Codex | 月カレンダーが異常に重くなる問題を修正。原因は `CalendarView` が通常表示時点で全 `PlanBlock` / 全 `Chapter` を `@Query` し、3ページ分の月グリッド各日セルで重要予定抽出とスコア計算のために全件filterを繰り返していたこと。`CalendarView` は `ModelContext.fetch` で前月/表示月/翌月グリッドを覆う表示範囲だけを取得し、日付ごとの重要予定と `ScoreSummary` を辞書へ事前計算して `CalendarMonthGrid` へ渡す構成に変更した。検索は大量候補を扱う専用機能なので、全予定 `@Query` を `CalendarPlanSearchSheet` の中へ隔離し、月表示の通常レンダリングから外した。時計tickではDB再fetchせず、月移動・表示開始・日別編集/検索終了後だけ表示範囲を再取得する。Claude向け注意: 完了済みの長期日跨ぎ実績は14日前までをlookbackして拾い、現在進行中の実績は別fetchで必ず拾う設計。数週間以上続く完了済みChapterをカレンダー月スコアに含めたい場合は、別途専用クエリ/モデル設計が必要。検証: `xcodebuild -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build-for-testing` 成功、修正済みアプリをシミュレータへinstall/launchし、5月デモデータ入りのカレンダータブが固まらず表示されることをスクリーンショット確認 |
+| 2026-05-31 | Codex | Claude §10.6 レビュー対応。最重要の FriendsView 並行UIスタックは一気に全廃せず、docs/11 の段階移行どおりタイムラインから正準化した。`TimelineView.swift` に `TimelineDisplaySnapshot` と `SharedTimelineReadOnlyView` を追加し、友達の `FriendSharedActivitySnapshot` / `FriendSharedPlanSnapshot` を表示用スナップショットへ変換して正準Timelineの24時間バー・時間レール・カード・ギャップ表示を使うように変更。`FriendsView.swift` から `FriendTimelineOverviewBar` / `FriendTimelineBarRow` / `FriendTimelineEntryCard` など友達専用タイムライン描画を削除し、約550行を削減。`Friend` のスナップショットキャッシュ方式は docs/04 に追記し、`Friend.score(for: .day)` が暫定的に `yesterdayScore` を返す理由もコードコメント化した。検証: `git diff --check` 成功、`xcodebuild -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build-for-testing` 成功。ビルド済みアプリを `-LiminalogSeedDevData -LiminalogSeedDevFriends` で install/launch し、起動後もLiminalogプロセスが生存することとToday画面描画をスクリーンショット確認。`xcodebuild ... test` はビルド後のシミュレータ実行フェーズで返らず中断。残タスク: 友達月カレンダーと友達プロフィールHero/Stats/Collectionの正準化は次段階で対応 |
 
 ---
 
@@ -1040,6 +1041,45 @@ Claude 作業中のため、Codex は読み取り中心で進捗確認。ファ�
 - §8.5 の docs 更新タスク（CloudKit/SwiftData 境界、unique撤回、photoData保留）は Codex 担当のまま。
 - `CategorySet.slots` の CloudKit 互換判断は Codex で再確認する価値あり。
 - DEBUG seed 隔離は Codex 向き。Phase 0 前に小さく直せる。
+
+---
+
+## 10.6 Claude コードレビュー — 2026-05-31（友達/プロフィール/カレンダー/統計 実装）
+
+`codex/phase0-next` の友達タブ・プロフィール装飾・カレンダー・ダッシュボード実装をレビュー。
+**結論: マージ可。** ビルド green、テスト 32件/10スイート全パス。前回レビュー（§10.5 / 旧コードレビュー）の重い構造指摘は解消済み。
+
+### 解消を確認した項目（記録のみ・対応不要）
+
+- ✅ ChapterStore の substore 二重生成 → AppStores が共有インスタンスを注入する形に修正済み。
+- ✅ StartChapterIntent と ChapterStore のロジック重複 → `RecordingSwitchLogic` に集約、App/Intent/Widget が同一コアを共有＋テスト有。
+- ✅ revision counter → ChapterStore から撤去済み。
+- 🟢 ProfileView 集計 → 手動 `recentChapters(limit:10_000)` から `@Query` に置換（集計自体は View 内のまま）。
+- 🟢 hasChapterOverlap → `startTime < endTime` で上限を絞る形に改善（下限未絞りは残るが perf 軽微）。
+
+### フォローアップ・タスク
+
+- [~] **【最重要】FriendsView の並行 UI スタックを正準ビューへ寄せる**（担当: Codex / 設計: Claude）
+  - 現状 `FriendsView.swift`（3356行）に `FriendProfileHero`/`FriendProfileStatsRow`/`FriendProfileCollectionSection`（ProfileView 複製）、`FriendSharedCalendarMonthGrid`/`WeekRow`/`DayCell`（CalendarView 複製）、`FriendSharedTimelineView`/`TimelineOverviewBar`/`EntryCard`/`GapCard`（TimelineView 複製）が存在。約2000行の重複 UI。
+  - docs/11 の「友達詳細＝他人ビュー再利用／別画面を作らない」「比較・デイビュー＝今日タブのビュー再利用」に反する。
+  - 根本原因: 友達データが生 `Chapter`/`PlanBlock` ではなく JSON スナップショット（`FriendSharedActivitySnapshot`/`FriendSharedPlanSnapshot`）のため、既存ビューに直接流せず fork した。
+  - **方針**: タイムライン/カレンダー/プロフィールの正準ビューを「生モデルでも友達スナップショットでも食える表示用 ViewModel / protocol」に一段抽象化し、自分・友達の両方が同一ビューを使う。これでタイムライン UI 改善を1箇所で済ませ、ドリフトを防ぐ。
+  - マージ阻止要因ではないが、放置すると複利で効く保守債務。重い場合は最低限「意図的に fork した理由」を docs/11 に注記して負債を可視化する。
+  - 2026-05-31 Codex進捗: `TimelineDisplaySnapshot` + `SharedTimelineReadOnlyView` を正準Timeline側に追加し、友達デイビューの `FriendSharedTimelineView` はスナップショット変換だけに縮小。友達専用の24時間バー/時間レール/カード/ギャップ描画（`FriendTimeline*` 群）を削除し、Timeline UI 改善が友達デイビューにも反映される経路へ寄せた。残りは友達月カレンダーと友達プロフィールHero/Stats/Collectionの正準化。
+
+- [x] **Friend モデルの非正規化を docs/04 に反映 or 乖離を注記**（担当: Codex / 設計: Claude, 完了: 2026-05-31）
+  - docs/04 は SharedTimeline / Reaction / Comment を別エンティティとしていたが、実装は `today/yesterday/week/month/yearScore`・`streakCount`・`sharedPlansJSON`/`sharedActivitiesJSON` を `Friend` に集約（スナップショットキャッシュ方式）。
+  - スコア各期間フィールドの**再計算・同期の所有者が未定**（現状 debug seed と FriendsView が書くのみ）。Phase 3 の CloudKit 共有実装時に同期ポリシーを定義する。
+  - docs/04 を現実装の方針へ更新するか、乖離点を注記する。
+
+- [ ] **DashboardView(1192行) / ProfileView(1058行) のサブビュー外出し**（担当: Codex）
+  - FriendsView ほどではない（単一タブ内で凝集・他タブの複製ではない）が、ナビゲーション性のためファイル分割したい。優先度は上記2件より低。
+
+- [x] **軽微: `Friend.score(for:)` の `.day`/`.yesterday` 二重マッピング**（担当: Codex, 完了: 2026-05-31）
+  - 両者が `yesterdayScore` を返す。意図的だが紛らわしい。enum 整理 or コメント補足。
+
+- [ ] **軽微: ProfileView `@Query queriedChapters` が述語なし＝全 Chapter 読み**（担当: Codex）
+  - 現状問題なし。履歴増大時のスケール懸念として記録。期間/件数で絞るか要検討。
 
 ---
 

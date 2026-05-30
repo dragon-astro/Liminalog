@@ -346,6 +346,164 @@ struct TimelineView: View {
 
 }
 
+struct TimelineDisplaySnapshot: Identifiable, Hashable {
+    let id: String
+    let sourceID: UUID?
+    let start: Date
+    let end: Date
+    let title: String
+    let subtitle: String?
+    let categoryName: String
+    let categoryIconName: String
+    let categoryColorHex: String
+    let isActive: Bool
+    let note: String?
+    let mood: String?
+    let locationName: String?
+    let plannedMatchTitle: String?
+
+    init(
+        id: String,
+        sourceID: UUID? = nil,
+        start: Date,
+        end: Date,
+        title: String,
+        subtitle: String? = nil,
+        categoryName: String? = nil,
+        categoryIconName: String,
+        categoryColorHex: String,
+        isActive: Bool = false,
+        note: String? = nil,
+        mood: String? = nil,
+        locationName: String? = nil,
+        plannedMatchTitle: String? = nil
+    ) {
+        self.id = id
+        self.sourceID = sourceID
+        self.start = start
+        self.end = end
+        self.title = title
+        self.subtitle = subtitle
+        self.categoryName = categoryName ?? title
+        self.categoryIconName = categoryIconName
+        self.categoryColorHex = categoryColorHex
+        self.isActive = isActive
+        self.note = note
+        self.mood = mood
+        self.locationName = locationName
+        self.plannedMatchTitle = plannedMatchTitle
+    }
+}
+
+struct SharedTimelineReadOnlyView: View {
+    let date: Date
+    let title: String
+    let planSnapshots: [TimelineDisplaySnapshot]
+    let actualSnapshots: [TimelineDisplaySnapshot]
+
+    @State private var selectedTabRawValue = TimelineTab.actual.rawValue
+    @State private var clock = TickClock(interval: 60)
+    @State private var highlightedEntryID: String?
+    @State private var quickDetailEntry: TimelineEntry?
+
+    private var now: Date {
+        clock.now
+    }
+
+    private var selectedTab: TimelineTab {
+        TimelineTab(rawValue: selectedTabRawValue) ?? .actual
+    }
+
+    private var selectedEntries: [TimelineEntry] {
+        switch selectedTab {
+        case .plan:
+            planEntries
+        case .actual:
+            actualEntries
+        }
+    }
+
+    private var actualEntries: [TimelineEntry] {
+        entries(from: actualSnapshots, kind: .actual, tab: .actual)
+    }
+
+    private var planEntries: [TimelineEntry] {
+        entries(from: planSnapshots, kind: .plan, tab: .plan)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if !title.isEmpty {
+                HStack(spacing: 7) {
+                    Image(systemName: "clock")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.secondary)
+                    Text(title)
+                        .font(.headline)
+                }
+            }
+
+            DayOverviewBar(
+                date: date,
+                now: now,
+                planEntries: planEntries.filter { !$0.kind.isGap },
+                actualEntries: actualEntries.filter { !$0.kind.isGap },
+                onEntryTap: focusEntry
+            )
+
+            if let quickDetailEntry {
+                TimelineQuickDetail(entry: quickDetailEntry) {
+                    self.quickDetailEntry = nil
+                }
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+
+            Picker("表示", selection: $selectedTabRawValue) {
+                ForEach(TimelineTab.allCases) { tab in
+                    Label(tab.label, systemImage: tab.systemImage)
+                        .tag(tab.rawValue)
+                }
+            }
+            .pickerStyle(.segmented)
+            .accessibilityLabel("タイムライン表示")
+
+            TimelineEntryList(
+                entries: selectedEntries,
+                highlightedEntryID: highlightedEntryID,
+                allowsContextMenu: false,
+                onEntryTap: focusEntry,
+                onGapTap: { _ in },
+                canCreateGap: { _ in false },
+                onToggleVisibility: { _ in },
+                canDeleteEntry: { _ in false },
+                onDeleteEntry: { _ in }
+            )
+        }
+        .onAppear {
+            clock.start()
+        }
+        .onDisappear {
+            clock.stop()
+        }
+    }
+
+    private func focusEntry(_ entry: TimelineEntry) {
+        guard !entry.kind.isGap else { return }
+        selectedTabRawValue = entry.kind.tab.rawValue
+        highlightedEntryID = entry.id
+        quickDetailEntry = entry
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.8) {
+            if highlightedEntryID == entry.id {
+                highlightedEntryID = nil
+            }
+            if quickDetailEntry?.id == entry.id {
+                quickDetailEntry = nil
+            }
+        }
+    }
+}
+
 // MARK: - Entry building
 
 private extension TimelineView {
@@ -516,6 +674,115 @@ private extension TimelineView {
         let start = max(chapterStart, plan.startTime)
         let end = min(chapterEnd, plan.endTime)
         return max(end.timeIntervalSince(start), 0)
+    }
+}
+
+private extension SharedTimelineReadOnlyView {
+    var dayStart: Date {
+        DayBoundary.dayStart(for: date)
+    }
+
+    var dayEnd: Date {
+        Calendar.current.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart
+    }
+
+    func entries(from snapshots: [TimelineDisplaySnapshot], kind: TimelineEntryKind, tab: TimelineTab) -> [TimelineEntry] {
+        let eventEntries = snapshots.compactMap { entry(from: $0, kind: kind) }
+            .sorted {
+                if $0.clippedStart == $1.clippedStart {
+                    return $0.clippedEnd < $1.clippedEnd
+                }
+                return $0.clippedStart < $1.clippedStart
+            }
+        return mergeWithGaps(eventEntries, tab: tab)
+    }
+
+    func entry(from snapshot: TimelineDisplaySnapshot, kind: TimelineEntryKind) -> TimelineEntry? {
+        guard snapshot.start < dayEnd, snapshot.end > dayStart else { return nil }
+        let clippedStart = max(snapshot.start, dayStart)
+        let clippedEnd = min(snapshot.end, dayEnd)
+        guard clippedEnd > clippedStart else { return nil }
+
+        return TimelineEntry(
+            id: snapshot.id,
+            kind: kind,
+            sourceID: snapshot.sourceID,
+            start: snapshot.start,
+            end: snapshot.end,
+            clippedStart: clippedStart,
+            clippedEnd: clippedEnd,
+            title: snapshot.title,
+            subtitle: snapshot.subtitle,
+            categoryName: snapshot.categoryName,
+            categoryIconName: snapshot.categoryIconName,
+            categoryColorHex: snapshot.categoryColorHex,
+            isActive: snapshot.isActive,
+            chapter: nil,
+            plan: nil,
+            metadata: TimelineEntryMetadata(
+                note: snapshot.note,
+                mood: snapshot.mood,
+                locationName: snapshot.locationName,
+                plannedMatchTitle: snapshot.plannedMatchTitle,
+                isShort: snapshot.end.timeIntervalSince(snapshot.start) < 60,
+                continuesFromPreviousDay: snapshot.start < dayStart,
+                continuesToNextDay: snapshot.end > dayEnd
+            )
+        )
+    }
+
+    func mergeWithGaps(_ events: [TimelineEntry], tab: TimelineTab) -> [TimelineEntry] {
+        var entries: [TimelineEntry] = []
+        var cursor = dayStart
+        let minimumGapDuration: TimeInterval = 5 * 60
+
+        for event in events {
+            if event.clippedStart.timeIntervalSince(cursor) >= minimumGapDuration {
+                entries.append(gapEntry(tab: tab, start: cursor, end: event.clippedStart))
+            }
+            entries.append(event)
+            cursor = max(cursor, event.clippedEnd)
+        }
+
+        if dayEnd.timeIntervalSince(cursor) >= minimumGapDuration {
+            entries.append(gapEntry(tab: tab, start: cursor, end: dayEnd))
+        }
+
+        if entries.isEmpty {
+            entries.append(gapEntry(tab: tab, start: dayStart, end: dayEnd))
+        }
+
+        return entries
+    }
+
+    func gapEntry(tab: TimelineTab, start: Date, end: Date) -> TimelineEntry {
+        let label = tab == .plan ? "未予定" : "未記録"
+        return TimelineEntry(
+            id: "readonly-gap:\(tab.rawValue):\(Int(start.timeIntervalSince1970))-\(Int(end.timeIntervalSince1970))",
+            kind: .gap(tab),
+            sourceID: nil,
+            start: start,
+            end: end,
+            clippedStart: start,
+            clippedEnd: end,
+            title: label,
+            subtitle: nil,
+            categoryName: label,
+            categoryIconName: tab == .plan ? "calendar" : "clock",
+            categoryColorHex: "#8E8E93",
+            isActive: false,
+            chapter: nil,
+            plan: nil,
+            metadata: TimelineEntryMetadata(
+                note: nil,
+                mood: nil,
+                locationName: nil,
+                plannedMatchTitle: nil,
+                isShort: false,
+                continuesFromPreviousDay: false,
+                continuesToNextDay: false
+            )
+        )
     }
 }
 
@@ -700,6 +967,7 @@ private struct TimelineHourScale: View {
 private struct TimelineEntryList: View {
     let entries: [TimelineEntry]
     let highlightedEntryID: String?
+    var allowsContextMenu = true
     var onEntryTap: (TimelineEntry) -> Void
     var onGapTap: (TimelineEntry) -> Void
     var canCreateGap: (TimelineEntry) -> Bool
@@ -762,38 +1030,14 @@ private struct TimelineEntryList: View {
                     }
                     .buttonStyle(.plain)
                     .id(entry.id)
-                    .contextMenu {
-                        if entry.chapter != nil {
-                            Button {
-                                onEntryTap(entry)
-                            } label: {
-                                Label("編集", systemImage: "pencil")
-                            }
-                            Button {
-                                onToggleVisibility(entry)
-                            } label: {
-                                Label(
-                                    entry.chapter?.isPublic == true ? "非公開にする" : "公開する",
-                                    systemImage: entry.chapter?.isPublic == true ? "eye.slash" : "eye"
-                                )
-                            }
-                        } else if entry.plan != nil {
-                            Button {
-                                onEntryTap(entry)
-                            } label: {
-                                Label("編集", systemImage: "pencil")
-                            }
-                        }
-                        if canDeleteEntry(entry) {
-                            Button(role: .destructive) {
-                                onDeleteEntry(entry)
-                            } label: {
-                                Label("削除", systemImage: "trash")
-                            }
-                        } else {
-                            Label("削除できません", systemImage: "lock.fill")
-                        }
-                    }
+                    .modifier(TimelineContextMenuModifier(
+                        entry: entry,
+                        isEnabled: allowsContextMenu,
+                        onEntryTap: onEntryTap,
+                        onToggleVisibility: onToggleVisibility,
+                        canDeleteEntry: canDeleteEntry,
+                        onDeleteEntry: onDeleteEntry
+                    ))
                 }
             }
         }
@@ -812,6 +1056,54 @@ private struct TimelineEntryList: View {
 
     private func areContiguous(_ lhs: TimelineEntry, _ rhs: TimelineEntry) -> Bool {
         Calendar.current.isDate(lhs.clippedEnd, equalTo: rhs.clippedStart, toGranularity: .minute)
+    }
+}
+
+private struct TimelineContextMenuModifier: ViewModifier {
+    let entry: TimelineEntry
+    let isEnabled: Bool
+    var onEntryTap: (TimelineEntry) -> Void
+    var onToggleVisibility: (TimelineEntry) -> Void
+    var canDeleteEntry: (TimelineEntry) -> Bool
+    var onDeleteEntry: (TimelineEntry) -> Void
+
+    func body(content: Content) -> some View {
+        if isEnabled {
+            content.contextMenu {
+                if entry.chapter != nil {
+                    Button {
+                        onEntryTap(entry)
+                    } label: {
+                        Label("編集", systemImage: "pencil")
+                    }
+                    Button {
+                        onToggleVisibility(entry)
+                    } label: {
+                        Label(
+                            entry.chapter?.isPublic == true ? "非公開にする" : "公開する",
+                            systemImage: entry.chapter?.isPublic == true ? "eye.slash" : "eye"
+                        )
+                    }
+                } else if entry.plan != nil {
+                    Button {
+                        onEntryTap(entry)
+                    } label: {
+                        Label("編集", systemImage: "pencil")
+                    }
+                }
+                if canDeleteEntry(entry) {
+                    Button(role: .destructive) {
+                        onDeleteEntry(entry)
+                    } label: {
+                        Label("削除", systemImage: "trash")
+                    }
+                } else {
+                    Label("削除できません", systemImage: "lock.fill")
+                }
+            }
+        } else {
+            content
+        }
     }
 }
 

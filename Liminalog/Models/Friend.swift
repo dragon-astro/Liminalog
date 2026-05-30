@@ -122,6 +122,8 @@ final class Friend {
     func score(for period: FriendScorePeriod) -> Double {
         switch period {
         case .day:
+            // Friend-side arbitrary daily scores are not synced yet.
+            // Until CloudKit provides per-day score snapshots, detail ranking reuses yesterdayScore.
             yesterdayScore
         case .today:
             todayScore
