@@ -54,6 +54,15 @@ struct ProfileView: View {
         }
     }
 
+    private var totalEarnedScore: Int {
+        let calendar = Calendar.current
+        return (0..<365).reduce(0) { partial, offset in
+            guard let target = calendar.date(byAdding: .day, value: -offset, to: clock.now) else { return partial }
+            let summary = scoreSummary(on: target)
+            return partial + Int(summary.totalScore.rounded())
+        }
+    }
+
     private var recordedDays: [Date] {
         let grouped = Dictionary(grouping: recentChapters) { chapter in
             DayBoundary.dayStart(for: chapter.startTime)
@@ -148,7 +157,7 @@ struct ProfileView: View {
 
                     ProfileStatsRow(
                         streak: streakCount,
-                        totalDuration: totalRecordedDuration,
+                        totalScore: totalEarnedScore,
                         friendCount: acceptedFriendCount,
                         streakIcon: streakIcon
                     )
@@ -502,14 +511,14 @@ private struct ProfileIconFrameView: View {
 
 private struct ProfileStatsRow: View {
     let streak: Int
-    let totalDuration: TimeInterval
+    let totalScore: Int
     let friendCount: Int
     let streakIcon: ProfileStreakIconStyle
 
     var body: some View {
         HStack(spacing: 10) {
             ProfileStatTile(title: "連続", value: "\(streak)日", systemImage: streakIcon.systemImage, tint: Color(hex: streakIcon.tintHex))
-            ProfileStatTile(title: "累計", value: ProfileFormat.duration(totalDuration), systemImage: "clock.fill", tint: Color(hex: "#2F80ED"))
+            ProfileStatTile(title: "累計獲得", value: "\(totalScore)pt", systemImage: "star.fill", tint: Color(hex: "#F2994A"))
             ProfileStatTile(title: "友達", value: "\(friendCount)人", systemImage: "person.2.fill", tint: Color(hex: "#27AE60"))
         }
     }
@@ -533,6 +542,8 @@ private struct ProfileStatTile: View {
             Text(title)
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
