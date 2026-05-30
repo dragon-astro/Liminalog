@@ -36,36 +36,19 @@ struct DashboardView: View {
                 .buttonStyle(.plain)
                 .padding(.bottom, 10)
 
-                ScrollView {
-                    VStack(spacing: 14) {
-                        DashboardHeroCard(
-                            period: period,
+                TabView(selection: $period) {
+                    ForEach(DashboardPeriod.allCases) { item in
+                        DashboardPeriodContent(
+                            period: item,
                             anchorDate: anchorDate,
-                            summary: periodSummary,
-                            scoreSummaries: periodScoreSummaries,
-                            totalDuration: totalDuration,
-                            recordedDayCount: recordedDayCount,
-                            topCategory: topCategoryStat
+                            clockNow: clock.now,
+                            queriedChapters: queriedChapters,
+                            queriedPlans: queriedPlans
                         )
-
-                        DashboardMetricRow(
-                            totalDuration: totalDuration,
-                            chapterCount: chapters.count,
-                            publicCount: chapters.filter(\.isPublic).count,
-                            recordedDayCount: recordedDayCount
-                        )
-
-                        ScoreBreakdownCard(summary: periodSummary)
-                        CategoryShareCard(chapters: chapters)
-                        HourRhythmCard(chapters: chapters)
-                        if period != .today {
-                            ScoreTrendCard(period: period, summaries: periodScoreSummaries)
-                        }
-                        RecentTrendCard(chapters: recentChapters(limit: 30))
+                        .tag(item)
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 28)
                 }
+                .tabViewStyle(.page(indexDisplayMode: .never))
             }
             .background(Color(.systemGroupedBackground))
             .toolbar(.hidden, for: .navigationBar)
@@ -80,11 +63,52 @@ struct DashboardView: View {
             }
         }
     }
+}
+
+struct DashboardPeriodContent: View {
+    let period: DashboardPeriod
+    let anchorDate: Date
+    let clockNow: Date
+    let queriedChapters: [Chapter]
+    let queriedPlans: [PlanBlock]
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 14) {
+                DashboardHeroCard(
+                    period: period,
+                    anchorDate: anchorDate,
+                    summary: periodSummary,
+                    scoreSummaries: periodScoreSummaries,
+                    totalDuration: totalDuration,
+                    recordedDayCount: recordedDayCount,
+                    topCategory: topCategoryStat
+                )
+
+                DashboardMetricRow(
+                    totalDuration: totalDuration,
+                    chapterCount: chapters.count,
+                    publicCount: chapters.filter(\.isPublic).count,
+                    recordedDayCount: recordedDayCount
+                )
+
+                ScoreBreakdownCard(summary: periodSummary)
+                CategoryShareCard(chapters: chapters)
+                HourRhythmCard(chapters: chapters)
+                if period != .today {
+                    ScoreTrendCard(period: period, summaries: periodScoreSummaries)
+                }
+                RecentTrendCard(chapters: recentChapters(limit: 30))
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 28)
+        }
+    }
 
     private var chapters: [Chapter] {
         let interval = period.dateInterval(containing: anchorDate, calendar: .japanese)
         return queriedChapters
-            .filter { $0.startTime < interval.end && ($0.endTime ?? clock.now) > interval.start }
+            .filter { $0.startTime < interval.end && ($0.endTime ?? clockNow) > interval.start }
             .sorted { $0.startTime < $1.startTime }
     }
 
@@ -131,7 +155,7 @@ struct DashboardView: View {
     private func chapters(on date: Date) -> [Chapter] {
         let boundary = DayBoundary(date: date, calendar: .japanese)
         return queriedChapters
-            .filter { $0.startTime < boundary.dayEnd && ($0.endTime ?? clock.now) > boundary.dayStart }
+            .filter { $0.startTime < boundary.dayEnd && ($0.endTime ?? clockNow) > boundary.dayStart }
             .sorted { $0.startTime < $1.startTime }
     }
 
@@ -140,7 +164,7 @@ struct DashboardView: View {
             date: date,
             plans: plans(on: date),
             chapters: chapters(on: date),
-            now: clock.now
+            now: clockNow
         )
     }
 
@@ -573,22 +597,30 @@ struct ScoreBreakdownCard: View {
                 EmptyStatText(text: "予定と実績がそろうと内訳が見えます")
             } else {
                 VStack(alignment: .leading, spacing: 12) {
-                    DashboardScoreContributionBar(
-                        categoryContribution: summary.categoryContribution,
-                        timelineContribution: summary.timelineContribution
+                    DashboardScoreFactorRow(
+                        title: "カテゴリ",
+                        score: summary.categoryScore,
+                        weight: ScoreCalculator.categoryWeight,
+                        color: Color(hex: "#2F80ED")
                     )
-
-                    HStack(spacing: 10) {
-                        DashboardSmallValue(title: "カテゴリ", value: "\(Int(summary.categoryContribution.rounded()))pt")
-                        DashboardSmallValue(title: "時間軸", value: "\(Int(summary.timelineContribution.rounded()))pt")
-                        DashboardSmallValue(title: "合計", value: "\(Int(summary.totalScore.rounded()))pt")
-                    }
+                    DashboardScoreFactorRow(
+                        title: "時間軸",
+                        score: summary.timelineScore,
+                        weight: ScoreCalculator.timelineWeight,
+                        color: Color(hex: "#6C5CE7")
+                    )
 
                     HStack(spacing: 10) {
                         DashboardSmallValue(title: "予定", value: formatDashboardDuration(summary.plannedDuration))
                         DashboardSmallValue(title: "実績", value: formatDashboardDuration(summary.recordedDuration))
                         DashboardSmallValue(title: "一致", value: formatDashboardDuration(summary.matchedDuration))
                     }
+
+                    Text(summary.scoreFormulaText)
+                        .font(.caption2.weight(.semibold).monospacedDigit())
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.82)
                 }
             }
         }
@@ -596,43 +628,35 @@ struct ScoreBreakdownCard: View {
     }
 }
 
-struct DashboardScoreContributionBar: View {
-    let categoryContribution: Double
-    let timelineContribution: Double
-
-    private let categoryColor = Color(hex: "#2F80ED")
-    private let timelineColor = Color(hex: "#6C5CE7")
+struct DashboardScoreFactorRow: View {
+    let title: String
+    let score: Double
+    let weight: Double
+    let color: Color
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 12) {
-                DashboardContributionLegend(title: "カテゴリ", color: categoryColor)
-                DashboardContributionLegend(title: "時間軸", color: timelineColor)
-                Spacer()
-                Text("\(Int((categoryContribution + timelineContribution).rounded())) / 100")
-                    .font(.caption.weight(.bold).monospacedDigit())
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(spacing: 8) {
+                DashboardContributionLegend(title: title, color: color)
+                Text("配点 \(Int((weight * 100).rounded()))%")
+                    .font(.caption2.weight(.semibold))
                     .foregroundStyle(.secondary)
+                Spacer()
+                Text("\(Int(score.rounded()))%")
+                    .font(.caption.weight(.bold).monospacedDigit())
+                    .foregroundStyle(color)
             }
 
             GeometryReader { proxy in
-                let categoryWidth = proxy.size.width * min(max(categoryContribution / 100, 0), 1)
-                let timelineWidth = proxy.size.width * min(max(timelineContribution / 100, 0), 1)
-
                 Capsule()
                     .fill(Color(.tertiarySystemGroupedBackground))
                     .overlay(alignment: .leading) {
-                        HStack(spacing: 0) {
-                            Rectangle()
-                                .fill(categoryColor)
-                                .frame(width: categoryWidth)
-                            Rectangle()
-                                .fill(timelineColor)
-                                .frame(width: timelineWidth)
-                        }
-                        .clipShape(Capsule())
+                        Capsule()
+                            .fill(color)
+                            .frame(width: proxy.size.width * min(max(score / 100, 0), 1))
                     }
             }
-            .frame(height: 12)
+            .frame(height: 9)
         }
     }
 }
@@ -1079,14 +1103,6 @@ struct DashboardScoreAggregate {
         scoredDayCount > 0
     }
 
-    var categoryContribution: Double {
-        categoryScore * 0.8
-    }
-
-    var timelineContribution: Double {
-        timelineScore * 0.2
-    }
-
     var gradeText: String {
         guard hasScore else { return "これから育つ" }
         switch totalScore {
@@ -1099,6 +1115,12 @@ struct DashboardScoreAggregate {
         default:
             return "伸びしろあり"
         }
+    }
+
+    var scoreFormulaText: String {
+        let categoryWeight = Int((ScoreCalculator.categoryWeight * 100).rounded())
+        let timelineWeight = Int((ScoreCalculator.timelineWeight * 100).rounded())
+        return "計算式: カテゴリ\(Int(categoryScore.rounded()))%×\(categoryWeight)% + 時間軸\(Int(timelineScore.rounded()))%×\(timelineWeight)% = \(Int(totalScore.rounded()))pt"
     }
 }
 

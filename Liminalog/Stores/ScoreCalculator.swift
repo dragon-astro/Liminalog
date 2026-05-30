@@ -21,6 +21,9 @@ struct ScoreSummary {
 }
 
 enum ScoreCalculator {
+    static let categoryWeight = 0.8
+    static let timelineWeight = 0.2
+
     static func summary(date: Date, plans: [PlanBlock], chapters: [Chapter], calendar: Calendar = .current, now: Date = Date()) -> ScoreSummary {
         let boundary = DayBoundary(date: date, calendar: calendar)
         let dayStart = boundary.dayStart
@@ -56,7 +59,7 @@ enum ScoreCalculator {
         let categoryScore = categoryAchievementScore(plans: clippedPlans, chapters: clippedChapters)
         let matchedDuration = timelineMatchedDuration(plans: clippedPlans, chapters: clippedChapters)
         let timelineScore = min(matchedDuration / plannedDuration, 1) * 100
-        let total = categoryScore * 0.8 + timelineScore * 0.2
+        let total = categoryScore * categoryWeight + timelineScore * timelineWeight
 
         return ScoreSummary(
             date: date,
