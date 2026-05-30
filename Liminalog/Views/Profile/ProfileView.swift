@@ -461,7 +461,7 @@ private struct ProfilePhotoView: View {
     }
 }
 
-private struct ProfileIconFrameView: View {
+struct ProfileIconFrameView: View {
     let style: ProfileIconFrameStyle
     let accentColor: Color
     let size: CGFloat
@@ -1168,7 +1168,7 @@ private enum ProfileBadgeCatalog {
     }
 }
 
-private struct ProfileIconFrameStyle: Identifiable {
+struct ProfileIconFrameStyle: Identifiable {
     let id: String
     let title: String
     let systemImage: String
@@ -1180,7 +1180,7 @@ private struct ProfileIconFrameStyle: Identifiable {
     var secondaryColor: Color { Color(hex: secondaryHex) }
 }
 
-private enum ProfileIconFrameCatalog {
+enum ProfileIconFrameCatalog {
     static let defaultID = "halo"
     static let items: [ProfileIconFrameStyle] = [
         ProfileIconFrameStyle(id: "halo", title: "Halo", systemImage: "circle", primaryHex: "#2F80ED", secondaryHex: "#8AB4FF", lineWidth: 3),
@@ -1194,14 +1194,14 @@ private enum ProfileIconFrameCatalog {
     }
 }
 
-private struct ProfileStreakIconStyle: Identifiable {
+struct ProfileStreakIconStyle: Identifiable {
     let id: String
     let title: String
     let systemImage: String
     let tintHex: String
 }
 
-private enum ProfileStreakIconCatalog {
+enum ProfileStreakIconCatalog {
     static let defaultID = "flame"
     static let items: [ProfileStreakIconStyle] = [
         ProfileStreakIconStyle(id: "flame", title: "Flame", systemImage: "flame.fill", tintHex: "#EB5757"),
@@ -1216,7 +1216,7 @@ private enum ProfileStreakIconCatalog {
 }
 
 @MainActor
-private struct ProfileCardStyle: Identifiable {
+struct ProfileCardStyle: Identifiable {
     let id: String
     let title: String
     let systemImage: String
@@ -1242,7 +1242,7 @@ private struct ProfileCardStyle: Identifiable {
     }
 }
 
-private enum ProfileCardStyleCatalog {
+enum ProfileCardStyleCatalog {
     static let defaultID = "clean"
     static let items: [ProfileCardStyle] = [
         ProfileCardStyle(id: "clean", title: "Clean", systemImage: "rectangle", backgroundHex: "#FFFFFF", markHex: nil, stripOpacity: 0.35, borderWidth: 1),

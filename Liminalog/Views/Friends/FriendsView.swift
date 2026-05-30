@@ -34,6 +34,14 @@ struct FriendsView: View {
         settings?.profileAccentColorHex ?? "#2F80ED"
     }
 
+    private var ownIconFrame: ProfileIconFrameStyle {
+        ProfileIconFrameCatalog.item(for: settings?.profileIconFrameID)
+    }
+
+    private var ownCardStyle: ProfileCardStyle {
+        ProfileCardStyleCatalog.item(for: settings?.profileCardStyleID)
+    }
+
     private var ownInvitePayload: FriendInvitePayload {
         FriendInvitePayload(
             code: FriendInvitePayload.code(from: settings?.id ?? UUID()),
@@ -282,6 +290,8 @@ struct FriendsView: View {
             tint: Color(hex: ownAccentColorHex),
             score: selfScore(for: scorePeriod),
             status: "自分",
+            iconFrame: ownIconFrame,
+            cardStyle: ownCardStyle,
             isMe: true,
             friend: nil
         )
@@ -295,6 +305,8 @@ struct FriendsView: View {
                 tint: Color(hex: friend.accentColorHex),
                 score: friend.score(for: scorePeriod),
                 status: friend.currentStatusTitle.isEmpty ? "オフライン" : friend.currentStatusTitle,
+                iconFrame: friend.iconFrameStyle,
+                cardStyle: friend.cardStyle,
                 isMe: false,
                 friend: friend
             )
@@ -452,11 +464,16 @@ private struct RankingCard: View {
         .padding(13)
         .background(
             RoundedRectangle(cornerRadius: 17)
-                .fill(entry.isMe ? Color(.tertiarySystemGroupedBackground) : Color(.secondarySystemGroupedBackground))
+                .fill(entry.cardStyle.backgroundColor)
+                .overlay(alignment: .bottom) {
+                    FriendCardRhythmStrip(accentColor: entry.cardStyle.stripColor(accentColor: entry.tint))
+                        .clipShape(RoundedRectangle(cornerRadius: 17, style: .continuous))
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 17, style: .continuous))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 17)
-                .stroke(Color.primary.opacity(entry.isMe ? 0.16 : 0.06), lineWidth: 1)
+                .stroke(entry.cardStyle.borderColor(accentColor: entry.tint), lineWidth: entry.isMe ? max(1, entry.cardStyle.borderWidth) : 1)
         )
     }
 
@@ -499,14 +516,12 @@ private struct RankingCard: View {
     }
 
     private var rankingAvatar: some View {
-        ZStack {
-            Circle()
-                .fill(entry.tint.opacity(0.18))
-            Image(systemName: entry.imageName)
-                .font(.subheadline.weight(.bold))
-                .foregroundStyle(entry.tint)
-        }
-        .frame(width: 34, height: 34)
+        DecoratedFriendAvatar(
+            systemImage: entry.imageName,
+            tint: entry.tint,
+            frameStyle: entry.iconFrame,
+            size: 34
+        )
     }
 
     private var rankSymbol: String {
@@ -578,13 +593,10 @@ private struct FriendRow: View {
                 .background(Circle().fill(Color(.tertiarySystemGroupedBackground)))
         }
         .padding(15)
-        .background(
-            RoundedRectangle(cornerRadius: 17)
-                .fill(Color(.secondarySystemGroupedBackground))
-        )
+        .background(FriendCardBackground(cardStyle: friend.cardStyle, accentColor: Color(hex: friend.accentColorHex), cornerRadius: 17))
         .overlay(
             RoundedRectangle(cornerRadius: 17)
-                .stroke(Color.primary.opacity(0.06), lineWidth: 1)
+                .stroke(friend.cardStyle.borderColor(accentColor: Color(hex: friend.accentColorHex)), lineWidth: 1)
         )
         .contentShape(RoundedRectangle(cornerRadius: 17))
     }
@@ -703,14 +715,74 @@ private struct FriendAvatar: View {
     let size: CGFloat
 
     var body: some View {
+        DecoratedFriendAvatar(
+            systemImage: friend.avatarSystemImage,
+            tint: Color(hex: friend.accentColorHex),
+            frameStyle: friend.iconFrameStyle,
+            size: size
+        )
+    }
+}
+
+private struct DecoratedFriendAvatar: View {
+    let systemImage: String
+    let tint: Color
+    let frameStyle: ProfileIconFrameStyle
+    let size: CGFloat
+
+    var body: some View {
         ZStack {
             Circle()
-                .fill(Color(hex: friend.accentColorHex).opacity(0.18))
-            Image(systemName: friend.avatarSystemImage)
+                .fill(tint.opacity(0.18))
+                .frame(width: size, height: size)
+            Image(systemName: systemImage)
                 .font(.system(size: size * 0.43, weight: .bold))
-                .foregroundStyle(Color(hex: friend.accentColorHex))
+                .foregroundStyle(tint)
+
+            ProfileIconFrameView(style: frameStyle, accentColor: tint, size: size + max(7, size * 0.16))
         }
-        .frame(width: size, height: size)
+        .frame(width: size + max(7, size * 0.16), height: size + max(7, size * 0.16))
+    }
+}
+
+private struct FriendCardBackground: View {
+    let cardStyle: ProfileCardStyle
+    let accentColor: Color
+    let cornerRadius: CGFloat
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .fill(cardStyle.backgroundColor)
+            .overlay(alignment: .bottom) {
+                FriendCardRhythmStrip(accentColor: cardStyle.stripColor(accentColor: accentColor))
+                    .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            }
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+    }
+}
+
+private struct FriendCardRhythmStrip: View {
+    let accentColor: Color
+
+    var body: some View {
+        HStack(spacing: 0) {
+            accentColor.opacity(0.35)
+                .frame(width: 46)
+            Color.clear
+                .frame(width: 18)
+            accentColor.opacity(0.18)
+                .frame(width: 72)
+            Color.clear
+                .frame(width: 28)
+            accentColor.opacity(0.28)
+                .frame(width: 40)
+            Color.clear
+            accentColor.opacity(0.22)
+                .frame(width: 84)
+        }
+        .frame(height: 5)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .opacity(0.85)
     }
 }
 
@@ -794,9 +866,12 @@ private struct FriendDetailView: View {
         }
         .padding(18)
         .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(Color(.secondarySystemGroupedBackground))
+            FriendCardBackground(cardStyle: friend.cardStyle, accentColor: Color(hex: friend.accentColorHex), cornerRadius: 20)
         )
+        .overlay {
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(friend.cardStyle.borderColor(accentColor: Color(hex: friend.accentColorHex)), lineWidth: 1)
+        }
     }
 
     private var statusCard: some View {
@@ -1018,6 +1093,8 @@ private struct FriendRankingEntry: Identifiable {
     let tint: Color
     let score: Double
     let status: String
+    let iconFrame: ProfileIconFrameStyle
+    let cardStyle: ProfileCardStyle
     let isMe: Bool
     let friend: Friend?
 
@@ -1030,9 +1107,25 @@ private struct FriendRankingEntry: Identifiable {
             tint: tint,
             score: score,
             status: status,
+            iconFrame: iconFrame,
+            cardStyle: cardStyle,
             isMe: isMe,
             friend: friend
         )
+    }
+}
+
+private extension Friend {
+    var iconFrameStyle: ProfileIconFrameStyle {
+        ProfileIconFrameCatalog.item(for: profileIconFrameID)
+    }
+
+    var streakIconStyle: ProfileStreakIconStyle {
+        ProfileStreakIconCatalog.item(for: profileStreakIconID)
+    }
+
+    var cardStyle: ProfileCardStyle {
+        ProfileCardStyleCatalog.item(for: profileCardStyleID)
     }
 }
 

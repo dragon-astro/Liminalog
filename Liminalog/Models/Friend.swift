@@ -32,6 +32,10 @@ final class Friend {
     var bio: String?
     var avatarSystemImage: String = "person.crop.circle.fill"
     var accentColorHex: String = "#2F80ED"
+    var profileBadgeID: String = "starter"
+    var profileIconFrameID: String = "halo"
+    var profileStreakIconID: String = "flame"
+    var profileCardStyleID: String = "clean"
     var statusRawValue: String = FriendStatus.pendingOutgoing.rawValue
     var isFavorite: Bool = false
     var shareURL: String?
@@ -80,6 +84,10 @@ final class Friend {
         self.bio = nil
         self.avatarSystemImage = avatarSystemImage
         self.accentColorHex = accentColorHex
+        self.profileBadgeID = "starter"
+        self.profileIconFrameID = "halo"
+        self.profileStreakIconID = "flame"
+        self.profileCardStyleID = "clean"
         self.statusRawValue = status.rawValue
         self.isFavorite = false
         self.shareURL = shareURL

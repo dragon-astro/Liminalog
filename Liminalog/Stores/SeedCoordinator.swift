@@ -92,6 +92,9 @@ enum SeedCoordinator {
                 todayScore: 92,
                 yesterdayScore: 76,
                 weekScore: 84,
+                iconFrameID: "halo",
+                streakIconID: "spark",
+                cardStyleID: "mint",
                 isFavorite: true,
                 updatedAt: calendar.date(byAdding: .minute, value: -8, to: now) ?? now,
                 now: now
@@ -109,6 +112,9 @@ enum SeedCoordinator {
                 todayScore: 71,
                 yesterdayScore: 88,
                 weekScore: 79,
+                iconFrameID: "crown",
+                streakIconID: "sun",
+                cardStyleID: "glass",
                 isFavorite: false,
                 updatedAt: calendar.date(byAdding: .minute, value: -21, to: now) ?? now,
                 now: now
@@ -126,6 +132,9 @@ enum SeedCoordinator {
                 todayScore: 64,
                 yesterdayScore: 58,
                 weekScore: 67,
+                iconFrameID: "signal",
+                streakIconID: "bolt",
+                cardStyleID: "dawn",
                 isFavorite: false,
                 updatedAt: calendar.date(byAdding: .minute, value: -37, to: now) ?? now,
                 now: now
@@ -143,6 +152,9 @@ enum SeedCoordinator {
                 todayScore: 38,
                 yesterdayScore: 94,
                 weekScore: 72,
+                iconFrameID: "focus",
+                streakIconID: "flame",
+                cardStyleID: "clean",
                 isFavorite: false,
                 updatedAt: calendar.date(byAdding: .hour, value: -3, to: now) ?? now,
                 now: now
@@ -163,6 +175,9 @@ enum SeedCoordinator {
         todayScore: Double,
         yesterdayScore: Double,
         weekScore: Double,
+        iconFrameID: String,
+        streakIconID: String,
+        cardStyleID: String,
         isFavorite: Bool,
         updatedAt: Date,
         now: Date
@@ -177,6 +192,9 @@ enum SeedCoordinator {
             now: now
         )
         friend.userRecordID = userRecordID
+        friend.profileIconFrameID = iconFrameID
+        friend.profileStreakIconID = streakIconID
+        friend.profileCardStyleID = cardStyleID
         friend.currentStatusTitle = statusTitle
         friend.currentStatusIcon = statusIcon
         friend.currentStatusColorHex = statusColor
@@ -196,6 +214,10 @@ enum SeedCoordinator {
         existing.handle = debugFriend.handle
         existing.avatarSystemImage = debugFriend.avatarSystemImage
         existing.accentColorHex = debugFriend.accentColorHex
+        existing.profileBadgeID = debugFriend.profileBadgeID
+        existing.profileIconFrameID = debugFriend.profileIconFrameID
+        existing.profileStreakIconID = debugFriend.profileStreakIconID
+        existing.profileCardStyleID = debugFriend.profileCardStyleID
         existing.status = debugFriend.status
         existing.currentStatusTitle = debugFriend.currentStatusTitle
         existing.currentStatusIcon = debugFriend.currentStatusIcon
