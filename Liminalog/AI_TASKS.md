@@ -981,6 +981,7 @@ refactor: split plan store
 | 2026-05-30 | Codex | 日別モーダルの日付移動を TimeTree 風の横スライド体験へ調整。`CalendarDayPagerSheet` / `FriendSharedCalendarDayPagerSheet` を追加し、モーダル内に前日・当日・翌日の3ページだけを持つ `TabView(.page)` を配置。スワイプ中はカードが横にずれて切り替わり、切り替え完了後に基準日を更新して中央ページへ無アニメーションで再固定するため、日付をいくら進めてもView数は増えない。ページングと二重に反応しないよう、モーダル内の `CalendarDayView` / `FriendSharedCalendarDayView` では旧DragGestureの日付差し替えを無効化した |
 | 2026-05-30 | Codex | 日別モーダルの横スライド中にナビゲーションバーが一瞬増える不具合を修正。原因は `TabView(.page)` の各ページ内に toolbar / navigationTitle が残っており、スワイプ途中に隣接ページのナビゲーション要素も同時評価されること。`CalendarDayView` はページャー内では `showsNavigationControls: false` にし、戻る・公開設定・追加メニューを `CalendarDayPagerSheet` 側の固定toolbarへ集約。友達日別もページ内の navigationTitle を無効化し、`FriendSharedCalendarDayPagerSheet` 側に1つだけタイトルを持たせた。これによりページカードだけが横に動き、上部バーは吸着時も増減しない構造になった |
 | 2026-05-30 | Codex | 月カレンダーの左右移動も TimeTree 風の横スライドへ変更。カレンダータブ/友達カレンダーとも、月グリッド部分を前月・表示月・翌月の3ページを持つ `TabView(.page)` に変更し、スワイプ中は月のカード面だけが横に移動する。スワイプ完了後は `visibleMonth` を移動先の月初に更新し、`selectedMonthOffset` を無アニメーションで0へ戻すため、月を進め続けてもView数は増えない。上部の年月ラベルと曜日ヘッダーは固定にして、日別モーダルで対応したナビゲーションバー増殖と同種のヘッダー重複を避ける設計 |
+| 2026-05-30 | Codex | 月カレンダーは縦の無限スクロールではなく「1ヶ月を一画面で見渡す」方針に寄せた。`CalendarMonthDayCell.cellHeight` を 120pt から 92pt へ縮小し、カレンダー/友達カレンダーの月グリッド上下余白も 12pt から 8pt へ圧縮。6週表示でもグリッド全体が画面内に収まりやすくなり、月スワイプ時に1枚のカレンダー面として把握しやすい。予定ラベルは6pt設定なら約4行程度残る想定で、過密日は従来通り `+N件` 表示に逃がす |
 
 ---
 

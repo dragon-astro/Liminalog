@@ -40,7 +40,7 @@ struct CalendarView: View {
                                     selectedDay = CalendarDayPresentation(date: date, planID: planID)
                                 }
                             )
-                            .padding(.vertical, 12)
+                            .padding(.vertical, 8)
                         }
                         .id(month.timeIntervalSince1970)
                         .tag(offset)
@@ -1291,7 +1291,7 @@ private struct CalendarMonthWeekRow: View {
 }
 
 struct CalendarMonthDayCell: View {
-    static let cellHeight: CGFloat = 120
+    static let cellHeight: CGFloat = 92
 
     let date: Date
     let visibleMonth: Date

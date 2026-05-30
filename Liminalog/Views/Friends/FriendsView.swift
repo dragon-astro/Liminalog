@@ -1211,7 +1211,7 @@ private struct FriendCalendarView: View {
                                 selectedDay = FriendSharedCalendarTargetDay(date: date)
                             }
                         )
-                        .padding(.vertical, 12)
+                        .padding(.vertical, 8)
 
                         sharedCalendarNote
                             .padding(.horizontal, 18)
