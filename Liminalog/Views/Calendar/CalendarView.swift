@@ -11,6 +11,7 @@ struct CalendarView: View {
     @State private var showingCalendarSettings = false
     @State private var showingCalendarSearch = false
     @State private var selectedDay: CalendarDayPresentation?
+    @State private var selectedMonthOffset = 0
     @State private var clock = TickClock(interval: 60)
 
     private let calendar = Calendar.japanese
@@ -26,17 +27,29 @@ struct CalendarView: View {
                     weekdayColor: weekdayColor(_:)
                 )
 
-                ScrollView {
-                    CalendarMonthGrid(
-                        dates: monthGridDates,
-                        visibleMonth: visibleMonth,
-                        importantPlans: importantPlans(on:),
-                        scoreSummary: scoreSummary(on:),
-                        onOpenDay: { date, planID in
-                            selectedDay = CalendarDayPresentation(date: date, planID: planID)
+                TabView(selection: $selectedMonthOffset) {
+                    ForEach([-1, 0, 1], id: \.self) { offset in
+                        let month = pageMonth(offset)
+                        ScrollView {
+                            CalendarMonthGrid(
+                                dates: monthGridDates(for: month),
+                                visibleMonth: month,
+                                importantPlans: importantPlans(on:),
+                                scoreSummary: scoreSummary(on:),
+                                onOpenDay: { date, planID in
+                                    selectedDay = CalendarDayPresentation(date: date, planID: planID)
+                                }
+                            )
+                            .padding(.vertical, 12)
                         }
-                    )
-                    .padding(.vertical, 12)
+                        .id(month.timeIntervalSince1970)
+                        .tag(offset)
+                    }
+                }
+                .tabViewStyle(.page(indexDisplayMode: .never))
+                .onChange(of: selectedMonthOffset) { _, newValue in
+                    guard newValue != 0 else { return }
+                    settleMonthShift(newValue)
                 }
             }
             .background(Color(.systemGroupedBackground))
@@ -57,7 +70,8 @@ struct CalendarView: View {
             }
             .sheet(isPresented: $showingCalendarSearch) {
                 CalendarPlanSearchSheet(plans: queriedPlans) { plan in
-                    visibleMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: plan.startTime)) ?? visibleMonth
+                    visibleMonth = monthStart(for: plan.startTime)
+                    selectedMonthOffset = 0
                     showingCalendarSearch = false
                     let target = CalendarDayPresentation(date: plan.startTime, planID: plan.id)
                     DispatchQueue.main.async {
@@ -74,16 +88,6 @@ struct CalendarView: View {
                 }
                 .presentationDetents([.large])
             }
-            .gesture(
-                DragGesture(minimumDistance: 44)
-                    .onEnded { value in
-                        if value.translation.width < -60 {
-                            shiftMonth(1)
-                        } else if value.translation.width > 60 {
-                            shiftMonth(-1)
-                        }
-                    }
-            )
             .onAppear {
                 clock.start()
             }
@@ -159,11 +163,16 @@ struct CalendarView: View {
 
     private func applyPickedMonth() {
         let components = DateComponents(year: pickerYear, month: pickerMonth, day: 1)
-        visibleMonth = calendar.date(from: components) ?? visibleMonth
+        visibleMonth = monthStart(for: calendar.date(from: components) ?? visibleMonth)
+        selectedMonthOffset = 0
     }
 
     private var monthGridDates: [Date] {
-        let monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: visibleMonth)) ?? visibleMonth
+        monthGridDates(for: visibleMonth)
+    }
+
+    private func monthGridDates(for month: Date) -> [Date] {
+        let monthStart = monthStart(for: month)
         let weekdayOffset = calendar.component(.weekday, from: monthStart) - calendar.firstWeekday
         let normalizedOffset = (weekdayOffset + 7) % 7
         let gridStart = calendar.date(byAdding: .day, value: -normalizedOffset, to: monthStart) ?? monthStart
@@ -241,7 +250,29 @@ struct CalendarView: View {
     }
 
     private func shiftMonth(_ value: Int) {
-        visibleMonth = calendar.date(byAdding: .month, value: value, to: visibleMonth) ?? visibleMonth
+        withAnimation(.easeOut(duration: 0.24)) {
+            selectedMonthOffset = value < 0 ? -1 : 1
+        }
+    }
+
+    private func pageMonth(_ offset: Int) -> Date {
+        calendar.date(byAdding: .month, value: offset, to: monthStart(for: visibleMonth)) ?? monthStart(for: visibleMonth)
+    }
+
+    private func settleMonthShift(_ offset: Int) {
+        let nextMonth = pageMonth(offset)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) {
+            visibleMonth = nextMonth
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                selectedMonthOffset = 0
+            }
+        }
+    }
+
+    private func monthStart(for date: Date) -> Date {
+        calendar.date(from: calendar.dateComponents([.year, .month], from: date)) ?? date
     }
 
     private func weekdayColor(_ weekday: String) -> Color {

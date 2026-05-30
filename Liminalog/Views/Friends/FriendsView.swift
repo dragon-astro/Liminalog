@@ -1181,6 +1181,7 @@ private struct FriendCalendarView: View {
     @State private var pickerYear = Calendar.japanese.component(.year, from: Date())
     @State private var pickerMonth = Calendar.japanese.component(.month, from: Date())
     @State private var selectedDay: FriendSharedCalendarTargetDay?
+    @State private var selectedMonthOffset = 0
 
     private let calendar = Calendar.japanese
     private let weekdays = Calendar.japaneseShortWeekdaySymbols
@@ -1194,24 +1195,36 @@ private struct FriendCalendarView: View {
                 weekdayColor: weekdayColor(_:)
             )
 
-            ScrollView {
-                FriendSharedCalendarMonthGrid(
-                    dates: monthGridDates,
-                    visibleMonth: visibleMonth,
-                    importantPlans: importantPlans(on:),
-                    allPlans: sharedPlans(on:),
-                    allActivities: sharedActivities(on:),
-                    score: knownScore(on:),
-                    accentColor: Color(hex: friend.accentColorHex),
-                    onOpenDay: { date in
-                        selectedDay = FriendSharedCalendarTargetDay(date: date)
-                    }
-                )
-                .padding(.vertical, 12)
+            TabView(selection: $selectedMonthOffset) {
+                ForEach([-1, 0, 1], id: \.self) { offset in
+                    let month = pageMonth(offset)
+                    ScrollView {
+                        FriendSharedCalendarMonthGrid(
+                            dates: monthGridDates(for: month),
+                            visibleMonth: month,
+                            importantPlans: importantPlans(on:),
+                            allPlans: sharedPlans(on:),
+                            allActivities: sharedActivities(on:),
+                            score: knownScore(on:),
+                            accentColor: Color(hex: friend.accentColorHex),
+                            onOpenDay: { date in
+                                selectedDay = FriendSharedCalendarTargetDay(date: date)
+                            }
+                        )
+                        .padding(.vertical, 12)
 
-                sharedCalendarNote
-                    .padding(.horizontal, 18)
-                    .padding(.bottom, 28)
+                        sharedCalendarNote
+                            .padding(.horizontal, 18)
+                            .padding(.bottom, 28)
+                    }
+                    .id(month.timeIntervalSince1970)
+                    .tag(offset)
+                }
+            }
+            .tabViewStyle(.page(indexDisplayMode: .never))
+            .onChange(of: selectedMonthOffset) { _, newValue in
+                guard newValue != 0 else { return }
+                settleMonthShift(newValue)
             }
         }
         .background(Color(.systemGroupedBackground))
@@ -1231,7 +1244,8 @@ private struct FriendCalendarView: View {
         }
         .sheet(isPresented: $showingSearch) {
             FriendSharedPlanSearchSheet(friend: friend) { plan in
-                visibleMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: plan.startTime)) ?? visibleMonth
+                visibleMonth = monthStart(for: plan.startTime)
+                selectedMonthOffset = 0
                 showingSearch = false
                 let target = FriendSharedCalendarTargetDay(date: plan.startTime)
                 DispatchQueue.main.async {
@@ -1245,16 +1259,6 @@ private struct FriendCalendarView: View {
             }
             .presentationDetents([.large])
         }
-        .gesture(
-            DragGesture(minimumDistance: 44)
-                .onEnded { value in
-                    if value.translation.width < -60 {
-                        shiftMonth(1)
-                    } else if value.translation.width > 60 {
-                        shiftMonth(-1)
-                    }
-                }
-        )
     }
 
     private var calendarTopBar: some View {
@@ -1343,7 +1347,11 @@ private struct FriendCalendarView: View {
     }
 
     private var monthGridDates: [Date] {
-        let monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: visibleMonth)) ?? visibleMonth
+        monthGridDates(for: visibleMonth)
+    }
+
+    private func monthGridDates(for month: Date) -> [Date] {
+        let monthStart = monthStart(for: month)
         let weekdayOffset = calendar.component(.weekday, from: monthStart) - calendar.firstWeekday
         let normalizedOffset = (weekdayOffset + 7) % 7
         let gridStart = calendar.date(byAdding: .day, value: -normalizedOffset, to: monthStart) ?? monthStart
@@ -1384,7 +1392,8 @@ private struct FriendCalendarView: View {
 
     private func applyPickedMonth() {
         let components = DateComponents(year: pickerYear, month: pickerMonth, day: 1)
-        visibleMonth = calendar.date(from: components) ?? visibleMonth
+        visibleMonth = monthStart(for: calendar.date(from: components) ?? visibleMonth)
+        selectedMonthOffset = 0
     }
 
     private func knownScore(on date: Date) -> FriendCalendarScore? {
@@ -1398,7 +1407,29 @@ private struct FriendCalendarView: View {
     }
 
     private func shiftMonth(_ value: Int) {
-        visibleMonth = calendar.date(byAdding: .month, value: value, to: visibleMonth) ?? visibleMonth
+        withAnimation(.easeOut(duration: 0.24)) {
+            selectedMonthOffset = value < 0 ? -1 : 1
+        }
+    }
+
+    private func pageMonth(_ offset: Int) -> Date {
+        calendar.date(byAdding: .month, value: offset, to: monthStart(for: visibleMonth)) ?? monthStart(for: visibleMonth)
+    }
+
+    private func settleMonthShift(_ offset: Int) {
+        let nextMonth = pageMonth(offset)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) {
+            visibleMonth = nextMonth
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                selectedMonthOffset = 0
+            }
+        }
+    }
+
+    private func monthStart(for date: Date) -> Date {
+        calendar.date(from: calendar.dateComponents([.year, .month], from: date)) ?? date
     }
 
     private func weekdayColor(_ weekday: String) -> Color {
