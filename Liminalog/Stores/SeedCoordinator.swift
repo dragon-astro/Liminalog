@@ -92,6 +92,8 @@ enum SeedCoordinator {
                 todayScore: 92,
                 yesterdayScore: 76,
                 weekScore: 84,
+                monthScore: 88,
+                yearScore: 82,
                 streakCount: 12,
                 iconFrameID: "halo",
                 streakIconID: "spark",
@@ -113,6 +115,8 @@ enum SeedCoordinator {
                 todayScore: 71,
                 yesterdayScore: 88,
                 weekScore: 79,
+                monthScore: 73,
+                yearScore: 77,
                 streakCount: 5,
                 iconFrameID: "crown",
                 streakIconID: "sun",
@@ -134,6 +138,8 @@ enum SeedCoordinator {
                 todayScore: 64,
                 yesterdayScore: 58,
                 weekScore: 67,
+                monthScore: 69,
+                yearScore: 74,
                 streakCount: 2,
                 iconFrameID: "signal",
                 streakIconID: "bolt",
@@ -155,6 +161,8 @@ enum SeedCoordinator {
                 todayScore: 38,
                 yesterdayScore: 94,
                 weekScore: 72,
+                monthScore: 81,
+                yearScore: 70,
                 streakCount: 0,
                 iconFrameID: "focus",
                 streakIconID: "flame",
@@ -179,6 +187,8 @@ enum SeedCoordinator {
         todayScore: Double,
         yesterdayScore: Double,
         weekScore: Double,
+        monthScore: Double,
+        yearScore: Double,
         streakCount: Int,
         iconFrameID: String,
         streakIconID: String,
@@ -209,6 +219,8 @@ enum SeedCoordinator {
         friend.todayScore = todayScore
         friend.yesterdayScore = yesterdayScore
         friend.weekScore = weekScore
+        friend.monthScore = monthScore
+        friend.yearScore = yearScore
         friend.streakCount = streakCount
         friend.isFavorite = isFavorite
         friend.updatedAt = now
@@ -234,6 +246,8 @@ enum SeedCoordinator {
         existing.todayScore = debugFriend.todayScore
         existing.yesterdayScore = debugFriend.yesterdayScore
         existing.weekScore = debugFriend.weekScore
+        existing.monthScore = debugFriend.monthScore
+        existing.yearScore = debugFriend.yearScore
         existing.streakCount = debugFriend.streakCount
         existing.isFavorite = debugFriend.isFavorite
         existing.updatedAt = debugFriend.updatedAt

@@ -11,9 +11,10 @@ struct FriendsView: View {
     @Query private var plans: [PlanBlock]
 
     @State private var clock = TickClock(interval: 30)
-    @State private var scorePeriod: FriendScorePeriod = .today
+    @State private var rankingDetailPeriod: FriendScorePeriod = .week
     @State private var isShowingAddFriend = false
     @State private var isShowingProfileShare = false
+    @State private var isShowingRankingDetail = false
     @State private var inviteInitialText = ""
     @State private var selectedFriend: Friend?
 
@@ -120,6 +121,15 @@ struct FriendsView: View {
             .sheet(isPresented: $isShowingProfileShare) {
                 ProfileShareSheet(payload: ownInvitePayload)
             }
+            .sheet(isPresented: $isShowingRankingDetail) {
+                FriendRankingListSheet(
+                    period: $rankingDetailPeriod,
+                    entries: rankingEntries(for: rankingDetailPeriod),
+                    onSelectFriend: { friend in
+                        selectedFriend = friend
+                    }
+                )
+            }
             .task {
                 ensureUserSettings()
                 handlePendingInviteURL()
@@ -207,35 +217,30 @@ struct FriendsView: View {
     private var rankingSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                SectionTitle(title: "ランキング", count: rankingEntries.count)
+                SectionTitle(title: "昨日のランキング", count: yesterdayRankingEntries.count)
                 Spacer()
                 Button {
-                    inviteInitialText = ""
-                    isShowingAddFriend = true
+                    rankingDetailPeriod = .week
+                    isShowingRankingDetail = true
                 } label: {
-                    Image(systemName: "link.badge.plus")
-                        .font(.subheadline.weight(.bold))
-                        .frame(width: 34, height: 34)
-                        .background(Circle().fill(Color(.secondarySystemGroupedBackground)))
+                    HStack(spacing: 5) {
+                        Text("もっと見る")
+                        Image(systemName: "chevron.right")
+                            .font(.caption2.weight(.black))
+                    }
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
+                    .background(Capsule().fill(Color(.secondarySystemGroupedBackground)))
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("招待を受け取る")
-            }
-
-            HStack {
-                Spacer(minLength: 0)
-                Picker("期間", selection: $scorePeriod) {
-                    ForEach(FriendScorePeriod.allCases) { period in
-                        Text(period.label).tag(period)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .frame(width: 172)
+                .accessibilityLabel("ランキングをもっと見る")
             }
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 10) {
-                    ForEach(rankingEntries) { entry in
+                    ForEach(yesterdayRankingEntries) { entry in
                         Button {
                             if let friend = entry.friend {
                                 selectedFriend = friend
@@ -281,14 +286,18 @@ struct FriendsView: View {
         }
     }
 
-    private var rankingEntries: [FriendRankingEntry] {
+    private var yesterdayRankingEntries: [FriendRankingEntry] {
+        rankingEntries(for: .yesterday)
+    }
+
+    private func rankingEntries(for period: FriendScorePeriod) -> [FriendRankingEntry] {
         let selfEntry = FriendRankingEntry(
             id: "me",
             rank: 0,
             name: ownDisplayName,
             imageName: activeChapter?.category?.icon ?? "person.fill",
             tint: Color(hex: ownAccentColorHex),
-            score: selfScore(for: scorePeriod),
+            score: selfScore(for: period),
             status: "自分",
             iconFrame: ownIconFrame,
             isMe: true,
@@ -302,7 +311,7 @@ struct FriendsView: View {
                 name: friend.displayName,
                 imageName: friend.avatarSystemImage,
                 tint: Color(hex: friend.accentColorHex),
-                score: friend.score(for: scorePeriod),
+                score: friend.score(for: period),
                 status: friend.currentStatusTitle.isEmpty ? "オフライン" : friend.currentStatusTitle,
                 iconFrame: friend.iconFrameStyle,
                 isMe: false,
@@ -333,16 +342,24 @@ struct FriendsView: View {
             }
             return score(on: yesterday).totalScore
         case .week:
-            let scores = (0..<7).compactMap { offset -> Double? in
-                guard let date = Calendar.current.date(byAdding: .day, value: -offset, to: clock.now) else {
-                    return nil
-                }
-                let summary = score(on: date)
-                return summary.plannedDuration > 0 ? summary.totalScore : nil
-            }
-            guard !scores.isEmpty else { return 0 }
-            return scores.reduce(0, +) / Double(scores.count)
+            return averageSelfScore(days: 7)
+        case .month:
+            return averageSelfScore(days: 30)
+        case .year:
+            return averageSelfScore(days: 365)
         }
+    }
+
+    private func averageSelfScore(days: Int) -> Double {
+        let scores = (0..<days).compactMap { offset -> Double? in
+            guard let date = Calendar.current.date(byAdding: .day, value: -offset, to: clock.now) else {
+                return nil
+            }
+            let summary = score(on: date)
+            return summary.plannedDuration > 0 ? summary.totalScore : nil
+        }
+        guard !scores.isEmpty else { return 0 }
+        return scores.reduce(0, +) / Double(scores.count)
     }
 
     private func score(on date: Date) -> ScoreSummary {
@@ -1104,6 +1121,131 @@ private struct FriendAddSheet: View {
 private enum FriendInviteSubmitResult {
     case success
     case failure(String)
+}
+
+private struct FriendRankingListSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Binding var period: FriendScorePeriod
+    let entries: [FriendRankingEntry]
+    let onSelectFriend: (Friend) -> Void
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 14) {
+                Picker("期間", selection: $period) {
+                    ForEach(FriendScorePeriod.detailCases) { period in
+                        Text(period.label).tag(period)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, 18)
+                .padding(.top, 12)
+
+                ScrollView {
+                    LazyVStack(spacing: 10) {
+                        ForEach(entries) { entry in
+                            Button {
+                                if let friend = entry.friend {
+                                    dismiss()
+                                    onSelectFriend(friend)
+                                }
+                            } label: {
+                                FriendRankingListRow(entry: entry)
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(entry.friend == nil)
+                        }
+                    }
+                    .padding(.horizontal, 18)
+                    .padding(.bottom, 24)
+                }
+            }
+            .background(Color(.systemGroupedBackground))
+            .navigationTitle("ランキング")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("閉じる") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct FriendRankingListRow: View {
+    let entry: FriendRankingEntry
+
+    var body: some View {
+        HStack(spacing: 12) {
+            rankLabel
+
+            DecoratedFriendAvatar(
+                systemImage: entry.imageName,
+                tint: entry.tint,
+                frameStyle: entry.iconFrame,
+                size: 38
+            )
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(entry.name)
+                    .font(.subheadline.weight(.bold))
+                    .lineLimit(1)
+                Text(entry.isMe ? "自分" : entry.status)
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            VStack(alignment: .trailing, spacing: 0) {
+                Text("\(Int(round(entry.score)))")
+                    .font(.headline.weight(.black))
+                    .monospacedDigit()
+                Text("score")
+                    .font(.caption2.weight(.bold))
+                    .textCase(.uppercase)
+                    .foregroundStyle(.secondary)
+            }
+
+            if entry.friend != nil {
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.black))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(13)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color(.secondarySystemGroupedBackground))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.primary.opacity(0.06), lineWidth: 1)
+        )
+    }
+
+    private var rankLabel: some View {
+        Text("#\(entry.rank)")
+            .font(.caption.weight(.black))
+            .foregroundStyle(rankColor)
+            .frame(width: 38, height: 28)
+            .background(Capsule().fill(rankColor.opacity(entry.rank <= 3 ? 0.14 : 0.08)))
+    }
+
+    private var rankColor: Color {
+        switch entry.rank {
+        case 1:
+            Color(red: 0.95, green: 0.58, blue: 0.08)
+        case 2:
+            Color(red: 0.48, green: 0.54, blue: 0.64)
+        case 3:
+            Color(red: 0.68, green: 0.40, blue: 0.20)
+        default:
+            .secondary
+        }
+    }
 }
 
 private struct FriendRankingEntry: Identifiable {

@@ -50,6 +50,8 @@ final class Friend {
     var todayScore: Double = 0
     var yesterdayScore: Double = 0
     var weekScore: Double = 0
+    var monthScore: Double = 0
+    var yearScore: Double = 0
     var streakCount: Int = 0
     var lastSeenAt: Date?
     var acceptedAt: Date?
@@ -103,6 +105,8 @@ final class Friend {
         self.todayScore = 0
         self.yesterdayScore = 0
         self.weekScore = 0
+        self.monthScore = 0
+        self.yearScore = 0
         self.streakCount = 0
         self.lastSeenAt = nil
         self.acceptedAt = status == .accepted ? now : nil
@@ -119,6 +123,10 @@ final class Friend {
             yesterdayScore
         case .week:
             weekScore
+        case .month:
+            monthScore
+        case .year:
+            yearScore
         }
     }
 }
@@ -127,8 +135,14 @@ enum FriendScorePeriod: String, CaseIterable, Identifiable {
     case today
     case yesterday
     case week
+    case month
+    case year
 
     var id: String { rawValue }
+
+    static var detailCases: [FriendScorePeriod] {
+        [.week, .month, .year]
+    }
 
     var label: String {
         switch self {
@@ -137,7 +151,11 @@ enum FriendScorePeriod: String, CaseIterable, Identifiable {
         case .yesterday:
             "昨日"
         case .week:
-            "今週"
+            "週間"
+        case .month:
+            "月間"
+        case .year:
+            "年間"
         }
     }
 }
