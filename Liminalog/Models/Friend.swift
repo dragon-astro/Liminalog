@@ -221,7 +221,7 @@ struct FriendSharedPlanSnapshot: Codable, Identifiable, Hashable {
     static func snapshots(from plans: [PlanBlock]) -> [FriendSharedPlanSnapshot] {
         plans
             .filter(\.isPublic)
-            .map(FriendSharedPlanSnapshot.init(plan:))
+            .map { FriendSharedPlanSnapshot(plan: $0) }
             .sorted {
                 if $0.startTime == $1.startTime {
                     return $0.updatedAt < $1.updatedAt

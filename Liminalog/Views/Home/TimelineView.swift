@@ -141,10 +141,20 @@ struct TimelineView: View {
         self.focusedPlanID = focusedPlanID
         self._editingChapter = editingChapter
 
+        let boundary = DayBoundary(date: date, calendar: .japanese)
+        let dayStart = boundary.dayStart
+        let dayEnd = boundary.dayEnd
+        let chapterLookbackStart = Calendar.japanese.date(byAdding: .day, value: -14, to: dayStart) ?? dayStart
         self._queriedChapters = Query(
+            filter: #Predicate<Chapter> {
+                $0.startTime >= chapterLookbackStart && $0.startTime < dayEnd
+            },
             sort: [SortDescriptor(\.startTime)]
         )
         self._queriedPlans = Query(
+            filter: #Predicate<PlanBlock> {
+                $0.startTime < dayEnd && $0.endTime > dayStart
+            },
             sort: [SortDescriptor(\.startTime)]
         )
     }

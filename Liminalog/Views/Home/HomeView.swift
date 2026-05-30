@@ -3,13 +3,14 @@ import SwiftData
 
 struct HomeView: View {
     @Environment(ChapterStore.self) private var store
-    @Query private var queriedPlans: [PlanBlock]
+    @Environment(\.modelContext) private var modelContext
     @State private var selectedPage: TodayPage = .today
     @State private var scrolledPage: TodayPage? = .today
     @State private var editingChapter: Chapter? = nil
     @State private var showingAddSheet = false
     @State private var addSheetStart = Date()
-    @State private var clock = TickClock(interval: 30)
+    @State private var clock = TickClock(interval: 60)
+    @State private var tomorrowHasActionableGap = false
 
     var body: some View {
         NavigationStack {
@@ -38,6 +39,7 @@ struct HomeView: View {
                 if scrolledPage != newValue {
                     scrolledPage = newValue
                 }
+                refreshTomorrowCoverage()
             }
             .background(Color(.systemGroupedBackground))
             .navigationBarTitleDisplayMode(.inline)
@@ -55,7 +57,7 @@ struct HomeView: View {
                 ToolbarItem(placement: .principal) {
                     TodayPageTextTabs(
                         selection: $selectedPage,
-                        showsTomorrowIndicator: tomorrowCoverage.hasActionableGap
+                        showsTomorrowIndicator: tomorrowHasActionableGap
                     )
                 }
                 ToolbarItem(placement: .topBarTrailing) {
@@ -76,6 +78,7 @@ struct HomeView: View {
                 scrolledPage = .today
                 store.seedDefaultCategorySetsIfNeeded()
                 store.syncLiveActivityWithActiveChapter()
+                refreshTomorrowCoverage()
             }
             .onDisappear {
                 clock.stop()
@@ -123,8 +126,13 @@ struct HomeView: View {
         DayBoundary.dayStart(for: date, calendar: .japanese)
     }
 
-    private var tomorrowCoverage: PlanCoverageSummary {
-        PlanCoverageSummary.make(date: tomorrowDate, plans: queriedPlans)
+    private func refreshTomorrowCoverage() {
+        let boundary = DayBoundary(date: tomorrowDate, calendar: .japanese)
+        let plans = ScoreSnapshotLoader.plannedBlocks(
+            in: DateInterval(start: boundary.dayStart, end: boundary.dayEnd),
+            modelContext: modelContext
+        )
+        tomorrowHasActionableGap = PlanCoverageSummary.make(date: tomorrowDate, plans: plans).hasActionableGap
     }
 }
 
@@ -245,9 +253,28 @@ private struct TomorrowPlanPage: View {
 private struct YesterdayReviewPage: View {
     @Query private var queriedChapters: [Chapter]
     @Query private var queriedPlans: [PlanBlock]
-    @State private var clock = TickClock(interval: 60)
 
     let date: Date
+
+    init(date: Date) {
+        self.date = date
+        let boundary = DayBoundary(date: date, calendar: .japanese)
+        let dayStart = boundary.dayStart
+        let dayEnd = boundary.dayEnd
+        let chapterLookbackStart = Calendar.japanese.date(byAdding: .day, value: -14, to: dayStart) ?? dayStart
+        _queriedPlans = Query(
+            filter: #Predicate<PlanBlock> {
+                $0.startTime < dayEnd && $0.endTime > dayStart
+            },
+            sort: [SortDescriptor(\.startTime)]
+        )
+        _queriedChapters = Query(
+            filter: #Predicate<Chapter> {
+                $0.startTime >= chapterLookbackStart && $0.startTime < dayEnd
+            },
+            sort: [SortDescriptor(\.startTime)]
+        )
+    }
 
     var body: some View {
         ScrollView {
@@ -269,12 +296,6 @@ private struct YesterdayReviewPage: View {
             .padding(.top, 12)
             .padding(.bottom, 32)
         }
-        .onAppear {
-            clock.start()
-        }
-        .onDisappear {
-            clock.stop()
-        }
     }
 
     private var dayBoundary: DayBoundary {
@@ -288,8 +309,9 @@ private struct YesterdayReviewPage: View {
     }
 
     private var dayChapters: [Chapter] {
-        queriedChapters
-            .filter { $0.startTime < dayBoundary.dayEnd && ($0.endTime ?? clock.now) > dayBoundary.dayStart }
+        let now = Date()
+        return queriedChapters
+            .filter { $0.startTime < dayBoundary.dayEnd && ($0.endTime ?? now) > dayBoundary.dayStart }
             .sorted { $0.startTime < $1.startTime }
     }
 
@@ -299,23 +321,25 @@ private struct YesterdayReviewPage: View {
             plans: dayPlans,
             chapters: dayChapters,
             calendar: .japanese,
-            now: clock.now
+            now: Date()
         )
     }
 
     private var recordedDuration: TimeInterval {
-        dayChapters.reduce(0) { partial, chapter in
+        let now = Date()
+        return dayChapters.reduce(0) { partial, chapter in
             let start = max(chapter.startTime, dayBoundary.dayStart)
-            let end = min(chapter.endTime ?? clock.now, dayBoundary.dayEnd)
+            let end = min(chapter.endTime ?? now, dayBoundary.dayEnd)
             return partial + max(end.timeIntervalSince(start), 0)
         }
     }
 
     private var categoryRows: [(category: Category, duration: TimeInterval)] {
+        let now = Date()
         let grouped = Dictionary(grouping: dayChapters.compactMap { chapter -> (Category, TimeInterval)? in
             guard let category = chapter.category else { return nil }
             let start = max(chapter.startTime, dayBoundary.dayStart)
-            let end = min(chapter.endTime ?? clock.now, dayBoundary.dayEnd)
+            let end = min(chapter.endTime ?? now, dayBoundary.dayEnd)
             return (category, max(end.timeIntervalSince(start), 0))
         }, by: { $0.0.id })
 

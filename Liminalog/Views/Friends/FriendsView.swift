@@ -7,10 +7,9 @@ struct FriendsView: View {
 
     @Query(sort: \Friend.createdAt) private var friends: [Friend]
     @Query(sort: \UserSettings.createdAt) private var settingsList: [UserSettings]
-    @Query private var chapters: [Chapter]
-    @Query private var plans: [PlanBlock]
+    @Query private var activeChapters: [Chapter]
 
-    @State private var clock = TickClock(interval: 30)
+    @State private var clock = TickClock(interval: 60)
     @State private var rankingDetailPeriod: FriendScorePeriod = .day
     @State private var rankingAnchorDate = Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date()
     @State private var isShowingAddFriend = false
@@ -21,6 +20,10 @@ struct FriendsView: View {
 
     init(pendingInviteURL: Binding<URL?> = .constant(nil)) {
         self._pendingInviteURL = pendingInviteURL
+        self._activeChapters = Query(
+            filter: #Predicate<Chapter> { $0.endTime == nil },
+            sort: [SortDescriptor(\.startTime, order: .reverse)]
+        )
     }
 
     private var settings: UserSettings? {
@@ -75,10 +78,7 @@ struct FriendsView: View {
     }
 
     private var activeChapter: Chapter? {
-        chapters
-            .filter { $0.endTime == nil }
-            .sorted { $0.startTime > $1.startTime }
-            .first
+        activeChapters.first
     }
 
     var body: some View {
@@ -337,14 +337,14 @@ struct FriendsView: View {
     private func selfScore(for period: FriendScorePeriod, anchorDate: Date?) -> Double {
         switch period {
         case .day:
-            return score(on: anchorDate ?? clock.now).totalScore
+            return ScoreSnapshotLoader.summary(on: anchorDate ?? clock.now, modelContext: modelContext, now: clock.now).totalScore
         case .today:
-            return score(on: clock.now).totalScore
+            return ScoreSnapshotLoader.summary(on: clock.now, modelContext: modelContext, now: clock.now).totalScore
         case .yesterday:
             guard let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: clock.now) else {
                 return 0
             }
-            return score(on: yesterday).totalScore
+            return ScoreSnapshotLoader.summary(on: yesterday, modelContext: modelContext, now: clock.now).totalScore
         case .week:
             return averageSelfScore(in: dateInterval(.weekOfYear, containing: anchorDate ?? clock.now))
         case .month:
@@ -355,40 +355,12 @@ struct FriendsView: View {
     }
 
     private func averageSelfScore(in interval: DateInterval) -> Double {
-        var date = interval.start
-        var scores: [Double] = []
-        let calendar = Calendar.japanese
-
-        while date < interval.end {
-            let summary = score(on: date)
-            if summary.plannedDuration > 0 {
-                scores.append(summary.totalScore)
-            }
-            guard let nextDate = calendar.date(byAdding: .day, value: 1, to: date) else {
-                break
-            }
-            date = nextDate
-        }
-
-        guard !scores.isEmpty else { return 0 }
-        return scores.reduce(0, +) / Double(scores.count)
+        ScoreSnapshotLoader.averageScore(in: interval, modelContext: modelContext, now: clock.now)
     }
 
     private func dateInterval(_ component: Calendar.Component, containing date: Date) -> DateInterval {
         let boundary = DayBoundary(date: date, calendar: .japanese)
         return Calendar.japanese.dateInterval(of: component, for: date) ?? DateInterval(start: boundary.dayStart, end: boundary.dayEnd)
-    }
-
-    private func score(on date: Date) -> ScoreSummary {
-        let boundary = DayBoundary(date: date)
-        let dayPlans = plans
-            .filter { $0.startTime < boundary.dayEnd && $0.endTime > boundary.dayStart }
-            .sorted { $0.startTime < $1.startTime }
-        let dayChapters = chapters
-            .filter { $0.startTime < boundary.dayEnd && ($0.endTime ?? clock.now) > boundary.dayStart }
-            .sorted { $0.startTime < $1.startTime }
-
-        return ScoreCalculator.summary(date: date, plans: dayPlans, chapters: dayChapters, now: clock.now)
     }
 
     private func addFriendFromInvite(_ payload: FriendInvitePayload) -> FriendInviteSubmitResult {

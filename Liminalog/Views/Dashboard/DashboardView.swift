@@ -2,8 +2,6 @@ import SwiftUI
 import SwiftData
 
 struct DashboardView: View {
-    @Query private var queriedChapters: [Chapter]
-    @Query private var queriedPlans: [PlanBlock]
     @State private var period: DashboardPeriod = .today
     @State private var anchorDate = Date()
     @State private var isShowingPeriodPicker = false
@@ -41,9 +39,7 @@ struct DashboardView: View {
                         DashboardPeriodContent(
                             period: item,
                             anchorDate: anchorDate,
-                            clockNow: clock.now,
-                            queriedChapters: queriedChapters,
-                            queriedPlans: queriedPlans
+                            clockNow: clock.now
                         )
                         .tag(item)
                     }
@@ -66,55 +62,103 @@ struct DashboardView: View {
 }
 
 struct DashboardPeriodContent: View {
+    @Query private var queriedChapters: [Chapter]
+    @Query private var queriedPlans: [PlanBlock]
+
     let period: DashboardPeriod
     let anchorDate: Date
     let clockNow: Date
-    let queriedChapters: [Chapter]
-    let queriedPlans: [PlanBlock]
+    private let interval: DateInterval
+
+    init(period: DashboardPeriod, anchorDate: Date, clockNow: Date) {
+        self.period = period
+        self.anchorDate = anchorDate
+        self.clockNow = clockNow
+
+        let interval = period.dateInterval(containing: anchorDate, calendar: .japanese)
+        self.interval = interval
+        let chapterLookbackStart = Calendar.japanese.date(byAdding: .day, value: -14, to: interval.start) ?? interval.start
+        let intervalStart = interval.start
+        let intervalEnd = interval.end
+        _queriedChapters = Query(
+            filter: #Predicate<Chapter> {
+                $0.startTime >= chapterLookbackStart && $0.startTime < intervalEnd
+            },
+            sort: [SortDescriptor(\.startTime)]
+        )
+        _queriedPlans = Query(
+            filter: #Predicate<PlanBlock> {
+                $0.startTime < intervalEnd && $0.endTime > intervalStart
+            },
+            sort: [SortDescriptor(\.startTime)]
+        )
+    }
 
     var body: some View {
+        let snapshot = DashboardPeriodSnapshot(
+            period: period,
+            interval: interval,
+            clockNow: clockNow,
+            queriedChapters: queriedChapters,
+            queriedPlans: queriedPlans
+        )
+
         ScrollView {
             VStack(spacing: 14) {
                 DashboardHeroCard(
                     period: period,
                     anchorDate: anchorDate,
-                    summary: periodSummary,
-                    scoreSummaries: periodScoreSummaries,
-                    totalDuration: totalDuration,
-                    recordedDayCount: recordedDayCount,
-                    topCategory: topCategoryStat
+                    summary: snapshot.periodSummary,
+                    scoreSummaries: snapshot.periodScoreSummaries,
+                    totalDuration: snapshot.totalDuration,
+                    recordedDayCount: snapshot.recordedDayCount,
+                    topCategory: snapshot.topCategoryStat
                 )
 
                 DashboardMetricRow(
-                    totalDuration: totalDuration,
-                    chapterCount: chapters.count,
-                    publicCount: chapters.filter(\.isPublic).count,
-                    recordedDayCount: recordedDayCount
+                    totalDuration: snapshot.totalDuration,
+                    chapterCount: snapshot.chapters.count,
+                    publicCount: snapshot.publicCount,
+                    recordedDayCount: snapshot.recordedDayCount
                 )
 
-                ScoreBreakdownCard(summary: periodSummary)
-                CategoryShareCard(chapters: chapters)
-                HourRhythmCard(chapters: chapters)
+                ScoreBreakdownCard(summary: snapshot.periodSummary)
+                CategoryShareCard(chapters: snapshot.chapters)
+                HourRhythmCard(chapters: snapshot.chapters)
                 if period != .today {
-                    ScoreTrendCard(period: period, summaries: periodScoreSummaries)
+                    ScoreTrendCard(period: period, summaries: snapshot.periodScoreSummaries)
                 }
-                RecentTrendCard(chapters: recentChapters(limit: 30))
+                RecentTrendCard(chapters: snapshot.recentChapters)
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 28)
         }
     }
+}
 
-    private var chapters: [Chapter] {
-        let interval = period.dateInterval(containing: anchorDate, calendar: .japanese)
-        return queriedChapters
+private struct DashboardPeriodSnapshot {
+    let chapters: [Chapter]
+    let periodScoreSummaries: [ScoreSummary]
+    let periodSummary: DashboardScoreAggregate
+    let totalDuration: TimeInterval
+    let publicCount: Int
+    let recordedDayCount: Int
+    let topCategoryStat: DashboardCategoryStat?
+    let recentChapters: [Chapter]
+
+    init(
+        period: DashboardPeriod,
+        interval: DateInterval,
+        clockNow: Date,
+        queriedChapters: [Chapter],
+        queriedPlans: [PlanBlock]
+    ) {
+        let chapters = queriedChapters
             .filter { $0.startTime < interval.end && ($0.endTime ?? clockNow) > interval.start }
             .sorted { $0.startTime < $1.startTime }
-    }
+        self.chapters = chapters
 
-    private var periodDates: [Date] {
         let calendar = Calendar.japanese
-        let interval = period.dateInterval(containing: anchorDate, calendar: calendar)
         var dates: [Date] = []
         var cursor = DayBoundary.dayStart(for: interval.start, calendar: calendar)
         while cursor < interval.end {
@@ -122,54 +166,26 @@ struct DashboardPeriodContent: View {
             guard let next = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
             cursor = next
         }
-        return dates
-    }
 
-    private var periodScoreSummaries: [ScoreSummary] {
-        periodDates.map(scoreSummary(on:))
-    }
-
-    private var periodSummary: DashboardScoreAggregate {
-        DashboardScoreAggregate(summaries: periodScoreSummaries)
-    }
-
-    private var totalDuration: TimeInterval {
-        chapters.reduce(0) { $0 + max(0, $1.durationLive) }
-    }
-
-    private var recordedDayCount: Int {
-        Set(chapters.map { DayBoundary.dayStart(for: $0.startTime, calendar: .japanese) }).count
-    }
-
-    private var topCategoryStat: DashboardCategoryStat? {
-        DashboardCategoryStat.stats(from: chapters).first
-    }
-
-    private func plans(on date: Date) -> [PlanBlock] {
-        let boundary = DayBoundary(date: date, calendar: .japanese)
-        return queriedPlans
-            .filter { $0.startTime < boundary.dayEnd && $0.endTime > boundary.dayStart }
-            .sorted { $0.startTime < $1.startTime }
-    }
-
-    private func chapters(on date: Date) -> [Chapter] {
-        let boundary = DayBoundary(date: date, calendar: .japanese)
-        return queriedChapters
-            .filter { $0.startTime < boundary.dayEnd && ($0.endTime ?? clockNow) > boundary.dayStart }
-            .sorted { $0.startTime < $1.startTime }
-    }
-
-    private func scoreSummary(on date: Date) -> ScoreSummary {
-        ScoreCalculator.summary(
-            date: date,
-            plans: plans(on: date),
-            chapters: chapters(on: date),
-            now: clockNow
-        )
-    }
-
-    private func recentChapters(limit: Int) -> [Chapter] {
-        Array(queriedChapters.sorted { $0.startTime > $1.startTime }.prefix(limit))
+        let summaries = dates.map { date in
+            let boundary = DayBoundary(date: date, calendar: calendar)
+            let dayPlans = queriedPlans.filter { $0.startTime < boundary.dayEnd && $0.endTime > boundary.dayStart }
+            let dayChapters = chapters.filter { $0.startTime < boundary.dayEnd && ($0.endTime ?? clockNow) > boundary.dayStart }
+            return ScoreCalculator.summary(
+                date: date,
+                plans: dayPlans,
+                chapters: dayChapters,
+                calendar: calendar,
+                now: clockNow
+            )
+        }
+        self.periodScoreSummaries = summaries
+        self.periodSummary = DashboardScoreAggregate(summaries: summaries)
+        self.totalDuration = chapters.reduce(0) { $0 + max(0, ($1.endTime ?? clockNow).timeIntervalSince($1.startTime)) }
+        self.publicCount = chapters.filter(\.isPublic).count
+        self.recordedDayCount = Set(chapters.map { DayBoundary.dayStart(for: $0.startTime, calendar: calendar) }).count
+        self.topCategoryStat = DashboardCategoryStat.stats(from: chapters, now: clockNow).first
+        self.recentChapters = Array(chapters.sorted { $0.startTime > $1.startTime }.prefix(30))
     }
 }
 
@@ -1131,10 +1147,10 @@ struct DashboardCategoryStat: Identifiable {
     let color: Color
     let duration: TimeInterval
 
-    static func stats(from chapters: [Chapter]) -> [DashboardCategoryStat] {
+    static func stats(from chapters: [Chapter], now: Date = Date()) -> [DashboardCategoryStat] {
         let grouped = Dictionary(grouping: chapters.compactMap { chapter -> (Category, TimeInterval)? in
             guard let category = chapter.category else { return nil }
-            return (category, max(0, chapter.durationLive))
+            return (category, max(0, (chapter.endTime ?? now).timeIntervalSince(chapter.startTime)))
         }, by: { $0.0.id })
 
         return grouped.compactMap { id, values in

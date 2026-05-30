@@ -291,7 +291,7 @@ struct CalendarView: View {
             importantPlansByDay[boundary.dayStart] = dayPlans
                 .filter(\.showsInCalendarAsImportant)
                 .sorted(by: planSort)
-                .map(CalendarDisplayPlan.init(plan:))
+                .map { CalendarDisplayPlan(plan: $0) }
             scoreSummariesByDay[boundary.dayStart] = CalendarDisplayScore(
                 summary: ScoreCalculator.summary(
                     date: date,
@@ -333,8 +333,8 @@ struct CalendarView: View {
 
 private struct CalendarDayPagerSheet: View {
     @Environment(ChapterStore.self) private var store
+    @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
-    @Query private var queriedChapters: [Chapter]
 
     let initialDate: Date
     let highlightedPlanID: UUID?
@@ -474,9 +474,12 @@ private struct CalendarDayPagerSheet: View {
 
     private var dayChapters: [Chapter] {
         let boundary = DayBoundary(date: anchorDate, calendar: .japanese)
-        return queriedChapters
-            .filter { $0.startTime < boundary.dayEnd && ($0.endTime ?? Date()) > boundary.dayStart }
-            .sorted { $0.startTime < $1.startTime }
+        return ScoreSnapshotLoader.chapters(
+            in: DateInterval(start: boundary.dayStart, end: boundary.dayEnd),
+            modelContext: modelContext,
+            now: Date(),
+            calendar: .japanese
+        )
     }
 
     private var canCreateTimedPlansForDay: Bool {

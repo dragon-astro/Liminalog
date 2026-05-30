@@ -52,7 +52,7 @@ extension Date {
 }
 
 extension Calendar {
-    static var japanese: Calendar {
+    nonisolated static var japanese: Calendar {
         var calendar = Calendar(identifier: .gregorian)
         calendar.locale = Locale(identifier: "ja_JP")
         calendar.firstWeekday = 1

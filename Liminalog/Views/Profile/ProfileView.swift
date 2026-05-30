@@ -6,14 +6,12 @@ import UIKit
 struct ProfileView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \UserSettings.createdAt) private var settingsList: [UserSettings]
-    @Query private var queriedChapters: [Chapter]
-    @Query private var queriedPlans: [PlanBlock]
     @Query(sort: \Friend.createdAt) private var friends: [Friend]
 
     @State private var isShowingSettings = false
     @State private var isShowingEditProfile = false
     @State private var isShowingShareProfile = false
-    @State private var clock = TickClock(interval: 60)
+    @State private var performanceSnapshot = ProfilePerformanceSnapshot.empty
 
     private var settings: UserSettings? {
         settingsList.first
@@ -39,36 +37,6 @@ struct ProfileView: View {
         )
     }
 
-    private var recentChapters: [Chapter] {
-        queriedChapters.sorted { $0.startTime > $1.startTime }
-    }
-
-    private var finishedChapters: [Chapter] {
-        recentChapters.filter { $0.endTime != nil }
-    }
-
-    private var totalRecordedDuration: TimeInterval {
-        recentChapters.reduce(0) { total, chapter in
-            total + max(0, chapter.durationLive)
-        }
-    }
-
-    private var totalEarnedScore: Int {
-        let calendar = Calendar.current
-        return (0..<365).reduce(0) { partial, offset in
-            guard let target = calendar.date(byAdding: .day, value: -offset, to: clock.now) else { return partial }
-            let summary = scoreSummary(on: target)
-            return partial + Int(summary.totalScore.rounded())
-        }
-    }
-
-    private var recordedDays: [Date] {
-        let grouped = Dictionary(grouping: recentChapters) { chapter in
-            DayBoundary.dayStart(for: chapter.startTime)
-        }
-        return grouped.keys.sorted(by: >)
-    }
-
     private var badges: [ProfileBadgeModel] {
         [
             ProfileBadgeModel(
@@ -84,40 +52,40 @@ struct ProfileView: View {
                 title: "はじめの記録",
                 systemImage: "sparkles",
                 tint: "#2F80ED",
-                isUnlocked: !recentChapters.isEmpty,
-                progressText: recentChapters.isEmpty ? "0/1" : "達成"
+                isUnlocked: performanceSnapshot.hasAnyRecord,
+                progressText: performanceSnapshot.hasAnyRecord ? "達成" : "0/1"
             ),
             ProfileBadgeModel(
                 id: "three_days",
                 title: "3日記録",
                 systemImage: "calendar.badge.checkmark",
                 tint: "#27AE60",
-                isUnlocked: recordedDays.count >= 3,
-                progressText: "\(min(recordedDays.count, 3))/3"
+                isUnlocked: performanceSnapshot.recordedDayCount >= 3,
+                progressText: "\(min(performanceSnapshot.recordedDayCount, 3))/3"
             ),
             ProfileBadgeModel(
                 id: "seven_streak",
                 title: "7日連続",
                 systemImage: "flame.fill",
                 tint: "#EB5757",
-                isUnlocked: streakCount >= 7,
-                progressText: "\(min(streakCount, 7))/7"
+                isUnlocked: performanceSnapshot.streakCount >= 7,
+                progressText: "\(min(performanceSnapshot.streakCount, 7))/7"
             ),
             ProfileBadgeModel(
                 id: "ten_hours",
                 title: "10時間",
                 systemImage: "clock.fill",
                 tint: "#6C5CE7",
-                isUnlocked: totalRecordedDuration >= 36_000,
-                progressText: "\(min(Int(totalRecordedDuration / 3600), 10))/10h"
+                isUnlocked: performanceSnapshot.totalRecordedDuration >= 36_000,
+                progressText: "\(min(Int(performanceSnapshot.totalRecordedDuration / 3600), 10))/10h"
             ),
             ProfileBadgeModel(
                 id: "morning",
                 title: "朝の記録",
                 systemImage: "sunrise.fill",
                 tint: "#F2994A",
-                isUnlocked: finishedChapters.contains { Calendar.current.component(.hour, from: $0.startTime) < 9 },
-                progressText: finishedChapters.contains { Calendar.current.component(.hour, from: $0.startTime) < 9 } ? "達成" : "未達成"
+                isUnlocked: performanceSnapshot.hasMorningRecord,
+                progressText: performanceSnapshot.hasMorningRecord ? "達成" : "未達成"
             )
         ]
     }
@@ -155,8 +123,8 @@ struct ProfileView: View {
                     )
 
                     ProfileStatsRow(
-                        streak: streakCount,
-                        totalScore: totalEarnedScore,
+                        streak: performanceSnapshot.streakCount,
+                        totalScore: performanceSnapshot.totalEarnedScore,
                         friendCount: acceptedFriendCount,
                         streakIcon: streakIcon
                     )
@@ -196,51 +164,18 @@ struct ProfileView: View {
             }
             .task {
                 ensureUserSettings()
-                clock.start()
+                refreshPerformanceSnapshot()
             }
-            .onDisappear {
-                clock.stop()
+            .onChange(of: isShowingSettings) { _, isShowing in
+                if !isShowing {
+                    refreshPerformanceSnapshot()
+                }
             }
         }
-    }
-
-    private var streakCount: Int {
-        let calendar = Calendar.current
-        var count = 0
-        for offset in 0..<365 {
-            guard let target = calendar.date(byAdding: .day, value: -offset, to: clock.now) else { break }
-            let summary = scoreSummary(on: target)
-            guard summary.plannedDuration > 0, summary.totalScore >= 60 else { break }
-            count += 1
-        }
-        return count
     }
 
     private var acceptedFriendCount: Int {
         friends.filter { $0.status == .accepted }.count
-    }
-
-    private func scoreSummary(on date: Date) -> ScoreSummary {
-        ScoreCalculator.summary(
-            date: date,
-            plans: plans(on: date),
-            chapters: chapters(on: date),
-            now: clock.now
-        )
-    }
-
-    private func plans(on date: Date) -> [PlanBlock] {
-        let boundary = DayBoundary(date: date)
-        return queriedPlans
-            .filter { $0.startTime < boundary.dayEnd && $0.endTime > boundary.dayStart }
-            .sorted { $0.startTime < $1.startTime }
-    }
-
-    private func chapters(on date: Date) -> [Chapter] {
-        let boundary = DayBoundary(date: date)
-        return queriedChapters
-            .filter { $0.startTime < boundary.dayEnd && ($0.endTime ?? clock.now) > boundary.dayStart }
-            .sorted { $0.startTime < $1.startTime }
     }
 
     private func ensureUserSettings() {
@@ -248,6 +183,10 @@ struct ProfileView: View {
         let settings = UserSettings()
         modelContext.insert(settings)
         try? modelContext.save()
+    }
+
+    private func refreshPerformanceSnapshot() {
+        performanceSnapshot = ProfilePerformanceSnapshot.load(modelContext: modelContext, now: Date())
     }
 
     private func saveProfile(_ draft: ProfileDraft) {
@@ -269,6 +208,60 @@ struct ProfileView: View {
         target.profileCardStyleID = draft.cardStyleID
         target.updatedAt = Date()
         try? modelContext.save()
+    }
+}
+
+private struct ProfilePerformanceSnapshot {
+    let totalEarnedScore: Int
+    let streakCount: Int
+    let recordedDayCount: Int
+    let totalRecordedDuration: TimeInterval
+    let hasAnyRecord: Bool
+    let hasMorningRecord: Bool
+
+    static let empty = ProfilePerformanceSnapshot(
+        totalEarnedScore: 0,
+        streakCount: 0,
+        recordedDayCount: 0,
+        totalRecordedDuration: 0,
+        hasAnyRecord: false,
+        hasMorningRecord: false
+    )
+
+    @MainActor
+    static func load(modelContext: ModelContext, now: Date, calendar: Calendar = .japanese) -> ProfilePerformanceSnapshot {
+        let todayStart = DayBoundary.dayStart(for: now, calendar: calendar)
+        let start = calendar.date(byAdding: .day, value: -364, to: todayStart) ?? todayStart
+        let end = calendar.date(byAdding: .day, value: 1, to: todayStart) ?? now
+        let interval = DateInterval(start: start, end: end)
+
+        let plans = ScoreSnapshotLoader.plannedBlocks(in: interval, modelContext: modelContext)
+        let chapters = ScoreSnapshotLoader.chapters(in: interval, modelContext: modelContext, now: now, calendar: calendar)
+        let allChaptersDescriptor = FetchDescriptor<Chapter>(sortBy: [SortDescriptor(\.startTime)])
+        let allChapters = (try? modelContext.fetch(allChaptersDescriptor)) ?? []
+        let summaries = ScoreSnapshotLoader.days(in: interval, calendar: calendar).map { date in
+            let boundary = DayBoundary(date: date, calendar: calendar)
+            let dayPlans = plans.filter { $0.startTime < boundary.dayEnd && $0.endTime > boundary.dayStart }
+            let dayChapters = chapters.filter { $0.startTime < boundary.dayEnd && ($0.endTime ?? now) > boundary.dayStart }
+            return ScoreCalculator.summary(date: date, plans: dayPlans, chapters: dayChapters, calendar: calendar, now: now)
+        }
+
+        var streak = 0
+        for summary in summaries.reversed() {
+            guard summary.plannedDuration > 0, summary.totalScore >= 60 else { break }
+            streak += 1
+        }
+
+        return ProfilePerformanceSnapshot(
+            totalEarnedScore: summaries.reduce(0) { $0 + Int($1.totalScore.rounded()) },
+            streakCount: streak,
+            recordedDayCount: Set(allChapters.map { DayBoundary.dayStart(for: $0.startTime, calendar: calendar) }).count,
+            totalRecordedDuration: allChapters.reduce(0) { $0 + max(0, ($1.endTime ?? now).timeIntervalSince($1.startTime)) },
+            hasAnyRecord: !allChapters.isEmpty,
+            hasMorningRecord: allChapters.contains { chapter in
+                chapter.endTime != nil && calendar.component(.hour, from: chapter.startTime) < 9
+            }
+        )
     }
 }
 

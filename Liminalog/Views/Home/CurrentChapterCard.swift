@@ -6,6 +6,13 @@ struct CurrentChapterCard: View {
     @Query private var activeChapters: [Chapter]
     @State private var clock = TickClock()
 
+    init() {
+        _activeChapters = Query(
+            filter: #Predicate<Chapter> { $0.endTime == nil },
+            sort: [SortDescriptor(\.startTime, order: .reverse)]
+        )
+    }
+
     var body: some View {
         Group {
             if let chapter = activeChapter, let category = chapter.category {
@@ -25,10 +32,7 @@ struct CurrentChapterCard: View {
     }
 
     private var activeChapter: Chapter? {
-        activeChapters
-            .filter { $0.endTime == nil }
-            .sorted { $0.startTime > $1.startTime }
-            .first
+        activeChapters.first
     }
 
     private func activeCard(chapter: Chapter, category: Category) -> some View {
