@@ -977,6 +977,7 @@ refactor: split plan store
 | 2026-05-30 | Codex | CategorySet編集の配置方式を再整理。標準 Drag & Drop はiOS側の長押し開始・リフト時プレビューに依存し、白い背景や即時移動の制御が難しいため、ユーザー指定の代替仕様へ切り替えた。`onDrag` / `onDrop` をUIから撤去し、スロットをタップして青枠で選択 → カテゴリをタップして配置する方式に変更。スロット未選択時にカテゴリを押した場合は従来どおり最初の空きスロットへ追加し、割り当て済みカテゴリなら解除できる互換挙動を残す。これにより長押し不要・白いドラッグ背景なし・タップ即反応の編集体験にした。検証: `git diff --check` 成功、`xcodebuild test -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -only-testing:LiminalogTests/CategorySetSlotDraftTests` 成功 |
 | 2026-05-30 | Codex | CategorySet編集画面のセット名まわりを簡略化。セット名欄の小見出しと「空のままだと自動命名」説明文は編集画面の情報量を増やすため削除し、入力欄だけを残した。空名時の自動命名仕様自体はStore側の既存挙動として維持 |
 | 2026-05-30 | Codex | 友達タブ/友達追加フローのMVP実装。`Friend` モデルを追加し、FriendsViewを「つながり」一覧、空状態の招待CTA、リンク/QR招待シート、受け取った招待のpending化、承認待ち、横スクロールランキング（今日/昨日/今週）、現在ステータスカード、友達リスト、友達詳細（ステータス/スコア/favorite/block/delete）へ刷新。`liminalog://friend-invite` URL SchemeとRootTabの受け渡しも追加。CloudKit/CKShareの実共有はDeveloper登録後の `ShareCoordinator` で接続する前提で、UIとローカル状態遷移を先に固めた。開発DBリセット判定も `ZFRIEND` 必須カラム確認へ更新 |
+| 2026-05-30 | Codex | カレンダー/友達カレンダーの日別詳細を、押し込み遷移ではなく下からのモーダル表示へ変更。月グリッドの日付セルと複数日バーは `NavigationLink` をやめ、親の `selectedDay` を更新して `.sheet(item:)` + `NavigationStack` で日別画面を開く構造にした。検索結果から開く場合は検索シートを閉じた次の runloop で日別モーダルを開き、二重 sheet を避ける。カレンダー側の日別画面は既存の左右スワイプ日付移動をモーダル内でも維持し、友達の日別画面にも同じ左右スワイプ日付移動を追加。カレンダータブの日別タイムラインは外側のカードラップを外し、友達タブと同じく `24時間バー` と下のタイムラインが別カードとして見える構造に変更 |
 
 ---
 

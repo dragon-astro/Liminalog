@@ -1180,7 +1180,7 @@ private struct FriendCalendarView: View {
     @State private var showingSearch = false
     @State private var pickerYear = Calendar.japanese.component(.year, from: Date())
     @State private var pickerMonth = Calendar.japanese.component(.month, from: Date())
-    @State private var searchTargetDay: FriendSharedCalendarTargetDay?
+    @State private var selectedDay: FriendSharedCalendarTargetDay?
 
     private let calendar = Calendar.japanese
     private let weekdays = Calendar.japaneseShortWeekdaySymbols
@@ -1202,7 +1202,10 @@ private struct FriendCalendarView: View {
                     allPlans: sharedPlans(on:),
                     allActivities: sharedActivities(on:),
                     score: knownScore(on:),
-                    accentColor: Color(hex: friend.accentColorHex)
+                    accentColor: Color(hex: friend.accentColorHex),
+                    onOpenDay: { date in
+                        selectedDay = FriendSharedCalendarTargetDay(date: date)
+                    }
                 )
                 .padding(.vertical, 12)
 
@@ -1214,9 +1217,6 @@ private struct FriendCalendarView: View {
         .background(Color(.systemGroupedBackground))
         .navigationTitle("\(friend.displayName)のカレンダー")
         .navigationBarTitleDisplayMode(.inline)
-        .navigationDestination(item: $searchTargetDay) { date in
-            FriendSharedCalendarDayView(friend: friend, date: date.date)
-        }
         .sheet(isPresented: $showingMonthPicker) {
             CalendarMonthPickerSheet(
                 selectedYear: $pickerYear,
@@ -1232,9 +1232,18 @@ private struct FriendCalendarView: View {
         .sheet(isPresented: $showingSearch) {
             FriendSharedPlanSearchSheet(friend: friend) { plan in
                 visibleMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: plan.startTime)) ?? visibleMonth
-                searchTargetDay = FriendSharedCalendarTargetDay(date: plan.startTime)
                 showingSearch = false
+                let target = FriendSharedCalendarTargetDay(date: plan.startTime)
+                DispatchQueue.main.async {
+                    selectedDay = target
+                }
             }
+        }
+        .sheet(item: $selectedDay) { target in
+            NavigationStack {
+                FriendSharedCalendarDayView(friend: friend, date: target.date)
+            }
+            .presentationDetents([.large])
         }
         .gesture(
             DragGesture(minimumDistance: 44)
@@ -1422,6 +1431,7 @@ private struct FriendSharedCalendarMonthGrid: View {
     let allActivities: (Date) -> [FriendSharedActivitySnapshot]
     let score: (Date) -> FriendCalendarScore?
     let accentColor: Color
+    let onOpenDay: (Date) -> Void
 
     private let spacing: CGFloat = 1
 
@@ -1436,6 +1446,7 @@ private struct FriendSharedCalendarMonthGrid: View {
                     allActivities: allActivities,
                     score: score,
                     accentColor: accentColor,
+                    onOpenDay: onOpenDay,
                     spacing: spacing
                 )
             }
@@ -1463,6 +1474,7 @@ private struct FriendSharedCalendarWeekRow: View {
     let allActivities: (Date) -> [FriendSharedActivitySnapshot]
     let score: (Date) -> FriendCalendarScore?
     let accentColor: Color
+    let onOpenDay: (Date) -> Void
     let spacing: CGFloat
 
     @AppStorage("calendarPlanTitleFontSize") private var planTitleFontSize = 6.0
@@ -1473,8 +1485,8 @@ private struct FriendSharedCalendarWeekRow: View {
         ZStack(alignment: .topLeading) {
             HStack(spacing: spacing) {
                 ForEach(dates, id: \.self) { date in
-                    NavigationLink {
-                        FriendSharedCalendarDayView(friend: nil, date: date, plans: allPlans(date), activities: allActivities(date), score: score(date), accentColor: accentColor)
+                    Button {
+                        onOpenDay(date)
                     } label: {
                         FriendSharedCalendarDayCell(
                             date: date,
@@ -1492,8 +1504,8 @@ private struct FriendSharedCalendarWeekRow: View {
             GeometryReader { proxy in
                 ForEach(Array(visibleMultiDayPlans.enumerated()), id: \.element.id) { lane, plan in
                     if let frame = segmentFrame(for: plan, in: proxy.size, lane: lane) {
-                        NavigationLink {
-                            FriendSharedCalendarDayView(friend: nil, date: plan.startTime, plans: allPlans(plan.startTime), activities: allActivities(plan.startTime), score: score(plan.startTime), accentColor: accentColor)
+                        Button {
+                            onOpenDay(plan.startTime)
                         } label: {
                             FriendSharedMultiDayPlanBar(
                                 plan: plan,
@@ -1916,11 +1928,27 @@ private struct FriendCalendarContinuationShape: Shape {
 
 private struct FriendSharedCalendarDayView: View {
     let friend: Friend?
-    let date: Date
+    @State private var date: Date
     var plans: [FriendSharedPlanSnapshot]? = nil
     var activities: [FriendSharedActivitySnapshot]? = nil
     var score: FriendCalendarScore? = nil
     var accentColor: Color? = nil
+
+    init(
+        friend: Friend?,
+        date: Date,
+        plans: [FriendSharedPlanSnapshot]? = nil,
+        activities: [FriendSharedActivitySnapshot]? = nil,
+        score: FriendCalendarScore? = nil,
+        accentColor: Color? = nil
+    ) {
+        self.friend = friend
+        self.plans = plans
+        self.activities = activities
+        self.score = score
+        self.accentColor = accentColor
+        _date = State(initialValue: date)
+    }
 
     private var resolvedPlans: [FriendSharedPlanSnapshot] {
         if let plans { return plans }
@@ -1967,6 +1995,16 @@ private struct FriendSharedCalendarDayView: View {
         .background(Color(.systemGroupedBackground))
         .navigationTitle(date.japaneseMonthDayShortWeekday)
         .navigationBarTitleDisplayMode(.inline)
+        .gesture(
+            DragGesture(minimumDistance: 40)
+                .onEnded { value in
+                    if value.translation.width < -50 {
+                        shiftDay(1)
+                    } else if value.translation.width > 50 {
+                        shiftDay(-1)
+                    }
+                }
+        )
     }
 
     private var header: some View {
@@ -2018,6 +2056,10 @@ private struct FriendSharedCalendarDayView: View {
             .padding(16)
             .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemGroupedBackground)))
         }
+    }
+
+    private func shiftDay(_ value: Int) {
+        date = Calendar.japanese.date(byAdding: .day, value: value, to: date) ?? date
     }
 }
 

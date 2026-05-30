@@ -10,7 +10,7 @@ struct CalendarView: View {
     @State private var pickerMonth = Calendar.japanese.component(.month, from: Date())
     @State private var showingCalendarSettings = false
     @State private var showingCalendarSearch = false
-    @State private var searchTargetDay: CalendarSearchTargetDay?
+    @State private var selectedDay: CalendarDayPresentation?
     @State private var clock = TickClock(interval: 60)
 
     private let calendar = Calendar.japanese
@@ -31,16 +31,16 @@ struct CalendarView: View {
                         dates: monthGridDates,
                         visibleMonth: visibleMonth,
                         importantPlans: importantPlans(on:),
-                        scoreSummary: scoreSummary(on:)
+                        scoreSummary: scoreSummary(on:),
+                        onOpenDay: { date, planID in
+                            selectedDay = CalendarDayPresentation(date: date, planID: planID)
+                        }
                     )
                     .padding(.vertical, 12)
                 }
             }
             .background(Color(.systemGroupedBackground))
             .toolbar(.hidden, for: .navigationBar)
-            .navigationDestination(item: $searchTargetDay) { target in
-                CalendarDayView(date: target.date, highlightedPlanID: target.planID)
-            }
             .sheet(isPresented: $showingMonthPicker) {
                 CalendarMonthPickerSheet(
                     selectedYear: $pickerYear,
@@ -58,12 +58,21 @@ struct CalendarView: View {
             .sheet(isPresented: $showingCalendarSearch) {
                 CalendarPlanSearchSheet(plans: queriedPlans) { plan in
                     visibleMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: plan.startTime)) ?? visibleMonth
-                    searchTargetDay = CalendarSearchTargetDay(date: plan.startTime, planID: plan.id)
                     showingCalendarSearch = false
+                    let target = CalendarDayPresentation(date: plan.startTime, planID: plan.id)
+                    DispatchQueue.main.async {
+                        selectedDay = target
+                    }
                 }
             }
             .sheet(isPresented: $showingCalendarSettings) {
                 CalendarSettingsSheet()
+            }
+            .sheet(item: $selectedDay) { target in
+                NavigationStack {
+                    CalendarDayView(date: target.date, highlightedPlanID: target.planID)
+                }
+                .presentationDetents([.large])
             }
             .gesture(
                 DragGesture(minimumDistance: 44)
@@ -244,12 +253,13 @@ struct CalendarView: View {
     }
 }
 
-private struct CalendarSearchTargetDay: Identifiable, Hashable {
+private struct CalendarDayPresentation: Identifiable, Hashable {
     let date: Date
-    let planID: UUID
+    let planID: UUID?
 
-    var id: UUID {
-        planID
+    var id: String {
+        let day = Calendar.japanese.startOfDay(for: date).timeIntervalSince1970
+        return "\(day)-\(planID?.uuidString ?? "day")"
     }
 }
 
@@ -908,6 +918,7 @@ private struct CalendarMonthGrid: View {
     let visibleMonth: Date
     let importantPlans: (Date) -> [PlanBlock]
     let scoreSummary: (Date) -> ScoreSummary
+    let onOpenDay: (Date, UUID?) -> Void
 
     private let spacing: CGFloat = 1
 
@@ -920,6 +931,7 @@ private struct CalendarMonthGrid: View {
                     visibleMonth: visibleMonth,
                     importantPlans: importantPlans,
                     scoreSummary: scoreSummary,
+                    onOpenDay: onOpenDay,
                     spacing: spacing
                 )
             }
@@ -944,6 +956,7 @@ private struct CalendarMonthWeekRow: View {
     let visibleMonth: Date
     let importantPlans: (Date) -> [PlanBlock]
     let scoreSummary: (Date) -> ScoreSummary
+    let onOpenDay: (Date, UUID?) -> Void
     let spacing: CGFloat
 
     @AppStorage("calendarPlanTitleFontSize") private var planTitleFontSize = 6.0
@@ -954,8 +967,8 @@ private struct CalendarMonthWeekRow: View {
         ZStack(alignment: .topLeading) {
             HStack(spacing: spacing) {
                 ForEach(dates, id: \.self) { date in
-                    NavigationLink {
-                        CalendarDayView(date: date)
+                    Button {
+                        onOpenDay(date, nil)
                     } label: {
                         CalendarMonthDayCell(
                             date: date,
@@ -972,8 +985,8 @@ private struct CalendarMonthWeekRow: View {
             GeometryReader { proxy in
                 ForEach(Array(visibleMultiDayPlans.enumerated()), id: \.element.id) { lane, plan in
                     if let frame = segmentFrame(for: plan, in: proxy.size, lane: lane) {
-                        NavigationLink {
-                            CalendarDayView(date: plan.startTime, highlightedPlanID: plan.id)
+                        Button {
+                            onOpenDay(plan.startTime, plan.id)
                         } label: {
                             CalendarMultiDayPlanBar(
                                 plan: plan,

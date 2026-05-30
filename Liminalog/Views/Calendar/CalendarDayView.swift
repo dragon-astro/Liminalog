@@ -282,8 +282,6 @@ struct CalendarDayView: View {
             allowsChapterCreation: false,
             focusedPlanID: highlightedPlanID
         )
-        .padding(14)
-        .background(RoundedRectangle(cornerRadius: 12).fill(Color(.secondarySystemGroupedBackground)))
     }
 
     private var importantPlans: [PlanBlock] {
