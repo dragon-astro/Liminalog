@@ -76,8 +76,6 @@ struct FriendsView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    topBar
-
                     if !pendingIncomingFriends.isEmpty {
                         requestsSection
                     }
@@ -85,7 +83,6 @@ struct FriendsView: View {
                     if acceptedFriends.isEmpty {
                         emptyState
                     } else {
-                        statusSection
                         rankingSection
                         friendsListSection
                     }
@@ -126,32 +123,6 @@ struct FriendsView: View {
             .onChange(of: pendingInviteURL) { _, _ in
                 handlePendingInviteURL()
             }
-        }
-    }
-
-    private var topBar: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("つながり")
-                    .font(.title2.weight(.bold))
-                Text("\(acceptedFriends.count)人")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer()
-
-            Button {
-                inviteInitialText = ""
-                isShowingAddFriend = true
-            } label: {
-                Image(systemName: "link.badge.plus")
-                    .font(.headline.weight(.semibold))
-                    .frame(width: 42, height: 42)
-                    .background(Circle().fill(Color(.secondarySystemGroupedBackground)))
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("招待を受け取る")
         }
     }
 
@@ -225,47 +196,26 @@ struct FriendsView: View {
         )
     }
 
-    private var statusSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            SectionTitle(title: "今", count: acceptedFriends.count + 1)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    FriendStatusCard(
-                        name: ownDisplayName,
-                        imageName: activeChapter?.category?.icon ?? "clock.fill",
-                        tint: Color(hex: activeChapter?.category?.colorHex ?? ownAccentColorHex),
-                        statusText: activeChapter?.category?.name ?? "未記録",
-                        scoreText: "\(Int(round(selfScore(for: .today))))%",
-                        isMe: true
-                    )
-
-                    ForEach(acceptedFriends) { friend in
-                        Button {
-                            selectedFriend = friend
-                        } label: {
-                            FriendStatusCard(
-                                name: friend.displayName,
-                                imageName: friend.currentStatusIcon,
-                                tint: Color(hex: friend.currentStatusColorHex),
-                                statusText: friend.currentStatusTitle.isEmpty ? "オフライン" : friend.currentStatusTitle,
-                                scoreText: "\(Int(round(friend.todayScore)))%",
-                                isMe: false
-                            )
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(.vertical, 2)
-            }
-        }
-    }
-
     private var rankingSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 SectionTitle(title: "ランキング", count: rankingEntries.count)
                 Spacer()
+                Button {
+                    inviteInitialText = ""
+                    isShowingAddFriend = true
+                } label: {
+                    Image(systemName: "link.badge.plus")
+                        .font(.subheadline.weight(.bold))
+                        .frame(width: 34, height: 34)
+                        .background(Circle().fill(Color(.secondarySystemGroupedBackground)))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("招待を受け取る")
+            }
+
+            HStack {
+                Spacer(minLength: 0)
                 Picker("期間", selection: $scorePeriod) {
                     ForEach(FriendScorePeriod.allCases) { period in
                         Text(period.label).tag(period)
@@ -303,7 +253,7 @@ struct FriendsView: View {
                     Button {
                         selectedFriend = friend
                     } label: {
-                        FriendRow(friend: friend, scorePeriod: scorePeriod)
+                        FriendRow(friend: friend)
                     }
                     .buttonStyle(.plain)
                 }
@@ -478,115 +428,156 @@ private struct SectionTitle: View {
     }
 }
 
-private struct FriendStatusCard: View {
-    let name: String
-    let imageName: String
-    let tint: Color
-    let statusText: String
-    let scoreText: String
-    let isMe: Bool
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
-                ZStack {
-                    Circle()
-                        .fill(tint.opacity(0.16))
-                    Image(systemName: imageName)
-                        .font(.subheadline.weight(.bold))
-                        .foregroundStyle(tint)
-                }
-                .frame(width: 34, height: 34)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(name)
-                        .font(.subheadline.weight(.bold))
-                        .lineLimit(1)
-                    Text(isMe ? "自分" : statusText)
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-            }
-
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
-                Text(scoreText)
-                    .font(.title3.weight(.heavy))
-                    .monospacedDigit()
-                Spacer()
-                Circle()
-                    .fill(tint)
-                    .frame(width: 8, height: 8)
-            }
-        }
-        .frame(width: 142, alignment: .leading)
-        .padding(14)
-        .background(
-            RoundedRectangle(cornerRadius: 18)
-                .fill(Color(.secondarySystemGroupedBackground))
-        )
-    }
-}
-
 private struct RankingCard: View {
     let entry: FriendRankingEntry
 
     var body: some View {
+        if entry.rank <= 3 {
+            topRankCard
+        } else {
+            standardRankCard
+        }
+    }
+
+    private var topRankCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top) {
+                rankBadge
+                Spacer()
+                scoreBlock(font: .title.weight(.black))
+            }
+
+            Spacer(minLength: 0)
+
+            HStack(spacing: 10) {
+                rankingAvatar(size: 42, isTopRank: true)
+
+                Text(entry.name)
+                    .font(.headline.weight(.black))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+            }
+        }
+        .frame(width: 154, height: 132, alignment: .leading)
+        .padding(14)
+        .foregroundStyle(topRankTextColor)
+        .background(topRankBackground)
+        .overlay(
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(.white.opacity(0.42), lineWidth: 1)
+        )
+        .shadow(color: topRankShadowColor, radius: 14, y: 7)
+    }
+
+    private var standardRankCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
+            HStack(alignment: .top) {
                 Text("#\(entry.rank)")
-                    .font(.caption.weight(.black))
+                    .font(.headline.weight(.black))
                     .foregroundStyle(.secondary)
                 Spacer()
-                Text("\(Int(round(entry.score)))")
-                    .font(.title3.weight(.black))
-                    .monospacedDigit()
+                scoreBlock(font: .title3.weight(.black))
             }
 
             HStack(spacing: 9) {
-                ZStack {
-                    Circle()
-                        .fill(entry.tint.opacity(0.18))
-                    Image(systemName: entry.imageName)
-                        .font(.subheadline.weight(.bold))
-                        .foregroundStyle(entry.tint)
-                }
-                .frame(width: 34, height: 34)
+                rankingAvatar(size: 34, isTopRank: false)
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(entry.name)
-                        .font(.subheadline.weight(.bold))
-                        .lineLimit(1)
-                    Text(entry.status)
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
+                Text(entry.name)
+                    .font(.subheadline.weight(.bold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.78)
             }
         }
-        .frame(width: 136, alignment: .leading)
+        .frame(width: 126, height: 104, alignment: .leading)
         .padding(13)
         .background(
             RoundedRectangle(cornerRadius: 17)
-                .fill(entry.isMe ? entry.tint.opacity(0.14) : Color(.secondarySystemGroupedBackground))
+                .fill(entry.isMe ? Color(.tertiarySystemGroupedBackground) : Color(.secondarySystemGroupedBackground))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 17)
-                .stroke(entry.isMe ? entry.tint.opacity(0.42) : Color.clear, lineWidth: 1.5)
+                .stroke(Color.primary.opacity(entry.isMe ? 0.16 : 0.06), lineWidth: 1)
         )
+    }
+
+    private var rankBadge: some View {
+        HStack(spacing: 5) {
+            Image(systemName: rankSymbol)
+                .font(.caption.weight(.black))
+            Text("#\(entry.rank)")
+                .font(.subheadline.weight(.black))
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(Capsule().fill(.white.opacity(0.26)))
+    }
+
+    private func scoreBlock(font: Font) -> some View {
+        VStack(alignment: .trailing, spacing: 0) {
+            Text("\(Int(round(entry.score)))")
+                .font(font)
+                .monospacedDigit()
+            Text("score")
+                .font(.caption2.weight(.bold))
+                .textCase(.uppercase)
+                .opacity(0.68)
+        }
+    }
+
+    private func rankingAvatar(size: CGFloat, isTopRank: Bool) -> some View {
+        ZStack {
+            Circle()
+                .fill(isTopRank ? .white.opacity(0.22) : Color(.tertiarySystemGroupedBackground))
+            Image(systemName: entry.imageName)
+                .font(.system(size: size * 0.42, weight: .bold))
+        }
+        .frame(width: size, height: size)
+    }
+
+    private var topRankBackground: some ShapeStyle {
+        LinearGradient(colors: topRankColors, startPoint: .topLeading, endPoint: .bottomTrailing)
+    }
+
+    private var topRankColors: [Color] {
+        switch entry.rank {
+        case 1:
+            [Color(red: 1.0, green: 0.76, blue: 0.25), Color(red: 0.94, green: 0.42, blue: 0.12)]
+        case 2:
+            [Color(red: 0.78, green: 0.82, blue: 0.90), Color(red: 0.45, green: 0.52, blue: 0.66)]
+        default:
+            [Color(red: 0.86, green: 0.56, blue: 0.30), Color(red: 0.55, green: 0.30, blue: 0.18)]
+        }
+    }
+
+    private var topRankTextColor: Color {
+        entry.rank == 2 ? .black.opacity(0.86) : .white
+    }
+
+    private var topRankShadowColor: Color {
+        topRankColors.last?.opacity(0.22) ?? .black.opacity(0.12)
+    }
+
+    private var rankSymbol: String {
+        switch entry.rank {
+        case 1:
+            "crown.fill"
+        case 2:
+            "medal.fill"
+        default:
+            "rosette"
+        }
     }
 }
 
 private struct FriendRow: View {
     let friend: Friend
-    let scorePeriod: FriendScorePeriod
 
     var body: some View {
         HStack(spacing: 12) {
             FriendAvatar(friend: friend, size: 46)
 
-            VStack(alignment: .leading, spacing: 5) {
-                HStack(spacing: 5) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
                     Text(friend.displayName)
                         .font(.subheadline.weight(.bold))
                         .lineLimit(1)
@@ -596,35 +587,61 @@ private struct FriendRow: View {
                             .font(.caption2.weight(.bold))
                             .foregroundStyle(.yellow)
                     }
+
+                    FriendStatusPill(
+                        title: friend.currentStatusTitle.isEmpty ? "オフライン" : friend.currentStatusTitle,
+                        systemImage: friend.currentStatusIcon,
+                        tint: Color(hex: friend.currentStatusColorHex)
+                    )
                 }
 
-                HStack(spacing: 6) {
-                    Image(systemName: friend.currentStatusIcon)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(Color(hex: friend.currentStatusColorHex))
-                    Text(friend.currentStatusTitle.isEmpty ? "オフライン" : friend.currentStatusTitle)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
+                Text(friend.handle.isEmpty ? "プロフィールを見る" : friend.handle)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
 
             Spacer()
 
-            VStack(alignment: .trailing, spacing: 3) {
-                Text("\(Int(round(friend.score(for: scorePeriod))))%")
-                    .font(.headline.weight(.black))
-                    .monospacedDigit()
-                Text(scorePeriod.label)
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.secondary)
-            }
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.black))
+                .foregroundStyle(.secondary)
+                .frame(width: 28, height: 28)
+                .background(Circle().fill(Color(.tertiarySystemGroupedBackground)))
         }
-        .padding(14)
+        .padding(15)
         .background(
             RoundedRectangle(cornerRadius: 17)
                 .fill(Color(.secondarySystemGroupedBackground))
         )
+        .overlay(
+            RoundedRectangle(cornerRadius: 17)
+                .stroke(Color.primary.opacity(0.06), lineWidth: 1)
+        )
+        .contentShape(RoundedRectangle(cornerRadius: 17))
+    }
+}
+
+private struct FriendStatusPill: View {
+    let title: String
+    let systemImage: String
+    let tint: Color
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Circle()
+                .fill(tint)
+                .frame(width: 6, height: 6)
+            Image(systemName: systemImage)
+                .font(.caption2.weight(.bold))
+            Text(title)
+                .font(.caption2.weight(.bold))
+                .lineLimit(1)
+        }
+        .foregroundStyle(tint)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(Capsule().fill(tint.opacity(0.13)))
     }
 }
 

@@ -717,6 +717,7 @@ refactor: split plan store
 
 | 日付 | 担当 | 内容 |
 |---|---|---|
+| 2026-05-30 | Codex | 友達タブUI調整: 最上部の「つながり」ラベルと「今」横スライドを削除し、ランキングをファーストビューの主役に整理。ランキングカードはステータス表示をやめ、アイコン/名前/スコア/順位に絞った。1〜3位はリッチな上位カード、4位以下はグレー基調の控えめカードに分けた。友達カードは右側スコアを削除し、名前横に現在ステータスの細いピルを表示。右端にchevronを置き、プロフィールへ遷移できる押せるカードとして識別しやすくした。 |
 | 2026-05-30 | Codex | 友達追加導線をInstagram/BeRealに近い「プロフィール → プロフィールをシェア」中心に変更。`ProfileShareSheet` を新設してQR/招待コード/ShareLinkを共通化し、プロフィール画面のシェアボタンと友達タブ空状態から同じ共有カードを開く。友達タブ右上は受け取った招待入力専用にした。DEBUGでは `LiminalogSeedDevFriends` フラグで4人の架空フレンドをseedし、ランキング/現在ステータス/友達リストの見え方をシミュレータ確認できるようにした。 |
 | 2026-05-28 | Codex | Phase 1: `RecordingGridWidget` を追加。Widget Extension 側に最小の SwiftData 共有モデルと App Group 用 ModelContainer を置き、`RecordingGridProvider` がカテゴリセット/カテゴリ/active Chapter を読む。systemSmall は4枠、systemMedium は8枠表示。 |
 | 2026-05-28 | Codex | Phase 1: `StartChapterIntent` / `SelectCategorySetIntent` を実装。Widget 設定でカテゴリセットを選択でき、カテゴリボタンから App Group SwiftData に直接 Chapter を書き込む。書き込み時は active Chapter を収束し、同カテゴリは継続、別カテゴリは直前を終了して新規開始する。 |
