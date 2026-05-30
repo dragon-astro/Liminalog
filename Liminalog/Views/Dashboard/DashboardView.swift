@@ -5,6 +5,8 @@ struct DashboardView: View {
     @Query private var queriedChapters: [Chapter]
     @Query private var queriedPlans: [PlanBlock]
     @State private var period: DashboardPeriod = .today
+    @State private var anchorDate = Date()
+    @State private var isShowingPeriodPicker = false
     @State private var clock = TickClock(interval: 60)
 
     var body: some View {
@@ -13,12 +15,32 @@ struct DashboardView: View {
                 DashboardPeriodPicker(period: $period)
                     .padding(.horizontal, 16)
                     .padding(.top, 12)
-                    .padding(.bottom, 10)
+                    .padding(.bottom, 8)
+
+                Button {
+                    isShowingPeriodPicker = true
+                } label: {
+                    HStack(spacing: 6) {
+                        Text(period.displayRange(at: anchorDate, calendar: .japanese))
+                            .font(.subheadline.weight(.bold))
+                            .monospacedDigit()
+                        Image(systemName: "chevron.down")
+                            .font(.caption.weight(.bold))
+                    }
+                    .foregroundStyle(.primary)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(Capsule().fill(Color(.secondarySystemGroupedBackground)))
+                    .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .padding(.bottom, 10)
 
                 ScrollView {
                     VStack(spacing: 14) {
                         DashboardHeroCard(
                             period: period,
+                            anchorDate: anchorDate,
                             summary: periodSummary,
                             scoreSummaries: periodScoreSummaries,
                             totalDuration: totalDuration,
@@ -36,7 +58,9 @@ struct DashboardView: View {
                         ScoreBreakdownCard(summary: periodSummary)
                         CategoryShareCard(chapters: chapters)
                         HourRhythmCard(chapters: chapters)
-                        ScoreTrendCard(period: period, summaries: periodScoreSummaries)
+                        if period != .today {
+                            ScoreTrendCard(period: period, summaries: periodScoreSummaries)
+                        }
                         RecentTrendCard(chapters: recentChapters(limit: 30))
                     }
                     .padding(.horizontal, 16)
@@ -51,19 +75,22 @@ struct DashboardView: View {
             .onDisappear {
                 clock.stop()
             }
+            .sheet(isPresented: $isShowingPeriodPicker) {
+                DashboardPeriodSelectionSheet(period: period, anchorDate: $anchorDate)
+            }
         }
     }
 
     private var chapters: [Chapter] {
-        let interval = period.dateInterval(containing: clock.now)
+        let interval = period.dateInterval(containing: anchorDate, calendar: .japanese)
         return queriedChapters
             .filter { $0.startTime < interval.end && ($0.endTime ?? clock.now) > interval.start }
             .sorted { $0.startTime < $1.startTime }
     }
 
     private var periodDates: [Date] {
-        let calendar = Calendar.current
-        let interval = period.dateInterval(containing: clock.now)
+        let calendar = Calendar.japanese
+        let interval = period.dateInterval(containing: anchorDate, calendar: calendar)
         var dates: [Date] = []
         var cursor = DayBoundary.dayStart(for: interval.start, calendar: calendar)
         while cursor < interval.end {
@@ -87,7 +114,7 @@ struct DashboardView: View {
     }
 
     private var recordedDayCount: Int {
-        Set(chapters.map { DayBoundary.dayStart(for: $0.startTime) }).count
+        Set(chapters.map { DayBoundary.dayStart(for: $0.startTime, calendar: .japanese) }).count
     }
 
     private var topCategoryStat: DashboardCategoryStat? {
@@ -95,14 +122,14 @@ struct DashboardView: View {
     }
 
     private func plans(on date: Date) -> [PlanBlock] {
-        let boundary = DayBoundary(date: date)
+        let boundary = DayBoundary(date: date, calendar: .japanese)
         return queriedPlans
             .filter { $0.startTime < boundary.dayEnd && $0.endTime > boundary.dayStart }
             .sorted { $0.startTime < $1.startTime }
     }
 
     private func chapters(on date: Date) -> [Chapter] {
-        let boundary = DayBoundary(date: date)
+        let boundary = DayBoundary(date: date, calendar: .japanese)
         return queriedChapters
             .filter { $0.startTime < boundary.dayEnd && ($0.endTime ?? clock.now) > boundary.dayStart }
             .sorted { $0.startTime < $1.startTime }
@@ -160,8 +187,124 @@ struct DashboardPeriodPicker: View {
     }
 }
 
+struct DashboardPeriodSelectionSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let period: DashboardPeriod
+    @Binding var anchorDate: Date
+    @State private var selectedDate: Date
+    @State private var selectedYear: Int
+    @State private var selectedMonth: Int
+
+    private let calendar = Calendar.japanese
+
+    init(period: DashboardPeriod, anchorDate: Binding<Date>) {
+        let date = anchorDate.wrappedValue
+        let calendar = Calendar.japanese
+        self.period = period
+        self._anchorDate = anchorDate
+        self._selectedDate = State(initialValue: date)
+        self._selectedYear = State(initialValue: calendar.component(.year, from: date))
+        self._selectedMonth = State(initialValue: calendar.component(.month, from: date))
+    }
+
+    var body: some View {
+        NavigationStack {
+            pickerContent
+                .padding(.horizontal, 12)
+                .navigationTitle(pickerTitle)
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("キャンセル") {
+                            dismiss()
+                        }
+                    }
+
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("完了") {
+                            applySelection()
+                            dismiss()
+                        }
+                    }
+                }
+        }
+        .presentationDetents([.height(300)])
+    }
+
+    @ViewBuilder
+    private var pickerContent: some View {
+        switch period {
+        case .today, .week:
+            DatePicker(
+                "",
+                selection: $selectedDate,
+                displayedComponents: .date
+            )
+            .datePickerStyle(.wheel)
+            .labelsHidden()
+        case .month:
+            HStack(spacing: 0) {
+                yearPicker
+                monthPicker
+            }
+        case .year:
+            yearPicker
+        }
+    }
+
+    private var yearPicker: some View {
+        Picker("年", selection: $selectedYear) {
+            ForEach(Array(yearRange), id: \.self) { year in
+                Text(verbatim: "\(year)年").tag(year)
+            }
+        }
+        .pickerStyle(.wheel)
+        .frame(maxWidth: .infinity)
+    }
+
+    private var monthPicker: some View {
+        Picker("月", selection: $selectedMonth) {
+            ForEach(1...12, id: \.self) { month in
+                Text("\(month)月").tag(month)
+            }
+        }
+        .pickerStyle(.wheel)
+        .frame(maxWidth: .infinity)
+    }
+
+    private var yearRange: ClosedRange<Int> {
+        let currentYear = calendar.component(.year, from: Date())
+        return (currentYear - 5)...(currentYear + 1)
+    }
+
+    private var pickerTitle: String {
+        switch period {
+        case .today:
+            "日付を選択"
+        case .week:
+            "週を選択"
+        case .month:
+            "年月を選択"
+        case .year:
+            "年を選択"
+        }
+    }
+
+    private func applySelection() {
+        switch period {
+        case .today, .week:
+            anchorDate = calendar.startOfDay(for: selectedDate)
+        case .month:
+            anchorDate = calendar.date(from: DateComponents(year: selectedYear, month: selectedMonth, day: 1)) ?? anchorDate
+        case .year:
+            anchorDate = calendar.date(from: DateComponents(year: selectedYear, month: 1, day: 1)) ?? anchorDate
+        }
+    }
+}
+
 struct DashboardHeroCard: View {
     let period: DashboardPeriod
+    let anchorDate: Date
     let summary: DashboardScoreAggregate
     let scoreSummaries: [ScoreSummary]
     let totalDuration: TimeInterval
@@ -189,14 +332,14 @@ struct DashboardHeroCard: View {
                             .frame(width: 22, height: 22)
                             .background(scoreColor.opacity(0.14), in: Circle())
 
-                        Text(period.displayRange(at: Date()))
+                        Text(period.displayRange(at: anchorDate, calendar: .japanese))
                             .font(.caption.weight(.bold))
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
 
                     Text(summary.gradeText)
-                        .font(.title2.weight(.black))
+                        .font(.title2.weight(.bold))
                         .lineLimit(1)
                         .minimumScaleFactor(0.75)
 
@@ -209,8 +352,14 @@ struct DashboardHeroCard: View {
                 .padding(.top, 2)
             }
 
-            DashboardMiniSparkline(summaries: scoreSummaries, color: scoreColor)
-                .frame(height: 42)
+            if period == .today {
+                Color.clear
+                    .frame(height: 42)
+                    .accessibilityHidden(true)
+            } else {
+                DashboardMiniSparkline(summaries: scoreSummaries, color: scoreColor)
+                    .frame(height: 42)
+            }
 
             HStack(spacing: 10) {
                 DashboardHeroPill(title: "記録時間", value: formatDashboardDuration(totalDuration), tint: Color.accentColor)
@@ -328,7 +477,7 @@ struct DashboardHeroPill: View {
                 .font(.caption2.weight(.bold))
                 .foregroundStyle(.secondary)
             Text(value)
-                .font(.caption.weight(.black))
+                .font(.caption.weight(.bold))
                 .lineLimit(1)
                 .minimumScaleFactor(0.68)
         }
@@ -396,7 +545,7 @@ struct DashboardMetricTile: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(value)
-                    .font(.headline.weight(.black).monospacedDigit())
+                    .font(.headline.weight(.bold).monospacedDigit())
                     .lineLimit(1)
                     .minimumScaleFactor(0.62)
                 Text(title)
@@ -423,9 +572,17 @@ struct ScoreBreakdownCard: View {
             if !summary.hasScore {
                 EmptyStatText(text: "予定と実績がそろうと内訳が見えます")
             } else {
-                VStack(spacing: 12) {
-                    DashboardProgressRow(title: "カテゴリ", value: summary.categoryScore, color: Color(hex: "#2F80ED"))
-                    DashboardProgressRow(title: "時間軸", value: summary.timelineScore, color: Color(hex: "#6C5CE7"))
+                VStack(alignment: .leading, spacing: 12) {
+                    DashboardScoreContributionBar(
+                        categoryContribution: summary.categoryContribution,
+                        timelineContribution: summary.timelineContribution
+                    )
+
+                    HStack(spacing: 10) {
+                        DashboardSmallValue(title: "カテゴリ", value: "\(Int(summary.categoryContribution.rounded()))pt")
+                        DashboardSmallValue(title: "時間軸", value: "\(Int(summary.timelineContribution.rounded()))pt")
+                        DashboardSmallValue(title: "合計", value: "\(Int(summary.totalScore.rounded()))pt")
+                    }
 
                     HStack(spacing: 10) {
                         DashboardSmallValue(title: "予定", value: formatDashboardDuration(summary.plannedDuration))
@@ -436,6 +593,63 @@ struct ScoreBreakdownCard: View {
             }
         }
         .dashboardCard()
+    }
+}
+
+struct DashboardScoreContributionBar: View {
+    let categoryContribution: Double
+    let timelineContribution: Double
+
+    private let categoryColor = Color(hex: "#2F80ED")
+    private let timelineColor = Color(hex: "#6C5CE7")
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 12) {
+                DashboardContributionLegend(title: "カテゴリ", color: categoryColor)
+                DashboardContributionLegend(title: "時間軸", color: timelineColor)
+                Spacer()
+                Text("\(Int((categoryContribution + timelineContribution).rounded())) / 100")
+                    .font(.caption.weight(.bold).monospacedDigit())
+                    .foregroundStyle(.secondary)
+            }
+
+            GeometryReader { proxy in
+                let categoryWidth = proxy.size.width * min(max(categoryContribution / 100, 0), 1)
+                let timelineWidth = proxy.size.width * min(max(timelineContribution / 100, 0), 1)
+
+                Capsule()
+                    .fill(Color(.tertiarySystemGroupedBackground))
+                    .overlay(alignment: .leading) {
+                        HStack(spacing: 0) {
+                            Rectangle()
+                                .fill(categoryColor)
+                                .frame(width: categoryWidth)
+                            Rectangle()
+                                .fill(timelineColor)
+                                .frame(width: timelineWidth)
+                        }
+                        .clipShape(Capsule())
+                    }
+            }
+            .frame(height: 12)
+        }
+    }
+}
+
+struct DashboardContributionLegend: View {
+    let title: String
+    let color: Color
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Circle()
+                .fill(color)
+                .frame(width: 7, height: 7)
+            Text(title)
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.secondary)
+        }
     }
 }
 
@@ -451,7 +665,7 @@ struct DashboardProgressRow: View {
                     .font(.caption.weight(.bold))
                 Spacer()
                 Text("\(Int(value.rounded()))%")
-                    .font(.caption.weight(.black).monospacedDigit())
+                    .font(.caption.weight(.bold).monospacedDigit())
                     .foregroundStyle(color)
             }
 
@@ -479,7 +693,7 @@ struct DashboardSmallValue: View {
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(.secondary)
             Text(value)
-                .font(.caption.weight(.black).monospacedDigit())
+                .font(.caption.weight(.bold).monospacedDigit())
                 .lineLimit(1)
                 .minimumScaleFactor(0.68)
         }
@@ -492,7 +706,7 @@ enum DashboardPeriod: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var title: String {
         switch self {
-        case .today: "今日"
+        case .today: "日間"
         case .week: "週間"
         case .month: "月間"
         case .year: "年間"
@@ -515,10 +729,11 @@ enum DashboardPeriod: String, CaseIterable, Identifiable {
             let end = calendar.date(byAdding: .day, value: 1, to: start) ?? date
             return DateInterval(start: start, end: end)
         case .week:
-            let todayStart = DayBoundary.dayStart(for: date, calendar: calendar)
-            let start = calendar.date(byAdding: .day, value: -6, to: todayStart) ?? todayStart
-            let end = calendar.date(byAdding: .day, value: 1, to: todayStart) ?? date
-            return DateInterval(start: start, end: end)
+            return calendar.dateInterval(of: .weekOfYear, for: date) ?? {
+                let start = DayBoundary.dayStart(for: date, calendar: calendar)
+                let end = calendar.date(byAdding: .day, value: 7, to: start) ?? date
+                return DateInterval(start: start, end: end)
+            }()
         case .month:
             let start = calendar.date(from: calendar.dateComponents([.year, .month], from: date)) ?? date
             let end = calendar.date(byAdding: .month, value: 1, to: start) ?? date
@@ -536,7 +751,13 @@ enum DashboardPeriod: String, CaseIterable, Identifiable {
             return date.japaneseMonthDayWeekday
         case .week:
             let interval = dateInterval(containing: date, calendar: calendar)
-            return "\(interval.start.japaneseMonthDay) 〜 \(date.japaneseMonthDay)"
+            let inclusiveEnd = calendar.date(byAdding: .day, value: -1, to: interval.end) ?? interval.end
+            let year = calendar.component(.year, from: interval.start)
+            let startMonth = calendar.component(.month, from: interval.start)
+            let startDay = calendar.component(.day, from: interval.start)
+            let endMonth = calendar.component(.month, from: inclusiveEnd)
+            let endDay = calendar.component(.day, from: inclusiveEnd)
+            return "\(year) \(startMonth)/\(startDay)-\(endMonth)/\(endDay)"
         case .month:
             return date.japaneseYearMonth
         case .year:
@@ -607,7 +828,7 @@ struct DashboardCategoryRow: View {
     var body: some View {
         HStack(spacing: 10) {
             Text("\(rank)")
-                .font(.caption.weight(.black).monospacedDigit())
+                .font(.caption.weight(.bold).monospacedDigit())
                 .foregroundStyle(stat.color)
                 .frame(width: 22, height: 22)
                 .background(stat.color.opacity(0.12), in: Circle())
@@ -625,7 +846,7 @@ struct DashboardCategoryRow: View {
 
             VStack(alignment: .trailing, spacing: 1) {
                 Text(formatDashboardDuration(stat.duration))
-                    .font(.caption.weight(.black).monospacedDigit())
+                    .font(.caption.weight(.bold).monospacedDigit())
                 Text("\(Int((stat.duration / total * 100).rounded()))%")
                     .font(.caption2.monospacedDigit())
                     .foregroundStyle(.secondary)
@@ -774,7 +995,7 @@ struct RecentTrendCard: View {
                             Spacer()
 
                             Text(formatDashboardDuration(chapter.durationLive))
-                                .font(.caption.weight(.black).monospacedDigit())
+                                .font(.caption.weight(.bold).monospacedDigit())
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -856,6 +1077,14 @@ struct DashboardScoreAggregate {
 
     var hasScore: Bool {
         scoredDayCount > 0
+    }
+
+    var categoryContribution: Double {
+        categoryScore * 0.8
+    }
+
+    var timelineContribution: Double {
+        timelineScore * 0.2
     }
 
     var gradeText: String {

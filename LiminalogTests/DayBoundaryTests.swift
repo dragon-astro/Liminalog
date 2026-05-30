@@ -107,14 +107,15 @@ struct SeedCoordinatorTests {
 
 @Suite("DashboardPeriod")
 struct DashboardPeriodTests {
-    @Test("週間期間は今日を含む直近7日を返す")
-    func weekIntervalIncludesTodayAndPreviousSixDays() throws {
-        let calendar = Calendar.liminalogTest
+    @Test("週間期間は選択日を含むカレンダー週を返す")
+    func weekIntervalUsesCalendarWeekContainingSelectedDate() throws {
+        var calendar = Calendar.liminalogTest
+        calendar.firstWeekday = 1
         let date = try #require(calendar.date(from: DateComponents(year: 2026, month: 5, day: 28, hour: 12)))
         let interval = DashboardPeriod.week.dateInterval(containing: date, calendar: calendar)
 
-        #expect(interval.start == calendar.date(from: DateComponents(year: 2026, month: 5, day: 22)))
-        #expect(interval.end == calendar.date(from: DateComponents(year: 2026, month: 5, day: 29)))
+        #expect(interval.start == calendar.date(from: DateComponents(year: 2026, month: 5, day: 24)))
+        #expect(interval.end == calendar.date(from: DateComponents(year: 2026, month: 5, day: 31)))
     }
 
     @Test("月間と年間期間はカレンダー境界に揃う")
