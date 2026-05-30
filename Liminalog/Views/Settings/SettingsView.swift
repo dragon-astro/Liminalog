@@ -43,8 +43,6 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             } header: {
                 Text("公開")
-            } footer: {
-                Text("友達機能と公開範囲の詳細は Phase 3 で実装します。")
             }
 
             Section("アプリ情報") {

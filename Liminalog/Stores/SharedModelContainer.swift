@@ -6,9 +6,10 @@ enum SharedModelContainer {
     static let appGroupID = "group.app.YasudaRyuga.Liminalog"
     static let cloudKitContainerID = "iCloud.app.YasudaRyuga.Liminalog"
     private static let developmentStoreVersionKey = "development.storeVersion"
-    private static let currentDevelopmentStoreVersion = 2026052903
-    private static let requiredDevelopmentStoreMarkers = [
-        "ZPROFILEACCENTCOLORHEX"
+    private static let currentDevelopmentStoreVersion = 2026053001
+    private static let requiredDevelopmentStoreColumns: [(table: String, columns: [String])] = [
+        ("ZUSERSETTINGS", ["ZPROFILEACCENTCOLORHEX"]),
+        ("ZFRIEND", ["ZSTATUSRAWVALUE"])
     ]
 
     static let shared: ModelContainer = {
@@ -38,7 +39,8 @@ enum SharedModelContainer {
             Chapter.self,
             PlanBlock.self,
             VisibilityPreset.self,
-            UserSettings.self
+            UserSettings.self,
+            Friend.self
         ])
     }
 
@@ -56,6 +58,7 @@ enum SharedModelContainer {
             PlanBlock.self,
             VisibilityPreset.self,
             UserSettings.self,
+            Friend.self,
             CalendarEventCache.self
         ])
     }
@@ -133,11 +136,13 @@ enum SharedModelContainer {
         let cloudStoreURL = supportURL.appendingPathComponent("Cloud.store")
         guard FileManager.default.fileExists(atPath: cloudStoreURL.path) else { return false }
 
-        return !developmentStore(
-            at: cloudStoreURL,
-            hasColumns: requiredDevelopmentStoreMarkers,
-            inTable: "ZUSERSETTINGS"
-        )
+        return requiredDevelopmentStoreColumns.contains { requirement in
+            !developmentStore(
+                at: cloudStoreURL,
+                hasColumns: requirement.columns,
+                inTable: requirement.table
+            )
+        }
     }
 
     private static func developmentStore(

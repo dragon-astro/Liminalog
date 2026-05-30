@@ -536,11 +536,11 @@ refactor: split plan store
 
 ### 8.2 CKShare 友達関係
 
-- [ ] `Friend` モデル定義 <!-- 担当: Codex -->
+- [x] `Friend` モデル定義 <!-- 担当: Codex, 完了: 2026-05-30。CloudKit実共有前のローカル関係モデルとして、pendingIncoming/pendingOutgoing/accepted/blocked、現在ステータス、短期スコア、招待コード、favoriteを保持 -->
 - [ ] `ShareCoordinator` 実装（CKShare 作成・参加・受諾）<!-- 担当: Codex, 理由: CloudKit 複雑async -->
-- [ ] 招待リンク生成・送信 UI <!-- 担当: Claude -->
-- [ ] 招待受信時のディープリンクハンドリング <!-- 担当: Codex, 理由: URL Scheme + Universal Link + 状態遷移 -->
-- [ ] `FriendsAddView`（メール/iCloud検索）<!-- 担当: Claude -->
+- [x] 招待リンク生成・送信 UI <!-- 担当: Codex, 完了: 2026-05-30。11-friends-designに合わせ、ID検索ではなくリンク/QRベースに変更。`liminalog://friend-invite` URL、QR表示、ShareLinkを実装 -->
+- [~] 招待受信時のディープリンクハンドリング <!-- 担当: Codex, 進捗: 2026-05-30。URL Scheme登録とRootTab→FriendsViewへの受け渡しを実装。Universal Link/CKShare受諾はDeveloper登録後のShareCoordinatorで追加 -->
+- [x] `FriendsAddView`（リンク/QR招待版）<!-- 担当: Codex, 完了: 2026-05-30。初期仕様のメール/iCloud検索は11-friends-designで廃止し、リンク/QRのみへ変更 -->
 - [ ] `CKSubscription` 設定（友達のレコード更新監視）<!-- 担当: Codex -->
 - [ ] バックグラウンド通知ハンドラ <!-- 担当: Codex -->
 
@@ -555,7 +555,7 @@ refactor: split plan store
 
 ### 8.4 友達閲覧
 
-- [ ] `FriendDetailView`（友達のデイビュー閲覧）<!-- 担当: Claude -->
+- [~] `FriendDetailView`（友達のデイビュー閲覧）<!-- 担当: Codex, 進捗: 2026-05-30。友達プロフィール/現在ステータス/短期スコア/お気に入り/削除/ブロックの詳細UIまで実装。公開済みデイビュー閲覧はSharedTimeline/VisibilityPreset本実装後に接続 -->
 - [ ] 友達のタイムラインを公開設定でフィルター描画 <!-- 担当: Codex, 理由: フィルターロジック -->
 - [ ] `Reaction` モデル + 絵文字パレットUI <!-- 担当: Claude -->
 - [ ] `Comment` モデル + コメント投稿UI <!-- 担当: Claude -->
@@ -563,10 +563,10 @@ refactor: split plan store
 
 ### 8.5 ランキング
 
-- [ ] ランキング集計ロジック（今日/昨日/今週・タイブレーク仕様要確認）<!-- 担当: Codex, 理由: 集計+ソート -->
-- [ ] `RankingScrollStrip`（横スクロール）<!-- 担当: Claude -->
-- [ ] 友達プロフィールリスト（達成率・現在ステータス）<!-- 担当: Claude -->
-- [ ] お気に入り友達の上部固定 <!-- 担当: Claude -->
+- [~] ランキング集計ロジック（今日/昨日/今週・タイブレーク仕様要確認）<!-- 担当: Codex, 進捗: 2026-05-30。自分は既存ScoreCalculator、友達はFriendスナップショットのtoday/yesterday/weekScoreでソート。CKShare経由の友達スコア更新は未接続 -->
+- [x] `RankingScrollStrip`（横スクロール）<!-- 担当: Codex, 完了: 2026-05-30。FriendsView内に今日/昨日/今週セグメント付き横スクロールランキングを実装 -->
+- [x] 友達プロフィールリスト（達成率・現在ステータス）<!-- 担当: Codex, 完了: 2026-05-30。accepted friendsをカード行で表示し、現在ステータス/対象期間スコア/詳細遷移を実装 -->
+- [x] お気に入り友達の上部固定 <!-- 担当: Codex, 完了: 2026-05-30。accepted friendsのソートでfavoriteを先頭固定し、詳細からtoggle可能 -->
 
 ### 8.6 カテゴリマッピング
 
@@ -945,6 +945,7 @@ refactor: split plan store
 | 2026-05-30 | Codex | CategorySet編集パレットの追加修正。ユーザー検証で「ドラッグ&ドロップしようとすると土台のカードが選ばれる」問題が残っていたため、原因になり得る `Form` / `List` 行選択、パレット項目タップ選択、スロット自体の draggable を撤去。編集画面を `ScrollView` + 通常カード構成に変更し、ドラッグ開始点はカテゴリの丸アイコンだけに限定した。ドロップは `onDrop` + `NSItemProvider` の plain text payload へ寄せ、スロットカードは受け皿に専念する。これにより、土台カードが選択状態になる UI ではなく、アイコンを持ち上げてスロットへ落とす操作に整理。検証: `git diff --check` 成功、`xcodebuild test -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -only-testing:LiminalogTests/CategorySetSlotDraftTests` 成功 |
 | 2026-05-30 | Codex | CategorySet編集の配置方式を再整理。標準 Drag & Drop はiOS側の長押し開始・リフト時プレビューに依存し、白い背景や即時移動の制御が難しいため、ユーザー指定の代替仕様へ切り替えた。`onDrag` / `onDrop` をUIから撤去し、スロットをタップして青枠で選択 → カテゴリをタップして配置する方式に変更。スロット未選択時にカテゴリを押した場合は従来どおり最初の空きスロットへ追加し、割り当て済みカテゴリなら解除できる互換挙動を残す。これにより長押し不要・白いドラッグ背景なし・タップ即反応の編集体験にした。検証: `git diff --check` 成功、`xcodebuild test -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -only-testing:LiminalogTests/CategorySetSlotDraftTests` 成功 |
 | 2026-05-30 | Codex | CategorySet編集画面のセット名まわりを簡略化。セット名欄の小見出しと「空のままだと自動命名」説明文は編集画面の情報量を増やすため削除し、入力欄だけを残した。空名時の自動命名仕様自体はStore側の既存挙動として維持 |
+| 2026-05-30 | Codex | 友達タブ/友達追加フローのMVP実装。`Friend` モデルを追加し、FriendsViewを「つながり」一覧、空状態の招待CTA、リンク/QR招待シート、受け取った招待のpending化、承認待ち、横スクロールランキング（今日/昨日/今週）、現在ステータスカード、友達リスト、友達詳細（ステータス/スコア/favorite/block/delete）へ刷新。`liminalog://friend-invite` URL SchemeとRootTabの受け渡しも追加。CloudKit/CKShareの実共有はDeveloper登録後の `ShareCoordinator` で接続する前提で、UIとローカル状態遷移を先に固めた。開発DBリセット判定も `ZFRIEND` 必須カラム確認へ更新 |
 
 ---
 

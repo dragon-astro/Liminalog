@@ -11,6 +11,7 @@ enum LiminalogSchemaV1: VersionedSchema {
             PlanBlock.self,
             VisibilityPreset.self,
             UserSettings.self,
+            Friend.self,
             CalendarEventCache.self
         ]
     }

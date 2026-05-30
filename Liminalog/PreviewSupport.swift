@@ -5,7 +5,7 @@ import SwiftUI
 @MainActor
 enum PreviewSupport {
     static let container: ModelContainer = {
-        let schema = Schema([Category.self, CategorySet.self, Chapter.self, PlanBlock.self, VisibilityPreset.self, UserSettings.self, CalendarEventCache.self])
+        let schema = Schema([Category.self, CategorySet.self, Chapter.self, PlanBlock.self, VisibilityPreset.self, UserSettings.self, Friend.self, CalendarEventCache.self])
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
         let container = try! ModelContainer(for: schema, configurations: [configuration])
         seed(in: container.mainContext)
@@ -39,6 +39,28 @@ enum PreviewSupport {
         settings.profileBio = "切り替わる瞬間を記録中"
         settings.profileAccentColorHex = "#2F80ED"
         context.insert(settings)
+
+        let friends = [
+            Friend(displayName: "Mika", handle: "@mika", status: .accepted, accentColorHex: "#27AE60", avatarSystemImage: "leaf.fill"),
+            Friend(displayName: "Sora", handle: "@sora", status: .accepted, accentColorHex: "#6C5CE7", avatarSystemImage: "moon.stars.fill"),
+            Friend(displayName: "Ren", handle: "@ren", status: .pendingIncoming, inviteCode: "REN202605", accentColorHex: "#F2994A", avatarSystemImage: "bolt.fill")
+        ]
+        friends[0].currentStatusTitle = "勉強"
+        friends[0].currentStatusIcon = "book.closed.fill"
+        friends[0].currentStatusColorHex = "#2F80ED"
+        friends[0].todayScore = 86
+        friends[0].yesterdayScore = 74
+        friends[0].weekScore = 81
+        friends[0].isFavorite = true
+        friends[0].lastSeenAt = Date()
+        friends[1].currentStatusTitle = "休憩"
+        friends[1].currentStatusIcon = "cup.and.saucer.fill"
+        friends[1].currentStatusColorHex = "#27AE60"
+        friends[1].todayScore = 68
+        friends[1].yesterdayScore = 91
+        friends[1].weekScore = 77
+        friends[1].lastSeenAt = Date()
+        friends.forEach(context.insert)
 
         let calendar = Calendar.current
         let startOfDay = calendar.startOfDay(for: Date())

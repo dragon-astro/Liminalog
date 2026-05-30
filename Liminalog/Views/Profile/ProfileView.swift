@@ -8,6 +8,7 @@ struct ProfileView: View {
     @Query(sort: \UserSettings.createdAt) private var settingsList: [UserSettings]
     @Query private var queriedChapters: [Chapter]
     @Query private var queriedPlans: [PlanBlock]
+    @Query(sort: \Friend.createdAt) private var friends: [Friend]
 
     @State private var isShowingSettings = false
     @State private var isShowingEditProfile = false
@@ -106,7 +107,7 @@ struct ProfileView: View {
                     ProfileStatsRow(
                         streak: streakCount,
                         totalDuration: totalRecordedDuration,
-                        friendCount: 0
+                        friendCount: acceptedFriendCount
                     )
 
                     ProfileCollectionSection(badges: badges)
@@ -153,6 +154,10 @@ struct ProfileView: View {
             count += 1
         }
         return count
+    }
+
+    private var acceptedFriendCount: Int {
+        friends.filter { $0.status == .accepted }.count
     }
 
     private func scoreSummary(on date: Date) -> ScoreSummary {

@@ -1,28 +1,38 @@
 import SwiftUI
 import SwiftData
 
+private enum RootTab: Hashable {
+    case today
+    case calendar
+    case dashboard
+    case friends
+    case profile
+}
+
 struct RootTabView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var appStores: AppStores?
+    @State private var selectedTab: RootTab = .today
+    @State private var pendingFriendInviteURL: URL?
 
     var body: some View {
         Group {
             if let appStores {
                 let store = appStores.chapterStore
-                TabView {
-                    Tab("今日", systemImage: "clock.fill") {
+                TabView(selection: $selectedTab) {
+                    Tab("今日", systemImage: "clock.fill", value: RootTab.today) {
                         HomeView()
                     }
-                    Tab("カレンダー", systemImage: "calendar") {
+                    Tab("カレンダー", systemImage: "calendar", value: RootTab.calendar) {
                         CalendarView()
                     }
-                    Tab("統計", systemImage: "chart.bar.fill") {
+                    Tab("統計", systemImage: "chart.bar.fill", value: RootTab.dashboard) {
                         DashboardView()
                     }
-                    Tab("友達", systemImage: "person.2.fill") {
-                        FriendsView()
+                    Tab("友達", systemImage: "person.2.fill", value: RootTab.friends) {
+                        FriendsView(pendingInviteURL: $pendingFriendInviteURL)
                     }
-                    Tab("プロフィール", systemImage: "person.crop.circle") {
+                    Tab("プロフィール", systemImage: "person.crop.circle", value: RootTab.profile) {
                         ProfileView()
                     }
                 }
@@ -52,6 +62,11 @@ struct RootTabView: View {
             }
             #endif
             appStores = initializedStores
+        }
+        .onOpenURL { url in
+            guard FriendInvitePayload(url: url) != nil else { return }
+            pendingFriendInviteURL = url
+            selectedTab = .friends
         }
     }
 }
