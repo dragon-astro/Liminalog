@@ -173,10 +173,13 @@ struct CalendarView: View {
 
     private func monthGridDates(for month: Date) -> [Date] {
         let monthStart = monthStart(for: month)
+        let monthEnd = calendar.date(byAdding: .month, value: 1, to: monthStart) ?? monthStart
+        let dayCount = calendar.dateComponents([.day], from: monthStart, to: monthEnd).day ?? 0
         let weekdayOffset = calendar.component(.weekday, from: monthStart) - calendar.firstWeekday
         let normalizedOffset = (weekdayOffset + 7) % 7
         let gridStart = calendar.date(byAdding: .day, value: -normalizedOffset, to: monthStart) ?? monthStart
-        return (0..<42).compactMap { calendar.date(byAdding: .day, value: $0, to: gridStart) }
+        let weekCount = max(5, min(6, Int(ceil(Double(normalizedOffset + dayCount) / 7.0))))
+        return (0..<(weekCount * 7)).compactMap { calendar.date(byAdding: .day, value: $0, to: gridStart) }
     }
 
     private var visibleMonthDates: [Date] {
@@ -1123,7 +1126,8 @@ private struct CalendarMonthGrid: View {
                     importantPlans: importantPlans,
                     scoreSummary: scoreSummary,
                     onOpenDay: onOpenDay,
-                    spacing: spacing
+                    spacing: spacing,
+                    cellHeight: cellHeight
                 )
             }
         }
@@ -1140,6 +1144,10 @@ private struct CalendarMonthGrid: View {
             Array(dates[start..<min(start + 7, dates.count)])
         }
     }
+
+    private var cellHeight: CGFloat {
+        CalendarMonthDayCell.cellHeight(forWeekCount: weekDates.count)
+    }
 }
 
 private struct CalendarMonthWeekRow: View {
@@ -1149,6 +1157,7 @@ private struct CalendarMonthWeekRow: View {
     let scoreSummary: (Date) -> ScoreSummary
     let onOpenDay: (Date, UUID?) -> Void
     let spacing: CGFloat
+    let cellHeight: CGFloat
 
     @AppStorage("calendarPlanTitleFontSize") private var planTitleFontSize = 6.0
 
@@ -1166,7 +1175,8 @@ private struct CalendarMonthWeekRow: View {
                             visibleMonth: visibleMonth,
                             importantPlans: importantPlans(date),
                             reservedPlanRows: visibleMultiDayPlans.count,
-                            scoreSummary: scoreSummary(date)
+                            scoreSummary: scoreSummary(date),
+                            cellHeight: cellHeight
                         )
                     }
                     .buttonStyle(.plain)
@@ -1191,9 +1201,9 @@ private struct CalendarMonthWeekRow: View {
                     }
                 }
             }
-            .frame(height: CalendarMonthDayCell.cellHeight)
+            .frame(height: cellHeight)
         }
-        .frame(height: CalendarMonthDayCell.cellHeight)
+        .frame(height: cellHeight)
     }
 
     private var visibleMultiDayPlans: [PlanBlock] {
@@ -1269,7 +1279,7 @@ private struct CalendarMonthWeekRow: View {
         let verticalPadding: CGFloat = 8
         let headerHeight: CGFloat = 22
         let headerToPlansSpacing: CGFloat = 4
-        let availableHeight = CalendarMonthDayCell.cellHeight - verticalPadding - headerHeight - headerToPlansSpacing
+        let availableHeight = cellHeight - verticalPadding - headerHeight - headerToPlansSpacing
         return max(Int((availableHeight + planRowSpacing) / rowStride), 0)
     }
 
@@ -1291,13 +1301,16 @@ private struct CalendarMonthWeekRow: View {
 }
 
 struct CalendarMonthDayCell: View {
-    static let cellHeight: CGFloat = 92
+    static func cellHeight(forWeekCount weekCount: Int) -> CGFloat {
+        weekCount <= 5 ? 110 : 92
+    }
 
     let date: Date
     let visibleMonth: Date
     let importantPlans: [PlanBlock]
     let reservedPlanRows: Int
     let scoreSummary: ScoreSummary
+    let cellHeight: CGFloat
 
     @AppStorage("calendarPlanTitleFontSize") private var planTitleFontSize = 6.0
 
@@ -1350,7 +1363,7 @@ struct CalendarMonthDayCell: View {
         }
         .padding(.horizontal, 3)
         .padding(.vertical, 4)
-        .frame(maxWidth: .infinity, minHeight: Self.cellHeight, alignment: .topLeading)
+        .frame(maxWidth: .infinity, minHeight: cellHeight, alignment: .topLeading)
         .background(
             Rectangle()
                 .fill(isInVisibleMonth ? Color(.secondarySystemGroupedBackground) : Color(.tertiarySystemGroupedBackground).opacity(0.5))
@@ -1391,7 +1404,7 @@ struct CalendarMonthDayCell: View {
         let verticalPadding: CGFloat = 8
         let headerHeight: CGFloat = 22
         let headerToPlansSpacing: CGFloat = 4
-        let availableHeight = Self.cellHeight - verticalPadding - headerHeight - headerToPlansSpacing
+        let availableHeight = cellHeight - verticalPadding - headerHeight - headerToPlansSpacing
         return max(Int((availableHeight + planRowSpacing) / rowStride) - reservedPlanRows, 0)
     }
 

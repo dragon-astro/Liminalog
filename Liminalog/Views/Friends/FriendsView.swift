@@ -1352,10 +1352,13 @@ private struct FriendCalendarView: View {
 
     private func monthGridDates(for month: Date) -> [Date] {
         let monthStart = monthStart(for: month)
+        let monthEnd = calendar.date(byAdding: .month, value: 1, to: monthStart) ?? monthStart
+        let dayCount = calendar.dateComponents([.day], from: monthStart, to: monthEnd).day ?? 0
         let weekdayOffset = calendar.component(.weekday, from: monthStart) - calendar.firstWeekday
         let normalizedOffset = (weekdayOffset + 7) % 7
         let gridStart = calendar.date(byAdding: .day, value: -normalizedOffset, to: monthStart) ?? monthStart
-        return (0..<42).compactMap { calendar.date(byAdding: .day, value: $0, to: gridStart) }
+        let weekCount = max(5, min(6, Int(ceil(Double(normalizedOffset + dayCount) / 7.0))))
+        return (0..<(weekCount * 7)).compactMap { calendar.date(byAdding: .day, value: $0, to: gridStart) }
     }
 
     private func importantPlans(on date: Date) -> [FriendSharedPlanSnapshot] {
@@ -1527,7 +1530,8 @@ private struct FriendSharedCalendarMonthGrid: View {
                     score: score,
                     accentColor: accentColor,
                     onOpenDay: onOpenDay,
-                    spacing: spacing
+                    spacing: spacing,
+                    cellHeight: cellHeight
                 )
             }
         }
@@ -1544,6 +1548,10 @@ private struct FriendSharedCalendarMonthGrid: View {
             Array(dates[start..<min(start + 7, dates.count)])
         }
     }
+
+    private var cellHeight: CGFloat {
+        CalendarMonthDayCell.cellHeight(forWeekCount: weekDates.count)
+    }
 }
 
 private struct FriendSharedCalendarWeekRow: View {
@@ -1556,6 +1564,7 @@ private struct FriendSharedCalendarWeekRow: View {
     let accentColor: Color
     let onOpenDay: (Date) -> Void
     let spacing: CGFloat
+    let cellHeight: CGFloat
 
     @AppStorage("calendarPlanTitleFontSize") private var planTitleFontSize = 6.0
 
@@ -1574,7 +1583,8 @@ private struct FriendSharedCalendarWeekRow: View {
                             plans: importantPlans(date),
                             reservedPlanRows: visibleMultiDayPlans.count,
                             score: score(date),
-                            accentColor: accentColor
+                            accentColor: accentColor,
+                            cellHeight: cellHeight
                         )
                     }
                     .buttonStyle(.plain)
@@ -1599,9 +1609,9 @@ private struct FriendSharedCalendarWeekRow: View {
                     }
                 }
             }
-            .frame(height: CalendarMonthDayCell.cellHeight)
+            .frame(height: cellHeight)
         }
-        .frame(height: CalendarMonthDayCell.cellHeight)
+        .frame(height: cellHeight)
     }
 
     private var visibleMultiDayPlans: [FriendSharedPlanSnapshot] {
@@ -1672,7 +1682,7 @@ private struct FriendSharedCalendarWeekRow: View {
         let verticalPadding: CGFloat = 8
         let headerHeight: CGFloat = 22
         let headerToPlansSpacing: CGFloat = 4
-        let availableHeight = CalendarMonthDayCell.cellHeight - verticalPadding - headerHeight - headerToPlansSpacing
+        let availableHeight = cellHeight - verticalPadding - headerHeight - headerToPlansSpacing
         return max(Int((availableHeight + planRowSpacing) / rowStride), 0)
     }
 
@@ -1689,6 +1699,7 @@ private struct FriendSharedCalendarDayCell: View {
     let reservedPlanRows: Int
     let score: FriendCalendarScore?
     let accentColor: Color
+    let cellHeight: CGFloat
 
     @AppStorage("calendarPlanTitleFontSize") private var planTitleFontSize = 6.0
 
@@ -1741,7 +1752,7 @@ private struct FriendSharedCalendarDayCell: View {
         }
         .padding(.horizontal, 3)
         .padding(.vertical, 4)
-        .frame(maxWidth: .infinity, minHeight: CalendarMonthDayCell.cellHeight, alignment: .topLeading)
+        .frame(maxWidth: .infinity, minHeight: cellHeight, alignment: .topLeading)
         .background(
             Rectangle()
                 .fill(isInVisibleMonth ? Color(.secondarySystemGroupedBackground) : Color(.tertiarySystemGroupedBackground).opacity(0.5))
@@ -1775,7 +1786,7 @@ private struct FriendSharedCalendarDayCell: View {
         let verticalPadding: CGFloat = 8
         let headerHeight: CGFloat = 22
         let headerToPlansSpacing: CGFloat = 4
-        let availableHeight = CalendarMonthDayCell.cellHeight - verticalPadding - headerHeight - headerToPlansSpacing
+        let availableHeight = cellHeight - verticalPadding - headerHeight - headerToPlansSpacing
         return max(Int((availableHeight + planRowSpacing) / rowStride) - reservedPlanRows, 0)
     }
 
