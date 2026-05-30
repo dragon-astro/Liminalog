@@ -555,7 +555,7 @@ private struct ProfileCollectionSection: View {
             Text("装備とコレクション")
                 .font(.headline)
 
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 2), spacing: 10) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
                 ProfileEquipmentTile(title: "バッジ", value: equippedBadge.title, systemImage: equippedBadge.systemImage, tint: Color(hex: equippedBadge.tint))
                 ProfileEquipmentTile(title: "フレーム", value: iconFrame.title, systemImage: iconFrame.systemImage, tint: iconFrame.primaryColor)
                 ProfileEquipmentTile(title: "カード", value: cardStyle.title, systemImage: cardStyle.systemImage, tint: cardStyle.markColor(accentColor: iconFrame.primaryColor))
@@ -707,8 +707,8 @@ private struct ProfileEquipmentTile: View {
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(10)
-        .frame(minHeight: 78, alignment: .leading)
+        .padding(9)
+        .frame(minHeight: 74, alignment: .leading)
         .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 }
