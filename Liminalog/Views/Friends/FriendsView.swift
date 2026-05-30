@@ -564,8 +564,8 @@ private struct FriendRow: View {
                 }
 
                 Text(friendMoodText)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary.opacity(0.74))
                     .lineLimit(1)
             }
 

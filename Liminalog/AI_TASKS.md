@@ -566,7 +566,7 @@ refactor: split plan store
 
 - [~] ランキング集計ロジック（今日/昨日/今週・タイブレーク仕様要確認）<!-- 担当: Codex, 進捗: 2026-05-30。自分は既存ScoreCalculator、友達はFriendスナップショットのtoday/yesterday/weekScoreでソート。CKShare経由の友達スコア更新は未接続 -->
 - [x] `RankingScrollStrip`（横スクロール）<!-- 担当: Codex, 完了: 2026-05-30。FriendsView内に今日/昨日/今週セグメント付き横スクロールランキングを実装 -->
-- [x] 友達プロフィールリスト（今の気持ち・現在ステータス）<!-- 担当: Codex, 完了: 2026-05-30。accepted friendsをカード行で表示し、名前横の現在ステータスピル、@handleの代わりになる今の気持ち/ひとこと、詳細遷移を実装。スコアはランキング側に寄せ、友達行では主役にしない。2026-05-30追記: 名前長でステータス開始位置が揺れないよう、名前列を固定幅化 -->
+- [x] 友達プロフィールリスト（今の気持ち・現在ステータス）<!-- 担当: Codex, 完了: 2026-05-30。accepted friendsをカード行で表示し、名前横の現在ステータスピル、@handleの代わりになる今の気持ち/ひとこと、詳細遷移を実装。スコアはランキング側に寄せ、友達行では主役にしない。2026-05-30追記: 名前長でステータス開始位置が揺れないよう、名前列を固定幅化。ひとことはcaption2/薄めのsecondaryで控えめに表示 -->
 - [x] お気に入り友達の上部固定 <!-- 担当: Codex, 完了: 2026-05-30。accepted friendsのソートでfavoriteを先頭固定し、詳細からtoggle可能 -->
 - [x] DEBUG用の架空フレンドseed <!-- 担当: Codex, 完了: 2026-05-30。`LiminalogSeedDevFriends` UserDefaults または `-LiminalogSeedDevFriends` 起動引数が有効なDEBUGビルドだけ、Mika/Sora/Ren/Yui の4人をローカルに生成。今の気持ち/ひとこともseedし、既存debug友達にもbackfillする。友達0人状態を壊さず、UI確認時だけ利用する -->
 
