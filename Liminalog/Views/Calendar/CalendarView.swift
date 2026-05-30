@@ -254,16 +254,24 @@ struct CalendarView: View {
 }
 
 private struct CalendarDayPagerSheet: View {
+    @Environment(ChapterStore.self) private var store
+    @Environment(\.dismiss) private var dismiss
+    @Query private var queriedChapters: [Chapter]
+
     let initialDate: Date
     let highlightedPlanID: UUID?
 
     @State private var anchorDate: Date
     @State private var selectedOffset = 0
+    @State private var pendingCreateDate: Date
+    @State private var pendingPlanStartsAsImportant = false
+    @State private var showingPlanSheet = false
 
     init(initialDate: Date, highlightedPlanID: UUID?) {
         self.initialDate = Calendar.japanese.startOfDay(for: initialDate)
         self.highlightedPlanID = highlightedPlanID
         _anchorDate = State(initialValue: Calendar.japanese.startOfDay(for: initialDate))
+        _pendingCreateDate = State(initialValue: Calendar.japanese.startOfDay(for: initialDate))
     }
 
     var body: some View {
@@ -272,6 +280,7 @@ private struct CalendarDayPagerSheet: View {
                 CalendarDayView(
                     date: pageDate(offset),
                     highlightedPlanID: highlightedPlanID(for: pageDate(offset)),
+                    showsNavigationControls: false,
                     allowsDayNavigation: false
                 )
                 .id(pageDate(offset).timeIntervalSince1970)
@@ -282,6 +291,47 @@ private struct CalendarDayPagerSheet: View {
         .onChange(of: selectedOffset) { _, newValue in
             guard newValue != 0 else { return }
             settlePageShift(newValue)
+        }
+        .navigationBarBackButtonHidden()
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button {
+                    dismiss()
+                } label: {
+                    Label("戻る", systemImage: "chevron.left")
+                }
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                dayVisibilityMenu
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Button {
+                        pendingCreateDate = Calendar.japanese.startOfDay(for: anchorDate)
+                        pendingPlanStartsAsImportant = true
+                        showingPlanSheet = true
+                    } label: {
+                        Label("重要な予定を追加", systemImage: "star")
+                    }
+
+                    if canCreateTimedPlansForDay {
+                        Button {
+                            pendingCreateDate = defaultPlanStart
+                            pendingPlanStartsAsImportant = false
+                            showingPlanSheet = true
+                        } label: {
+                            Label("時間つき予定を追加", systemImage: "calendar.badge.plus")
+                        }
+                    } else {
+                        Label("今日以前の時間つき予定は追加できません", systemImage: "lock.fill")
+                    }
+                } label: {
+                    Image(systemName: "plus")
+                }
+            }
+        }
+        .sheet(isPresented: $showingPlanSheet) {
+            PlanCreateSheet(initialDate: pendingCreateDate, startsAsAllDay: pendingPlanStartsAsImportant)
         }
     }
 
@@ -302,6 +352,64 @@ private struct CalendarDayPagerSheet: View {
                 selectedOffset = 0
             }
         }
+    }
+
+    private var dayVisibilityMenu: some View {
+        let visibleDayChapters = dayChapters
+        let allPublic = !visibleDayChapters.isEmpty && visibleDayChapters.allSatisfy(\.isPublic)
+        let allPrivate = !visibleDayChapters.isEmpty && visibleDayChapters.allSatisfy { !$0.isPublic }
+        let isMixed = !visibleDayChapters.isEmpty && !allPublic && !allPrivate
+
+        return Menu {
+            if visibleDayChapters.isEmpty {
+                Text("この日にチャプターはありません")
+            } else {
+                if isMixed {
+                    Text("公開/非公開が混在しています")
+                        .font(.caption)
+                }
+                Button {
+                    store.setChaptersVisibility(visibleDayChapters, isPublic: true)
+                } label: {
+                    Label("すべて公開", systemImage: "eye")
+                }
+                .disabled(allPublic)
+
+                Button {
+                    store.setChaptersVisibility(visibleDayChapters, isPublic: false)
+                } label: {
+                    Label("すべて非公開", systemImage: "eye.slash")
+                }
+                .disabled(allPrivate)
+
+                Divider()
+                Text("\(visibleDayChapters.count)件のチャプター")
+                    .font(.caption)
+            }
+        } label: {
+            Image(systemName: allPrivate ? "eye.slash" : (isMixed ? "eye.fill" : "eye"))
+                .foregroundStyle(isMixed ? Color.accentColor : Color.primary)
+        }
+        .accessibilityLabel("この日の公開設定")
+        .disabled(visibleDayChapters.isEmpty)
+    }
+
+    private var dayChapters: [Chapter] {
+        let boundary = DayBoundary(date: anchorDate, calendar: .japanese)
+        return queriedChapters
+            .filter { $0.startTime < boundary.dayEnd && ($0.endTime ?? Date()) > boundary.dayStart }
+            .sorted { $0.startTime < $1.startTime }
+    }
+
+    private var canCreateTimedPlansForDay: Bool {
+        store.canCreatePlan(startTime: anchorDate, isAllDay: false)
+    }
+
+    private var defaultPlanStart: Date {
+        if Calendar.japanese.isDateInToday(anchorDate) {
+            return Date()
+        }
+        return Calendar.japanese.date(bySettingHour: 9, minute: 0, second: 0, of: anchorDate) ?? anchorDate
     }
 }
 

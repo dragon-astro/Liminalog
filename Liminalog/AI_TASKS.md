@@ -979,6 +979,7 @@ refactor: split plan store
 | 2026-05-30 | Codex | 友達タブ/友達追加フローのMVP実装。`Friend` モデルを追加し、FriendsViewを「つながり」一覧、空状態の招待CTA、リンク/QR招待シート、受け取った招待のpending化、承認待ち、横スクロールランキング（今日/昨日/今週）、現在ステータスカード、友達リスト、友達詳細（ステータス/スコア/favorite/block/delete）へ刷新。`liminalog://friend-invite` URL SchemeとRootTabの受け渡しも追加。CloudKit/CKShareの実共有はDeveloper登録後の `ShareCoordinator` で接続する前提で、UIとローカル状態遷移を先に固めた。開発DBリセット判定も `ZFRIEND` 必須カラム確認へ更新 |
 | 2026-05-30 | Codex | カレンダー/友達カレンダーの日別詳細を、押し込み遷移ではなく下からのモーダル表示へ変更。月グリッドの日付セルと複数日バーは `NavigationLink` をやめ、親の `selectedDay` を更新して `.sheet(item:)` + `NavigationStack` で日別画面を開く構造にした。検索結果から開く場合は検索シートを閉じた次の runloop で日別モーダルを開き、二重 sheet を避ける。カレンダー側の日別画面は既存の左右スワイプ日付移動をモーダル内でも維持し、友達の日別画面にも同じ左右スワイプ日付移動を追加。カレンダータブの日別タイムラインは外側のカードラップを外し、友達タブと同じく `24時間バー` と下のタイムラインが別カードとして見える構造に変更 |
 | 2026-05-30 | Codex | 日別モーダルの日付移動を TimeTree 風の横スライド体験へ調整。`CalendarDayPagerSheet` / `FriendSharedCalendarDayPagerSheet` を追加し、モーダル内に前日・当日・翌日の3ページだけを持つ `TabView(.page)` を配置。スワイプ中はカードが横にずれて切り替わり、切り替え完了後に基準日を更新して中央ページへ無アニメーションで再固定するため、日付をいくら進めてもView数は増えない。ページングと二重に反応しないよう、モーダル内の `CalendarDayView` / `FriendSharedCalendarDayView` では旧DragGestureの日付差し替えを無効化した |
+| 2026-05-30 | Codex | 日別モーダルの横スライド中にナビゲーションバーが一瞬増える不具合を修正。原因は `TabView(.page)` の各ページ内に toolbar / navigationTitle が残っており、スワイプ途中に隣接ページのナビゲーション要素も同時評価されること。`CalendarDayView` はページャー内では `showsNavigationControls: false` にし、戻る・公開設定・追加メニューを `CalendarDayPagerSheet` 側の固定toolbarへ集約。友達日別もページ内の navigationTitle を無効化し、`FriendSharedCalendarDayPagerSheet` 側に1つだけタイトルを持たせた。これによりページカードだけが横に動き、上部バーは吸着時も増減しない構造になった |
 
 ---
 

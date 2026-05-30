@@ -1440,7 +1440,8 @@ private struct FriendSharedCalendarDayPagerSheet: View {
                 FriendSharedCalendarDayView(
                     friend: friend,
                     date: pageDate(offset),
-                    allowsDayNavigation: false
+                    allowsDayNavigation: false,
+                    showsNavigationTitle: false
                 )
                 .id(pageDate(offset).timeIntervalSince1970)
                 .tag(offset)
@@ -1451,6 +1452,8 @@ private struct FriendSharedCalendarDayPagerSheet: View {
             guard newValue != 0 else { return }
             settlePageShift(newValue)
         }
+        .navigationTitle(anchorDate.japaneseMonthDayShortWeekday)
+        .navigationBarTitleDisplayMode(.inline)
     }
 
     private func pageDate(_ offset: Int) -> Date {
@@ -1980,6 +1983,7 @@ private struct FriendSharedCalendarDayView: View {
     var score: FriendCalendarScore? = nil
     var accentColor: Color? = nil
     var allowsDayNavigation = true
+    var showsNavigationTitle = true
 
     init(
         friend: Friend?,
@@ -1988,7 +1992,8 @@ private struct FriendSharedCalendarDayView: View {
         activities: [FriendSharedActivitySnapshot]? = nil,
         score: FriendCalendarScore? = nil,
         accentColor: Color? = nil,
-        allowsDayNavigation: Bool = true
+        allowsDayNavigation: Bool = true,
+        showsNavigationTitle: Bool = true
     ) {
         self.friend = friend
         self.plans = plans
@@ -1996,6 +2001,7 @@ private struct FriendSharedCalendarDayView: View {
         self.score = score
         self.accentColor = accentColor
         self.allowsDayNavigation = allowsDayNavigation
+        self.showsNavigationTitle = showsNavigationTitle
         _date = State(initialValue: date)
     }
 
@@ -2042,8 +2048,7 @@ private struct FriendSharedCalendarDayView: View {
             .padding(16)
         }
         .background(Color(.systemGroupedBackground))
-        .navigationTitle(date.japaneseMonthDayShortWeekday)
-        .navigationBarTitleDisplayMode(.inline)
+        .modifier(FriendDayNavigationTitleModifier(isEnabled: showsNavigationTitle, title: date.japaneseMonthDayShortWeekday))
         .modifier(FriendDayNavigationGestureModifier(isEnabled: allowsDayNavigation, shiftDay: shiftDay(_:)))
     }
 
@@ -2100,6 +2105,21 @@ private struct FriendSharedCalendarDayView: View {
 
     private func shiftDay(_ value: Int) {
         date = Calendar.japanese.date(byAdding: .day, value: value, to: date) ?? date
+    }
+}
+
+private struct FriendDayNavigationTitleModifier: ViewModifier {
+    let isEnabled: Bool
+    let title: String
+
+    func body(content: Content) -> some View {
+        if isEnabled {
+            content
+                .navigationTitle(title)
+                .navigationBarTitleDisplayMode(.inline)
+        } else {
+            content
+        }
     }
 }
 
