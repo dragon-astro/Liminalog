@@ -253,7 +253,7 @@ private struct CalendarSearchTargetDay: Identifiable, Hashable {
     }
 }
 
-private enum CalendarPlanLabelStyle: String, CaseIterable, Identifiable {
+enum CalendarPlanLabelStyle: String, CaseIterable, Identifiable {
     case background
     case textOnly
     case underline
@@ -554,7 +554,7 @@ private struct CalendarLabelStylePreview: View {
     }
 }
 
-private struct CalendarMonthPickerSheet: View {
+struct CalendarMonthPickerSheet: View {
     @Binding var selectedYear: Int
     @Binding var selectedMonth: Int
     let yearRange: ClosedRange<Int>
@@ -876,7 +876,7 @@ private extension PlanBlock {
     }
 }
 
-private struct CalendarWeekdayHeader: View {
+struct CalendarWeekdayHeader: View {
     let weekdays: [String]
     let weekdayColor: (String) -> Color
 

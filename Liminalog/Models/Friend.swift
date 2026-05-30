@@ -53,6 +53,7 @@ final class Friend {
     var monthScore: Double = 0
     var yearScore: Double = 0
     var streakCount: Int = 0
+    var sharedPlansJSON: String = "[]"
     var lastSeenAt: Date?
     var acceptedAt: Date?
     var blockedAt: Date?
@@ -108,6 +109,7 @@ final class Friend {
         self.monthScore = 0
         self.yearScore = 0
         self.streakCount = 0
+        self.sharedPlansJSON = "[]"
         self.lastSeenAt = nil
         self.acceptedAt = status == .accepted ? now : nil
         self.blockedAt = status == .blocked ? now : nil
@@ -130,6 +132,116 @@ final class Friend {
         case .year:
             yearScore
         }
+    }
+
+    var sharedPlans: [FriendSharedPlanSnapshot] {
+        guard let data = sharedPlansJSON.data(using: .utf8),
+              let plans = try? JSONDecoder.liminalog.decode([FriendSharedPlanSnapshot].self, from: data)
+        else { return [] }
+        return plans
+    }
+
+    func setSharedPlans(_ plans: [FriendSharedPlanSnapshot]) {
+        guard let data = try? JSONEncoder.liminalog.encode(plans),
+              let json = String(data: data, encoding: .utf8)
+        else { return }
+        sharedPlansJSON = json
+        updatedAt = Date()
+    }
+}
+
+struct FriendSharedPlanSnapshot: Codable, Identifiable, Hashable {
+    var id: UUID
+    var title: String
+    var startTime: Date
+    var endTime: Date
+    var isAllDay: Bool
+    var isImportant: Bool
+    var categoryTitle: String
+    var categoryIconName: String
+    var categoryColorHex: String
+    var updatedAt: Date
+
+    init(
+        id: UUID = UUID(),
+        title: String,
+        startTime: Date,
+        endTime: Date,
+        isAllDay: Bool = false,
+        isImportant: Bool = false,
+        categoryTitle: String = "",
+        categoryIconName: String = "calendar",
+        categoryColorHex: String = "#2F80ED",
+        updatedAt: Date = Date()
+    ) {
+        self.id = id
+        self.title = title
+        self.startTime = startTime
+        self.endTime = endTime
+        self.isAllDay = isAllDay
+        self.isImportant = isImportant
+        self.categoryTitle = categoryTitle
+        self.categoryIconName = categoryIconName
+        self.categoryColorHex = categoryColorHex
+        self.updatedAt = updatedAt
+    }
+
+    init(plan: PlanBlock) {
+        self.id = plan.id
+        self.title = plan.title
+        self.startTime = plan.startTime
+        self.endTime = plan.endTime
+        self.isAllDay = plan.isAllDay
+        self.isImportant = plan.isImportant
+        self.categoryTitle = plan.category?.name ?? ""
+        self.categoryIconName = plan.category?.icon ?? "calendar"
+        self.categoryColorHex = plan.category?.colorHex ?? "#2F80ED"
+        self.updatedAt = plan.updatedAt
+    }
+
+    static func snapshots(from plans: [PlanBlock]) -> [FriendSharedPlanSnapshot] {
+        plans
+            .filter(\.isPublic)
+            .map(FriendSharedPlanSnapshot.init(plan:))
+            .sorted {
+                if $0.startTime == $1.startTime {
+                    return $0.updatedAt < $1.updatedAt
+                }
+                return $0.startTime < $1.startTime
+            }
+    }
+
+    var showsInCalendarAsImportant: Bool {
+        isAllDay || isImportant
+    }
+
+    var spansMultipleCalendarDays: Bool {
+        let calendar = Calendar.japanese
+        let startDay = calendar.startOfDay(for: startTime)
+        let endReference = isAllDay ? endTime.addingTimeInterval(-1) : endTime.addingTimeInterval(-0.001)
+        return !calendar.isDate(startDay, inSameDayAs: endReference)
+    }
+
+    func overlaps(day: Date) -> Bool {
+        let dayStart = Calendar.japanese.startOfDay(for: day)
+        let dayEnd = Calendar.japanese.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart
+        return startTime < dayEnd && endTime > dayStart
+    }
+}
+
+private extension JSONEncoder {
+    static var liminalog: JSONEncoder {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        return encoder
+    }
+}
+
+private extension JSONDecoder {
+    static var liminalog: JSONDecoder {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return decoder
     }
 }
 
