@@ -251,7 +251,7 @@ struct FriendsView: View {
                             RankingCard(entry: entry)
                         }
                         .buttonStyle(.plain)
-                        .disabled(entry.friend == nil)
+                        .allowsHitTesting(entry.friend != nil)
                     }
                 }
                 .padding(.vertical, 2)
@@ -467,12 +467,16 @@ private struct RankingCard: View {
         .padding(13)
         .background(
             RoundedRectangle(cornerRadius: 17)
-                .fill(entry.isMe ? Color(.tertiarySystemGroupedBackground) : Color(.secondarySystemGroupedBackground))
+                .fill(Color(.secondarySystemGroupedBackground))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 17)
-                .stroke(Color.primary.opacity(entry.isMe ? 0.16 : 0.06), lineWidth: 1)
+                .stroke(entryBorderColor, lineWidth: entry.isMe ? 1.4 : 1)
         )
+    }
+
+    private var entryBorderColor: Color {
+        entry.isMe ? entry.tint.opacity(0.5) : Color.primary.opacity(0.06)
     }
 
     private var rankBadge: some View {
@@ -2257,8 +2261,12 @@ private struct FriendRankingListRow: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.primary.opacity(0.06), lineWidth: 1)
+                .stroke(entryBorderColor, lineWidth: entry.isMe ? 1.3 : 1)
         )
+    }
+
+    private var entryBorderColor: Color {
+        entry.isMe ? entry.tint.opacity(0.5) : Color.primary.opacity(0.06)
     }
 
     private var rankLabel: some View {
