@@ -136,7 +136,7 @@ struct PlanCreateSheet: View {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(Color(.secondarySystemGroupedBackground))
                 .overlay(alignment: .bottom) {
-                    PlanEditorRhythmStrip(color: tint)
+                    DecorativeAccentStrip(color: tint)
                         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 }
         }
@@ -458,31 +458,6 @@ private struct PlanEditorStatusLabel: View {
             .font(.caption)
             .foregroundStyle(tint)
             .fixedSize(horizontal: false, vertical: true)
-    }
-}
-
-private struct PlanEditorRhythmStrip: View {
-    let color: Color
-
-    var body: some View {
-        HStack(spacing: 0) {
-            color.opacity(0.35)
-                .frame(width: 46)
-            Color.clear
-                .frame(width: 18)
-            color.opacity(0.18)
-                .frame(width: 72)
-            Color.clear
-                .frame(width: 28)
-            color.opacity(0.28)
-                .frame(width: 40)
-            Color.clear
-            color.opacity(0.22)
-                .frame(width: 84)
-        }
-        .frame(height: 5)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .opacity(0.85)
     }
 }
 

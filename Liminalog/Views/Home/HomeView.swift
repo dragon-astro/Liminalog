@@ -413,7 +413,7 @@ private struct YesterdayScoreCard: View {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(Color(.secondarySystemGroupedBackground))
                 .overlay(alignment: .bottom) {
-                    ReviewRhythmStrip(color: scoreColor)
+                    DecorativeAccentStrip(color: scoreColor)
                         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 }
                 .overlay(alignment: .topTrailing) {
@@ -528,31 +528,6 @@ private struct YesterdayChapterRibbon: View {
         let x = width * CGFloat(start.timeIntervalSince(dayBoundary.dayStart) / total)
         let segmentWidth = width * CGFloat(end.timeIntervalSince(start) / total)
         return (max(0, x), max(0, segmentWidth))
-    }
-}
-
-private struct ReviewRhythmStrip: View {
-    let color: Color
-
-    var body: some View {
-        HStack(spacing: 0) {
-            color.opacity(0.35)
-                .frame(width: 46)
-            Color.clear
-                .frame(width: 18)
-            color.opacity(0.18)
-                .frame(width: 72)
-            Color.clear
-                .frame(width: 28)
-            color.opacity(0.28)
-                .frame(width: 40)
-            Color.clear
-            color.opacity(0.22)
-                .frame(width: 84)
-        }
-        .frame(height: 5)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .opacity(0.85)
     }
 }
 

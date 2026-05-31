@@ -314,7 +314,7 @@ private struct ProfileHero: View {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(cardStyle.backgroundColor)
                 .overlay(alignment: .bottom) {
-                    ProfileHeroRhythmStrip(accentColor: cardStyle.stripColor(accentColor: accentColor))
+                    DecorativeAccentStrip(color: cardStyle.stripColor(accentColor: accentColor))
                         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 }
                 .overlay(alignment: .topTrailing) {
@@ -383,31 +383,6 @@ private struct EquippedBadgePill: View {
         .padding(.vertical, 4)
         .background(Color(hex: badge.tint).opacity(0.12), in: Capsule())
         .lineLimit(1)
-    }
-}
-
-private struct ProfileHeroRhythmStrip: View {
-    let accentColor: Color
-
-    var body: some View {
-        HStack(spacing: 0) {
-            accentColor.opacity(0.35)
-                .frame(width: 46)
-            Color.clear
-                .frame(width: 18)
-            accentColor.opacity(0.18)
-                .frame(width: 72)
-            Color.clear
-                .frame(width: 28)
-            accentColor.opacity(0.28)
-                .frame(width: 40)
-            Color.clear
-            accentColor.opacity(0.22)
-                .frame(width: 84)
-        }
-        .frame(height: 5)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .opacity(0.85)
     }
 }
 
@@ -710,8 +685,7 @@ struct ProfileMiniCardStyleView: View {
         RoundedRectangle(cornerRadius: 4, style: .continuous)
             .fill(style.backgroundColor)
             .overlay(alignment: .bottom) {
-                ProfileMiniRhythmStrip(accentColor: style.stripColor(accentColor: accentColor))
-                    .frame(height: 3)
+                DecorativeAccentStrip(color: style.stripColor(accentColor: accentColor), height: 7)
             }
             .overlay(alignment: .topTrailing) {
                 ProfileCardStyleMark(style: style, accentColor: accentColor)
@@ -724,27 +698,6 @@ struct ProfileMiniCardStyleView: View {
                     .stroke(style.borderColor(accentColor: accentColor), lineWidth: max(1, style.borderWidth))
             }
             .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-    }
-}
-
-struct ProfileMiniRhythmStrip: View {
-    let accentColor: Color
-
-    var body: some View {
-        GeometryReader { proxy in
-            HStack(spacing: 0) {
-                accentColor.opacity(0.35)
-                    .frame(width: proxy.size.width * 0.28)
-                Color.clear
-                    .frame(width: proxy.size.width * 0.1)
-                accentColor.opacity(0.18)
-                    .frame(width: proxy.size.width * 0.36)
-                Color.clear
-                accentColor.opacity(0.25)
-                    .frame(width: proxy.size.width * 0.16)
-            }
-            .frame(width: proxy.size.width, height: proxy.size.height, alignment: .leading)
-        }
     }
 }
 

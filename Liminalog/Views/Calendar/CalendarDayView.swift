@@ -150,7 +150,7 @@ struct CalendarDayView: View {
                 HStack(spacing: 7) {
                     DayHeaderPill(systemImage: "star.fill", text: "重要 \(importantPlans.count)", tint: Color.yellow)
                     DayHeaderPill(systemImage: "calendar.badge.clock", text: "予定 \(timedPlans.count)", tint: Color.accentColor)
-                    DayHeaderPill(systemImage: "waveform.path.ecg", text: compactRemainingDuration(scoreSummary.recordedDuration), tint: headerAccentColor)
+                    DayHeaderPill(systemImage: "stopwatch.fill", text: compactRemainingDuration(scoreSummary.recordedDuration), tint: headerAccentColor)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -174,7 +174,7 @@ struct CalendarDayView: View {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(Color(.secondarySystemGroupedBackground))
                 .overlay(alignment: .bottom) {
-                    CalendarDayRhythmStrip(color: headerAccentColor)
+                    DecorativeAccentStrip(color: headerAccentColor)
                         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 }
         }
@@ -512,31 +512,6 @@ private struct DayHeaderPill: View {
         .padding(.horizontal, 7)
         .frame(height: 24)
         .background(tint.opacity(0.12), in: Capsule())
-    }
-}
-
-private struct CalendarDayRhythmStrip: View {
-    let color: Color
-
-    var body: some View {
-        HStack(spacing: 0) {
-            color.opacity(0.35)
-                .frame(width: 46)
-            Color.clear
-                .frame(width: 18)
-            color.opacity(0.18)
-                .frame(width: 72)
-            Color.clear
-                .frame(width: 28)
-            color.opacity(0.28)
-                .frame(width: 40)
-            Color.clear
-            color.opacity(0.22)
-                .frame(width: 84)
-        }
-        .frame(height: 5)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .opacity(0.85)
     }
 }
 

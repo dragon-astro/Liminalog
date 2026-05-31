@@ -784,35 +784,10 @@ private struct FriendCardBackground: View {
         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
             .fill(cardStyle.backgroundColor)
             .overlay(alignment: .bottom) {
-                FriendCardRhythmStrip(accentColor: cardStyle.stripColor(accentColor: accentColor))
+                DecorativeAccentStrip(color: cardStyle.stripColor(accentColor: accentColor))
                     .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             }
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-    }
-}
-
-private struct FriendCardRhythmStrip: View {
-    let accentColor: Color
-
-    var body: some View {
-        HStack(spacing: 0) {
-            accentColor.opacity(0.35)
-                .frame(width: 46)
-            Color.clear
-                .frame(width: 18)
-            accentColor.opacity(0.18)
-                .frame(width: 72)
-            Color.clear
-                .frame(width: 28)
-            accentColor.opacity(0.28)
-                .frame(width: 40)
-            Color.clear
-            accentColor.opacity(0.22)
-                .frame(width: 84)
-        }
-        .frame(height: 5)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .opacity(0.85)
     }
 }
 

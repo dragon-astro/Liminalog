@@ -412,7 +412,7 @@ struct DashboardHeroCard: View {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(Color(.secondarySystemGroupedBackground))
                 .overlay(alignment: .bottom) {
-                    DashboardRhythmStrip(color: scoreColor)
+                    DecorativeAccentStrip(color: scoreColor)
                         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 }
                 .overlay(alignment: .topTrailing) {
@@ -525,31 +525,6 @@ struct DashboardHeroPill: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 9)
         .background(tint.opacity(0.11), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-    }
-}
-
-struct DashboardRhythmStrip: View {
-    let color: Color
-
-    var body: some View {
-        HStack(spacing: 0) {
-            color.opacity(0.35)
-                .frame(width: 48)
-            Color.clear
-                .frame(width: 18)
-            color.opacity(0.18)
-                .frame(width: 88)
-            Color.clear
-                .frame(width: 24)
-            color.opacity(0.28)
-                .frame(width: 44)
-            Color.clear
-            color.opacity(0.22)
-                .frame(width: 96)
-        }
-        .frame(height: 5)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .opacity(0.9)
     }
 }
 
@@ -915,7 +890,7 @@ struct HourRhythmCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            DashboardSectionHeader(title: "24時間リズム", systemImage: "waveform.path.ecg", tint: Color(hex: "#00A8A8"))
+            DashboardSectionHeader(title: "24時間リズム", systemImage: "chart.bar.fill", tint: Color(hex: "#00A8A8"))
 
             if chapters.isEmpty {
                 EmptyStatText(text: "時間帯ごとのリズムがここに育ちます")
