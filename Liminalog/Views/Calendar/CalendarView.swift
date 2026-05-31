@@ -1292,6 +1292,8 @@ private struct CalendarMonthWeekRow: View {
     private let calendar = Calendar.japanese
 
     var body: some View {
+        let placements = visibleMultiDayPlacements
+
         ZStack(alignment: .topLeading) {
             HStack(spacing: spacing) {
                 ForEach(dates, id: \.self) { date in
@@ -1302,7 +1304,7 @@ private struct CalendarMonthWeekRow: View {
                             date: date,
                             visibleMonth: visibleMonth,
                             importantPlans: importantPlans(on: date),
-                            reservedPlanRows: visibleMultiDayPlans.count,
+                            reservedPlanRows: reservedPlanRows(on: date, placements: placements),
                             scoreSummary: scoreSummary(on: date),
                             cellHeight: cellHeight
                         )
@@ -1312,15 +1314,15 @@ private struct CalendarMonthWeekRow: View {
             }
 
             GeometryReader { proxy in
-                ForEach(Array(visibleMultiDayPlans.enumerated()), id: \.element.id) { lane, plan in
-                    if let frame = segmentFrame(for: plan, in: proxy.size, lane: lane) {
+                ForEach(placements) { placement in
+                    if let frame = segmentFrame(for: placement, in: proxy.size) {
                         Button {
-                            onOpenDay(plan.startTime, plan.id)
+                            onOpenDay(placement.plan.startTime, placement.plan.id)
                         } label: {
                             CalendarMultiDayPlanBar(
-                                plan: plan,
-                                roundsLeading: roundsLeadingEdge(for: plan),
-                                roundsTrailing: roundsTrailingEdge(for: plan)
+                                plan: placement.plan,
+                                roundsLeading: roundsLeadingEdge(for: placement.plan),
+                                roundsTrailing: roundsTrailingEdge(for: placement.plan)
                             )
                         }
                         .buttonStyle(.plain)
@@ -1334,11 +1336,45 @@ private struct CalendarMonthWeekRow: View {
         .frame(height: cellHeight)
     }
 
-    private var visibleMultiDayPlans: [CalendarDisplayPlan] {
+    private var visibleMultiDayPlacements: [CalendarMultiDayPlacement] {
         let capacity = maxVisiblePlanRows
-        let plans = multiDayPlans
-        guard plans.count > capacity else { return plans }
-        return Array(plans.prefix(max(capacity, 0)))
+        guard capacity > 0 else { return [] }
+        return multiDayPlacements.filter { $0.lane < capacity }
+    }
+
+    private var multiDayPlacements: [CalendarMultiDayPlacement] {
+        let orderedPlans = multiDayPlans.compactMap { plan -> CalendarMultiDayPlacementSeed? in
+            guard let span = clippedSpan(for: plan) else { return nil }
+            return CalendarMultiDayPlacementSeed(plan: plan, startIndex: span.startIndex, endIndex: span.endIndex)
+        }
+        .sorted { lhs, rhs in
+            if lhs.startIndex != rhs.startIndex {
+                return lhs.startIndex < rhs.startIndex
+            }
+            if lhs.endIndex != rhs.endIndex {
+                return lhs.endIndex > rhs.endIndex
+            }
+            if lhs.plan.startTime != rhs.plan.startTime {
+                return lhs.plan.startTime < rhs.plan.startTime
+            }
+            return lhs.plan.createdAt < rhs.plan.createdAt
+        }
+
+        var laneEndIndices: [Int] = []
+        return orderedPlans.map { seed in
+            let lane = laneEndIndices.firstIndex { $0 <= seed.startIndex } ?? laneEndIndices.count
+            if lane == laneEndIndices.count {
+                laneEndIndices.append(seed.endIndex)
+            } else {
+                laneEndIndices[lane] = seed.endIndex
+            }
+            return CalendarMultiDayPlacement(
+                plan: seed.plan,
+                lane: lane,
+                startIndex: seed.startIndex,
+                endIndex: seed.endIndex
+            )
+        }
     }
 
     private var multiDayPlans: [CalendarDisplayPlan] {
@@ -1359,6 +1395,15 @@ private struct CalendarMonthWeekRow: View {
             }
     }
 
+    private func reservedPlanRows(on date: Date, placements: [CalendarMultiDayPlacement]) -> Int {
+        guard let weekStart = dates.first.map(calendar.startOfDay(for:)) else { return 0 }
+        let dayIndex = calendar.dateComponents([.day], from: weekStart, to: calendar.startOfDay(for: date)).day ?? 0
+        return (placements
+            .filter { $0.startIndex <= dayIndex && dayIndex < $0.endIndex }
+            .map(\.lane)
+            .max() ?? -1) + 1
+    }
+
     private func importantPlans(on date: Date) -> [CalendarDisplayPlan] {
         importantPlansByDay[calendar.startOfDay(for: date)] ?? []
     }
@@ -1367,7 +1412,17 @@ private struct CalendarMonthWeekRow: View {
         scoreSummariesByDay[calendar.startOfDay(for: date)] ?? CalendarDisplayScore(value: 0, hasData: false)
     }
 
-    private func segmentFrame(for plan: CalendarDisplayPlan, in size: CGSize, lane: Int) -> CGRect? {
+    private func segmentFrame(for placement: CalendarMultiDayPlacement, in size: CGSize) -> CGRect? {
+        let columnWidth = (size.width - spacing * 6) / 7
+        let columnCount = placement.endIndex - placement.startIndex
+        guard columnCount > 0 else { return nil }
+        let x = CGFloat(placement.startIndex) * (columnWidth + spacing) + 3
+        let width = CGFloat(columnCount) * columnWidth + CGFloat(columnCount - 1) * spacing - 6
+        let y = planListTop + CGFloat(placement.lane) * rowStride
+        return CGRect(x: x, y: y, width: max(width, 2), height: labelHeight)
+    }
+
+    private func clippedSpan(for plan: CalendarDisplayPlan) -> (startIndex: Int, endIndex: Int)? {
         guard let weekStart = dates.first.map(calendar.startOfDay(for:)),
               let lastDate = dates.last,
               let weekEnd = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: lastDate))
@@ -1375,15 +1430,12 @@ private struct CalendarMonthWeekRow: View {
             return nil
         }
 
-        let startIndex = max(0, calendar.dateComponents([.day], from: weekStart, to: max(calendar.startOfDay(for: plan.startTime), weekStart)).day ?? 0)
-        let endIndex = min(7, exclusiveDayIndex(for: min(plan.endTime, weekEnd), from: weekStart))
+        let clippedStart = max(calendar.startOfDay(for: plan.startTime), weekStart)
+        let clippedEnd = min(plan.endTime, weekEnd)
+        let startIndex = max(0, calendar.dateComponents([.day], from: weekStart, to: clippedStart).day ?? 0)
+        let endIndex = min(7, exclusiveDayIndex(for: clippedEnd, from: weekStart))
         guard endIndex > startIndex else { return nil }
-
-        let columnWidth = (size.width - spacing * 6) / 7
-        let x = CGFloat(startIndex) * (columnWidth + spacing) + 3
-        let width = CGFloat(endIndex - startIndex) * columnWidth + CGFloat(endIndex - startIndex - 1) * spacing - 6
-        let y = planListTop + CGFloat(lane) * rowStride
-        return CGRect(x: x, y: y, width: max(width, 2), height: labelHeight)
+        return (startIndex, endIndex)
     }
 
     private func exclusiveDayIndex(for end: Date, from weekStart: Date) -> Int {
@@ -1434,6 +1486,20 @@ private struct CalendarMonthWeekRow: View {
     private var rowStride: CGFloat {
         labelHeight + planRowSpacing
     }
+}
+
+private struct CalendarMultiDayPlacementSeed {
+    let plan: CalendarDisplayPlan
+    let startIndex: Int
+    let endIndex: Int
+}
+
+private struct CalendarMultiDayPlacement: Identifiable {
+    var id: UUID { plan.id }
+    let plan: CalendarDisplayPlan
+    let lane: Int
+    let startIndex: Int
+    let endIndex: Int
 }
 
 struct CalendarMonthDayCell: View {
@@ -1523,7 +1589,17 @@ struct CalendarMonthDayCell: View {
     }
 
     private var singleDayImportantPlans: [CalendarDisplayPlan] {
-        importantPlans.filter { !$0.spansMultipleCalendarDays }
+        importantPlans
+            .filter { !$0.spansMultipleCalendarDays }
+            .sorted { lhs, rhs in
+                if lhs.isAllDay != rhs.isAllDay {
+                    return lhs.isAllDay
+                }
+                if lhs.startTime != rhs.startTime {
+                    return lhs.startTime < rhs.startTime
+                }
+                return lhs.createdAt < rhs.createdAt
+            }
     }
 
     private var visibleImportantPlans: [CalendarDisplayPlan] {
