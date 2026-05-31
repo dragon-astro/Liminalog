@@ -150,7 +150,6 @@ struct CalendarDayView: View {
                 HStack(spacing: 7) {
                     DayHeaderPill(systemImage: "star.fill", text: "重要 \(importantPlans.count)", tint: Color.yellow)
                     DayHeaderPill(systemImage: "calendar.badge.clock", text: "予定 \(timedPlans.count)", tint: Color.accentColor)
-                    DayHeaderPill(systemImage: "stopwatch.fill", text: compactRemainingDuration(scoreSummary.recordedDuration), tint: headerAccentColor)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
