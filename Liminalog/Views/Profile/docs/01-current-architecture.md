@@ -256,7 +256,6 @@ Liminalog/
     ├── ChapterEdit/
     │   ├── ChapterCreateSheet.swift
     │   ├── ChapterEditSheet.swift
-    │   └── MoodPicker.swift
     ├── Dashboard/
     │   └── DashboardView.swift     (340行 — 全カード同居)
     ├── Friends/

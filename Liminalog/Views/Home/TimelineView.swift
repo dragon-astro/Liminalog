@@ -1403,9 +1403,6 @@ private struct TimelineEntryCard: View {
         if let note = entry.metadata.note, !note.isEmpty {
             items.append(("text.bubble", note))
         }
-        if let mood = entry.metadata.mood, !mood.isEmpty {
-            items.append(("face.smiling", mood))
-        }
         if let location = entry.metadata.locationName, !location.isEmpty {
             items.append(("mappin.and.ellipse", location))
         }

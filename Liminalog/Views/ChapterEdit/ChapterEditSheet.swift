@@ -11,7 +11,6 @@ struct ChapterEditSheet: View {
     @State private var startTime: Date = Date()
     @State private var endTime: Date? = nil
     @State private var note: String = ""
-    @State private var mood: String? = nil
     @State private var locationName: String = ""
     @State private var isPublic: Bool = true
     @State private var selectedCategory: Category? = nil
@@ -59,7 +58,7 @@ struct ChapterEditSheet: View {
                     }
 
                     if isTimeLocked {
-                        Label("前日以前の実績はスコア公平性のため、時間とカテゴリを変更できません。メモ・気分・場所は後から編集できます。", systemImage: "lock.fill")
+                        Label("前日以前の実績はスコア公平性のため、時間とカテゴリを変更できません。メモ・場所は後から編集できます。", systemImage: "lock.fill")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     } else if let validationMessage {
@@ -76,10 +75,6 @@ struct ChapterEditSheet: View {
 
                 Section("場所") {
                     TextField("場所名を追加...", text: $locationName)
-                }
-
-                Section("気分") {
-                    MoodPicker(selection: $mood)
                 }
 
                 Section("公開設定") {
@@ -127,7 +122,6 @@ struct ChapterEditSheet: View {
         startTime = chapter.startTime
         endTime = chapter.endTime
         note = chapter.note ?? ""
-        mood = chapter.mood
         locationName = chapter.locationName ?? ""
         isPublic = chapter.isPublic
         selectedCategory = chapter.category
@@ -158,7 +152,7 @@ struct ChapterEditSheet: View {
             endTime: endTime,
             category: selectedCategory,
             note: note,
-            mood: mood,
+            mood: chapter.mood,
             locationName: locationName,
             isPublic: isPublic
         ) else { return }

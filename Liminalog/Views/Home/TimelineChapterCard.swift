@@ -62,11 +62,6 @@ struct TimelineChapterCard: View {
                             .lineLimit(2)
                     }
 
-                    if let mood = chapter.mood {
-                        Text(mood)
-                            .font(.caption)
-                    }
-
                     if let location = chapter.locationName {
                         Label(location, systemImage: "mappin.and.ellipse")
                             .font(.caption)

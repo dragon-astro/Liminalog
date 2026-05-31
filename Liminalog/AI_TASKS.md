@@ -655,7 +655,7 @@ refactor: split plan store
 - [x] `ChapterStore.startChapter` からカテゴリ切替時の自動削除/自動リザレクトを撤去 <!-- 担当: Codex, 完了: 2026-05-24 -->
 - [x] スコア公平性のため、今日以前の時間つき予定は時間/カテゴリ/内容/削除をロックし、重要フラグ/メモ/公開設定だけ編集可能にする <!-- 担当: Codex, 完了: 2026-05-26 -->
 - [x] 時間未指定の重要予定 (`isAllDay == true`) はスコア対象外のため、過去日・今日・複数日またぎでも追加/編集/削除できる例外を追加 <!-- 担当: Codex, 完了: 2026-05-26 -->
-- [x] スコア公平性のため、前日以前の実績は時間/カテゴリ/削除をロックし、メモ/気分/場所/公開設定だけ編集可能にする <!-- 担当: Codex, 完了: 2026-05-26 -->
+- [x] スコア公平性のため、前日以前の実績は時間/カテゴリ/削除をロックし、メモ/場所/公開設定だけ編集可能にする <!-- 担当: Codex, 完了: 2026-05-26。2026-05-31: 気分UI廃止に伴い対象から除外 -->
 - [x] 実績の手動追加を今日の範囲に限定し、予定の新規追加を明日以降に限定する <!-- 担当: Codex, 完了: 2026-05-26 -->
 - [x] A→B→C の短時間切替でも A/B/C が別 Chapter として残るテストを追加 <!-- 担当: Codex, 完了: 2026-05-28 -->
 - [x] 手動追加・編集時に既存 Chapter と重複する実績を保存ブロックするロジックを追加 <!-- 担当: Codex, 理由: 時間範囲の重複判定, 完了: 2026-05-28 -->
@@ -683,7 +683,7 @@ refactor: split plan store
 - [x] `@AppStorage("timelineSelectedTab")` を追加し、初期値は実績 <!-- 担当: Codex, 完了: 2026-05-25 -->
 - [x] `TimelineEntryCard` を固定高さで実装（左外時刻レール、アイコン、カテゴリ名、予定通り表示、右側経過時間）<!-- 担当: Codex, 完了: 2026-05-25 -->
 - [x] カード左端にカテゴリカラーの細いバーを表示 <!-- 担当: Codex, 完了: 2026-05-25 -->
-- [x] 追記情報（メモ/気分/写真/場所）は固定高さ内で要約表示 <!-- 担当: Codex, 完了: 2026-05-25 -->
+- [x] 追記情報（メモ/写真/場所）は固定高さ内で要約表示 <!-- 担当: Codex, 完了: 2026-05-25。2026-05-31: 気分UI/表示は廃止 -->
 - [x] `TimelineGapCard` を空白時間カードとして追加。タップで `ChapterCreateSheet`（実績タブ時）/ `PlanCreateSheet`（予定タブ時）を開く。ギャップ先頭時刻をシートに渡す。`plus.circle` アイコンで追加可能を示す <!-- 担当: Codex→Claude, 完了: 2026-05-26 (方針変更: 2026-05-25 の「タップなし」から「タップで追加」へ変更) -->
 
 ### 課題5: バーとカードの連動
@@ -922,7 +922,7 @@ refactor: split plan store
 | 2026-05-26 | User | 方針変更: カレンダーからチャプターを記録できる必要はない。重要な予定は、時間未指定予定だけでなくタイムラインに入れる時間つき予定にも設定でき、時間が決まっている重要予定はカレンダーでも開始時間が見えるようにしたい |
 | 2026-05-26 | Codex | `PlanBlock.isImportant` を追加して `isAllDay` と分離。`PlanCreateSheet` に「重要な予定としてカレンダーに表示」トグルを追加し、時間つき重要予定は月カレンダー/日別重要予定エリアで開始時刻付き表示に変更。`CalendarDayView` からチャプター新規作成導線を撤去し、`TimelineView(allowsChapterCreation: false)` でカレンダー経由の記録作成を止めた |
 | 2026-05-26 | User | スコア公平性の方針確認: 前日までに組んだ予定と当日の実績でスコアを見るため、今日以前の予定や前日以前の実績時間は自由に変更できないようにしたい。メモ/振り返りは後から編集可。実績時間を後から修正するなら変更履歴が見える必要がある |
-| 2026-05-26 | Codex | 編集ロック実装。予定は明日以降のみ新規追加・内容/カテゴリ/時間/重要フラグ変更・削除可、今日以前はメモ/公開設定のみ可。実績は当日中のみ時間/カテゴリ/削除可、前日以前はメモ/気分/場所/公開設定のみ可。`ChapterStore` 側にも保存/削除ガードを追加し、UIだけでなくデータ層でも公平性を守る |
+| 2026-05-26 | Codex | 編集ロック実装。予定は明日以降のみ新規追加・内容/カテゴリ/時間/重要フラグ変更・削除可、今日以前はメモ/公開設定のみ可。実績は当日中のみ時間/カテゴリ/削除可、前日以前はメモ/場所/公開設定のみ可（2026-05-31に気分UI廃止へ更新）。`ChapterStore` 側にも保存/削除ガードを追加し、UIだけでなくデータ層でも公平性を守る |
 | 2026-05-26 | User | 日付をまたいで未来まで続く重要予定は、開始日が過ぎていると変更できないのが不便。時間未指定の重要予定はスコアに影響しないため、後から追加/削除できるようにしたい |
 | 2026-05-26 | Codex | 時間未指定の重要予定 (`isAllDay == true`) を編集ロックの例外に変更。過去日・今日・複数日またぎでも追加/編集/削除可能。時間つき予定はスコア対象なので従来通り今日以前はロックし、時間未指定予定を時間つきへ変換する場合も明日以降の日付でないと保存できない |
 | 2026-05-26 | User | 上記に伴い、時間指定の予定についても重要かどうかは後から切り替えられるようにしたい |
@@ -1005,6 +1005,7 @@ refactor: split plan store
 | 2026-05-31 | Codex | Claude §10.6 追加対応として、友達月カレンダーの並行UIスタックを正準 `CalendarMonthGrid` へ移行。`CalendarView.swift` に `CalendarDisplayPlan` / `CalendarDisplayScore` を追加し、自分の `PlanBlock` と友達の `FriendSharedPlanSnapshot` を同じ表示用データへ変換して月グリッド・日付セル・複数日バー・予定ラベル・スコアバッジを共通描画する構成にした。`FriendsView.swift` から `FriendSharedCalendarMonthGrid` / `FriendSharedCalendarWeekRow` / `FriendSharedCalendarDayCell` / `FriendSharedPlanLabel` / `FriendSharedMultiDayPlanBar` / `FriendCalendarContinuationShape` を削除。友達プロフィールカード右上のカレンダー/お気に入りボタンは44ptの標準タップ領域に広げ、前面レイヤーに出して導線を安定化。自己レビュー: 表示差分はデータ変換層のみで、編集不可の友達カレンダーも正準グリッドのread-only導線で問題なし。友達プロフィールHero/Stats/Collectionは自分用プロフィールと操作差（編集/共有 vs カレンダー/お気に入り/管理）が大きいため今回は無理に統合しない。検証: `git diff --check` 成功、`xcodebuild -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build-for-testing` 成功。ビルド済みアプリを `-LiminalogSeedDevData -LiminalogSeedDevFriends` で install/launch し、友達タブ→Mika詳細→プロフィールカード右上カレンダーから「Mikaのカレンダー」が開き、正準月グリッドで表示されることをスクリーンショット確認 |
 | 2026-05-31 | Codex | 全タブ軽量化リファクタリング。保険として作業前の `codex/phase0-next` を `666435c` まで push 済み、その地点から `codex/perf-all-tabs-refactor` を作成して実装。UI/UXは変えず、内部処理だけを対象にした。共通の `ScoreSnapshotLoader` を追加し、スコア計算用の Plan/Chapter fetch を日・週・月・年など必要な `DateInterval` に限定。`TimelineView` / `CalendarDayView` / `CurrentChapterCard` は日付範囲または active のみの `@Query` に変更。`DashboardView` は親の全件Queryをやめ、期間ページごとに範囲Query + `DashboardPeriodSnapshot` で集計を1回化。`ProfileView` は全Chapter/Planの常時購読と毎分再集計を撤去し、表示時に `ProfilePerformanceSnapshot` を作る方式へ変更（累計バッジ判定は従来どおり全履歴、スコア/ストリークは従来どおり365日ベース）。`FriendsView` は自分スコア計算を `ScoreSnapshotLoader` に寄せ、active Chapterだけを購読。`HomeView` は明日タブのgap判定を全予定Queryから範囲fetchへ変更。`Calendar.japanese` と `.map(Type.init(...))` 由来のActor isolation警告も解消。検証: `git diff --check` 成功、`xcodebuild -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build-for-testing` 成功。最新ビルドを `-LiminalogSeedDevData -LiminalogSeedDevFriends` でinstall/launchし、Today/カレンダー/統計はスクリーンショット確認、友達は `liminalog://friend-invite` 経由でFriendsView起動確認。`xcodebuild ... test` はビルド後のシミュレータ実行フェーズで出力が止まったため中断。未追跡の `icon-mockups/` と `名称未設定フォルダ/` は触らない |
 | 2026-05-31 | Codex | 画面の満足感・見やすさ改善として、Todayタブの「昨日」、カレンダーの1日表示、新しい予定追加画面をUI磨き込み。昨日タブは単なる数値カードではなく、スコアリング＋24時間リズムバー＋メトリックタイル＋カテゴリ比率で1日を受け取れる振り返り構成に変更。カレンダー1日表示は日付カード、スコアカード、重要予定カードの角丸・アクセント・情報密度を統一し、予定/重要/実績時間が視線に入りやすいよう整理。予定追加画面は標準 `Form` から専用カード型エディタへ変更し、上部プレビュー、カテゴリ色、時間/重要/公開状態のチップで「どんな予定を作っているか」が保存前に見えるようにした。保存条件・スコア公平性ロック・予定作成可否などの業務ロジックは既存のまま維持。検証: `git diff --check` 成功、`xcodebuild -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build-for-testing` 成功、シミュレータへinstall/launchしてToday画面が従来どおり表示されることをスクリーンショット確認 |
+| 2026-05-31 | Codex | チャプターの気分設定を廃止。`ChapterCreateSheet` / `ChapterEditSheet` から気分Sectionと `MoodPicker` を削除し、新規チャプターは `mood: nil` で保存する。既存Chapterの `mood` はDB互換のためモデルには残し、編集保存時も `chapter.mood` を保持して勝手に消さない。タイムラインカード/メタデータ表示からも気分を外し、補助情報はメモ・場所・公開状態中心へ整理。`ChapterStore` のロック文言、docs/08・docs/11、`liminalog_spec_v04.md` も「メモ/場所/公開設定」に更新 |
 
 ---
 

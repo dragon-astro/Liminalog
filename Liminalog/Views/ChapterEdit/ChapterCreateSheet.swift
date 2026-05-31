@@ -10,7 +10,6 @@ struct ChapterCreateSheet: View {
     @State private var endTime = Date()
     @State private var selectedCategory: Category?
     @State private var note = ""
-    @State private var mood: String?
     @State private var locationName = ""
     @State private var isPublic = true
 
@@ -62,10 +61,6 @@ struct ChapterCreateSheet: View {
 
                 Section("場所") {
                     TextField("場所名を追加...", text: $locationName)
-                }
-
-                Section("気分") {
-                    MoodPicker(selection: $mood)
                 }
 
                 Section("公開設定") {
@@ -142,7 +137,7 @@ struct ChapterCreateSheet: View {
             startTime: startTime,
             endTime: endTime,
             note: note,
-            mood: mood,
+            mood: nil,
             locationName: locationName,
             isPublic: isPublic
         ) else { return }

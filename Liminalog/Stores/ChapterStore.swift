@@ -256,7 +256,7 @@ final class ChapterStore {
     func saveChapter(_ chapter: Chapter, startTime: Date, endTime: Date?, category: Category?, note: String?, mood: String?, locationName: String?, isPublic: Bool) -> Bool {
         if isChapterTimeLocked(chapter, now: clock.now) {
             // 前日以前の実績はスコア公平性のため、時間とカテゴリを固定する。
-            // 振り返り用のメモ/気分/場所/公開設定だけ後から編集可能。
+            // 振り返り用のメモ/場所/公開設定だけ後から編集可能。
         } else {
             let validationEnd = endTime ?? clock.now
             guard startTime < validationEnd,
