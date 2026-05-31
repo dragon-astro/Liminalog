@@ -587,9 +587,13 @@ struct CalendarSettingsContent: View {
                 Toggle("太字", isOn: $planTitleBold)
             }
 
-            Section("過去の予定") {
-                Toggle("半透明に表示", isOn: $dimPastPlans)
+            Section {
+                Toggle("過去の予定を薄くする", isOn: $dimPastPlans)
                 Toggle("打ち消し線を入れる", isOn: $strikePastPlans)
+            } header: {
+                Text("過去の予定")
+            } footer: {
+                Text("薄くしない場合も、打ち消し線は個別に選べます。")
             }
         }
         .navigationTitle("表示形式")
