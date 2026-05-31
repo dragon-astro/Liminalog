@@ -49,81 +49,19 @@ struct PlanCreateSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("予定名") {
-                    TextField("例: ゼミ発表", text: $title)
-                        .disabled(isScheduleLocked)
+            ScrollView {
+                VStack(spacing: 14) {
+                    planPreviewCard
+                    planTitleCard
+                    categoryCard
+                    timeCard
+                    noteCard
+                    visibilityCard
                 }
-
-                Section("カテゴリ") {
-                    Button {
-                        showingCategoryPicker = true
-                    } label: {
-                        HStack(spacing: 12) {
-                            CategoryPreviewIcon(category: selectedCategory)
-
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(selectedCategory?.name ?? "カテゴリを選択")
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(.primary)
-                                Text(selectedCategorySetName)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-
-                            Spacer()
-
-                            Image(systemName: "chevron.right")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(.tertiary)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(isScheduleLocked)
-                }
-
-                Section("時間") {
-                    Toggle("重要な予定としてカレンダーに表示", isOn: $isImportant)
-                    Toggle("時間未指定", isOn: $isAllDay)
-                        .disabled(isScheduleLocked)
-                    if !isAllDay {
-                        DatePicker("開始", selection: $startTime, displayedComponents: [.date, .hourAndMinute])
-                            .disabled(isScheduleLocked)
-                        DatePicker("終了", selection: $endTime, in: startTime..., displayedComponents: [.date, .hourAndMinute])
-                            .disabled(isScheduleLocked)
-                    } else {
-                        DatePicker("開始日", selection: $startTime, displayedComponents: [.date])
-                            .disabled(isScheduleLocked)
-                        DatePicker("終了日", selection: $allDayEndDate, displayedComponents: [.date])
-                            .disabled(isScheduleLocked)
-                    }
-
-                    if isScheduleLocked {
-                        Label("今日以前の時間つき予定はスコア公平性のため、内容・カテゴリ・時間を変更できません。重要表示・メモ・公開設定は編集できます。", systemImage: "lock.fill")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    } else if !canPlaceSchedule {
-                        Label("予定は明日以降の日付にだけ追加できます。当日のスコアは前日までに組んだ予定を基準にします。", systemImage: "lock.fill")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    } else if let timeValidationMessage {
-                        Label(timeValidationMessage, systemImage: "exclamationmark.triangle.fill")
-                            .font(.caption)
-                            .foregroundStyle(.orange)
-                    }
-                }
-
-                Section("メモ") {
-                    TextField("メモを追加...", text: $note, axis: .vertical)
-                        .lineLimit(3...6)
-                }
-
-                Section("公開設定") {
-                    Toggle(isOn: $isPublic) {
-                        Label(isPublic ? "友達に見せる" : "自分だけ", systemImage: isPublic ? "eye" : "eye.slash")
-                    }
-                }
+                .padding(16)
+                .padding(.bottom, 30)
             }
+            .background(Color(.systemGroupedBackground))
             .navigationTitle(editingPlan == nil ? "予定を追加" : "予定を編集")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -158,12 +96,218 @@ struct PlanCreateSheet: View {
         }
     }
 
+    private var planPreviewCard: some View {
+        let tint = selectedTint
+        return VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top, spacing: 12) {
+                CategoryPreviewIcon(category: selectedCategory, size: 52)
+
+                VStack(alignment: .leading, spacing: 7) {
+                    Text(previewTitle)
+                        .font(.title3.weight(.bold))
+                        .foregroundStyle(.primary)
+                        .lineLimit(2)
+
+                    Text(previewTimeText)
+                        .font(.subheadline.monospacedDigit().weight(.semibold))
+                        .foregroundStyle(tint)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.78)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                Image(systemName: isImportant ? "star.fill" : "calendar")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(tint)
+                    .frame(width: 26, height: 26)
+                    .background(.ultraThinMaterial, in: Circle())
+            }
+
+            HStack(spacing: 8) {
+                PlanPreviewBadge(text: isAllDay ? "時間未指定" : "時間指定", systemImage: isAllDay ? "sun.max.fill" : "clock.fill", tint: tint)
+                PlanPreviewBadge(text: isPublic ? "共有" : "非公開", systemImage: isPublic ? "eye.fill" : "eye.slash.fill", tint: isPublic ? Color.green : Color.secondary)
+                if isImportant {
+                    PlanPreviewBadge(text: "重要", systemImage: "star.fill", tint: Color.yellow)
+                }
+            }
+        }
+        .padding(18)
+        .background {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color(.secondarySystemGroupedBackground))
+                .overlay(alignment: .bottom) {
+                    PlanEditorRhythmStrip(color: tint)
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                }
+        }
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(tint.opacity(0.24), lineWidth: 1)
+        )
+    }
+
+    private var planTitleCard: some View {
+        PlanEditorCard(tint: selectedTint) {
+            VStack(alignment: .leading, spacing: 10) {
+                PlanEditorSectionHeader(title: "予定名", systemImage: "text.cursor", tint: selectedTint)
+                TextField("例: ゼミ発表", text: $title)
+                    .font(.headline)
+                    .padding(.horizontal, 12)
+                    .frame(minHeight: 46)
+                    .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .disabled(isScheduleLocked)
+            }
+        }
+    }
+
+    private var categoryCard: some View {
+        PlanEditorCard(tint: selectedTint) {
+            VStack(alignment: .leading, spacing: 10) {
+                PlanEditorSectionHeader(title: "カテゴリ", systemImage: "square.grid.2x2.fill", tint: selectedTint)
+
+                Button {
+                    showingCategoryPicker = true
+                } label: {
+                    HStack(spacing: 12) {
+                        CategoryPreviewIcon(category: selectedCategory, size: 42)
+
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(selectedCategory?.name ?? "カテゴリを選択")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.primary)
+                            Text(selectedCategorySetName)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Spacer()
+
+                        Image(systemName: "chevron.right")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.tertiary)
+                    }
+                    .padding(12)
+                    .background(selectedTint.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .disabled(isScheduleLocked)
+            }
+        }
+    }
+
+    private var timeCard: some View {
+        PlanEditorCard(tint: selectedTint) {
+            VStack(alignment: .leading, spacing: 12) {
+                PlanEditorSectionHeader(title: "時間", systemImage: "clock.fill", tint: selectedTint)
+
+                Toggle(isOn: $isImportant) {
+                    Label("重要な予定", systemImage: "star.fill")
+                }
+                .tint(selectedTint)
+
+                Toggle(isOn: $isAllDay) {
+                    Label("時間未指定", systemImage: "sun.max.fill")
+                }
+                .tint(selectedTint)
+                .disabled(isScheduleLocked)
+
+                VStack(spacing: 10) {
+                    if !isAllDay {
+                        DatePicker("開始", selection: $startTime, displayedComponents: [.date, .hourAndMinute])
+                            .disabled(isScheduleLocked)
+                        DatePicker("終了", selection: $endTime, in: startTime..., displayedComponents: [.date, .hourAndMinute])
+                            .disabled(isScheduleLocked)
+                    } else {
+                        DatePicker("開始日", selection: $startTime, displayedComponents: [.date])
+                            .disabled(isScheduleLocked)
+                        DatePicker("終了日", selection: $allDayEndDate, displayedComponents: [.date])
+                            .disabled(isScheduleLocked)
+                    }
+                }
+                .padding(12)
+                .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+
+                validationStatus
+            }
+        }
+    }
+
+    private var noteCard: some View {
+        PlanEditorCard(tint: selectedTint) {
+            VStack(alignment: .leading, spacing: 10) {
+                PlanEditorSectionHeader(title: "メモ", systemImage: "note.text", tint: selectedTint)
+                TextField("メモを追加...", text: $note, axis: .vertical)
+                    .lineLimit(3...6)
+                    .padding(12)
+                    .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            }
+        }
+    }
+
+    private var visibilityCard: some View {
+        PlanEditorCard(tint: selectedTint) {
+            Toggle(isOn: $isPublic) {
+                PlanEditorSectionHeader(title: isPublic ? "友達に見せる" : "自分だけ", systemImage: isPublic ? "eye.fill" : "eye.slash.fill", tint: isPublic ? Color.green : Color.secondary)
+            }
+            .tint(selectedTint)
+        }
+    }
+
+    @ViewBuilder
+    private var validationStatus: some View {
+        if isScheduleLocked {
+            PlanEditorStatusLabel(
+                text: "今日以前の時間つき予定は、重要表示・メモ・公開設定のみ編集できます。",
+                systemImage: "lock.fill",
+                tint: .secondary
+            )
+        } else if !canPlaceSchedule {
+            PlanEditorStatusLabel(
+                text: "予定は明日以降の日付にだけ追加できます。",
+                systemImage: "lock.fill",
+                tint: .secondary
+            )
+        } else if let timeValidationMessage {
+            PlanEditorStatusLabel(
+                text: timeValidationMessage,
+                systemImage: "exclamationmark.triangle.fill",
+                tint: .orange
+            )
+        }
+    }
+
     private var selectedCategorySetName: String {
         guard let selectedCategory else { return "未選択" }
         if let set = categorySets.first(where: { $0.assignedIDs.contains(selectedCategory.id) }) {
             return "\(set.name) セット"
         }
         return "すべてのカテゴリ"
+    }
+
+    private var selectedTint: Color {
+        selectedCategory?.color ?? Color.accentColor
+    }
+
+    private var previewTitle: String {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? (editingPlan == nil ? "新しい予定" : "予定") : trimmed
+    }
+
+    private var previewTimeText: String {
+        let calendar = Calendar.current
+        if isAllDay {
+            let start = calendar.startOfDay(for: startTime)
+            let end = calendar.startOfDay(for: allDayEndDate)
+            if calendar.isDate(start, inSameDayAs: end) {
+                return "\(start.japaneseMonthDayShortWeekday) 終日"
+            }
+            return "\(start.japaneseMonthDayShortWeekday) - \(end.japaneseMonthDayShortWeekday)"
+        }
+
+        if calendar.isDate(startTime, inSameDayAs: endTime) {
+            return "\(startTime.japaneseMonthDayShortWeekday) \(startTime.shortTime) - \(endTime.shortTime)"
+        }
+        return "\(startTime.japaneseMonthDayShortWeekday) \(startTime.shortTime) - \(endTime.japaneseMonthDayShortWeekday) \(endTime.shortTime)"
     }
 
     private var canSave: Bool {
@@ -243,6 +387,102 @@ struct PlanCreateSheet: View {
         if didSave {
             dismiss()
         }
+    }
+}
+
+private struct PlanEditorCard<Content: View>: View {
+    let tint: Color
+    let content: Content
+
+    init(tint: Color, @ViewBuilder content: () -> Content) {
+        self.tint = tint
+        self.content = content()
+    }
+
+    var body: some View {
+        content
+            .padding(16)
+            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color(.secondarySystemGroupedBackground)))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(tint.opacity(0.1), lineWidth: 1)
+            )
+    }
+}
+
+private struct PlanEditorSectionHeader: View {
+    let title: String
+    let systemImage: String
+    let tint: Color
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: systemImage)
+                .font(.caption.weight(.bold))
+                .foregroundStyle(tint)
+                .frame(width: 24, height: 24)
+                .background(tint.opacity(0.12), in: Circle())
+            Text(title)
+                .font(.headline)
+        }
+    }
+}
+
+private struct PlanPreviewBadge: View {
+    let text: String
+    let systemImage: String
+    let tint: Color
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: systemImage)
+                .font(.caption2.weight(.bold))
+            Text(text)
+                .font(.caption2.weight(.bold))
+                .lineLimit(1)
+        }
+        .foregroundStyle(tint)
+        .padding(.horizontal, 8)
+        .frame(height: 24)
+        .background(tint.opacity(0.12), in: Capsule())
+    }
+}
+
+private struct PlanEditorStatusLabel: View {
+    let text: String
+    let systemImage: String
+    let tint: Color
+
+    var body: some View {
+        Label(text, systemImage: systemImage)
+            .font(.caption)
+            .foregroundStyle(tint)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+private struct PlanEditorRhythmStrip: View {
+    let color: Color
+
+    var body: some View {
+        HStack(spacing: 0) {
+            color.opacity(0.35)
+                .frame(width: 46)
+            Color.clear
+                .frame(width: 18)
+            color.opacity(0.18)
+                .frame(width: 72)
+            Color.clear
+                .frame(width: 28)
+            color.opacity(0.28)
+                .frame(width: 40)
+            Color.clear
+            color.opacity(0.22)
+                .frame(width: 84)
+        }
+        .frame(height: 5)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .opacity(0.85)
     }
 }
 
@@ -378,15 +618,16 @@ private struct PlanCategoryPickerSheet: View {
 
 private struct CategoryPreviewIcon: View {
     let category: Category?
+    var size: CGFloat = 38
 
     var body: some View {
         ZStack {
             Circle()
                 .fill((category?.color ?? Color(.systemGray3)).opacity(0.16))
-                .frame(width: 38, height: 38)
+                .frame(width: size, height: size)
 
             Image(systemName: category?.icon ?? "circle.dashed")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.system(size: max(15, size * 0.42), weight: .semibold))
                 .foregroundStyle(category?.color ?? .secondary)
         }
     }

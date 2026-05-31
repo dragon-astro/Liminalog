@@ -134,20 +134,26 @@ struct CalendarDayView: View {
                     shiftDay(-1)
                 } label: {
                     Image(systemName: "chevron.left")
-                        .frame(width: 36, height: 36)
+                        .font(.subheadline.weight(.bold))
+                        .frame(width: 34, height: 34)
+                        .background(Color(.tertiarySystemGroupedBackground), in: Circle())
                 }
                 .buttonStyle(.borderless)
             }
 
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 10) {
                 Text(headerTitle)
-                    .font(.title3.bold())
-                Text(daySummaryText)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(.title2.weight(.bold))
                     .lineLimit(1)
-                    .minimumScaleFactor(0.7)
+                    .minimumScaleFactor(0.8)
+
+                HStack(spacing: 7) {
+                    DayHeaderPill(systemImage: "star.fill", text: "重要 \(importantPlans.count)", tint: Color.yellow)
+                    DayHeaderPill(systemImage: "calendar.badge.clock", text: "予定 \(timedPlans.count)", tint: Color.accentColor)
+                    DayHeaderPill(systemImage: "waveform.path.ecg", text: compactRemainingDuration(scoreSummary.recordedDuration), tint: headerAccentColor)
+                }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             Spacer()
 
@@ -156,13 +162,26 @@ struct CalendarDayView: View {
                     shiftDay(1)
                 } label: {
                     Image(systemName: "chevron.right")
-                        .frame(width: 36, height: 36)
+                        .font(.subheadline.weight(.bold))
+                        .frame(width: 34, height: 34)
+                        .background(Color(.tertiarySystemGroupedBackground), in: Circle())
                 }
                 .buttonStyle(.borderless)
             }
         }
-        .padding(14)
-        .background(RoundedRectangle(cornerRadius: 12).fill(Color(.secondarySystemGroupedBackground)))
+        .padding(16)
+        .background {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color(.secondarySystemGroupedBackground))
+                .overlay(alignment: .bottom) {
+                    CalendarDayRhythmStrip(color: headerAccentColor)
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                }
+        }
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(headerAccentColor.opacity(0.14), lineWidth: 1)
+        )
     }
 
     private var planningDeadlineCard: some View {
@@ -199,35 +218,10 @@ struct CalendarDayView: View {
 
     private var scoreArea: some View {
         let summary = scoreSummary
-        return HStack(alignment: .center, spacing: 16) {
-            VStack(alignment: .leading, spacing: 4) {
-                Label("スコア", systemImage: "gauge.with.dots.needle.67percent")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                Text(summary.gradeText)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer(minLength: 12)
-
-            Text(scoreText(summary))
-                .font(.system(size: 54, weight: .bold, design: .rounded))
-                .foregroundStyle(scoreColor(summary))
-                .monospacedDigit()
-                .contentTransition(.numericText())
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-        }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 16)
-        .background(
-            RoundedRectangle(cornerRadius: 14)
-                .fill(scoreColor(summary).opacity(summary.plannedDuration > 0 ? 0.1 : 0.06))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 14)
-                .stroke(scoreColor(summary).opacity(summary.plannedDuration > 0 ? 0.2 : 0.1), lineWidth: 1)
+        return DayScoreCard(
+            summary: summary,
+            scoreText: scoreText(summary),
+            color: scoreColor(summary)
         )
         .accessibilityElement(children: .combine)
         .accessibilityLabel("スコア \(scoreText(summary)) \(summary.gradeText)")
@@ -235,12 +229,20 @@ struct CalendarDayView: View {
 
     private var importantPlanArea: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 7) {
+            HStack(spacing: 8) {
                 Image(systemName: "star.fill")
-                    .font(.caption.weight(.semibold))
+                    .font(.caption.weight(.bold))
                     .foregroundStyle(.yellow)
+                    .frame(width: 24, height: 24)
+                    .background(Color.yellow.opacity(0.14), in: Circle())
                 Text("重要な予定")
                     .font(.headline)
+                Spacer()
+                if !importantPlans.isEmpty {
+                    Text("\(importantPlans.count)")
+                        .font(.caption.monospacedDigit().weight(.bold))
+                        .foregroundStyle(.secondary)
+                }
             }
 
             if importantPlans.isEmpty {
@@ -287,7 +289,7 @@ struct CalendarDayView: View {
             }
         }
         .padding(14)
-        .background(RoundedRectangle(cornerRadius: 12).fill(Color(.secondarySystemGroupedBackground)))
+        .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color(.secondarySystemGroupedBackground)))
     }
 
     private var timelineArea: some View {
@@ -332,6 +334,10 @@ struct CalendarDayView: View {
 
     private var daySummaryText: String {
         "重要 \(importantPlans.count)件 / 時間つき予定 \(timedPlans.count)件"
+    }
+
+    private var headerAccentColor: Color {
+        importantPlans.first?.category?.color ?? scoreColor(scoreSummary)
     }
 
     private var headerTitle: String {
@@ -485,6 +491,165 @@ private struct DayNavigationGestureModifier: ViewModifier {
         } else {
             content
         }
+    }
+}
+
+private struct DayHeaderPill: View {
+    let systemImage: String
+    let text: String
+    let tint: Color
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: systemImage)
+                .font(.caption2.weight(.bold))
+            Text(text)
+                .font(.caption2.weight(.bold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+        }
+        .foregroundStyle(tint)
+        .padding(.horizontal, 7)
+        .frame(height: 24)
+        .background(tint.opacity(0.12), in: Capsule())
+    }
+}
+
+private struct CalendarDayRhythmStrip: View {
+    let color: Color
+
+    var body: some View {
+        HStack(spacing: 0) {
+            color.opacity(0.35)
+                .frame(width: 46)
+            Color.clear
+                .frame(width: 18)
+            color.opacity(0.18)
+                .frame(width: 72)
+            Color.clear
+                .frame(width: 28)
+            color.opacity(0.28)
+                .frame(width: 40)
+            Color.clear
+            color.opacity(0.22)
+                .frame(width: 84)
+        }
+        .frame(height: 5)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .opacity(0.85)
+    }
+}
+
+private struct DayScoreCard: View {
+    let summary: ScoreSummary
+    let scoreText: String
+    let color: Color
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 14) {
+            DayScoreRing(score: summary.totalScore, hasScore: summary.plannedDuration > 0, color: color)
+
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 7) {
+                    Image(systemName: "gauge.with.dots.needle.67percent")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(color)
+                        .frame(width: 22, height: 22)
+                        .background(color.opacity(0.14), in: Circle())
+
+                    Text("予定との重なり")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+
+                Text(summary.gradeText)
+                    .font(.title3.weight(.bold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.78)
+
+                HStack(spacing: 8) {
+                    DayScoreMetric(title: "予定", value: compactDuration(summary.plannedDuration), tint: Color.accentColor)
+                    DayScoreMetric(title: "一致", value: compactDuration(summary.matchedDuration), tint: color)
+                    DayScoreMetric(title: "実績", value: compactDuration(summary.recordedDuration), tint: Color(hex: "#6C5CE7"))
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(16)
+        .background {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color(.secondarySystemGroupedBackground))
+        }
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(color.opacity(summary.plannedDuration > 0 ? 0.28 : 0.12), lineWidth: 1)
+        )
+    }
+
+    private func compactDuration(_ seconds: TimeInterval) -> String {
+        let totalMinutes = max(Int(seconds / 60), 0)
+        let hours = totalMinutes / 60
+        let minutes = totalMinutes % 60
+        if hours > 0, minutes > 0 {
+            return "\(hours)h\(minutes)m"
+        }
+        if hours > 0 {
+            return "\(hours)h"
+        }
+        return "\(minutes)m"
+    }
+}
+
+private struct DayScoreRing: View {
+    let score: Double
+    let hasScore: Bool
+    let color: Color
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(Color(.tertiarySystemGroupedBackground), lineWidth: 10)
+
+            Circle()
+                .trim(from: 0, to: hasScore ? min(max(score / 100, 0), 1) : 0)
+                .stroke(color, style: StrokeStyle(lineWidth: 10, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+
+            VStack(spacing: 0) {
+                Text(hasScore ? "\(Int(score.rounded()))" : "--")
+                    .font(.system(size: 28, weight: .black, design: .rounded).monospacedDigit())
+                    .contentTransition(.numericText())
+                Text("pt")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(width: 88, height: 88)
+        .shadow(color: color.opacity(hasScore ? 0.2 : 0), radius: 10, y: 4)
+    }
+}
+
+private struct DayScoreMetric: View {
+    let title: String
+    let value: String
+    let tint: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title)
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.secondary)
+            Text(value)
+                .font(.caption.monospacedDigit().weight(.bold))
+                .foregroundStyle(tint)
+                .lineLimit(1)
+                .minimumScaleFactor(0.65)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 7)
+        .background(tint.opacity(0.1), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 }
 

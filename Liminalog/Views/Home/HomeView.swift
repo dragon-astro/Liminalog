@@ -279,18 +279,25 @@ private struct YesterdayReviewPage: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 14) {
-                YesterdayScoreCard(summary: scoreSummary)
+                YesterdayScoreCard(
+                    date: date,
+                    summary: scoreSummary,
+                    chapters: dayChapters,
+                    dayBoundary: dayBoundary,
+                    topCategory: topCategory
+                )
+                YesterdaySummaryStrip(
+                    chapterCount: dayChapters.count,
+                    recordedDuration: recordedDuration,
+                    publicCount: dayChapters.filter(\.isPublic).count,
+                    topCategory: topCategory?.category
+                )
+                YesterdayCategoryBreakdown(rows: categoryRows)
                 YesterdayInsightCard(
                     summary: scoreSummary,
                     chapterCount: dayChapters.count,
                     topCategoryName: topCategory?.category.name
                 )
-                YesterdaySummaryStrip(
-                    chapterCount: dayChapters.count,
-                    recordedDuration: recordedDuration,
-                    publicCount: dayChapters.filter(\.isPublic).count
-                )
-                YesterdayCategoryBreakdown(rows: categoryRows)
             }
             .padding(.horizontal, 16)
             .padding(.top, 12)
@@ -356,58 +363,196 @@ private struct YesterdayReviewPage: View {
 }
 
 private struct YesterdayScoreCard: View {
+    let date: Date
     let summary: ScoreSummary
+    let chapters: [Chapter]
+    let dayBoundary: DayBoundary
+    let topCategory: (category: Category, duration: TimeInterval)?
 
     var body: some View {
-        HStack(alignment: .center, spacing: 16) {
-            VStack(alignment: .leading, spacing: 6) {
-                Label("昨日のスコア", systemImage: "gauge.with.dots.needle.67percent")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                Text(summary.gradeText)
-                    .font(.headline.weight(.semibold))
-                    .foregroundStyle(scoreColor)
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top, spacing: 14) {
+                ReviewScoreRing(score: summary.totalScore, hasScore: summary.plannedDuration > 0, color: scoreColor)
+
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 7) {
+                        Image(systemName: "moon.stars.fill")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(scoreColor)
+                            .frame(width: 22, height: 22)
+                            .background(scoreColor.opacity(0.14), in: Circle())
+
+                        Text(date.japaneseMonthDayWeekday)
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+
+                    Text(summary.gradeText)
+                        .font(.title3.weight(.bold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.78)
+
+                    Text(heroSubtitle)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 2)
             }
 
-            Spacer(minLength: 12)
-
-            Text(scoreText)
-                .font(.system(size: 58, weight: .black, design: .rounded))
-                .foregroundStyle(scoreColor)
-                .monospacedDigit()
-                .lineLimit(1)
-                .minimumScaleFactor(0.65)
+            YesterdayChapterRibbon(
+                chapters: chapters,
+                dayBoundary: dayBoundary,
+                fallbackColor: scoreColor
+            )
         }
         .padding(18)
-        .background(
-            RoundedRectangle(cornerRadius: 18)
-                .fill(scoreColor.opacity(summary.plannedDuration > 0 ? 0.12 : 0.06))
-        )
+        .background {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color(.secondarySystemGroupedBackground))
+                .overlay(alignment: .bottom) {
+                    ReviewRhythmStrip(color: scoreColor)
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                }
+                .overlay(alignment: .topTrailing) {
+                    Image(systemName: "sparkles")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(scoreColor)
+                        .frame(width: 24, height: 24)
+                        .background(.ultraThinMaterial, in: Circle())
+                        .padding(16)
+                }
+        }
         .overlay(
-            RoundedRectangle(cornerRadius: 18)
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .stroke(scoreColor.opacity(summary.plannedDuration > 0 ? 0.22 : 0.1), lineWidth: 1)
         )
         .accessibilityElement(children: .combine)
     }
 
-    private var scoreText: String {
-        summary.plannedDuration > 0 ? "\(Int(summary.totalScore.rounded()))" : "-"
+    private var scoreColor: Color {
+        reviewScoreColor(summary)
     }
 
-    private var scoreColor: Color {
-        guard summary.plannedDuration > 0 else { return .secondary }
-        switch summary.totalScore {
-        case 85...:
-            return .green
-        case 65..<85:
-            return .teal
-        case 40..<65:
-            return .orange
-        case 1..<40:
-            return .red
-        default:
-            return .secondary
+    private var heroSubtitle: String {
+        if summary.plannedDuration == 0 {
+            if let topCategory {
+                return "\(topCategory.category.name)が一番長い昨日でした"
+            }
+            return "予定がある日ほど振り返りが育ちます"
         }
+        if let topCategory {
+            return "\(topCategory.category.name)を中心に過ごした1日"
+        }
+        return "予定と実績の重なりを振り返ります"
+    }
+}
+
+private struct ReviewScoreRing: View {
+    let score: Double
+    let hasScore: Bool
+    let color: Color
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(Color(.tertiarySystemGroupedBackground), lineWidth: 10)
+
+            Circle()
+                .trim(from: 0, to: hasScore ? min(max(score / 100, 0), 1) : 0)
+                .stroke(color, style: StrokeStyle(lineWidth: 10, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+
+            VStack(spacing: 0) {
+                Text(hasScore ? "\(Int(score.rounded()))" : "-")
+                    .font(.system(size: 30, weight: .black, design: .rounded).monospacedDigit())
+                Text("pt")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(width: 92, height: 92)
+        .shadow(color: color.opacity(hasScore ? 0.2 : 0), radius: 10, y: 4)
+    }
+}
+
+private struct YesterdayChapterRibbon: View {
+    let chapters: [Chapter]
+    let dayBoundary: DayBoundary
+    let fallbackColor: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            GeometryReader { proxy in
+                let width = proxy.size.width
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(Color(.tertiarySystemGroupedBackground))
+
+                    ForEach(chapters) { chapter in
+                        if let segment = segment(for: chapter, width: width) {
+                            Rectangle()
+                                .fill(chapter.category?.color ?? fallbackColor)
+                                .frame(width: max(segment.width, 2), height: 18)
+                                .offset(x: segment.x)
+                                .accessibilityHidden(true)
+                        }
+                    }
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            }
+            .frame(height: 18)
+
+            HStack {
+                Text("0")
+                Spacer()
+                Text("12")
+                Spacer()
+                Text("24")
+            }
+            .font(.caption2.monospacedDigit().weight(.semibold))
+            .foregroundStyle(.tertiary)
+            .accessibilityHidden(true)
+        }
+        .accessibilityLabel("昨日の24時間リズム")
+    }
+
+    private func segment(for chapter: Chapter, width: CGFloat) -> (x: CGFloat, width: CGFloat)? {
+        let end = min(chapter.endTime ?? dayBoundary.dayEnd, dayBoundary.dayEnd)
+        let start = max(chapter.startTime, dayBoundary.dayStart)
+        guard end > start else { return nil }
+        let total = dayBoundary.dayEnd.timeIntervalSince(dayBoundary.dayStart)
+        guard total > 0 else { return nil }
+        let x = width * CGFloat(start.timeIntervalSince(dayBoundary.dayStart) / total)
+        let segmentWidth = width * CGFloat(end.timeIntervalSince(start) / total)
+        return (max(0, x), max(0, segmentWidth))
+    }
+}
+
+private struct ReviewRhythmStrip: View {
+    let color: Color
+
+    var body: some View {
+        HStack(spacing: 0) {
+            color.opacity(0.35)
+                .frame(width: 46)
+            Color.clear
+                .frame(width: 18)
+            color.opacity(0.18)
+                .frame(width: 72)
+            Color.clear
+                .frame(width: 28)
+            color.opacity(0.28)
+                .frame(width: 40)
+            Color.clear
+            color.opacity(0.22)
+                .frame(width: 84)
+        }
+        .frame(height: 5)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .opacity(0.85)
     }
 }
 
@@ -418,8 +563,15 @@ private struct YesterdayInsightCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label("インサイト", systemImage: "sparkles")
-                .font(.headline)
+            HStack(spacing: 8) {
+                Image(systemName: "sparkles")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(Color.accentColor)
+                    .frame(width: 24, height: 24)
+                    .background(Color.accentColor.opacity(0.12), in: Circle())
+                Text("インサイト")
+                    .font(.headline)
+            }
 
             Text(message)
                 .font(.subheadline)
@@ -428,7 +580,7 @@ private struct YesterdayInsightCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
-        .background(RoundedRectangle(cornerRadius: 16).fill(Color(.secondarySystemGroupedBackground)))
+        .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color(.secondarySystemGroupedBackground)))
     }
 
     private var message: String {
@@ -459,12 +611,13 @@ private struct YesterdaySummaryStrip: View {
     let chapterCount: Int
     let recordedDuration: TimeInterval
     let publicCount: Int
+    let topCategory: Category?
 
     var body: some View {
         HStack(spacing: 10) {
-            ReviewMetricTile(title: "記録", value: "\(chapterCount)")
-            ReviewMetricTile(title: "合計", value: friendlyDuration(recordedDuration))
-            ReviewMetricTile(title: "公開", value: "\(publicCount)")
+            ReviewMetricTile(title: "記録", value: "\(chapterCount)", systemImage: "list.bullet.clipboard.fill", tint: Color(hex: "#6C5CE7"))
+            ReviewMetricTile(title: "合計", value: friendlyDuration(recordedDuration), systemImage: "clock.fill", tint: Color.accentColor)
+            ReviewMetricTile(title: "公開", value: "\(publicCount)", systemImage: "eye.fill", tint: topCategory?.color ?? Color(hex: "#27AE60"))
         }
     }
 }
@@ -472,20 +625,29 @@ private struct YesterdaySummaryStrip: View {
 private struct ReviewMetricTile: View {
     let title: String
     let value: String
+    let systemImage: String
+    let tint: Color
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            Text(title)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 8) {
+            Image(systemName: systemImage)
+                .font(.caption.weight(.bold))
+                .foregroundStyle(tint)
+                .frame(width: 22, height: 22)
+                .background(tint.opacity(0.12), in: Circle())
+
             Text(value)
                 .font(.headline.monospacedDigit())
                 .lineLimit(1)
                 .minimumScaleFactor(0.65)
+
+            Text(title)
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(13)
-        .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemGroupedBackground)))
+        .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color(.secondarySystemGroupedBackground)))
     }
 }
 
@@ -495,8 +657,15 @@ private struct YesterdayCategoryBreakdown: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("カテゴリ別")
-                    .font(.headline)
+                HStack(spacing: 8) {
+                    Image(systemName: "square.grid.2x2.fill")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(Color.accentColor)
+                        .frame(width: 24, height: 24)
+                        .background(Color.accentColor.opacity(0.12), in: Circle())
+                    Text("カテゴリ別")
+                        .font(.headline)
+                }
                 Spacer()
                 Text(rows.isEmpty ? "0件" : "\(rows.count)件")
                     .font(.caption.weight(.semibold))
@@ -504,32 +673,32 @@ private struct YesterdayCategoryBreakdown: View {
             }
 
             if rows.isEmpty {
-                Text("記録が入ると、昨日どこに時間を使ったかがここに出ます。")
+                Text("記録が入ると、どこに時間を使ったかがここに出ます。")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.vertical, 6)
             } else {
                 ForEach(rows.prefix(5), id: \.category.id) { row in
-                    YesterdayCategoryRow(row: row, maxDuration: maxDuration)
+                    YesterdayCategoryRow(row: row, totalDuration: totalDuration)
                 }
             }
         }
         .padding(16)
-        .background(RoundedRectangle(cornerRadius: 16).fill(Color(.secondarySystemGroupedBackground)))
+        .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color(.secondarySystemGroupedBackground)))
     }
 
-    private var maxDuration: TimeInterval {
-        max(rows.map(\.duration).max() ?? 1, 1)
+    private var totalDuration: TimeInterval {
+        max(rows.reduce(0) { $0 + $1.duration }, 1)
     }
 }
 
 private struct YesterdayCategoryRow: View {
     let row: (category: Category, duration: TimeInterval)
-    let maxDuration: TimeInterval
+    let totalDuration: TimeInterval
 
     var body: some View {
-        VStack(spacing: 7) {
+        VStack(spacing: 8) {
             HStack(spacing: 9) {
                 Image(systemName: row.category.icon ?? "circle.fill")
                     .font(.caption.weight(.bold))
@@ -542,23 +711,43 @@ private struct YesterdayCategoryRow: View {
                 Text(friendlyDuration(row.duration))
                     .font(.caption.monospacedDigit().weight(.semibold))
                     .foregroundStyle(.secondary)
+                Text("\(Int((share * 100).rounded()))%")
+                    .font(.caption2.monospacedDigit().weight(.bold))
+                    .foregroundStyle(row.category.color)
+                    .frame(width: 34, alignment: .trailing)
             }
 
             GeometryReader { proxy in
-                Capsule()
+                RoundedRectangle(cornerRadius: 3, style: .continuous)
                     .fill(row.category.color.opacity(0.16))
                     .overlay(alignment: .leading) {
-                        Capsule()
+                        RoundedRectangle(cornerRadius: 3, style: .continuous)
                             .fill(row.category.color)
-                            .frame(width: proxy.size.width * progress)
+                            .frame(width: proxy.size.width * share)
                     }
             }
-            .frame(height: 7)
+            .frame(height: 6)
         }
     }
 
-    private var progress: Double {
-        min(max(row.duration / maxDuration, 0), 1)
+    private var share: Double {
+        min(max(row.duration / totalDuration, 0), 1)
+    }
+}
+
+private func reviewScoreColor(_ summary: ScoreSummary) -> Color {
+    guard summary.plannedDuration > 0 else { return .secondary }
+    switch summary.totalScore {
+    case 85...:
+        return .green
+    case 65..<85:
+        return .teal
+    case 40..<65:
+        return .orange
+    case 1..<40:
+        return .red
+    default:
+        return .secondary
     }
 }
 
