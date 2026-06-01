@@ -1,11 +1,35 @@
 import SwiftUI
 import SwiftData
 
+private enum TodayPage: String, CaseIterable, Identifiable {
+    case yesterday
+    case today
+    case tomorrow
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .yesterday: "昨日"
+        case .today: "今日"
+        case .tomorrow: "明日"
+        }
+    }
+
+    var accessibilityLabel: String {
+        switch self {
+        case .yesterday: "昨日の振り返り"
+        case .today: "今日の記録"
+        case .tomorrow: "明日の予定"
+        }
+    }
+}
+
 struct HomeView: View {
     @Environment(ChapterStore.self) private var store
     @Environment(\.modelContext) private var modelContext
-    @State private var selectedPage: TodayPage = .today
-    @State private var scrolledPage: TodayPage? = .today
+    @State private var selectedPage: TodayPage = HomeView.defaultInitialTodayPage
+    @State private var scrolledPage: TodayPage? = HomeView.defaultInitialTodayPage
     @State private var editingChapter: Chapter? = nil
     @State private var showingAddSheet = false
     @State private var addSheetStart = Date()
@@ -74,8 +98,9 @@ struct HomeView: View {
             }
             .onAppear {
                 clock.start()
-                selectedPage = .today
-                scrolledPage = .today
+                let initialPage = debugInitialTodayPage
+                selectedPage = initialPage
+                scrolledPage = initialPage
                 store.seedDefaultCategorySetsIfNeeded()
                 store.syncLiveActivityWithActiveChapter()
                 refreshTomorrowCoverage()
@@ -90,7 +115,12 @@ struct HomeView: View {
     private func dayPage(_ page: TodayPage) -> some View {
         switch page {
         case .yesterday:
-            YesterdayReviewPage(date: yesterdayDate)
+            YesterdayReviewPage(date: yesterdayDate) {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.86)) {
+                    selectedPage = .tomorrow
+                    scrolledPage = .tomorrow
+                }
+            }
                 .id(dayID(for: yesterdayDate))
         case .today:
             TodayRecordPage(date: todayDate, editingChapter: $editingChapter)
@@ -134,29 +164,23 @@ struct HomeView: View {
         )
         tomorrowHasActionableGap = PlanCoverageSummary.make(date: tomorrowDate, plans: plans).hasActionableGap
     }
-}
 
-private enum TodayPage: String, CaseIterable, Identifiable {
-    case yesterday
-    case today
-    case tomorrow
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .yesterday: "昨日"
-        case .today: "今日"
-        case .tomorrow: "明日"
-        }
+    private var debugInitialTodayPage: TodayPage {
+        Self.defaultInitialTodayPage
     }
 
-    var accessibilityLabel: String {
-        switch self {
-        case .yesterday: "昨日の振り返り"
-        case .today: "今日の記録"
-        case .tomorrow: "明日の予定"
+    private static var defaultInitialTodayPage: TodayPage {
+        #if DEBUG
+        let arguments = ProcessInfo.processInfo.arguments
+        guard let index = arguments.firstIndex(of: "-LiminalogInitialTodayPage"),
+              arguments.indices.contains(index + 1),
+              let page = TodayPage(rawValue: arguments[index + 1]) else {
+            return .today
         }
+        return page
+        #else
+        return .today
+        #endif
     }
 }
 
@@ -255,9 +279,11 @@ private struct YesterdayReviewPage: View {
     @Query private var queriedPlans: [PlanBlock]
 
     let date: Date
+    let onPlanTomorrow: () -> Void
 
-    init(date: Date) {
+    init(date: Date, onPlanTomorrow: @escaping () -> Void) {
         self.date = date
+        self.onPlanTomorrow = onPlanTomorrow
         let boundary = DayBoundary(date: date, calendar: .japanese)
         let dayStart = boundary.dayStart
         let dayEnd = boundary.dayEnd
@@ -279,16 +305,15 @@ private struct YesterdayReviewPage: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 14) {
-                YesterdayScoreCard(
+                DailyReflectionCard(
                     date: date,
                     summary: scoreSummary,
                     chapters: dayChapters,
+                    plans: dayPlans,
                     dayBoundary: dayBoundary,
-                    topCategory: topCategory
-                )
-                YesterdaySummaryStrip(
-                    chapterCount: dayChapters.count,
-                    recordedDuration: recordedDuration
+                    categoryRows: categoryRows,
+                    recordedDuration: recordedDuration,
+                    onPlanTomorrow: onPlanTomorrow
                 )
                 YesterdayCategoryBreakdown(rows: categoryRows)
                 YesterdayInsightCard(
