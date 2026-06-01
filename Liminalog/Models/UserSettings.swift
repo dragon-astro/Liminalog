@@ -19,6 +19,7 @@ final class UserSettings {
     var calendarSyncEnabled: Bool = false
     var showCalendarOverlay: Bool = true
     var dashboardCardOrder: [String] = []
+    var dashboardHiddenCardKeys: [String] = []
     var createdAt: Date = Date()
     var updatedAt: Date = Date()
 

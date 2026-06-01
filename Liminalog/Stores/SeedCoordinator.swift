@@ -523,6 +523,9 @@ enum SeedCoordinator {
         if primary.dashboardCardOrder.isEmpty {
             primary.dashboardCardOrder = duplicate.dashboardCardOrder
         }
+        if primary.dashboardHiddenCardKeys.isEmpty {
+            primary.dashboardHiddenCardKeys = duplicate.dashboardHiddenCardKeys
+        }
         primary.showCalendarOverlay = primary.showCalendarOverlay || duplicate.showCalendarOverlay
         primary.defaultVisibility = newer(primary: primary, duplicate: duplicate).defaultVisibility
     }

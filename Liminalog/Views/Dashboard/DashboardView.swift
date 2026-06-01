@@ -5,6 +5,7 @@ struct DashboardView: View {
     @State private var period: DashboardPeriod = .week
     @State private var anchorDate = Date()
     @State private var isShowingPeriodPicker = false
+    @State private var isShowingCustomizeSheet = false
     @State private var clock = TickClock(interval: 60)
 
     var body: some View {
@@ -15,23 +16,37 @@ struct DashboardView: View {
                     .padding(.top, 12)
                     .padding(.bottom, 8)
 
-                Button {
-                    isShowingPeriodPicker = true
-                } label: {
-                    HStack(spacing: 6) {
-                        Text(period.displayRange(at: anchorDate, calendar: .japanese))
-                            .font(.subheadline.weight(.bold))
-                            .monospacedDigit()
-                        Image(systemName: "chevron.down")
-                            .font(.caption.weight(.bold))
+                HStack(spacing: 10) {
+                    Button {
+                        isShowingPeriodPicker = true
+                    } label: {
+                        HStack(spacing: 6) {
+                            Text(period.displayRange(at: anchorDate, calendar: .japanese))
+                                .font(.subheadline.weight(.bold))
+                                .monospacedDigit()
+                            Image(systemName: "chevron.down")
+                                .font(.caption.weight(.bold))
+                        }
+                        .foregroundStyle(.primary)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(Capsule().fill(Color(.secondarySystemGroupedBackground)))
+                        .contentShape(Capsule())
                     }
-                    .foregroundStyle(.primary)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
-                    .background(Capsule().fill(Color(.secondarySystemGroupedBackground)))
-                    .contentShape(Capsule())
+                    .buttonStyle(.plain)
+
+                    Button {
+                        isShowingCustomizeSheet = true
+                    } label: {
+                        Image(systemName: "slider.horizontal.3")
+                            .font(.subheadline.weight(.bold))
+                            .foregroundStyle(.primary)
+                            .frame(width: 36, height: 36)
+                            .background(Circle().fill(Color(.secondarySystemGroupedBackground)))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("カードを編集")
                 }
-                .buttonStyle(.plain)
                 .padding(.bottom, 10)
 
                 TabView(selection: $period) {
@@ -56,6 +71,9 @@ struct DashboardView: View {
             }
             .sheet(isPresented: $isShowingPeriodPicker) {
                 DashboardPeriodSelectionSheet(period: period, anchorDate: $anchorDate)
+            }
+            .sheet(isPresented: $isShowingCustomizeSheet) {
+                DashboardCustomizeSheet(period: period)
             }
         }
     }
@@ -117,8 +135,9 @@ struct DashboardPeriodContent: View {
     }
 
     private var cardKeys: [DashboardCardKey] {
-        DashboardCardKey.displayOrder(
+        DashboardCardKey.visibleDisplayOrder(
             from: settingsList.first?.dashboardCardOrder ?? [],
+            hiddenKeys: settingsList.first?.dashboardHiddenCardKeys ?? [],
             for: period
         )
     }

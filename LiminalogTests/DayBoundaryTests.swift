@@ -54,6 +54,7 @@ struct SeedCoordinatorTests {
         newer.calendarSyncEnabled = true
         newer.showCalendarOverlay = true
         newer.dashboardCardOrder = ["score", "heatmap"]
+        newer.dashboardHiddenCardKeys = ["recentTrend"]
         context.insert(older)
         context.insert(newer)
         try context.save()
@@ -71,6 +72,7 @@ struct SeedCoordinatorTests {
         #expect(merged.calendarSyncEnabled)
         #expect(merged.showCalendarOverlay)
         #expect(merged.dashboardCardOrder == ["score", "heatmap"])
+        #expect(merged.dashboardHiddenCardKeys == ["recentTrend"])
     }
 
     @Test("VisibilityPresetのbuilt-in seedを作成しbuiltInKey重複だけを統合する")
@@ -194,5 +196,30 @@ struct DashboardCardKeyTests {
         #expect(!order.contains(.timeOfDayTrend))
         #expect(order.first == .scoreTrend)
         #expect(order.contains(.hero))
+    }
+
+    @Test("非表示カードは除外しつつサマリーは残す")
+    func visibleDisplayOrderKeepsHeroAndDropsHiddenCards() {
+        let order = DashboardCardKey.visibleDisplayOrder(
+            from: [
+                "recentTrend",
+                "hero",
+                "metrics",
+                "scoreBreakdown"
+            ],
+            hiddenKeys: [
+                "hero",
+                "metrics",
+                "recentTrend",
+                "unknown"
+            ],
+            for: .week
+        )
+
+        #expect(order.first == .hero)
+        #expect(order.contains(.hero))
+        #expect(!order.contains(.metrics))
+        #expect(!order.contains(.recentTrend))
+        #expect(order.contains(.scoreBreakdown))
     }
 }
