@@ -109,7 +109,7 @@ struct TimelineView: View {
     var focusedPlanID: UUID?
     @Binding var editingChapter: Chapter?
 
-    // 24時間バーの現在時刻表示は粗くてよい（1分≒1px未満）。毎秒だとタイムライン全体の
+    // バーの現在時刻表示は粗くてよい（1分≒1px未満）。毎秒だとタイムライン全体の
     // 再構築が毎秒走りスワイプ等がカクつくため、60秒間隔にする。ライブの秒カウントは
     // CurrentChapterCard 側（軽量テキスト）が担当する。
     @State private var clock = TickClock(interval: 60)
@@ -221,14 +221,7 @@ struct TimelineView: View {
 
             timelineHeader
 
-            Picker("表示", selection: $selectedTabRawValue) {
-                ForEach(TimelineTab.allCases) { tab in
-                    Label(tab.label, systemImage: tab.systemImage)
-                        .tag(tab.rawValue)
-                }
-            }
-            .pickerStyle(.segmented)
-            .accessibilityLabel("タイムライン表示")
+            TimelineTabInlineToggle(selectedTabRawValue: $selectedTabRawValue)
 
             TimelineEntryList(
                 entries: selected,
@@ -476,14 +469,7 @@ struct SharedTimelineReadOnlyView: View {
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
 
-            Picker("表示", selection: $selectedTabRawValue) {
-                ForEach(TimelineTab.allCases) { tab in
-                    Label(tab.label, systemImage: tab.systemImage)
-                        .tag(tab.rawValue)
-                }
-            }
-            .pickerStyle(.segmented)
-            .accessibilityLabel("タイムライン表示")
+            TimelineTabInlineToggle(selectedTabRawValue: $selectedTabRawValue)
 
             TimelineEntryList(
                 entries: selectedEntries,
@@ -815,16 +801,6 @@ private struct DayOverviewBar: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                Image(systemName: "clock")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                Text("24時間バー")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                Spacer()
-            }
-
             VStack(spacing: 7) {
                 TimelineBarRow(
                     tab: .plan,
@@ -850,6 +826,45 @@ private struct DayOverviewBar: View {
             RoundedRectangle(cornerRadius: 12)
                 .fill(Color(.secondarySystemGroupedBackground))
         )
+    }
+}
+
+private struct TimelineTabInlineToggle: View {
+    @Binding var selectedTabRawValue: String
+
+    private var selectedTab: TimelineTab {
+        TimelineTab(rawValue: selectedTabRawValue) ?? .actual
+    }
+
+    var body: some View {
+        HStack(spacing: 18) {
+            ForEach(TimelineTab.allCases) { tab in
+                Button {
+                    selectedTabRawValue = tab.rawValue
+                } label: {
+                    VStack(spacing: 5) {
+                        HStack(spacing: 5) {
+                            Image(systemName: tab.systemImage)
+                                .font(.caption.weight(.semibold))
+                            Text(tab.label)
+                                .font(.subheadline.weight(selectedTab == tab ? .bold : .semibold))
+                        }
+                        .foregroundStyle(selectedTab == tab ? Color.primary : Color.secondary.opacity(0.76))
+
+                        Capsule()
+                            .fill(selectedTab == tab ? Color.accentColor : Color.clear)
+                            .frame(height: 2)
+                    }
+                    .fixedSize()
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(tab.label)
+                .accessibilityValue(selectedTab == tab ? "選択中" : "")
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("タイムライン表示")
     }
 }
 
