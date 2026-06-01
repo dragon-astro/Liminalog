@@ -186,7 +186,9 @@ struct ProfileView: View {
     }
 
     private func refreshPerformanceSnapshot() {
-        performanceSnapshot = ProfilePerformanceSnapshot.load(modelContext: modelContext, now: Date())
+        let snapshot = ProfilePerformanceSnapshot.load(modelContext: modelContext, now: Date())
+        performanceSnapshot = snapshot
+        UnlockStore(modelContext: modelContext).refresh(cumulativeScore: snapshot.totalEarnedScore)
     }
 
     private func saveProfile(_ draft: ProfileDraft) {

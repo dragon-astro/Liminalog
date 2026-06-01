@@ -215,28 +215,40 @@ public final class UserSettings {
 public final class UnlockItem {
     public var id: UUID = UUID()
     public var key: String = ""                    // "theme.spring" など識別子
-    public var kind: UnlockKind = .theme
+    public var kindRawValue: String = UnlockKind.theme.rawValue
     public var requiredCumulativeScore: Int = 0
     public var unlockedAt: Date? = nil             // nil = 未解放
     public var displayName: String = ""
+    public var systemImageName: String = "sparkles"
+    public var tintHex: String = "#C9A7FF"
+    public var targetID: String = ""               // 装着先カタログID
     public var thumbnailName: String? = nil
     public var sortOrder: Int = 0
+    public var isBuiltIn: Bool = true
+    public var createdAt: Date = Date()
+    public var updatedAt: Date = Date()
 
     public init() {}
 }
 
 public enum UnlockKind: String, Codable {
-    case theme         // 着せ替え
-    case iconFrame     // アイコンフレーム
+    case theme         // 着せ替えテーマ
+    case iconFrame     // プロフィール画像フレーム
+    case nameBadge     // 名前バッジ
+    case streakIcon    // ストリーク炎
+    case cardStyle     // プロフィールカード装飾
     case stamp         // スタンプ
     case appIcon       // アプリアイコン
+    case barStyle      // 24時間バー装飾
+    case cardTemplate  // デイリーカードテンプレート
 }
 ```
 
 **運用**
 - 初回起動時にマスター26件を seed
 - 累計スコア計算時に「未解放で `requiredCumulativeScore` を超えたもの」を `unlockedAt = Date()` で更新
-- 解放スケジュール（仕様書）は seed データで `requiredCumulativeScore` を逆算してハードコード
+- 解放スケジュール（仕様書）は seed データで `requiredCumulativeScore` を逆算してハードコード。現行は「合格ライン=60pt/日」を基準に、7日目から365日目まで26件を段階配置する
+- 解放済みアイテムは失効させない。長期離脱後も `unlockedAt` を保持し、次の未解放アイテムへの進捗だけを再計算する
 
 **マスターデータ管理**
 - `UnlockItem` は CloudKit 同期する（解放済み状態はデバイス横断で一貫）

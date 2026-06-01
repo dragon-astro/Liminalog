@@ -10,6 +10,7 @@ final class AppStores {
     let categorySetStore: CategorySetStore
     let planStore: PlanStore
     let scoreStore: ScoreStore
+    let unlockStore: UnlockStore
     let liveActivityCoordinator: LiveActivityCoordinator
     let chapterStore: ChapterStore
 
@@ -19,12 +20,14 @@ final class AppStores {
         let categorySetStore = CategorySetStore(modelContext: modelContext, categoryStore: categoryStore)
         let planStore = PlanStore(modelContext: modelContext, clock: clock)
         let scoreStore = ScoreStore(modelContext: modelContext, clock: clock)
+        let unlockStore = UnlockStore(modelContext: modelContext)
         let liveActivityCoordinator = LiveActivityCoordinator(categorySetStore: categorySetStore)
 
         self.categoryStore = categoryStore
         self.categorySetStore = categorySetStore
         self.planStore = planStore
         self.scoreStore = scoreStore
+        self.unlockStore = unlockStore
         self.liveActivityCoordinator = liveActivityCoordinator
         self.chapterStore = ChapterStore(
             modelContext: modelContext,
@@ -40,6 +43,7 @@ final class AppStores {
     func bootstrap() -> ChapterStore {
         SeedCoordinator.ensureUserSettings(in: modelContext)
         SeedCoordinator.consolidateBuiltInVisibilityPresets(in: modelContext)
+        unlockStore.seedMasterItems()
         #if DEBUG
         let shouldSeedDevFriends = UserDefaults.standard.bool(forKey: "LiminalogSeedDevFriends")
             || ProcessInfo.processInfo.arguments.contains("-LiminalogSeedDevFriends")

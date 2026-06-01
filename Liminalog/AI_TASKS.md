@@ -501,11 +501,11 @@ refactor: split plan store
 
 ### 7.3 アンロックシステム
 
-- [ ] `UnlockItem` モデル定義 <!-- 担当: Codex, 理由: モデル + マスターデータ設計 -->
-- [ ] `UnlockRules` 純粋関数（累計スコア → 解放判定）<!-- 担当: Codex, 理由: ルール表とロジック -->
-- [ ] マスターデータ seed（26件・解放スケジュール逆算）<!-- 担当: Codex, 理由: 数値計算と整合性検証 -->
-- [ ] `UnlockRulesTests` <!-- 担当: Codex -->
-- [ ] `UnlockStore` 実装（解放トリガー・状態管理）<!-- 担当: Codex -->
+- [x] `UnlockItem` モデル定義 <!-- 担当: Codex, 完了: 2026-06-01。CloudKit互換のdefault値つきSwiftDataモデルとして key/kindRawValue/requiredCumulativeScore/unlockedAt/targetID/sortOrder を保持 -->
+- [x] `UnlockRules` 純粋関数（累計スコア → 解放判定）<!-- 担当: Codex, 完了: 2026-06-01。60pt/日を合格ラインとして7日目〜365日目の累計スコア閾値から解放key/次アイテム/進捗を算出 -->
+- [x] マスターデータ seed（26件・解放スケジュール逆算）<!-- 担当: Codex, 完了: 2026-06-01。週1×12、隔週×6、6〜9ヶ月×5、9〜12ヶ月×3の26件を `UnlockCatalog` に固定。解放後は失効しない -->
+- [x] `UnlockRulesTests` <!-- 担当: Codex, 完了: 2026-06-01。カタログ26件/閾値/seed重複統合/再評価で再解放・失効しないことを検証 -->
+- [x] `UnlockStore` 実装（解放トリガー・状態管理）<!-- 担当: Codex, 完了: 2026-06-01。起動時seed、プロフィール集計時の累計スコアrefresh、重複key統合、最古unlockedAt保持を実装 -->
 - [ ] プロフィール画面のアンロック進捗カード <!-- 担当: Claude -->
 - [ ] `UnlockGalleryView`（解放済みコレクション一覧）<!-- 担当: Claude -->
 - [ ] アンロック解放時の通知・お祝い演出 <!-- 担当: Claude, 理由: SwiftUIアニメ -->
@@ -797,6 +797,7 @@ refactor: split plan store
 
 | 日付 | 担当 | 内容 |
 |---|---|---|
+| 2026-06-01 | Codex | Phase 2 アンロック基盤を実装。`UnlockItem` を CloudKit 同期対象モデルに追加し、DEBUG開発ストア世代を `2026060103` へ更新。`UnlockCatalog` に装着可能アイテム26件をseedし、仕様書の1年解放ペースを「合格ライン60pt/日」から累計スコア閾値へ逆算。`UnlockRules` は累計スコアから解放key/次アイテム/進捗を算出し、`UnlockStore` は起動時seed、プロフィール集計時refresh、重複key統合、最古 `unlockedAt` 保持、解放後非失効を担う。docs/04 のモデル記述も実装に同期。プロフィール画面の進捗カード/Gallery/解放演出UIはClaude担当として残す。検証: `git diff --check` 成功、`xcodebuild test-without-building -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' -derivedDataPath /private/tmp/LiminalogDerivedData` 成功（57 tests / 15 suites）、`xcodebuild -scheme Liminalog -destination generic/platform=iOS -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功。 |
 | 2026-06-01 | Codex | Phase 2 Dashboard拡充の集計ロジックを追加。`DashboardTimeOfDaySummary` で朝(5:00-12:00)・昼(12:00-18:00)・夜(18:00-翌5:00)の実績時間割合と支配時間帯を算出し、日跨ぎ/active Chapter/期間クリップに対応。`DashboardPeriodDeltaSummary` で現期間と前期間の平均スコア、実績時間、予定時間、一致時間、スコア対象日数の差分と増減率を算出する。表示UI（時間帯別傾向/先週比差分バー）はClaude担当として残す。検証: `git diff --check` 成功、`xcodebuild test-without-building -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' -derivedDataPath /private/tmp/LiminalogDerivedData` 成功（52 tests / 14 suites）、`xcodebuild -scheme Liminalog -destination generic/platform=iOS -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功。 |
 | 2026-06-01 | Codex | ユーザー判断によりCSV書き出しをリリーススコープ外へ変更し、作成途中のCSVエクスポータ案は破棄。代わりにリリース品質の検証補強として `TimelineBarLayout` を追加し、24時間バーの位置/幅/アイコン閾値をテスト可能な純粋ロジックへ分離。`TimelineDisplayTests` で読み取り専用Timelineの前日跨ぎクリップ、短時間記録、5分未満gap抑制、バー位置計算を固定。既存のScoreCalculator日跨ぎテストもAI_TASKS上で完了扱いへ整理。検証: `git diff --check` 成功、`xcodebuild test-without-building -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' -derivedDataPath /private/tmp/LiminalogDerivedData` 成功（48 tests / 13 suites）、`xcodebuild -scheme Liminalog -destination generic/platform=iOS -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功。 |
 | 2026-06-01 | Codex | Phase 3 カテゴリマッピング基盤を実装。`FriendCategoryMapping` SwiftDataモデルを追加し、`LiminalogSchemaV1` / `SharedModelContainer` / Preview schema に登録、DEBUG開発ストア世代を `2026060102` へ更新。友達共有スナップショットには任意の `categoryID` を追加し、通常公開時はカテゴリ対応に使えるようにしつつ、`freeTimeOnly` の予定では categoryID も nil にして匿名化を維持。`FriendCategoryMappingResolver` で共有予定/実績からカテゴリ記述子を抽出し、同名のデフォルトカテゴリだけを自動マッピングする。docs/04のスナップショット実装メモも同期。多対一モデル保存、カテゴリ記述子抽出、自動マッピングが既存手動設定/カスタムカテゴリを上書きしないことをテスト化。検証: `xcodebuild test -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' -derivedDataPath /private/tmp/LiminalogDerivedData` 成功（44 tests / 12 suites）。手動マッピングUI、比較表示時のカラー統一スイッチ、未マッピング促しはClaude/UIタスクとして継続。 |
@@ -1199,8 +1200,8 @@ Claude 作業中のため、Codex は読み取り中心で進捗確認。ファ�
 | 2 | グリッドの「もっと見る」展開 UI（インライン / シート / フルスクリーン）| Phase 1 グリッド | 🟠 中 |
 | 3 | 公開設定「リアルタイム/翌日公開」の選択粒度（チャプター毎/日毎/プリセット毎）| Phase 3 公開設定 | 🟠 中 |
 | 4 | 「翌日公開」の配信タイミング（深夜0時固定 / ユーザーの1日始まり時間に従う）| Phase 3 公開設定 | 🟠 中 |
-| 5 | アンロックシステムの累計スコア閾値（解放スケジュール表から逆算でOK？）| Phase 2 アンロック | 🟠 中 |
-| 6 | アンロックアイテムの失効・離脱者の扱い | Phase 2 アンロック | 🟢 低 |
+| ~~5~~ | ~~アンロックシステムの累計スコア閾値（解放スケジュール表から逆算でOK？）~~ | ~~Phase 2 アンロック~~ | ✅ 解決 (2026-06-01): 60pt/日を合格ラインとして、仕様書の1年解放ペースから26件の累計スコア閾値を逆算 |
+| ~~6~~ | ~~アンロックアイテムの失効・離脱者の扱い~~ | ~~Phase 2 アンロック~~ | ✅ 解決 (2026-06-01): 解放後は失効させず、離脱後も `unlockedAt` を保持する |
 | 7 | ストリーク途切れの猶予（1日でも60%未満で即リセット？）| Phase 2 ストリーク | 🟠 中 |
 | 8 | リアクション絵文字パレットのカスタマイズ可否 | Phase 3 リアクション | 🟢 低 |
 | 9 | ランキング同点時のタイブレーク仕様 | Phase 3 ランキング | 🟢 低 |

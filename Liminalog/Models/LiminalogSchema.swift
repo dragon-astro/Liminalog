@@ -9,6 +9,7 @@ enum LiminalogSchemaV1: VersionedSchema {
             CategorySet.self,
             Chapter.self,
             PlanBlock.self,
+            UnlockItem.self,
             VisibilityPreset.self,
             UserSettings.self,
             Friend.self,

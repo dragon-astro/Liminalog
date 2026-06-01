@@ -5,7 +5,7 @@ import SwiftUI
 @MainActor
 enum PreviewSupport {
     static let container: ModelContainer = {
-        let schema = Schema([Category.self, CategorySet.self, Chapter.self, PlanBlock.self, VisibilityPreset.self, UserSettings.self, Friend.self, FriendCategoryMapping.self, CalendarEventCache.self])
+        let schema = Schema([Category.self, CategorySet.self, Chapter.self, PlanBlock.self, UnlockItem.self, VisibilityPreset.self, UserSettings.self, Friend.self, FriendCategoryMapping.self, CalendarEventCache.self])
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
         let container = try! ModelContainer(for: schema, configurations: [configuration])
         seed(in: container.mainContext)
@@ -38,6 +38,9 @@ enum PreviewSupport {
         settings.profileDisplayName = "Ryu"
         settings.profileBio = "切り替わる瞬間を記録中"
         context.insert(settings)
+        UnlockCatalog.items
+            .map { UnlockItem(seed: $0) }
+            .forEach(context.insert)
 
         let friends = [
             Friend(displayName: "Mika", handle: "@mika", status: .accepted, accentColorHex: "#27AE60", avatarSystemImage: "leaf.fill"),
