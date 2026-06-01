@@ -46,7 +46,7 @@ struct DashboardView: View {
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
             }
-            .background(Color(.systemGroupedBackground))
+            .background(LiminalTheme.canvasGradient)
             .toolbar(.hidden, for: .navigationBar)
             .onAppear {
                 clock.start()
@@ -894,7 +894,7 @@ struct HourRhythmCard: View {
                     HStack(alignment: .bottom, spacing: 3) {
                         ForEach(hourlyStats) { stat in
                             Capsule()
-                                .fill(stat.category?.color ?? Color(.tertiarySystemGroupedBackground))
+                                .fill(stat.category?.displayColor ?? Color(.tertiarySystemGroupedBackground))
                                 .frame(maxWidth: .infinity)
                                 .frame(height: max(7, 48 * stat.duration / maxDuration))
                                 .opacity(stat.duration > 0 ? 1 : 0.5)
@@ -989,9 +989,9 @@ struct RecentTrendCard: View {
                         HStack(spacing: 10) {
                             Image(systemName: chapter.category?.icon ?? "circle.fill")
                                 .font(.caption.weight(.bold))
-                                .foregroundStyle(chapter.category?.color ?? Color.secondary)
+                                .foregroundStyle(chapter.category?.displayColor ?? Color.secondary)
                                 .frame(width: 28, height: 28)
-                                .background((chapter.category?.color ?? Color.secondary).opacity(0.12), in: Circle())
+                                .background((chapter.category?.displayColor ?? Color.secondary).opacity(0.12), in: Circle())
 
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(chapter.category?.name ?? "未分類")
@@ -1129,7 +1129,7 @@ struct DashboardCategoryStat: Identifiable {
                 id: id,
                 name: category.name,
                 icon: category.icon ?? "circle.fill",
-                color: category.color,
+                color: category.displayColor,
                 duration: values.reduce(0) { $0 + $1.1 }
             )
         }

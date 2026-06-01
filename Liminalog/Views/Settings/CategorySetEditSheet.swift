@@ -31,7 +31,7 @@ struct CategorySetEditSheet: View {
                 .padding(.horizontal, 20)
                 .padding(.vertical, 16)
             }
-            .background(Color(.systemGroupedBackground))
+            .background(LiminalTheme.canvasGradient)
             .scrollDismissesKeyboard(.interactively)
             .navigationTitle(isNew ? "セットを追加" : "セットを編集")
             .navigationBarTitleDisplayMode(.inline)
@@ -348,7 +348,7 @@ private struct SlotCellLabel: View {
                 if let category {
                     Image(systemName: category.icon ?? "circle.fill")
                         .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(category.color)
+                        .foregroundStyle(category.displayColor)
                 } else {
                     Image(systemName: "plus")
                         .font(.system(size: 17, weight: .semibold))
@@ -372,14 +372,14 @@ private struct SlotCellLabel: View {
                 )
                 .background(
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(category?.color.opacity(0.08) ?? Color(.tertiarySystemGroupedBackground).opacity(0.5))
+                        .fill(category?.displayColor.opacity(0.08) ?? Color(.tertiarySystemGroupedBackground).opacity(0.5))
                 )
         )
         .contentShape(RoundedRectangle(cornerRadius: 12))
     }
 
     private var fillColor: Color {
-        category?.color.opacity(0.18) ?? Color(.tertiarySystemGroupedBackground)
+        category?.displayColor.opacity(0.18) ?? Color(.tertiarySystemGroupedBackground)
     }
 }
 
@@ -394,18 +394,18 @@ private struct CategoryPaletteItem: View {
             VStack(spacing: 6) {
                 ZStack(alignment: .topTrailing) {
                     Circle()
-                        .fill(category.color.opacity(isAssigned ? 0.24 : 0.14))
+                        .fill(category.displayColor.opacity(isAssigned ? 0.24 : 0.14))
                         .frame(width: 42, height: 42)
 
                     Image(systemName: category.icon ?? "circle.fill")
                         .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(category.color)
+                        .foregroundStyle(category.displayColor)
                         .frame(width: 42, height: 42)
 
                     if isAssigned {
                         Image(systemName: "checkmark.circle.fill")
                             .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(.white, category.color)
+                            .foregroundStyle(.white, category.displayColor)
                             .offset(x: 2, y: -2)
                     }
                 }

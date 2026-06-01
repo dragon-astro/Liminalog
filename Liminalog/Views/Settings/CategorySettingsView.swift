@@ -40,9 +40,9 @@ struct CategorySettingsView: View {
                                 ForEach(assignedCategories(for: set)) { category in
                                     Image(systemName: category.icon ?? "circle.fill")
                                         .font(.caption)
-                                        .foregroundStyle(category.color)
+                                        .foregroundStyle(category.displayColor)
                                         .frame(width: 22, height: 22)
-                                        .background(Circle().fill(category.color.opacity(0.12)))
+                                        .background(Circle().fill(category.displayColor.opacity(0.12)))
                                 }
                             }
                         }
@@ -70,10 +70,10 @@ struct CategorySettingsView: View {
                     } label: {
                         HStack(spacing: 12) {
                             Circle()
-                                .fill(category.color)
+                                .fill(category.displayColor)
                                 .frame(width: 20, height: 20)
                             Image(systemName: category.icon ?? "circle.fill")
-                                .foregroundStyle(category.color)
+                                .foregroundStyle(category.displayColor)
                                 .frame(width: 22)
                             Text(category.name)
                                 .foregroundStyle(.primary)

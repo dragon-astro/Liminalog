@@ -104,7 +104,7 @@ struct FriendsView: View {
                 .padding(.top, 14)
                 .padding(.bottom, 32)
             }
-            .background(Color(.systemGroupedBackground))
+            .background(LiminalTheme.canvasGradient)
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(item: $selectedFriend) { friend in
                 FriendDetailView(friend: friend)
@@ -588,7 +588,7 @@ private struct FriendRow: View {
             FriendSquareMetric(
                 title: friend.currentStatusTitle.isEmpty ? "オフ" : friend.currentStatusTitle,
                 systemImage: friend.currentStatusIcon,
-                tint: Color(hex: friend.currentStatusColorHex)
+                tint: Color.cachedDisplayHex(friend.currentStatusColorHex)
             )
 
             Image(systemName: "chevron.right")
@@ -829,7 +829,7 @@ private struct FriendDetailView: View {
             .padding(.top, 18)
             .padding(.bottom, 36)
         }
-        .background(Color(.systemGroupedBackground))
+        .background(LiminalTheme.canvasGradient)
         .navigationTitle(friend.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(isPresented: $isShowingCalendar) {
@@ -871,7 +871,7 @@ private struct FriendDetailView: View {
 
     private var statusCard: some View {
         HStack(spacing: 13) {
-            let statusColor = Color(hex: friend.currentStatusColorHex)
+            let statusColor = Color.cachedDisplayHex(friend.currentStatusColorHex)
             ZStack {
                 Circle()
                     .fill(statusColor.opacity(0.18))
@@ -894,11 +894,11 @@ private struct FriendDetailView: View {
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 18)
-                .fill(Color(hex: friend.currentStatusColorHex).opacity(0.1))
+                .fill(Color.cachedDisplayHex(friend.currentStatusColorHex).opacity(0.1))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 18)
-                .stroke(Color(hex: friend.currentStatusColorHex).opacity(0.22), lineWidth: 1)
+                .stroke(Color.cachedDisplayHex(friend.currentStatusColorHex).opacity(0.22), lineWidth: 1)
         )
     }
 
@@ -1190,7 +1190,7 @@ private struct FriendCalendarView: View {
                 handleScroll(to: newValue)
             }
         }
-        .background(Color(.systemGroupedBackground))
+        .background(LiminalTheme.canvasGradient)
         .navigationTitle("\(friend.displayName)のカレンダー")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showingMonthPicker) {
@@ -1551,7 +1551,7 @@ private struct FriendSharedCalendarDayView: View {
             }
             .padding(16)
         }
-        .background(Color(.systemGroupedBackground))
+        .background(LiminalTheme.canvasGradient)
         .modifier(FriendDayNavigationTitleModifier(isEnabled: showsNavigationTitle, title: date.japaneseMonthDayShortWeekday))
         .modifier(FriendDayNavigationGestureModifier(isEnabled: allowsDayNavigation, shiftDay: shiftDay(_:)))
     }
@@ -1698,9 +1698,9 @@ private struct FriendSharedPlanRow: View {
         HStack(spacing: 12) {
             Image(systemName: plan.categoryIconName)
                 .font(.headline.weight(.bold))
-                .foregroundStyle(Color(hex: plan.categoryColorHex))
+                .foregroundStyle(Color.cachedDisplayHex(plan.categoryColorHex))
                 .frame(width: 36, height: 36)
-                .background(Circle().fill(Color(hex: plan.categoryColorHex).opacity(0.14)))
+                .background(Circle().fill(Color.cachedDisplayHex(plan.categoryColorHex).opacity(0.14)))
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(plan.title)
@@ -1847,7 +1847,7 @@ private struct FriendSharedPlanSearchRow: View {
                     .monospacedDigit()
                 HStack(spacing: 6) {
                     Circle()
-                        .fill(Color(hex: plan.categoryColorHex))
+                        .fill(Color.cachedDisplayHex(plan.categoryColorHex))
                         .frame(width: 6, height: 6)
                     Text(plan.title)
                         .font(.subheadline.weight(.semibold))
@@ -1891,7 +1891,7 @@ private struct FriendAddSheet: View {
                 }
                 .padding(18)
             }
-            .background(Color(.systemGroupedBackground))
+            .background(LiminalTheme.canvasGradient)
             .navigationTitle("招待を受け取る")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -2018,7 +2018,7 @@ private struct FriendRankingListSheet: View {
                     .padding(.bottom, 24)
                 }
             }
-            .background(Color(.systemGroupedBackground))
+            .background(LiminalTheme.canvasGradient)
             .navigationTitle("ランキング")
             .navigationBarTitleDisplayMode(.inline)
             .sheet(isPresented: $isShowingPeriodPicker) {

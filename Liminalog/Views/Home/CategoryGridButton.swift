@@ -10,24 +10,24 @@ struct CategoryGridButton: View {
             VStack(spacing: 8) {
                 ZStack {
                     Circle()
-                        .fill(category.color.opacity(isActive ? 1.0 : 0.18))
+                        .fill(category.displayColor.opacity(isActive ? 1.0 : 0.18))
                         .frame(width: 42, height: 42)
 
                     if isActive {
                         Circle()
-                            .stroke(category.color, lineWidth: 2.5)
+                            .stroke(category.displayColor, lineWidth: 2.5)
                             .frame(width: 48, height: 48)
                     }
 
                     Image(systemName: category.icon ?? "circle.fill")
                         .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(isActive ? .white : category.color)
+                        .foregroundStyle(isActive ? .white : category.displayColor)
                 }
 
                 Text(category.name)
                     .font(.caption2)
                     .fontWeight(isActive ? .semibold : .regular)
-                    .foregroundStyle(isActive ? category.color : .primary)
+                    .foregroundStyle(isActive ? category.displayColor : .primary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
             }
@@ -36,7 +36,7 @@ struct CategoryGridButton: View {
             .background(
                 RoundedRectangle(cornerRadius: 14)
                     .fill(isActive
-                        ? category.color.opacity(0.1)
+                        ? category.displayColor.opacity(0.1)
                         : Color(.secondarySystemGroupedBackground))
             )
         }

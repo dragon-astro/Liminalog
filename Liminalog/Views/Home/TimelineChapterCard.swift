@@ -24,7 +24,7 @@ struct TimelineChapterCard: View {
             // Connector
             VStack(spacing: 0) {
                 Circle()
-                    .fill(chapter.category?.color ?? Color(.systemGray3))
+                    .fill(chapter.category?.displayColor ?? Color(.systemGray3))
                     .frame(width: 10, height: 10)
                     .padding(.top, 4)
                 Rectangle()
@@ -40,7 +40,7 @@ struct TimelineChapterCard: View {
                         if let cat = chapter.category {
                             Text(cat.name)
                                 .font(.subheadline.weight(.medium))
-                                .foregroundStyle(cat.color)
+                                .foregroundStyle(cat.displayColor)
                         }
                         Spacer()
                         if let duration = chapter.duration {
@@ -50,7 +50,7 @@ struct TimelineChapterCard: View {
                         } else {
                             Label("記録中", systemImage: "circle.fill")
                                 .font(.caption.bold())
-                                .foregroundStyle(chapter.category?.color ?? .accentColor)
+                                .foregroundStyle(chapter.category?.displayColor ?? .accentColor)
                                 .symbolEffect(.pulse)
                         }
                     }
@@ -77,7 +77,7 @@ struct TimelineChapterCard: View {
                 .overlay(alignment: .trailing) {
                     if let matchedPlan {
                         RoundedRectangle(cornerRadius: 2)
-                            .fill(matchedPlan.category?.color ?? Color(.systemGray3))
+                            .fill(matchedPlan.category?.displayColor ?? Color(.systemGray3))
                             .frame(width: 4)
                             .padding(.vertical, 8)
                             .padding(.trailing, 4)

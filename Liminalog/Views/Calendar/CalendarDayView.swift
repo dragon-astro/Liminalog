@@ -68,7 +68,7 @@ struct CalendarDayView: View {
             }
             .padding(contentPadding)
         }
-        .background(Color(.systemGroupedBackground))
+        .background(LiminalTheme.canvasGradient)
         .navigationBarBackButtonHidden()
         .toolbar {
             if showsNavigationControls {
@@ -339,7 +339,7 @@ struct CalendarDayView: View {
     }
 
     private var headerAccentColor: Color {
-        importantPlans.first?.category?.color ?? scoreColor(scoreSummary)
+        importantPlans.first?.category?.displayColor ?? scoreColor(scoreSummary)
     }
 
     private var headerTitle: String {
@@ -676,7 +676,7 @@ private struct ImportantPlanRow: View {
     }
 
     private var color: Color {
-        plan.category?.color ?? Color.accentColor
+        plan.category?.displayColor ?? Color.accentColor
     }
 
     private var dateRangeText: String {

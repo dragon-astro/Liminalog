@@ -61,7 +61,7 @@ struct PlanCreateSheet: View {
                 .padding(16)
                 .padding(.bottom, 30)
             }
-            .background(Color(.systemGroupedBackground))
+            .background(LiminalTheme.canvasGradient)
             .navigationTitle(editingPlan == nil ? "予定を追加" : "予定を編集")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -285,7 +285,7 @@ struct PlanCreateSheet: View {
     }
 
     private var selectedTint: Color {
-        selectedCategory?.color ?? Color.accentColor
+        selectedCategory?.displayColor ?? Color.accentColor
     }
 
     private var previewTitle: String {
@@ -537,7 +537,7 @@ private struct PlanCategoryPickerSheet: View {
                 }
                 .padding(16)
             }
-            .background(Color(.systemGroupedBackground))
+            .background(LiminalTheme.canvasGradient)
             .navigationTitle("カテゴリを選択")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -598,12 +598,12 @@ private struct CategoryPreviewIcon: View {
     var body: some View {
         ZStack {
             Circle()
-                .fill((category?.color ?? Color(.systemGray3)).opacity(0.16))
+                .fill((category?.displayColor ?? Color(.systemGray3)).opacity(0.16))
                 .frame(width: size, height: size)
 
             Image(systemName: category?.icon ?? "circle.dashed")
                 .font(.system(size: max(15, size * 0.42), weight: .semibold))
-                .foregroundStyle(category?.color ?? .secondary)
+                .foregroundStyle(category?.displayColor ?? .secondary)
         }
     }
 }
@@ -622,13 +622,13 @@ private struct CategoryGridPickCell: View {
 
                 Image(systemName: category?.icon ?? "plus")
                     .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(category?.color ?? Color(.tertiaryLabel))
+                    .foregroundStyle(category?.displayColor ?? Color(.tertiaryLabel))
                     .frame(width: 42, height: 42)
 
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.system(size: 15, weight: .bold))
-                        .foregroundStyle(.white, category?.color ?? Color.accentColor)
+                        .foregroundStyle(.white, category?.displayColor ?? Color.accentColor)
                         .offset(x: 4, y: -4)
                 }
             }
@@ -655,19 +655,19 @@ private struct CategoryGridPickCell: View {
     }
 
     private var fillColor: Color {
-        category?.color.opacity(isSelected ? 0.24 : 0.16) ?? Color(.tertiarySystemGroupedBackground)
+        category?.displayColor.opacity(isSelected ? 0.24 : 0.16) ?? Color(.tertiarySystemGroupedBackground)
     }
 
     private var backgroundColor: Color {
         if let category {
-            return category.color.opacity(isSelected ? 0.13 : 0.07)
+            return category.displayColor.opacity(isSelected ? 0.13 : 0.07)
         }
         return Color(.tertiarySystemGroupedBackground).opacity(0.55)
     }
 
     private var borderColor: Color {
         if let category {
-            return category.color.opacity(isSelected ? 0.72 : 0.18)
+            return category.displayColor.opacity(isSelected ? 0.72 : 0.18)
         }
         return Color(.separator).opacity(0.32)
     }

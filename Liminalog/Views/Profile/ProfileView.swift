@@ -141,7 +141,7 @@ struct ProfileView: View {
                 .padding(.top, 18)
                 .padding(.bottom, 36)
             }
-            .background(Color(.systemGroupedBackground))
+            .background(LiminalTheme.canvasGradient)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {

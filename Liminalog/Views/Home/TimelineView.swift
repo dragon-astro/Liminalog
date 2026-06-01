@@ -79,7 +79,7 @@ private struct TimelineEntry: Identifiable {
     let metadata: TimelineEntryMetadata
 
     var color: Color {
-        Color(hex: categoryColorHex)
+        Color.cachedDisplayHex(categoryColorHex)
     }
 
     var clippedDuration: TimeInterval {

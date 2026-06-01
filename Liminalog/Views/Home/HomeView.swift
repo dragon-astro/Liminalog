@@ -65,7 +65,7 @@ struct HomeView: View {
                 }
                 refreshTomorrowCoverage()
             }
-            .background(Color(.systemGroupedBackground))
+            .background(LiminalTheme.canvasGradient)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 if selectedPage == .today {
@@ -517,7 +517,7 @@ private struct YesterdayChapterRibbon: View {
                     ForEach(chapters) { chapter in
                         if let segment = segment(for: chapter, width: width) {
                             Rectangle()
-                                .fill(chapter.category?.color ?? fallbackColor)
+                                .fill(chapter.category?.displayColor ?? fallbackColor)
                                 .frame(width: max(segment.width, 2), height: 18)
                                 .offset(x: segment.x)
                                 .accessibilityHidden(true)
@@ -697,7 +697,7 @@ private struct YesterdayCategoryRow: View {
             HStack(spacing: 9) {
                 Image(systemName: row.category.icon ?? "circle.fill")
                     .font(.caption.weight(.bold))
-                    .foregroundStyle(row.category.color)
+                    .foregroundStyle(row.category.displayColor)
                     .frame(width: 18)
                 Text(row.category.name)
                     .font(.subheadline.weight(.semibold))
@@ -708,16 +708,16 @@ private struct YesterdayCategoryRow: View {
                     .foregroundStyle(.secondary)
                 Text("\(Int((share * 100).rounded()))%")
                     .font(.caption2.monospacedDigit().weight(.bold))
-                    .foregroundStyle(row.category.color)
+                    .foregroundStyle(row.category.displayColor)
                     .frame(width: 34, alignment: .trailing)
             }
 
             GeometryReader { proxy in
                 RoundedRectangle(cornerRadius: 3, style: .continuous)
-                    .fill(row.category.color.opacity(0.16))
+                    .fill(row.category.displayColor.opacity(0.16))
                     .overlay(alignment: .leading) {
                         RoundedRectangle(cornerRadius: 3, style: .continuous)
-                            .fill(row.category.color)
+                            .fill(row.category.displayColor)
                             .frame(width: proxy.size.width * share)
                     }
             }

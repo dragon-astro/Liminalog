@@ -60,7 +60,7 @@ struct CalendarView: View {
                     handleScroll(to: newValue)
                 }
             }
-            .background(Color(.systemGroupedBackground))
+            .background(LiminalTheme.canvasGradient)
             .toolbar(.hidden, for: .navigationBar)
             .sheet(isPresented: $showingMonthPicker) {
                 CalendarMonthPickerSheet(
@@ -1054,7 +1054,7 @@ private struct CalendarPlanSearchRow: View {
 
                 HStack(spacing: 6) {
                     Circle()
-                        .fill(plan.category?.color ?? Color.accentColor)
+                        .fill(plan.category?.displayColor ?? Color.accentColor)
                         .frame(width: 6, height: 6)
 
                     Text(plan.title)
@@ -1213,7 +1213,7 @@ struct CalendarDisplayPlan: Identifiable, Hashable {
     }
 
     var color: Color {
-        Color(hex: categoryColorHex)
+        Color.cachedDisplayHex(categoryColorHex)
     }
 
     var spansMultipleCalendarDays: Bool {

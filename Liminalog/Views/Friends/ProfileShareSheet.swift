@@ -15,7 +15,7 @@ struct ProfileShareSheet: View {
                 Spacer(minLength: 0)
             }
             .padding(18)
-            .background(Color(.systemGroupedBackground))
+            .background(LiminalTheme.canvasGradient)
             .navigationTitle("プロフィールをシェア")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

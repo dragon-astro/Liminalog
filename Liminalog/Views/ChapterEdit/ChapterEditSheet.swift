@@ -26,7 +26,7 @@ struct ChapterEditSheet: View {
                         ForEach(categories) { cat in
                             HStack {
                                 Circle()
-                                    .fill(cat.color)
+                                    .fill(cat.displayColor)
                                     .frame(width: 10, height: 10)
                                 Text(cat.name)
                             }
@@ -53,7 +53,7 @@ struct ChapterEditSheet: View {
                             Spacer()
                             Text("記録中")
                                 .font(.subheadline)
-                                .foregroundStyle(selectedCategory?.color ?? .accentColor)
+                                .foregroundStyle(selectedCategory?.displayColor ?? .accentColor)
                         }
                     }
 

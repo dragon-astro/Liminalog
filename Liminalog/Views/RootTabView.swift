@@ -42,6 +42,7 @@ struct RootTabView: View {
             }
         }
         .environment(\.locale, Locale(identifier: "ja_JP"))
+        .liminalAppChrome()
         .task {
             guard appStores == nil else { return }
             let initializedStores = AppStores(modelContext: modelContext)

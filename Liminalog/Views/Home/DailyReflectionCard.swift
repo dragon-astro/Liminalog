@@ -36,13 +36,13 @@ struct DailyReflectionCard: View {
             VStack(alignment: .leading, spacing: 10) {
                 Text(persona.title)
                     .font(.system(size: 30, weight: .heavy, design: .rounded))
-                    .foregroundStyle(LiminalPalette.text)
+                    .foregroundStyle(LiminalTheme.text)
                     .lineLimit(1)
                     .minimumScaleFactor(0.72)
 
                 Text(persona.message)
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(LiminalPalette.subtext)
+                    .foregroundStyle(LiminalTheme.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
@@ -67,13 +67,13 @@ struct DailyReflectionCard: View {
                     Image(systemName: "arrow.right")
                         .font(.caption.weight(.bold))
                 }
-                .foregroundStyle(LiminalPalette.text)
+                .foregroundStyle(LiminalTheme.text)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
                 .background(
                     Capsule(style: .continuous)
-                        .fill(LiminalPalette.glow.opacity(0.16))
-                        .overlay(Capsule(style: .continuous).stroke(LiminalPalette.glow.opacity(0.28), lineWidth: 1))
+                        .fill(LiminalTheme.primary.opacity(0.16))
+                        .overlay(Capsule(style: .continuous).stroke(LiminalTheme.primary.opacity(0.28), lineWidth: 1))
                 )
             }
             .buttonStyle(.plain)
@@ -82,18 +82,18 @@ struct DailyReflectionCard: View {
         .padding(20)
         .background {
             RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .fill(LiminalPalette.cardGradient)
+                .fill(LiminalTheme.cardGradient)
                 .overlay(LiminalGrainOverlay().clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous)))
                 .overlay(alignment: .topTrailing) {
                     Circle()
-                        .fill(LiminalPalette.dawn.opacity(0.26))
+                        .fill(LiminalTheme.dawn.opacity(0.26))
                         .frame(width: 180, height: 180)
                         .blur(radius: 46)
                         .offset(x: 62, y: -70)
                 }
                 .overlay(alignment: .bottomLeading) {
                     Circle()
-                        .fill(LiminalPalette.dusk.opacity(0.24))
+                        .fill(LiminalTheme.dusk.opacity(0.24))
                         .frame(width: 220, height: 220)
                         .blur(radius: 56)
                         .offset(x: -88, y: 86)
@@ -103,14 +103,14 @@ struct DailyReflectionCard: View {
             RoundedRectangle(cornerRadius: 26, style: .continuous)
                 .stroke(
                     LinearGradient(
-                        colors: [LiminalPalette.glow.opacity(0.52), .white.opacity(0.08), LiminalPalette.dusk.opacity(0.28)],
+                        colors: [LiminalTheme.primary.opacity(0.52), .white.opacity(0.08), LiminalTheme.dusk.opacity(0.28)],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     ),
                     lineWidth: 1
                 )
         )
-        .shadow(color: LiminalPalette.dusk.opacity(0.2), radius: 24, y: 14)
+        .shadow(color: LiminalTheme.dusk.opacity(0.2), radius: 24, y: 14)
         .accessibilityElement(children: .contain)
     }
 
@@ -119,11 +119,11 @@ struct DailyReflectionCard: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Liminalog")
                     .font(.caption.weight(.black))
-                    .foregroundStyle(LiminalPalette.glow)
+                    .foregroundStyle(LiminalTheme.primary)
                     .textCase(.uppercase)
                 Text(date.japaneseMonthDayWeekday)
                     .font(.subheadline.weight(.bold))
-                    .foregroundStyle(LiminalPalette.subtext)
+                    .foregroundStyle(LiminalTheme.secondaryText)
             }
 
             Spacer()
@@ -134,7 +134,7 @@ struct DailyReflectionCard: View {
                 Text(summary.plannedDuration > 0 ? "予定と実績" : "実績のみ")
                     .font(.caption.weight(.bold))
             }
-            .foregroundStyle(LiminalPalette.text.opacity(0.88))
+            .foregroundStyle(LiminalTheme.text.opacity(0.88))
             .padding(.horizontal, 10)
             .padding(.vertical, 7)
             .background(.white.opacity(0.08), in: Capsule(style: .continuous))
@@ -150,7 +150,7 @@ struct DailyReflectionCard: View {
             return DailyRingSegment(
                 start: start.timeIntervalSince(dayBoundary.dayStart),
                 duration: end.timeIntervalSince(start),
-                color: plan.category?.color ?? LiminalPalette.glow
+                color: plan.category?.displayColor ?? LiminalTheme.primary
             )
         }
     }
@@ -163,33 +163,10 @@ struct DailyReflectionCard: View {
             return DailyRingSegment(
                 start: start.timeIntervalSince(dayBoundary.dayStart),
                 duration: end.timeIntervalSince(start),
-                color: chapter.category?.color ?? LiminalPalette.glow
+                color: chapter.category?.displayColor ?? LiminalTheme.primary
             )
         }
     }
-}
-
-private enum LiminalPalette {
-    static let night = Color(hex: "#0D0B16")
-    static let card = Color(hex: "#17132A")
-    static let raised = Color(hex: "#1F1A38")
-    static let text = Color(hex: "#ECE8F5")
-    static let subtext = Color(hex: "#B5AECF")
-    static let glow = Color(hex: "#C9A7FF")
-    static let dawn = Color(hex: "#FFB3C7")
-    static let dusk = Color(hex: "#6B3FA0")
-    static let amber = Color(hex: "#FFE3A3")
-
-    static let cardGradient = LinearGradient(
-        colors: [
-            night,
-            card,
-            raised,
-            Color(hex: "#231B36")
-        ],
-        startPoint: .topLeading,
-        endPoint: .bottomTrailing
-    )
 }
 
 private struct DailyTwentyFourHourRing: View {
@@ -204,7 +181,7 @@ private struct DailyTwentyFourHourRing: View {
             Circle()
                 .fill(
                     RadialGradient(
-                        colors: [LiminalPalette.glow.opacity(0.22), .clear],
+                        colors: [LiminalTheme.primary.opacity(0.22), .clear],
                         center: .center,
                         startRadius: 20,
                         endRadius: 128
@@ -218,18 +195,18 @@ private struct DailyTwentyFourHourRing: View {
             VStack(spacing: 6) {
                 Image(systemName: persona.symbol)
                     .font(.system(size: 24, weight: .bold))
-                    .foregroundStyle(LiminalPalette.amber)
+                    .foregroundStyle(LiminalTheme.reward)
                     .frame(width: 48, height: 48)
                     .background(.white.opacity(0.08), in: Circle())
                     .overlay(Circle().stroke(.white.opacity(0.12), lineWidth: 1))
 
                 Text(hasScore ? "\(Int(score.rounded()))pt" : "-- pt")
                     .font(.system(size: 26, weight: .black, design: .rounded).monospacedDigit())
-                    .foregroundStyle(LiminalPalette.text)
+                    .foregroundStyle(LiminalTheme.text)
 
                 Text(hasScore ? "予定との重なり" : "予定なしの日")
                     .font(.caption2.weight(.bold))
-                    .foregroundStyle(LiminalPalette.subtext)
+                    .foregroundStyle(LiminalTheme.secondaryText)
             }
             .accessibilityElement(children: .combine)
         }
@@ -383,18 +360,18 @@ private struct DailyFactPill: View {
                 Text(title)
                     .font(.caption2.weight(.bold))
             }
-            .foregroundStyle(LiminalPalette.subtext)
+            .foregroundStyle(LiminalTheme.secondaryText)
 
             HStack(alignment: .firstTextBaseline, spacing: 2) {
                 Text(value)
                     .font(.subheadline.weight(.black).monospacedDigit())
-                    .foregroundStyle(LiminalPalette.text)
+                    .foregroundStyle(LiminalTheme.text)
                     .lineLimit(1)
                     .minimumScaleFactor(0.62)
                 if let suffix {
                     Text(suffix)
                         .font(.caption2.weight(.bold))
-                        .foregroundStyle(LiminalPalette.subtext)
+                        .foregroundStyle(LiminalTheme.secondaryText)
                 }
             }
         }
@@ -413,7 +390,7 @@ private struct DailyCategoryConstellation: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("昨日の色")
                 .font(.caption.weight(.black))
-                .foregroundStyle(LiminalPalette.subtext)
+                .foregroundStyle(LiminalTheme.secondaryText)
 
             HStack(spacing: 8) {
                 ForEach(rows, id: \.category.id) { row in
@@ -424,11 +401,11 @@ private struct DailyCategoryConstellation: View {
                             .font(.caption.weight(.bold))
                             .lineLimit(1)
                     }
-                    .foregroundStyle(LiminalPalette.text)
+                    .foregroundStyle(LiminalTheme.text)
                     .padding(.horizontal, 9)
                     .padding(.vertical, 7)
-                    .background(row.category.color.opacity(0.24), in: Capsule(style: .continuous))
-                    .overlay(Capsule(style: .continuous).stroke(row.category.color.opacity(0.42), lineWidth: 1))
+                    .background(row.category.displayColor.opacity(0.24), in: Capsule(style: .continuous))
+                    .overlay(Capsule(style: .continuous).stroke(row.category.displayColor.opacity(0.42), lineWidth: 1))
                 }
             }
         }

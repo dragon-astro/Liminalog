@@ -19,6 +19,7 @@ final class Category {
     var plans: [PlanBlock]? = []
 
     var color: Color { Color.cachedHex(colorHex) }
+    var displayColor: Color { Color.cachedDisplayHex(colorHex) }
 
     init() {}
 
