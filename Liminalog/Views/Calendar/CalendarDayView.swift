@@ -534,7 +534,7 @@ private struct DayScoreCard: View {
                         .frame(width: 22, height: 22)
                         .background(color.opacity(0.14), in: Circle())
 
-                    Text("予定との重なり")
+                    Text("予定と実績")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)

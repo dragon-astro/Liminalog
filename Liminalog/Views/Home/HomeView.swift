@@ -468,7 +468,7 @@ private struct YesterdayScoreCard: View {
         if let topCategory {
             return "\(topCategory.category.name)を中心に過ごした1日"
         }
-        return "予定と実績の重なりを振り返ります"
+        return "予定と実績を振り返ります"
     }
 }
 
