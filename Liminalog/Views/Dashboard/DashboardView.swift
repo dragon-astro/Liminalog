@@ -77,8 +77,9 @@ struct DashboardPeriodContent: View {
 
         let interval = period.dateInterval(containing: anchorDate, calendar: .japanese)
         self.interval = interval
-        let chapterLookbackStart = Calendar.japanese.date(byAdding: .day, value: -14, to: interval.start) ?? interval.start
-        let intervalStart = interval.start
+        let previousInterval = period.previousDateInterval(before: interval, calendar: .japanese)
+        let queryStart = min(previousInterval.start, interval.start)
+        let chapterLookbackStart = Calendar.japanese.date(byAdding: .day, value: -14, to: queryStart) ?? queryStart
         let intervalEnd = interval.end
         _queriedChapters = Query(
             filter: #Predicate<Chapter> {
@@ -88,7 +89,7 @@ struct DashboardPeriodContent: View {
         )
         _queriedPlans = Query(
             filter: #Predicate<PlanBlock> {
-                $0.startTime < intervalEnd && $0.endTime > intervalStart
+                $0.startTime < intervalEnd && $0.endTime > queryStart
             },
             sort: [SortDescriptor(\.startTime)]
         )
@@ -122,6 +123,10 @@ struct DashboardPeriodContent: View {
                 )
 
                 ScoreBreakdownCard(summary: snapshot.periodSummary)
+                if period == .week {
+                    DashboardTimeOfDayTrendCard(summary: snapshot.timeOfDaySummary)
+                    DashboardPeriodDeltaCard(summary: snapshot.periodDeltaSummary)
+                }
                 CategoryShareCard(chapters: snapshot.chapters)
                 HourRhythmCard(chapters: snapshot.chapters)
                 if period != .today {
@@ -143,6 +148,8 @@ private struct DashboardPeriodSnapshot {
     let recordedDayCount: Int
     let topCategoryStat: DashboardCategoryStat?
     let recentChapters: [Chapter]
+    let timeOfDaySummary: DashboardTimeOfDaySummary
+    let periodDeltaSummary: DashboardPeriodDeltaSummary
 
     init(
         period: DashboardPeriod,
@@ -157,6 +164,50 @@ private struct DashboardPeriodSnapshot {
         self.chapters = chapters
 
         let calendar = Calendar.japanese
+        let summaries = Self.scoreSummaries(
+            in: interval,
+            chapters: chapters,
+            plans: queriedPlans,
+            now: clockNow,
+            calendar: calendar
+        )
+        let previousInterval = period.previousDateInterval(before: interval, calendar: calendar)
+        let previousChapters = queriedChapters
+            .filter { $0.startTime < previousInterval.end && ($0.endTime ?? clockNow) > previousInterval.start }
+            .sorted { $0.startTime < $1.startTime }
+        let previousSummaries = Self.scoreSummaries(
+            in: previousInterval,
+            chapters: previousChapters,
+            plans: queriedPlans,
+            now: clockNow,
+            calendar: calendar
+        )
+
+        self.periodScoreSummaries = summaries
+        self.periodSummary = DashboardScoreAggregate(summaries: summaries)
+        self.totalDuration = chapters.reduce(0) { $0 + max(0, ($1.endTime ?? clockNow).timeIntervalSince($1.startTime)) }
+        self.recordedDayCount = Set(chapters.map { DayBoundary.dayStart(for: $0.startTime, calendar: calendar) }).count
+        self.topCategoryStat = DashboardCategoryStat.stats(from: chapters, now: clockNow).first
+        self.recentChapters = Array(chapters.sorted { $0.startTime > $1.startTime }.prefix(30))
+        self.timeOfDaySummary = DashboardTimeOfDaySummary.make(
+            chapters: chapters,
+            interval: interval,
+            calendar: calendar,
+            now: clockNow
+        )
+        self.periodDeltaSummary = DashboardPeriodDeltaSummary.make(
+            currentSummaries: summaries,
+            previousSummaries: previousSummaries
+        )
+    }
+
+    private static func scoreSummaries(
+        in interval: DateInterval,
+        chapters: [Chapter],
+        plans: [PlanBlock],
+        now: Date,
+        calendar: Calendar
+    ) -> [ScoreSummary] {
         var dates: [Date] = []
         var cursor = DayBoundary.dayStart(for: interval.start, calendar: calendar)
         while cursor < interval.end {
@@ -165,24 +216,18 @@ private struct DashboardPeriodSnapshot {
             cursor = next
         }
 
-        let summaries = dates.map { date in
+        return dates.map { date in
             let boundary = DayBoundary(date: date, calendar: calendar)
-            let dayPlans = queriedPlans.filter { $0.startTime < boundary.dayEnd && $0.endTime > boundary.dayStart }
-            let dayChapters = chapters.filter { $0.startTime < boundary.dayEnd && ($0.endTime ?? clockNow) > boundary.dayStart }
+            let dayPlans = plans.filter { $0.startTime < boundary.dayEnd && $0.endTime > boundary.dayStart }
+            let dayChapters = chapters.filter { $0.startTime < boundary.dayEnd && ($0.endTime ?? now) > boundary.dayStart }
             return ScoreCalculator.summary(
                 date: date,
                 plans: dayPlans,
                 chapters: dayChapters,
                 calendar: calendar,
-                now: clockNow
+                now: now
             )
         }
-        self.periodScoreSummaries = summaries
-        self.periodSummary = DashboardScoreAggregate(summaries: summaries)
-        self.totalDuration = chapters.reduce(0) { $0 + max(0, ($1.endTime ?? clockNow).timeIntervalSince($1.startTime)) }
-        self.recordedDayCount = Set(chapters.map { DayBoundary.dayStart(for: $0.startTime, calendar: calendar) }).count
-        self.topCategoryStat = DashboardCategoryStat.stats(from: chapters, now: clockNow).first
-        self.recentChapters = Array(chapters.sorted { $0.startTime > $1.startTime }.prefix(30))
     }
 }
 
@@ -757,6 +802,23 @@ enum DashboardPeriod: String, CaseIterable, Identifiable {
         }
     }
 
+    func previousDateInterval(before interval: DateInterval, calendar: Calendar = .current) -> DateInterval {
+        switch self {
+        case .today:
+            let start = calendar.date(byAdding: .day, value: -1, to: interval.start) ?? interval.start
+            return DateInterval(start: start, end: interval.start)
+        case .week:
+            let start = calendar.date(byAdding: .weekOfYear, value: -1, to: interval.start) ?? interval.start
+            return DateInterval(start: start, end: interval.start)
+        case .month:
+            let start = calendar.date(byAdding: .month, value: -1, to: interval.start) ?? interval.start
+            return DateInterval(start: start, end: interval.start)
+        case .year:
+            let start = calendar.date(byAdding: .year, value: -1, to: interval.start) ?? interval.start
+            return DateInterval(start: start, end: interval.start)
+        }
+    }
+
     func displayRange(at date: Date, calendar: Calendar = .current) -> String {
         switch self {
         case .today:
@@ -1159,7 +1221,7 @@ enum DashboardScorePalette {
     }
 }
 
-private func formatDashboardDuration(_ seconds: TimeInterval) -> String {
+func formatDashboardDuration(_ seconds: TimeInterval) -> String {
     let minutes = max(0, Int(seconds / 60))
     if minutes < 60 {
         return "\(minutes)分"

@@ -139,4 +139,20 @@ struct DashboardPeriodTests {
         #expect(year.start == calendar.date(from: DateComponents(year: 2026, month: 1, day: 1)))
         #expect(year.end == calendar.date(from: DateComponents(year: 2027, month: 1, day: 1)))
     }
+
+    @Test("前期間は現在期間の開始直前に揃う")
+    func previousIntervalsEndAtCurrentStart() throws {
+        var calendar = Calendar.liminalogTest
+        calendar.firstWeekday = 1
+        let date = try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 3, hour: 12)))
+        let week = DashboardPeriod.week.dateInterval(containing: date, calendar: calendar)
+        let previousWeek = DashboardPeriod.week.previousDateInterval(before: week, calendar: calendar)
+        let month = DashboardPeriod.month.dateInterval(containing: date, calendar: calendar)
+        let previousMonth = DashboardPeriod.month.previousDateInterval(before: month, calendar: calendar)
+
+        #expect(previousWeek.start == calendar.date(from: DateComponents(year: 2026, month: 5, day: 24)))
+        #expect(previousWeek.end == week.start)
+        #expect(previousMonth.start == calendar.date(from: DateComponents(year: 2026, month: 5, day: 1)))
+        #expect(previousMonth.end == month.start)
+    }
 }
