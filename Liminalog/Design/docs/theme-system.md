@@ -197,14 +197,17 @@ enum LiminalThemeCatalog {
       2026-06-02: 濃く輪郭を立てる方向から、白に馴染む薄い面 + 控えめなdividerへ再調整。
 - [~] `primary` / `reward` / `dawn` / `dusk` をライト背景で濁らない値へ調整する。特に reward が黄土色に沈む、dusk/primary の彩度差で安っぽく見える、下端の黄がラベンダーと割れる問題を潰す。
       2026-06-02: `reward` は曙の朝ライトとして使える柔らかい金へ寄せ、`liminalAccentLight(in:)` でDailyReflectionCardの要所だけに差す。
-- [ ] `text` / `secondaryText` / `tertiaryText` を曙専用に再確認し、淡い背景・プロフィールカード・チップ上で薄すぎないことを確認する。
-- [ ] `ProfileHero` / 装備カード / DailyReflectionCard / CurrentChapterCard / Dashboard hero をライトで撮影し、宵スクショと並べて「曙だけ読みにくい」「曙だけ平たい」箇所を潰す。
-- [ ] プロフィールカードはテーマ非連動の白固定に戻さない。カード背景・文字・プレビューは light/dark の両方で同じ装飾IDを保ちつつ、各テーマで読める色へ解決する。
+- [x] `text` / `secondaryText` / `tertiaryText` を曙専用に再確認し、淡い背景・プロフィールカード・チップ上で薄すぎないことを確認する。
+      2026-06-02: 主要タブの曙/宵スクショで本文・副本文・チップ文字の可読性を確認。
+- [x] `ProfileHero` / 装備カード / DailyReflectionCard / CurrentChapterCard / Dashboard hero をライトで撮影し、宵スクショと並べて「曙だけ読みにくい」「曙だけ平たい」箇所を潰す。
+      2026-06-02: 主要タブの曙/宵スクショを確認。名指し範囲では追加修正不要。
+- [x] プロフィールカードはテーマ非連動の白固定に戻さない。カード背景・文字・プレビューは light/dark の両方で同じ装飾IDを保ちつつ、各テーマで読める色へ解決する。
+      2026-06-02: ProfileHero light/darkで白固定・文字消え再発なしを確認。
 
 ### P2 — 横展開 + 文字/影
 **受け入れ条件: 全画面でグラデ直乗りの「輪郭なし半透明」が解消。**
 
-- [ ] 全画面監査: 「`canvasGradient` 上に直接置かれ、かつ内側に不透明カードを持たない」
+- [~] 全画面監査: 「`canvasGradient` 上に直接置かれ、かつ内側に不透明カードを持たない」
       半透明要素を洗い出す。**カード内（不透明 `Color(.secondarySystemGroupedBackground)` 等の上）の
       半透明はセーフなので触らない**（白地と同じ理屈で綺麗に出る）。
       - 確定済み対象: `CurrentChapterCard` の active リボン（§8 で対応済み）。
@@ -212,6 +215,7 @@ enum LiminalThemeCatalog {
         （`.ultraThinMaterial` / `.thinMaterial` の Circle はライトでは標準materialが効くので、
         まず実機で沈むか確認 → 沈むものだけ `liminalGlassFill` 化）。
   - 洗い出し結果を本docの末尾に表で追記してから着手すること。
+  - 2026-06-02: 主要タブ監査表を §8 に追加。深い詳細画面・作成編集Sheet・共有プレビューは継続。
 - [ ] `emphasis` / `effects` を必要箇所に配線（自前 `.opacity` で薄めている文字・影）。
       まずライトで「濃すぎ/薄すぎ」を実機判断 → treatment 値を詰める。
 
@@ -260,7 +264,22 @@ xcrun simctl io $SIM screenshot artifacts/<phase>-dark.png
 
 ---
 
-## 8. 先行実装済みの差分（このdocの起点・残すこと）
+## 8. 主要タブ監査ログ（P1.5/P2）
+
+| 画面 | 曙スクショ | 宵スクショ | 判定 |
+|---|---|---|---|
+| Today / CurrentChapterCard | `/private/tmp/liminalog-daybreak-today.png` | `/private/tmp/liminalog-dusk-today.png` | OK。activeリボン、カテゴリ、Timelineで曙だけ沈む箇所なし |
+| Yesterday / DailyReflectionCard | `/private/tmp/liminalog-daybreak-yesterday.png` | `/private/tmp/liminalog-dusk-yesterday.png` | OK。曙は白面+朝ライト、宵は黒面+ライトで成立 |
+| Profile / ProfileHero | `/private/tmp/liminalog-daybreak-profile.png` | `/private/tmp/liminalog-dusk-profile.png` | OK。プロフィールカード白固定/文字消えの再発なし |
+| Dashboard / hero | `/private/tmp/liminalog-daybreak-dashboard.png` | `/private/tmp/liminalog-dusk-dashboard.png` | OK。hero枠、period selector、metric tileの可読性に破綻なし |
+| Calendar / month grid | `/private/tmp/liminalog-daybreak-calendar.png` | `/private/tmp/liminalog-dusk-calendar.png` | OK。月グリッド、予定ラベル、選択枠の可読性に破綻なし |
+| Friends / list + ranking | `/private/tmp/liminalog-daybreak-friends.png` | `/private/tmp/liminalog-dusk-friends.png` | OK。一覧カード、カテゴリチップ、ランキングカードの可読性に破綻なし |
+
+未監査として残す範囲: 深い詳細画面（友達詳細/日別詳細）、作成編集Sheet、カスタマイズSheet、共有プレビュー。P2ではここを追加で洗い出す。
+
+---
+
+## 9. 先行実装済みの差分（このdocの起点・残すこと）
 
 Claude が P1 の一部を実機確認のため先行実装済み。**巻き戻さず、P1 で型経由に整理する**。
 
