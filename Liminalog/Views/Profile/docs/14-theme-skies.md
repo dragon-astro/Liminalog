@@ -40,17 +40,17 @@
 | primary（主役） | `#C9A7FF` |
 | reward（特別） | `#FFE3A3` |
 
-### 2.2 曙（Daybreak）＝ ライト標準（提案デフォルト・要美的調整）
+### 2.2 曙（Daybreak）＝ ライト標準（Claude 指定 hex）
 
 **淡い薔薇・ラベンダーの夜明け。臨床的な純白は使わない**（「春はあけぼの」）。ライトでも liminal を纏う。
-| 役割 | hex（提案） | 備考 |
+| 役割 | hex | 備考 |
 |---|---|---|
-| canvas | `#F6F1F7` | 淡いラベンダー寄りのオフホワイト（純白不使用） |
-| surface | `#FCF9FD` | わずかに持ち上げ |
-| elevated | `#FFFFFFEE`相当 / `#FEFCFE` | 影で立体（純白ベタは避ける） |
-| divider | `#E6DEEC` | |
+| canvas | `#F4EEF6` | 淡いラベンダー寄りのオフホワイト（純白不使用） |
+| surface | `#FBF6FB` | わずかに持ち上げ |
+| elevated | `#FEFAFE` | 影で立体（純白ベタは避ける） |
+| divider | `#E6DCEC` | |
 | text / secondary / tertiary | `#2A2440` / `#6A6388` / `#9A93B5` | テキストも深い twilight インク（純黒不使用） |
-| primary（主役） | `#7C4DD6` | **ライト地で contrast を持つ濃い菫**（ダークの `#C9A7FF` は明るすぎる） |
+| primary（主役） | `#7C4DD6` | ライト地で contrast を持つ濃い菫（ダークの `#C9A7FF` は明るすぎる） |
 | reward（特別） | `#C98A1E` | ライト地で映える濃い琥珀 |
 | dawn グラデ | `#FFE3EC` → `#EBDCFA` → `#FFF0CE` | 淡薔薇→ラベンダー→淡金 |
 
@@ -102,7 +102,43 @@ active パレット = (選択テーマ == デフォルト)
 | Afterglow | **残照（ざんしょう）** | 沈んだ後の温かい余光 |
 | Moonrise | **月白（つきしろ）** | 月が昇る前の青白い空 |
 
-（パレット具体値は実装時に各空ごと確定・要美的判断。全テーマで視認性正規化は共通）
+### 3.1 解放テーマの具体パレット（Claude 指定・品質バー）
+
+下記は最初の解放テーマ4種の hex。**この粒度・品質を全テーマの基準**にする（純黒/純白不使用・glow前提・全テーマ視認性正規化共通）。トークンは宵/曙と同じ（canvas/surface/elevated/divider/text/secondary/tertiary/primary/reward ＋ グラデ3点）。
+
+**黄昏（Twilight）＝ 世界観の象徴（茜と紫が溶ける境界）**
+| | hex |
+|---|---|
+| canvas / surface / elevated | `#160B16` / `#241127` / `#2E1733` |
+| text / secondary / tertiary | `#F3E6EE` / `#C2A6B8` / `#8A7388` |
+| primary / reward | `#E89ACB`（薔薇菫） / `#FFC98A`（残照の金） |
+| グラデ | `#3A1530` → `#6B2F55` → `#C9683E`（葡萄→ワイン→燠火） |
+
+**茜（Crimson）＝ 夕焼けの紅**
+| | hex |
+|---|---|
+| canvas / surface / elevated | `#170A0E` / `#2A1117` / `#341620` |
+| text / secondary / tertiary | `#F6E3E4` / `#C8A2A6` / `#8E7176` |
+| primary / reward | `#FF8FA3`（薔薇） / `#FFD08A`（金） |
+| グラデ | `#4A1320` → `#8C2A30` → `#E0743C`（紅→緋→橙） |
+
+**群青（Ultramarine）＝ 深い真夜中の青**
+| | hex |
+|---|---|
+| canvas / surface / elevated | `#08101F` / `#11203A` / `#172A48` |
+| text / secondary / tertiary | `#E6ECF7` / `#9FB0CC` / `#6E7E98` |
+| primary / reward | `#7FB0FF`（青光） / `#FFE3A3`（金） |
+| グラデ | `#0A1A3A` → `#1E3A6E` → `#3A6BB0`（紺→群青→空青） |
+
+**朧（Haze）＝ 霞んだ銀ラベンダー・朧月（dreamcore・レア上位）**
+| | hex |
+|---|---|
+| canvas / surface / elevated | `#12121C` / `#1E1E2C` / `#272736` |
+| text / secondary / tertiary | `#ECEAF2` / `#ADA9C2` / `#7C7892` |
+| primary / reward | `#BFC4E8`（淡periwinkle） / `#E8E0C8`（霞金） |
+| グラデ | `#2A2C40` → `#4A4C68` → `#8A86A8`（霧の階調） |
+
+（以降の空＝極光/暁/残照/月白 等は同粒度で運用追加。各 primary/reward は地に対しコントラスト基準 [13] §2.5 を満たすこと）
 
 ---
 
