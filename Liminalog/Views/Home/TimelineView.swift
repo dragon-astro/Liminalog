@@ -1359,11 +1359,13 @@ private struct TimelineEntryCard: View {
     }
 
     private var backgroundColor: Color {
+        // チャプター本来の色を出す。薄すぎると地のテーマ色が透けて見づらいので、
+        // 文字の視認性を保てる範囲で塗りを濃くする（予定は実績よりやや淡く＝意図 vs 現実）。
         switch entry.kind {
         case .plan:
-            return entry.color.opacity(0.06)
+            return entry.color.opacity(0.16)
         case .actual:
-            return entry.color.opacity(entry.isActive ? 0.15 : 0.08)
+            return entry.color.opacity(entry.isActive ? 0.38 : 0.24)
         case .gap:
             return Color(.tertiarySystemGroupedBackground)
         }

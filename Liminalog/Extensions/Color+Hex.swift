@@ -75,7 +75,12 @@ private extension UIColor {
     }
 
     private func adjustedForReadability(against background: UIColor, minContrast: CGFloat) -> UIColor {
-        guard contrastRatio(against: background) < minContrast else {
+        let backgroundIsLight = background.relativeLuminance() > 0.5
+        // ライト（白系カード）の上では色相で十分見分けられる。3:1 を強制すると鮮やかな中間色まで
+        // 暗く潰れてくすむため、ライトでは "ほぼ白で消える色" だけを軽く暗くする（しきい値を大きく下げる）。
+        // ダーク地は暗い色が本当に埋もれるので 3:1 を維持。
+        let effectiveMin: CGFloat = backgroundIsLight ? 1.45 : minContrast
+        guard contrastRatio(against: background) < effectiveMin else {
             return self
         }
         var hue: CGFloat = 0
@@ -86,23 +91,26 @@ private extension UIColor {
             return UIColor(red: 0.78, green: 0.65, blue: 1, alpha: 1)
         }
 
-        let backgroundIsLight = background.relativeLuminance() > 0.5
-        var adjustedBrightness = backgroundIsLight ? min(brightness, 0.48) : max(brightness, 0.52)
-        let adjustedSaturation = max(saturation, 0.18)
-        var candidate = UIColor(hue: hue, saturation: adjustedSaturation, brightness: adjustedBrightness, alpha: alpha)
+        let adjustedSaturation = max(saturation, backgroundIsLight ? 0.32 : 0.18)
 
         if backgroundIsLight {
-            while candidate.contrastRatio(against: background) < minContrast && adjustedBrightness > 0.16 {
-                adjustedBrightness -= 0.04
-                candidate = UIColor(hue: hue, saturation: adjustedSaturation, brightness: max(adjustedBrightness, 0.16), alpha: alpha)
+            // 淡い色だけを救済。鮮やかな色はここに来ない（しきい値1.45で素通り）。
+            var adjustedBrightness = brightness
+            var candidate = UIColor(hue: hue, saturation: adjustedSaturation, brightness: adjustedBrightness, alpha: alpha)
+            while candidate.contrastRatio(against: background) < effectiveMin && adjustedBrightness > 0.34 {
+                adjustedBrightness -= 0.05
+                candidate = UIColor(hue: hue, saturation: adjustedSaturation, brightness: max(adjustedBrightness, 0.34), alpha: alpha)
             }
+            return candidate
         } else {
-            while candidate.contrastRatio(against: background) < minContrast && adjustedBrightness < 0.96 {
+            var adjustedBrightness = max(brightness, 0.52)
+            var candidate = UIColor(hue: hue, saturation: adjustedSaturation, brightness: adjustedBrightness, alpha: alpha)
+            while candidate.contrastRatio(against: background) < effectiveMin && adjustedBrightness < 0.96 {
                 adjustedBrightness += 0.04
                 candidate = UIColor(hue: hue, saturation: adjustedSaturation, brightness: min(adjustedBrightness, 0.96), alpha: alpha)
             }
+            return candidate
         }
-        return candidate
     }
 
     func contrastRatio(against other: UIColor) -> CGFloat {
