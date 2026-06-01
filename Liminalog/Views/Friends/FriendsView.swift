@@ -1557,12 +1557,9 @@ private struct FriendSharedCalendarDayView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 0) {
             Text(date.japaneseMonthDayShortWeekday)
                 .font(.title3.bold())
-            Text("共有された予定と実績")
-                .font(.caption)
-                .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)

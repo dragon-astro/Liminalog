@@ -527,19 +527,6 @@ private struct DayScoreCard: View {
             DayScoreRing(score: summary.totalScore, hasScore: summary.plannedDuration > 0, color: color)
 
             VStack(alignment: .leading, spacing: 10) {
-                HStack(spacing: 7) {
-                    Image(systemName: "gauge.with.dots.needle.67percent")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(color)
-                        .frame(width: 22, height: 22)
-                        .background(color.opacity(0.14), in: Circle())
-
-                    Text("予定と実績")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-
                 Text(summary.gradeText)
                     .font(.title3.weight(.bold))
                     .lineLimit(1)

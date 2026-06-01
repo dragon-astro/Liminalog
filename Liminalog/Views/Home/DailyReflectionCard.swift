@@ -163,16 +163,12 @@ struct DailyReflectionCard: View {
 
             Spacer()
 
-            HStack(spacing: 6) {
-                Image(systemName: summary.plannedDuration > 0 ? "circle.dashed.inset.filled" : "circle.dashed")
-                    .font(.caption.weight(.bold))
-                Text(summary.plannedDuration > 0 ? "予定と実績" : "実績のみ")
-                    .font(.caption.weight(.bold))
-            }
-            .foregroundStyle(LiminalTheme.text.opacity(0.88))
-            .padding(.horizontal, 10)
-            .padding(.vertical, 7)
-            .liminalGlassFill(in: Capsule(style: .continuous))
+            Image(systemName: summary.plannedDuration > 0 ? "circle.dashed.inset.filled" : "circle.dashed")
+                .font(.caption.weight(.bold))
+                .foregroundStyle(LiminalTheme.text.opacity(0.88))
+                .frame(width: 30, height: 30)
+                .liminalGlassFill(in: Circle())
+                .accessibilityLabel(summary.plannedDuration > 0 ? "予定と実績あり" : "実績のみ")
         }
     }
 
@@ -295,12 +291,12 @@ private struct DailyShareCardView: View {
                             .foregroundStyle(LiminalTheme.secondaryText)
                     }
                     Spacer()
-                    Text(summary.plannedDuration > 0 ? "予定と実績" : "実績のみ")
-                        .font(.system(size: 26, weight: .black, design: .rounded))
+                    Image(systemName: summary.plannedDuration > 0 ? "circle.dashed.inset.filled" : "circle.dashed")
+                        .font(.system(size: 26, weight: .bold))
                         .foregroundStyle(LiminalTheme.text)
-                        .padding(.horizontal, 24)
-                        .padding(.vertical, 16)
-                        .liminalGlassFill(in: Capsule(style: .continuous))
+                        .frame(width: 58, height: 58)
+                        .liminalGlassFill(in: Circle())
+                        .accessibilityLabel(summary.plannedDuration > 0 ? "予定と実績あり" : "実績のみ")
                 }
 
                 DailyTwentyFourHourRing(
