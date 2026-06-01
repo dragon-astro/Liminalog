@@ -636,7 +636,7 @@ refactor: split plan store
 ### 8.4 友達閲覧
 
 - [x] `FriendDetailView`（友達のデイビュー閲覧）<!-- 担当: Codex, 完了: 2026-05-30。友達プロフィール/現在ステータス/短期スコア/お気に入り/削除/ブロックの詳細UIに加え、友達カレンダーの日別詳細で共有予定・共有実績の読み取り専用タイムラインを表示。自分のTodayタイムラインと同じく24時間バー、実績/予定セグメント、時間レール、カードリストで確認できる。編集・削除導線は出さない -->
-- [ ] 友達のタイムラインを公開設定でフィルター描画 <!-- 担当: Codex, 理由: フィルターロジック -->
+- [x] 友達のタイムラインを公開設定でフィルター描画 <!-- 担当: Codex, 完了: 2026-06-01。`FriendSharedPlanSnapshot` / `FriendSharedActivitySnapshot` 生成時に `VisibilityPreset` を適用し、オフモード、カテゴリ除外、メモ/気分/場所の隠蔽、予定の空き時間のみ表示をテストで固定。CKShare実送受信と翌日公開のBGTaskは別タスクとして継続 -->
 - [ ] `Reaction` モデル + 絵文字パレットUI <!-- 担当: Claude -->
 - [ ] `Comment` モデル + コメント投稿UI <!-- 担当: Claude -->
 - [ ] リアクション/コメントの CKShare 同期 <!-- 担当: Codex -->
@@ -673,7 +673,7 @@ refactor: split plan store
 
 ### 8.9 友達のカレンダー予定共有
 
-- [~] PlanBlock の CKShare 配信（公開設定に基づく）<!-- 担当: Codex, 進捗: 2026-05-30。Developer登録前のためCloudKit実送受信は未接続。先に `FriendSharedPlanSnapshot` を受信/表示用の安定スナップショットとして追加し、`PlanBlock.isPublic == true` の予定だけを書き出せる変換関数とテストを実装。CKShare接続時はこのスナップショットを送受信単位にする -->
+- [~] PlanBlock の CKShare 配信（公開設定に基づく）<!-- 担当: Codex, 進捗: 2026-06-01。Developer登録前のためCloudKit実送受信は未接続。先に `FriendSharedPlanSnapshot` を受信/表示用の安定スナップショットとして追加し、`PlanBlock.isPublic == true` に加えて `VisibilityPreset` の publishMode none / カテゴリ除外 / freeTimeOnly を適用する変換関数とテストを実装。CKShare接続時はこのスナップショットを送受信単位にする -->
 - [x] FriendDetailView での予定・実績表示 <!-- 担当: Codex, 完了: 2026-05-30。友達プロフィールのカレンダーボタンから、友達専用の月カレンダーへ遷移。自分のカレンダータブと同じく年月ピッカー、曜日固定、42セルグリッド、スコア表示、重要予定ラベル、複数日バー、検索、読み取り専用の日別詳細を実装。月グリッドには重要/終日予定だけを表示し、日別詳細ではその日に公開された予定全体と共有実績タイムラインを表示する -->
 
 ---
@@ -797,6 +797,7 @@ refactor: split plan store
 
 | 日付 | 担当 | 内容 |
 |---|---|---|
+| 2026-06-01 | Codex | Phase 3 公開設定フィルター品質対応。友達共有用の `FriendSharedPlanSnapshot.snapshots` / `FriendSharedActivitySnapshot.snapshots` に `VisibilityPreset` を任意指定できるようにし、既存の `isPublic` 境界に加えて publishMode none / 旧level none、カテゴリ除外、メモ・気分・場所の隠蔽、予定の空き時間のみ（タイトル/カテゴリ/色を「予定あり」へ匿名化）を適用。写真は共有スナップショットにフィールドがないため現時点で漏れない。`PublishMode.nextDay` の実配信タイミングと CKShare 実送受信は Developer/CloudKit 環境が必要な別タスクとして残す。検証: `xcodebuild test -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' -derivedDataPath /private/tmp/LiminalogDerivedData` 成功（41 tests / 11 suites）。`xcodebuild -scheme Liminalog -destination generic/platform=iOS -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功。 |
 | 2026-06-01 | Codex | liminal UI 着手（branch `codex/liminal-ui-overhaul`）。(1) `DailyReflectionCard`（二重24hリング・twilightカード・グレイン/glow・「明日はどうする？」CTA）を昨日ページに追加。(2) twilight 視覚システムを全画面適用：`LiminalTheme` 共有化＋`preferredColorScheme(.dark)`固定＋テーマトークン（Primary `#C9A7FF`/Reward `#FFE3A3`）＋視認性正規化 `liminalReadableDataColor`(WCAG≥3:1・色相保持) を `Category.displayColor` として全データvizに配線。island問題解消。**Claudeレビュー: ビジュアル/テーマ/視認性は docs/13 §2/§7 通りで合格。ただしカード中身（ペルソナ）が暫定スタブのまま＝睡眠が見出しに（§5原則2違反）＋声が優しいコーチ口調で自虐トーン未反映。是正は §7.7.1 に起票。** |
 | 2026-05-31 | Claude | 設計フェーズ大幅前進。docs/12（デイリーカード&コンテンツエンジン）・docs/13（ビジュアル・アイデンティティ）を新規作成。コア論点を一気通貫で確定: (1)プロダクトの肝は「予定+スコア=moat」で薄めない。摩擦を消すのでなくコスト↓×payoff↑。(2)ターゲット=ショート漬けZ世代。気づき≠行動変容で、振り返り→明日の予定への1タップ橋渡しが核。(3)1日の総括「デイリーカード」を成長エンジン兼フックに据える(シェア→流入→比較)。単日=カード/複数日=統計の境界確定(統計タブは単日退避し傾向の鏡へ)。10 §3.4 DayDigest保留を解消(=カードに統合)。(4)楽しさはAIでなく「検出器×声×バリエーション」(決定論・ゼロコスト)。中立デフォルト(善悪判定しない)・見出し=ルーティン逸脱・カテゴリ意味非依存(睡眠もパターン検出)の3原則。逸脱エンジン/睡眠検出の計算仕様を昼夜逆転・無記録・カオスまでstress test。(5)ペルソナ称号(形ベース12×レア×活動スロット×2階建て×コレクション)・自虐トーン確定・ネーミング原則(面白い∧伝わる)。(6)世界観=liminal(予定と実績のあいだ)。トワイライト/ダークファースト・二重24時間リング(gap可視化)をsignatureに。戦略: カード先行→solo配布→拡散測定→その後 友達インフラ。タスクは §7.7/§7.8 に起票。 |
 | 2026-05-31 | Claude | 今日タブ/カレンダーのパフォーマンス改善一式。原因と対処: (1) カレンダー横ページングが毎描画で42日×3ページ分のスコア再計算をしていた→ページデータをメモ化し refresh 時のみ計算。(2) カレンダー/今日タブの月・日ページングを `TabView(.page)`(UIPageViewController) から `ScrollView+LazyHStack/HStack+.scrollTargetBehavior(.paging)` に統一（横スワイプ三重ネストのジェスチャー競合を解消）。(3) `Color(hex:)` を `Color.cachedHex` でキャッシュ化（毎描画の Scanner パースを除去・アプリ全体に効く）。(4) `TimelineView` の `TickClock` を 1秒→60秒（24hバーの毎秒全再構築を停止。ライブ秒は CurrentChapterCard 担当）。(5) `TimelineView.body` のエントリ計算(フィルタ+gapマージ)を1描画1回に。(6) 日タブを `LazyHStack` 化し save カスケード再描画を表示中ページのみに限定。(7) カテゴリセット切替の `setEnabledCategorySetID`(WidgetCenter+ActivityKit+UserDefaults) をデバウンス、`defaults.synchronize()` 撤去、`startChapter` を `reloadAllTimelines`→`reloadRecordingGridWidget` に。**重要な学び: 体感パフォーマンスは Debug シミュレータでは実機Releaseの5〜10倍遅く判断を誤る。最終的に Release ビルドで「全く気にならない」レベルに。今後 perf は Release で確認すること。** |

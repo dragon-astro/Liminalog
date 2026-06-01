@@ -218,10 +218,11 @@ struct FriendSharedPlanSnapshot: Codable, Identifiable, Hashable {
         self.updatedAt = plan.updatedAt
     }
 
-    static func snapshots(from plans: [PlanBlock]) -> [FriendSharedPlanSnapshot] {
-        plans
-            .filter(\.isPublic)
-            .map { FriendSharedPlanSnapshot(plan: $0) }
+    static func snapshots(from plans: [PlanBlock], visibilityPreset: VisibilityPreset? = nil) -> [FriendSharedPlanSnapshot] {
+        let policy = FriendSharingVisibilityPolicy(visibilityPreset: visibilityPreset)
+
+        return plans
+            .compactMap { policy.snapshot(for: $0) }
             .sorted {
                 if $0.startTime == $1.startTime {
                     return $0.updatedAt < $1.updatedAt
@@ -301,10 +302,15 @@ struct FriendSharedActivitySnapshot: Codable, Identifiable, Hashable {
         self.updatedAt = chapter.updatedAt
     }
 
-    static func snapshots(from chapters: [Chapter], now: Date = Date()) -> [FriendSharedActivitySnapshot] {
-        chapters
-            .filter(\.isPublic)
-            .map { FriendSharedActivitySnapshot(chapter: $0, now: now) }
+    static func snapshots(
+        from chapters: [Chapter],
+        now: Date = Date(),
+        visibilityPreset: VisibilityPreset? = nil
+    ) -> [FriendSharedActivitySnapshot] {
+        let policy = FriendSharingVisibilityPolicy(visibilityPreset: visibilityPreset)
+
+        return chapters
+            .compactMap { policy.snapshot(for: $0, now: now) }
             .sorted {
                 if $0.startTime == $1.startTime {
                     return $0.updatedAt < $1.updatedAt
@@ -324,6 +330,60 @@ struct FriendSharedActivitySnapshot: Codable, Identifiable, Hashable {
         let dayStart = Calendar.japanese.startOfDay(for: day)
         let dayEnd = Calendar.japanese.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart
         return startTime < dayEnd && endTime > dayStart
+    }
+}
+
+private struct FriendSharingVisibilityPolicy {
+    private static let redactedPlanTitle = "予定あり"
+    private static let redactedPlanCategoryColorHex = "#8E8E93"
+
+    private let publishingDisabled: Bool
+    private let hideMoodAndNote: Bool
+    private let hideLocation: Bool
+    private let freeTimeOnly: Bool
+    private let excludedCategoryIDs: Set<UUID>
+
+    init(visibilityPreset: VisibilityPreset?) {
+        let publishMode = visibilityPreset?.publishMode ?? .realtime
+        let level = visibilityPreset?.level ?? .all
+
+        self.publishingDisabled = publishMode == .none || level == .none
+        self.hideMoodAndNote = visibilityPreset?.hideMoodAndNote ?? false
+        self.hideLocation = visibilityPreset?.hideLocation ?? false
+        self.freeTimeOnly = visibilityPreset?.freeTimeOnly ?? false
+        self.excludedCategoryIDs = Set(visibilityPreset?.excludedCategoryIDs ?? [])
+    }
+
+    func snapshot(for plan: PlanBlock) -> FriendSharedPlanSnapshot? {
+        guard plan.isPublic, !publishingDisabled, !isExcluded(plan.category) else { return nil }
+
+        var snapshot = FriendSharedPlanSnapshot(plan: plan)
+        if freeTimeOnly {
+            snapshot.title = Self.redactedPlanTitle
+            snapshot.categoryTitle = ""
+            snapshot.categoryIconName = "calendar"
+            snapshot.categoryColorHex = Self.redactedPlanCategoryColorHex
+        }
+        return snapshot
+    }
+
+    func snapshot(for chapter: Chapter, now: Date) -> FriendSharedActivitySnapshot? {
+        guard chapter.isPublic, !publishingDisabled, !isExcluded(chapter.category) else { return nil }
+
+        var snapshot = FriendSharedActivitySnapshot(chapter: chapter, now: now)
+        if hideMoodAndNote {
+            snapshot.note = nil
+            snapshot.mood = nil
+        }
+        if hideLocation {
+            snapshot.locationName = nil
+        }
+        return snapshot
+    }
+
+    private func isExcluded(_ category: Category?) -> Bool {
+        guard let category else { return false }
+        return excludedCategoryIDs.contains(category.id)
     }
 }
 
