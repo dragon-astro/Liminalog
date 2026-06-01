@@ -43,7 +43,7 @@ struct HomeView: View {
                 // 表示中のページだけ生成・@Query購読させる。データ変更時の save カスケードで
                 // 昨日/明日の重いページまで再描画されるのを防ぐ（表示中ページのみ再描画）。
                 LazyHStack(spacing: 0) {
-                    ForEach(TodayPage.allCases) { page in
+                    ForEach(scrollPages) { page in
                         dayPage(page)
                             .containerRelativeFrame(.horizontal)
                             .id(page)
@@ -167,6 +167,11 @@ struct HomeView: View {
 
     private var debugInitialTodayPage: TodayPage {
         Self.defaultInitialTodayPage
+    }
+
+    private var scrollPages: [TodayPage] {
+        let initialPage = debugInitialTodayPage
+        return [initialPage] + TodayPage.allCases.filter { $0 != initialPage }
     }
 
     private func applyInitialPage() {
