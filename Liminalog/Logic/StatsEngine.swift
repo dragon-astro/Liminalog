@@ -6,14 +6,16 @@ enum StatsEngine {
         historyChapters: [Chapter],
         categoryRows: [(category: Category, duration: TimeInterval)],
         recordedDuration: TimeInterval,
-        dayBoundary: DayBoundary
+        dayBoundary: DayBoundary,
+        avoidedSpotlightKinds: Set<String> = []
     ) -> DailyCardPatternDetector {
         DailyCardPatternDetector(
             chapters: chapters,
             historyChapters: historyChapters,
             categoryRows: categoryRows,
             recordedDuration: recordedDuration,
-            dayBoundary: dayBoundary
+            dayBoundary: dayBoundary,
+            avoidedSpotlightKinds: avoidedSpotlightKinds
         )
     }
 

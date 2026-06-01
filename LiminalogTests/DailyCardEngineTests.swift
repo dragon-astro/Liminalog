@@ -224,6 +224,44 @@ struct DailyCardEngineTests {
         #expect(persona.facts.contains { $0.id == "composition-split" && $0.value == "3" })
     }
 
+    @Test("前日と同じspotlight型は別候補がある場合に避ける")
+    func avoidsYesterdaySpotlightKindWhenAlternativeExists() throws {
+        let calendar = Calendar.liminalogTest
+        let day = try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1)))
+        let study = Category(name: "勉強", colorHex: "#2F80ED", icon: "book.fill")
+        let today = try makeChapter(category: study, day: day, calendar: calendar, startHour: 9, durationMinutes: 180)
+        let yesterday = try #require(calendar.date(byAdding: .day, value: -1, to: day))
+        let yesterdayChapter = try makeChapter(category: study, day: yesterday, calendar: calendar, startHour: 9, durationMinutes: 120)
+        let olderOffsets = [2, 4, 6, 8, 10, 12, 14]
+        let olderHistory = try olderOffsets.map { offset in
+            let historyDay = try #require(calendar.date(byAdding: .day, value: -offset, to: day))
+            return try makeChapter(category: study, day: historyDay, calendar: calendar, startHour: 9, durationMinutes: 60)
+        }
+        let history = [yesterdayChapter] + olderHistory
+
+        let repeated = DailyPersona.make(
+            summary: ScoreSummary(date: day, categoryScore: 0, timelineScore: 0, totalScore: 45, plannedDuration: 4 * 60 * 60, recordedDuration: 3 * 60 * 60, matchedDuration: 0),
+            chapters: [today],
+            historyChapters: history,
+            categoryRows: [(study, 3 * 60 * 60)],
+            recordedDuration: 3 * 60 * 60,
+            dayBoundary: DayBoundary(date: day, calendar: calendar),
+            avoidsYesterdaySpotlightKind: false
+        )
+        let diversified = DailyPersona.make(
+            summary: ScoreSummary(date: day, categoryScore: 0, timelineScore: 0, totalScore: 45, plannedDuration: 4 * 60 * 60, recordedDuration: 3 * 60 * 60, matchedDuration: 0),
+            chapters: [today],
+            historyChapters: history,
+            categoryRows: [(study, 3 * 60 * 60)],
+            recordedDuration: 3 * 60 * 60,
+            dayBoundary: DayBoundary(date: day, calendar: calendar)
+        )
+
+        #expect(repeated.facts.contains { $0.id == "signal-best" })
+        #expect(!diversified.facts.contains { $0.id == "signal-best" })
+        #expect(diversified.facts.contains { $0.id == "composition-focus" })
+    }
+
     @Test("カテゴリの増減宣言は逸脱signalの称号と本文に反映される")
     func categoryIntentAdjustsDeviationCopy() throws {
         let calendar = Calendar.japanese

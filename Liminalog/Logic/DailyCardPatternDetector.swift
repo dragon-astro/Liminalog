@@ -1,7 +1,7 @@
 import Foundation
 
 struct DailyCardPatternDetector {
-    enum DetectorKind {
+    enum DetectorKind: String {
         case routineDeviation
         case difference
         case personalBest
@@ -36,6 +36,7 @@ struct DailyCardPatternDetector {
     let shape: Shape
     let chronotype: Chronotype
     let signal: DailyCardPatternSignal?
+    let spotlightKind: DetectorKind?
     let spotlightFact: DailyCardPatternFact?
     let discretionaryDuration: TimeInterval
     let restWasExcluded: Bool
@@ -47,7 +48,8 @@ struct DailyCardPatternDetector {
         historyChapters: [Chapter],
         categoryRows: [(category: Category, duration: TimeInterval)],
         recordedDuration: TimeInterval,
-        dayBoundary: DayBoundary
+        dayBoundary: DayBoundary,
+        avoidedSpotlightKinds: Set<String> = []
     ) {
         let restCategoryIDs = Self.majorRestCategoryIDs(
             chapters: chapters,
@@ -72,7 +74,8 @@ struct DailyCardPatternDetector {
             effectiveChapters: effectiveChapters,
             historyChapters: historyChapters,
             dayBoundary: dayBoundary,
-            excludedCategoryIDs: restCategoryIDs
+            excludedCategoryIDs: restCategoryIDs,
+            avoidedKinds: avoidedSpotlightKinds
         )
 
         self.focusCategory = nonRestRows.first ?? (restCategoryIDs.isEmpty ? categoryRows.first : nil)
@@ -81,6 +84,7 @@ struct DailyCardPatternDetector {
         self.shape = shape
         self.chronotype = Self.chronotype(for: effectiveChapters, dayBoundary: dayBoundary)
         self.signal = spotlight?.signal
+        self.spotlightKind = spotlight?.kind
         self.spotlightFact = spotlight?.fact
         self.discretionaryDuration = discretionaryDuration
         self.restWasExcluded = restWasExcluded
@@ -194,7 +198,8 @@ struct DailyCardPatternDetector {
         effectiveChapters: [Chapter],
         historyChapters: [Chapter],
         dayBoundary: DayBoundary,
-        excludedCategoryIDs: Set<UUID>
+        excludedCategoryIDs: Set<UUID>,
+        avoidedKinds: Set<String>
     ) -> DailyCardPatternSpotlight? {
         let historyStart = dayBoundary.dayStart.addingTimeInterval(-28 * 24 * 60 * 60)
         let historical = historyChapters.filter { chapter in
@@ -224,7 +229,12 @@ struct DailyCardPatternDetector {
         }
 
         let punchCandidates = candidates.filter { !$0.isFloor }
-        let pool = punchCandidates.isEmpty ? candidates : punchCandidates
+        let primaryPool = punchCandidates.isEmpty ? candidates : punchCandidates
+        let diversifiedPrimaryPool = primaryPool.filter { !avoidedKinds.contains($0.kind.rawValue) }
+        let diversifiedAnyPool = candidates.filter { !avoidedKinds.contains($0.kind.rawValue) }
+        let pool = diversifiedPrimaryPool.isEmpty
+            ? (diversifiedAnyPool.isEmpty ? primaryPool : diversifiedAnyPool)
+            : diversifiedPrimaryPool
         return pool.max { lhs, rhs in
             lhs.selectionScore < rhs.selectionScore
         }

@@ -21,14 +21,19 @@ struct DailyPersona {
         historyChapters: [Chapter],
         categoryRows: [(category: Category, duration: TimeInterval)],
         recordedDuration: TimeInterval,
-        dayBoundary: DayBoundary
+        dayBoundary: DayBoundary,
+        avoidsYesterdaySpotlightKind: Bool = true
     ) -> DailyPersona {
+        let avoidedSpotlightKinds = avoidsYesterdaySpotlightKind
+            ? Self.yesterdaySpotlightKinds(historyChapters: historyChapters, dayBoundary: dayBoundary)
+            : []
         let analysis = StatsEngine.dailyCardPattern(
             chapters: chapters,
             historyChapters: historyChapters,
             categoryRows: categoryRows,
             recordedDuration: recordedDuration,
-            dayBoundary: dayBoundary
+            dayBoundary: dayBoundary,
+            avoidedSpotlightKinds: avoidedSpotlightKinds
         )
         let facts = Self.makeFacts(
             analysis: analysis,
@@ -104,6 +109,59 @@ struct DailyPersona {
         let calendar = Calendar.japanese
         let components = calendar.dateComponents([.year, .month, .day], from: dayBoundary.dayStart)
         return (components.year ?? 0) * 372 + (components.month ?? 0) * 31 + (components.day ?? 0) + chapterCount
+    }
+
+    private static func yesterdaySpotlightKinds(
+        historyChapters: [Chapter],
+        dayBoundary: DayBoundary
+    ) -> Set<String> {
+        let yesterdayBoundary = DayBoundary(dayStart: dayBoundary.dayStart.addingTimeInterval(-24 * 60 * 60))
+        let yesterdayChapters = historyChapters.filter {
+            $0.startTime < yesterdayBoundary.dayEnd && ($0.endTime ?? yesterdayBoundary.dayEnd) > yesterdayBoundary.dayStart
+        }
+        guard !yesterdayChapters.isEmpty else { return [] }
+
+        let previousHistory = historyChapters.filter { $0.startTime < yesterdayBoundary.dayStart }
+        let categoryRows = Self.categoryRows(for: yesterdayChapters, dayBoundary: yesterdayBoundary)
+        let recordedDuration = Self.recordedDuration(for: yesterdayChapters, dayBoundary: yesterdayBoundary)
+        let detector = StatsEngine.dailyCardPattern(
+            chapters: yesterdayChapters,
+            historyChapters: previousHistory,
+            categoryRows: categoryRows,
+            recordedDuration: recordedDuration,
+            dayBoundary: yesterdayBoundary
+        )
+        guard let kind = detector.spotlightKind else { return [] }
+        return [kind.rawValue]
+    }
+
+    private static func categoryRows(
+        for chapters: [Chapter],
+        dayBoundary: DayBoundary
+    ) -> [(category: Category, duration: TimeInterval)] {
+        let grouped = Dictionary(grouping: chapters.compactMap { chapter -> (Category, TimeInterval)? in
+            guard let category = chapter.category else { return nil }
+            let start = max(chapter.startTime, dayBoundary.dayStart)
+            let end = min(chapter.endTime ?? dayBoundary.dayEnd, dayBoundary.dayEnd)
+            return (category, max(end.timeIntervalSince(start), 0))
+        }, by: { $0.0.id })
+
+        return grouped.compactMap { _, values in
+            guard let category = values.first?.0 else { return nil }
+            return (category, values.reduce(0) { $0 + $1.1 })
+        }
+        .sorted { $0.duration > $1.duration }
+    }
+
+    private static func recordedDuration(
+        for chapters: [Chapter],
+        dayBoundary: DayBoundary
+    ) -> TimeInterval {
+        chapters.reduce(TimeInterval(0)) { partial, chapter in
+            let start = max(chapter.startTime, dayBoundary.dayStart)
+            let end = min(chapter.endTime ?? dayBoundary.dayEnd, dayBoundary.dayEnd)
+            return partial + max(end.timeIntervalSince(start), 0)
+        }
     }
 }
 

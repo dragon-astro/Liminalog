@@ -10,6 +10,11 @@ struct DayBoundary: Equatable {
         self.dayEnd = calendar.date(byAdding: .day, value: 1, to: start) ?? start
     }
 
+    init(dayStart: Date) {
+        self.dayStart = dayStart
+        self.dayEnd = dayStart.addingTimeInterval(24 * 60 * 60)
+    }
+
     static func dayStart(for date: Date, calendar: Calendar = .current) -> Date {
         DayBoundary(date: date, calendar: calendar).dayStart
     }
