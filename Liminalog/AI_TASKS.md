@@ -338,7 +338,7 @@ refactor: split plan store
 ### 5.6 DEBUG seed の隔離
 
 - [x] `#if DEBUG seedPreviewPlansIfNeeded` を環境変数ゲート化（`-LiminalogSeedPreviewData YES` 等）<!-- 担当: Codex, 完了: 2026-05-28 -->
-- [~] プレビュー専用シードを `PreviewSupport` に集約し、実機 DEBUG ビルドでは入らないようにする <!-- 担当: Codex, 進捗: 2026-05-28 実機 DEBUG ではフラグなしに seedPreviewPlansIfNeeded が走らないようゲート化済。PreviewSupport への完全集約は未完了 -->
+- [x] プレビュー専用シードを `PreviewSupport` に集約し、実機 DEBUG ビルドでは入らないようにする <!-- 担当: Codex, 完了: 2026-06-01: preview/dev runtime seed本体を `PreviewRuntimeSeedSupport` へ移し、`PreviewSupport.runtimeSeedRequest()` で UserDefaults / 起動引数 / 環境変数の明示フラグがある場合だけ投入する形へ集約。通常DEBUG起動では投入されないことをテスト化 -->
 
 ### 5.7 Swift Package 化（移行最終段）
 
@@ -797,6 +797,7 @@ refactor: split plan store
 
 | 日付 | 担当 | 内容 |
 |---|---|---|
+| 2026-06-01 | Codex | Phase 0 DEBUG seed隔離を完了。`ChapterStore` に残っていた preview/dev runtime seed本体を `PreviewRuntimeSeedSupport` へ移し、`ChapterStore` はDEBUG専用の薄い入口だけに縮小。`RootTabView` の判定は `PreviewSupport.runtimeSeedRequest()` に集約し、UserDefaults / 起動引数 / 環境変数で `LiminalogSeedPreviewData` または `LiminalogSeedDevData` が明示された場合だけ投入する。通常の実機DEBUG起動ではデモ予定/実績が入らないことをテスト化し、docs/01〜03の該当記述も更新。CSV書き出しは不要・スコープ外を維持。検証: `git diff --check` 成功、`xcodebuild test -scheme Liminalog -destination 'id=72181B45-004C-49C5-931F-AE873C13CD9C' -derivedDataPath /private/tmp/LiminalogDerivedData -only-testing:LiminalogTests/ChapterStoreTests` 成功（10 tests / 1 suite）、`xcodebuild test-without-building -scheme Liminalog -destination 'id=72181B45-004C-49C5-931F-AE873C13CD9C' -derivedDataPath /private/tmp/LiminalogDerivedData` 成功（68 tests / 18 suites）、`xcodebuild -scheme Liminalog -destination generic/platform=iOS -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功。 |
 | 2026-06-01 | Codex | Phase 0 Swift Package化前の小掃除として、Widget側に残っていた `Color(hex:)` のfile-private重複実装を削除。`LiminalogLiveActivityWidget` と `RecordingGridWidget` は新規 `WidgetColor+Hex.swift` の `Color.cachedHex` を使うようにし、Widget target内でhexパース/キャッシュを1箇所へ統一した。CSV書き出しは不要・スコープ外を維持。検証: `git diff --check` 成功、`xcodebuild -scheme Liminalog -destination generic/platform=iOS -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功、`xcodebuild test-without-building -scheme Liminalog -destination 'id=72181B45-004C-49C5-931F-AE873C13CD9C' -derivedDataPath /private/tmp/LiminalogDerivedData` 成功（67 tests / 18 suites）。 |
 | 2026-06-01 | Codex | DailyCardEngineのペルソナ/称号判定をdocs/12 §6へ拡張。4クロノタイプ×3集中形の12称号表、docs/12 §6.7コピーのmessage配列、予定一致/風まかせ/ガチ充電/行方不明の床・レア型、初記録/久々/いつもより増減signalとfact stripを実装し、日付seedで安定して文言を選ぶようにした。検出器カタログ全12型のうち、体感換算・気分・友達・ユーザー宣言・昨日と同型回避は後続に残す。CSV書き出しは不要・スコープ外を維持。検証: `git diff --check` 成功、`xcodebuild test -scheme Liminalog -destination 'id=72181B45-004C-49C5-931F-AE873C13CD9C' -derivedDataPath /private/tmp/LiminalogDerivedData -only-testing:LiminalogTests/DailyCardEngineTests` 成功（5 tests / 1 suite）、`xcodebuild test-without-building -scheme Liminalog -destination 'id=72181B45-004C-49C5-931F-AE873C13CD9C' -derivedDataPath /private/tmp/LiminalogDerivedData` 成功（67 tests / 18 suites）、`xcodebuild -scheme Liminalog -destination generic/platform=iOS -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功。 |
 | 2026-06-01 | Codex | 週間Dashboardの既存カテゴリ構成カードを「カテゴリ別トータル」へ調整。期間内カテゴリ合計を上部の構成バーだけでなく、各カテゴリ行の横棒・時間・割合で比較できるようにした。`DashboardCardKey.categoryShare` の表示名もカスタマイズSheet上で実態に合う「カテゴリ別トータル」へ変更。CSV書き出しは不要・スコープ外を維持。検証: `git diff --check` 成功、`xcodebuild test-without-building -scheme Liminalog -destination 'id=72181B45-004C-49C5-931F-AE873C13CD9C' -derivedDataPath /private/tmp/LiminalogDerivedData` 成功（65 tests / 18 suites）、`xcodebuild -scheme Liminalog -destination generic/platform=iOS -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功。 |
@@ -1127,9 +1128,9 @@ Claude 作業中のため、Codex は読み取り中心で進捗確認。ファ�
    - §5.5 にまだ「全 `@Model` の `id` を `@Attribute(.unique)` 化」「`Chapter.photoData` を追加」が残っている。
    - §8.5 で撤回タスクは追加済みだが、拾い間違いを防ぐため、古いタスク側も `[-]` にするか文言を差し替えるのが安全。
 
-2. **DEBUG seed が実機 DEBUG にも入る**
-   - `RootTabView.task` で `seedPreviewPlansIfNeeded()` と `seedDevSampleChaptersIfNeeded()` が `#if DEBUG` だけで走る。
-   - これは docs/02 で既にアーキ負債として挙げた問題。Preview 専用、起動引数、または環境変数ゲートへ寄せること。
+2. ~~**DEBUG seed が実機 DEBUG にも入る**~~ ✅ 解決 (2026-06-01)
+   - `PreviewRuntimeSeedSupport` へ runtime seed 本体とフラグ判定を集約済み。
+   - 通常の実機 DEBUG 起動では投入されず、`LiminalogSeedPreviewData` / `LiminalogSeedDevData` の明示指定時だけデモ seed が走る。
 
 3. **`CategorySet.slots: [UUID?]` は CloudKit 互換性を要検証**
    - ローカル SwiftData では自然だが、CloudKit managed sync 前提では optional UUID 配列が将来詰まる可能性あり。
@@ -1155,7 +1156,7 @@ Claude 作業中のため、Codex は読み取り中心で進捗確認。ファ�
 
 - §8.5 の docs 更新タスク（CloudKit/SwiftData 境界、unique撤回、photoData保留）は Codex 担当のまま。
 - `CategorySet.slots` の CloudKit 互換判断は Codex で再確認する価値あり。
-- DEBUG seed 隔離は Codex 向き。Phase 0 前に小さく直せる。
+- ~~DEBUG seed 隔離は Codex 向き。Phase 0 前に小さく直せる。~~ ✅ 2026-06-01 完了
 
 ---
 

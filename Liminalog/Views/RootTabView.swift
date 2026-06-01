@@ -48,18 +48,11 @@ struct RootTabView: View {
             let initializedStores = AppStores(modelContext: modelContext)
             let initializedStore = initializedStores.bootstrap()
             #if DEBUG
-            // Preview/デモ用 seed は明示フラグがあるときだけ投入する。
-            // 実機 DEBUG で通常データへ勝手に混ざらないようにする。
-            let shouldSeedDevData = UserDefaults.standard.bool(forKey: "LiminalogSeedDevData")
-                || ProcessInfo.processInfo.arguments.contains("-LiminalogSeedDevData")
-            let shouldSeedPreviewPlans = UserDefaults.standard.bool(forKey: "LiminalogSeedPreviewData")
-                || ProcessInfo.processInfo.arguments.contains("-LiminalogSeedPreviewData")
-                || ProcessInfo.processInfo.arguments.contains("-LiminalogSeedPreviewData YES")
-                || shouldSeedDevData
-            if shouldSeedPreviewPlans {
+            let seedRequest = PreviewSupport.runtimeSeedRequest()
+            if seedRequest.shouldSeedPreviewPlans {
                 initializedStore.seedPreviewPlansIfNeeded()
             }
-            if shouldSeedDevData {
+            if seedRequest.shouldSeedDevData {
                 initializedStore.seedDevSampleChaptersIfNeeded()
             }
             #endif

@@ -55,15 +55,15 @@
 | レイヤー | ファイル | 責務 |
 |---------|---------|------|
 | **App** | `LiminalogApp.swift` | エントリ・ModelContainer 宣言 |
-| **Root** | `Views/RootTabView.swift` | Store初期化・タブ構成・初回 seed |
-| **Store** | `Stores/ChapterStore.swift` | 全 CRUD・スコア・ストリーク・シード |
+| **Root** | `Views/RootTabView.swift` | Store初期化・タブ構成・DEBUG seed フラグ判定 |
+| **Store** | `Stores/ChapterStore.swift` | Chapter CRUD・記録切替・App Group/Live Activity 連携 |
 | **Domain Logic** | `Stores/ScoreCalculator.swift` | スコア算出（純粋関数） |
 | **Live Activity** | `Stores/LiveActivityManager.swift` | ActivityKit との橋渡し（singleton） |
 | **Model** | `Models/*.swift` | SwiftData `@Model` クラス 5 つ |
 | **View** | `Views/{Home,Calendar,Dashboard,Friends,Profile,Settings,ChapterEdit}/` | SwiftUI ビュー |
 | **Component** | `Views/Home/{CategoryGrid,TimelineView,CurrentChapterCard,...}` | ホーム配下の共通部品 |
 | **Extension** | `Extensions/{Color+Hex,Date+Formatting}.swift` | ユーティリティ |
-| **Preview** | `PreviewSupport.swift` | プレビュー用 in-memory コンテナ・ダミーデータ |
+| **Preview** | `PreviewSupport.swift`, `PreviewRuntimeSeedSupport.swift` | プレビュー用 in-memory コンテナ・明示フラグ付きデモ seed |
 | **Widget** | `LiminalogWidget/` | WidgetKit / ActivityKit |
 
 ---
@@ -224,7 +224,7 @@ DashboardView の Picker.tap → period が変わる
 - **「1日」の定義**: 全て `Calendar.current.startOfDay(for:)` 固定（仕様書にある「1日の始まり時間設定」は未実装）
 - **CloudKit**: ModelContainer は CloudKit URL 未指定 = ローカル専用ストア
 - **EventKit**: 言及なし・権限取得もなし（仕様書のカレンダー連携は未着手）
-- **DEBUG プレビューデータ**: `RootTabView.task` 内で `#if DEBUG` ガード付きで `seedPreviewPlansIfNeeded` を呼ぶ。**実機 DEBUG ビルドでも本データが入る** ため注意
+- **DEBUG プレビューデータ**: 実行時 seed は `PreviewSupport.runtimeSeedRequest()` に集約。`LiminalogSeedPreviewData` / `LiminalogSeedDevData` の UserDefaults・起動引数・環境変数が明示された場合だけ投入する。
 
 ---
 
@@ -234,6 +234,7 @@ DashboardView の Picker.tap → period が変わる
 Liminalog/
 ├── LiminalogApp.swift
 ├── PreviewSupport.swift
+├── PreviewRuntimeSeedSupport.swift
 ├── Extensions/
 │   ├── Color+Hex.swift
 │   └── Date+Formatting.swift

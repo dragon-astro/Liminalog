@@ -174,6 +174,46 @@ struct ChapterStoreTests {
         #expect(inserted.first?.endTime == nil)
     }
 
+    @Test("PreviewSupportの実行時seedは明示フラグなしでは無効で、dev指定時だけ予定seedも連動する")
+    func previewRuntimeSeedRequestRequiresExplicitFlags() throws {
+        let suiteName = "LiminalogTests.previewSeed.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let off = PreviewSupport.runtimeSeedRequest(
+            defaults: defaults,
+            arguments: ["Liminalog"],
+            environment: [:]
+        )
+        #expect(!off.shouldSeedPreviewPlans)
+        #expect(!off.shouldSeedDevData)
+
+        let previewOnly = PreviewSupport.runtimeSeedRequest(
+            defaults: defaults,
+            arguments: ["Liminalog", "-LiminalogSeedPreviewData", "YES"],
+            environment: [:]
+        )
+        #expect(previewOnly.shouldSeedPreviewPlans)
+        #expect(!previewOnly.shouldSeedDevData)
+
+        let devData = PreviewSupport.runtimeSeedRequest(
+            defaults: defaults,
+            arguments: ["Liminalog", "-LiminalogSeedDevData"],
+            environment: [:]
+        )
+        #expect(devData.shouldSeedPreviewPlans)
+        #expect(devData.shouldSeedDevData)
+
+        let environmentPreview = PreviewSupport.runtimeSeedRequest(
+            defaults: defaults,
+            arguments: ["Liminalog"],
+            environment: ["LiminalogSeedPreviewData": "true"]
+        )
+        #expect(environmentPreview.shouldSeedPreviewPlans)
+        #expect(!environmentPreview.shouldSeedDevData)
+    }
+
     @Test("開発用Chapter seedは月跨ぎの昨日を含め、未来と重複を作らず現在の1件だけをactiveにする")
     func devSampleChapterSeedAvoidsFutureAndOverlaps() throws {
         let versionKey = "LiminalogDevSampleChapterSeedVersion"

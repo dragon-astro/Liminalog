@@ -153,10 +153,10 @@
 - スコア計算・ストリーク・1分ルールなど純粋ロジックが unit test 対象として最適なのに、テストターゲット自体なし
 - → [06-testing.md](06-testing.md) で扱う
 
-### 🟣 #if DEBUG seed が実機 DEBUG ビルドにも入る
-- `RootTabView.task` で `#if DEBUG seedPreviewPlansIfNeeded` を呼んでいる
-- 実機の開発ビルドで「いきなりダミー予定が入る」状態
-- → プレビュー専用に分離するか、ENV変数ゲート化
+### ✅ #if DEBUG seed が実機 DEBUG ビルドにも入る
+- 対応済み (2026-06-01): `PreviewSupport.runtimeSeedRequest()` に UserDefaults / 起動引数 / 環境変数の明示フラグ判定を集約
+- 通常の実機 DEBUG 起動では予定・実績デモ seed は投入されない
+- `LiminalogSeedPreviewData` は予定デモ、`LiminalogSeedDevData` は予定+実績デモを投入する
 
 ### 🟣 `Calendar.japanese` という未定義参照
 - `CalendarView.swift` で `Calendar.japanese` を使用しているが、コードベース内に定義が見当たらない
