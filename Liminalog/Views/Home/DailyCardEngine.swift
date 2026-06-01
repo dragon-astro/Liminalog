@@ -9,6 +9,7 @@ struct DailyCardFact: Identifiable, Hashable {
 }
 
 struct DailyPersona {
+    let kind: DailyCardPersonaKind
     let title: String
     let message: String
     let symbol: String
@@ -38,31 +39,31 @@ struct DailyPersona {
 
         guard !chapters.isEmpty, recordedDuration >= 45 * 60 else {
             let copy = DailyCardCopyCatalog.missingDayCopy()
-            return DailyPersona(title: copy.title, message: copy.message(seed: messageSeed), symbol: copy.symbol, facts: facts)
+            return DailyPersona(kind: .missingDay, title: copy.title, message: copy.message(seed: messageSeed), symbol: copy.symbol, facts: facts)
         }
 
         if summary.plannedDuration > 0, summary.totalScore >= 88 {
             let copy = DailyCardCopyCatalog.planMatchedCopy()
-            return DailyPersona(title: copy.title, message: copy.message(seed: messageSeed), symbol: copy.symbol, facts: facts)
+            return DailyPersona(kind: .planMatched, title: copy.title, message: copy.message(seed: messageSeed), symbol: copy.symbol, facts: facts)
         }
 
         if analysis.isChargeDay {
             let copy = DailyCardCopyCatalog.chargeDayCopy()
-            return DailyPersona(title: copy.title, message: copy.message(seed: messageSeed), symbol: copy.symbol, facts: facts)
+            return DailyPersona(kind: .chargeDay, title: copy.title, message: copy.message(seed: messageSeed), symbol: copy.symbol, facts: facts)
         }
 
         if let signal = analysis.signal {
             let copy = signal.copy
-            return DailyPersona(title: copy.title, message: copy.message(seed: messageSeed), symbol: copy.symbol, facts: facts)
+            return DailyPersona(kind: .signal, title: copy.title, message: copy.message(seed: messageSeed), symbol: copy.symbol, facts: facts)
         }
 
         if summary.plannedDuration == 0 {
             let copy = DailyCardCopyCatalog.noPlanCopy()
-            return DailyPersona(title: copy.title, message: copy.message(seed: messageSeed), symbol: copy.symbol, facts: facts)
+            return DailyPersona(kind: .noPlan, title: copy.title, message: copy.message(seed: messageSeed), symbol: copy.symbol, facts: facts)
         }
 
         let copy = DailyCardCopyCatalog.shapeCopy(analysis: analysis)
-        return DailyPersona(title: copy.title, message: copy.message(seed: messageSeed), symbol: copy.symbol, facts: facts)
+        return DailyPersona(kind: .shape, title: copy.title, message: copy.message(seed: messageSeed), symbol: copy.symbol, facts: facts)
     }
 
     private static func makeFacts(

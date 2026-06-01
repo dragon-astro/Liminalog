@@ -14,6 +14,7 @@ enum LiminalogSchemaV1: VersionedSchema {
             UserSettings.self,
             Friend.self,
             FriendCategoryMapping.self,
+            DailyCardSnapshot.self,
             CalendarEventCache.self
         ]
     }

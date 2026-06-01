@@ -289,6 +289,7 @@ private struct TomorrowPlanPage: View {
 }
 
 private struct YesterdayReviewPage: View {
+    @Environment(\.modelContext) private var modelContext
     @Query private var queriedChapters: [Chapter]
     @Query private var queriedPlans: [PlanBlock]
 
@@ -330,6 +331,9 @@ private struct YesterdayReviewPage: View {
                     recordedDuration: recordedDuration,
                     onPlanTomorrow: onPlanTomorrow
                 )
+                .task(id: snapshotSignature) {
+                    persistDailyCardSnapshot()
+                }
             }
             .padding(.horizontal, 16)
             .padding(.top, 12)
@@ -391,6 +395,38 @@ private struct YesterdayReviewPage: View {
             return (category, values.reduce(0) { $0 + $1.1 })
         }
         .sorted { $0.duration > $1.duration }
+    }
+
+    private var dailyPersona: DailyPersona {
+        DailyPersona.make(
+            summary: scoreSummary,
+            chapters: dayChapters,
+            historyChapters: historyChapters,
+            categoryRows: categoryRows,
+            recordedDuration: recordedDuration,
+            dayBoundary: dayBoundary
+        )
+    }
+
+    private var snapshotSignature: String {
+        [
+            "\(dayBoundary.dayStart.timeIntervalSince1970)",
+            "\(dayChapters.count)",
+            "\(dayPlans.count)",
+            "\(Int(recordedDuration.rounded()))",
+            "\(Int(scoreSummary.totalScore.rounded()))"
+        ].joined(separator: ":")
+    }
+
+    @MainActor
+    private func persistDailyCardSnapshot() {
+        DailyCardSnapshotStore(modelContext: modelContext).upsert(
+            date: date,
+            summary: scoreSummary,
+            persona: dailyPersona,
+            categoryRows: categoryRows,
+            recordedDuration: recordedDuration
+        )
     }
 
     private var topCategory: (category: Category, duration: TimeInterval)? {

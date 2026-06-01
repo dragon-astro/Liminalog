@@ -30,6 +30,7 @@
 | 1 | `PlanBlock` | 予定ブロック |
 | 1 | `UserSettings` | ユーザー設定（表示・公開・同期対象設定など） |
 | 2 | `UnlockItem` | アンロックアイテム状態 |
+| 2 | `DailyCardSnapshot` | デイリーカードの確定スナップショット |
 | 2 | `CalendarEventCache` | EventKit予定の軽量キャッシュ |
 | 3 | `Friend` | 友達 |
 | 3 | `FriendCategoryMapping` | カテゴリマッピング |
@@ -284,7 +285,47 @@ public enum UnlockKind: String, Codable {
 - 新規マスター追加時は、起動時に「既存 key 以外」を追記 seed。既存 key は表示名・種類・条件種別・必要値などのマスター定義を上書き同期する
 - `key` は論理一意キーだが `@Attribute(.unique)` は付けない。重複が同期された場合は `SeedCoordinator` が同じ `key` を1件に統合し、`unlockedAt` は最古の値を保持する
 
-### 3.2 CalendarEventCache
+### 3.2 DailyCardSnapshot
+
+```swift
+public enum DailyCardPersonaKind: String, Codable, CaseIterable {
+    case missingDay
+    case planMatched
+    case chargeDay
+    case signal
+    case noPlan
+    case shape
+}
+
+@Model
+public final class DailyCardSnapshot {
+    public var id: UUID = UUID()
+    public var dayStart: Date = Date.distantPast
+    public var dayIdentifier: String = ""          // yyyy-MM-dd 論理キー
+    public var schemaVersion: Int = 1
+    public var personaKindRawValue: String = DailyCardPersonaKind.shape.rawValue
+    public var title: String = ""                  // 称号
+    public var message: String = ""                // その日の本文
+    public var symbol: String = "sparkles"
+    public var score: Int = 0
+    public var plannedDuration: TimeInterval = 0
+    public var recordedDuration: TimeInterval = 0
+    public var factPayloadJSON: String = "[]"      // [DailyCardSnapshotFactPayload]
+    public var categoryPayloadJSON: String = "[]"  // [DailyCardSnapshotCategoryPayload]
+    public var createdAt: Date = Date()
+    public var updatedAt: Date = Date()
+
+    public init() {}
+}
+```
+
+**運用**
+- 昨日ページ表示時に、表示中の `DailyPersona` / fact strip / カテゴリ上位を同じ `dayIdentifier` へ upsert する
+- `title` / `personaKindRawValue` を称号コレクションの集計元にする。再計算でコピーが揺れても、過去日の共有カード・称号履歴は snapshot を正とする
+- CloudKit 同期対象。`factPayloadJSON` / `categoryPayloadJSON` は CloudKit 互換性を優先し、配列リレーションではなく JSON 文字列で保持する
+- `dayIdentifier` は論理一意キーだが `@Attribute(.unique)` は付けない。同日重複が発生した場合は Store 層で最古 `createdAt` の1件へ統合する
+
+### 3.3 CalendarEventCache
 
 ```swift
 @Model
