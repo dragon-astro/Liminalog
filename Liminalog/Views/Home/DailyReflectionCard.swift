@@ -423,60 +423,37 @@ private struct DailyTwentyFourHourRing: View {
                     RadialGradient(
                         colors: centerGlowColors,
                         center: .center,
-                        startRadius: 20,
-                        endRadius: 128
+                        startRadius: centerGlowStartRadius,
+                        endRadius: centerGlowEndRadius
                     )
                 )
-                .blur(radius: 8)
+                .blur(radius: centerGlowBlurRadius)
 
             DailyRingCanvas(planSegments: planSegments, actualSegments: actualSegments)
                 .padding(8)
 
-            centerScore
+            VStack(spacing: 7) {
+                Image(systemName: persona.symbol)
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundStyle(LiminalTheme.reward)
+                    .frame(width: 48, height: 48)
+                    .liminalGlassFill(in: Circle())
+                    .liminalAccentLight(in: Circle(), intensity: colorScheme == .light ? 0.38 : 0.95)
 
-            personaBadge
-                .offset(y: -58)
-        }
-    }
-
-    private var centerScore: some View {
-        VStack(spacing: 0) {
-            HStack(alignment: .firstTextBaseline, spacing: 2) {
-                Text(scoreNumberText)
-                    .font(.system(size: 38, weight: .black, design: .rounded).monospacedDigit())
-                Text("pt")
-                    .font(.system(size: 16, weight: .black, design: .rounded).monospacedDigit())
+                Text(hasScore ? "\(Int(score.rounded()))pt" : "-- pt")
+                    .font(.system(size: 26, weight: .black, design: .rounded).monospacedDigit())
+                    .foregroundStyle(LiminalTheme.text)
             }
-            .foregroundStyle(LiminalTheme.text)
-
-            Text(hasScore ? "重なり" : "予定なし")
-                .font(.system(size: 10, weight: .bold, design: .rounded))
-                .foregroundStyle(LiminalTheme.secondaryText)
+            .accessibilityElement(children: .combine)
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(persona.title)、\(scoreNumberText)pt、\(hasScore ? "予定との重なり" : "予定なしの日")")
-    }
-
-    private var personaBadge: some View {
-        Image(systemName: persona.symbol)
-            .font(.system(size: 15, weight: .black))
-            .foregroundStyle(LiminalTheme.reward)
-            .frame(width: 32, height: 32)
-            .liminalGlassFill(in: Circle())
-            .liminalAccentLight(in: Circle(), intensity: 0.66)
-            .accessibilityHidden(true)
-    }
-
-    private var scoreNumberText: String {
-        hasScore ? "\(Int(score.rounded()))" : "--"
     }
 
     private var centerGlowColors: [Color] {
         if colorScheme == .light {
             return [
-                LiminalTheme.reward.opacity(0.34),
-                Color(hex: "#FFD8A8").opacity(0.18),
-                LiminalTheme.dawn.opacity(0.08),
+                LiminalTheme.dusk.opacity(0.12),
+                LiminalTheme.primary.opacity(0.06),
+                Color(hex: "#F8F3FF").opacity(0.08),
                 .clear
             ]
         }
@@ -485,6 +462,18 @@ private struct DailyTwentyFourHourRing: View {
             LiminalTheme.primary.opacity(0.22),
             .clear
         ]
+    }
+
+    private var centerGlowStartRadius: CGFloat {
+        colorScheme == .light ? 28 : 20
+    }
+
+    private var centerGlowEndRadius: CGFloat {
+        colorScheme == .light ? 104 : 128
+    }
+
+    private var centerGlowBlurRadius: CGFloat {
+        colorScheme == .light ? 3 : 8
     }
 }
 
