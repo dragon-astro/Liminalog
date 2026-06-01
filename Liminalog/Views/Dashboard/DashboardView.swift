@@ -64,6 +64,7 @@ struct DashboardView: View {
 struct DashboardPeriodContent: View {
     @Query private var queriedChapters: [Chapter]
     @Query private var queriedPlans: [PlanBlock]
+    @Query(sort: \UserSettings.createdAt) private var settingsList: [UserSettings]
 
     let period: DashboardPeriod
     let anchorDate: Date
@@ -106,36 +107,55 @@ struct DashboardPeriodContent: View {
 
         ScrollView {
             VStack(spacing: 14) {
-                DashboardHeroCard(
-                    period: period,
-                    anchorDate: anchorDate,
-                    summary: snapshot.periodSummary,
-                    scoreSummaries: snapshot.periodScoreSummaries,
-                    totalDuration: snapshot.totalDuration,
-                    recordedDayCount: snapshot.recordedDayCount,
-                    topCategory: snapshot.topCategoryStat
-                )
-
-                DashboardMetricRow(
-                    totalDuration: snapshot.totalDuration,
-                    chapterCount: snapshot.chapters.count,
-                    recordedDayCount: snapshot.recordedDayCount
-                )
-
-                ScoreBreakdownCard(summary: snapshot.periodSummary)
-                if period == .week {
-                    DashboardTimeOfDayTrendCard(summary: snapshot.timeOfDaySummary)
-                    DashboardPeriodDeltaCard(summary: snapshot.periodDeltaSummary)
+                ForEach(cardKeys) { key in
+                    cardView(for: key, snapshot: snapshot)
                 }
-                CategoryShareCard(chapters: snapshot.chapters)
-                HourRhythmCard(chapters: snapshot.chapters)
-                if period != .today {
-                    ScoreTrendCard(period: period, summaries: snapshot.periodScoreSummaries)
-                }
-                RecentTrendCard(chapters: snapshot.recentChapters)
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 28)
+        }
+    }
+
+    private var cardKeys: [DashboardCardKey] {
+        DashboardCardKey.displayOrder(
+            from: settingsList.first?.dashboardCardOrder ?? [],
+            for: period
+        )
+    }
+
+    @ViewBuilder
+    private func cardView(for key: DashboardCardKey, snapshot: DashboardPeriodSnapshot) -> some View {
+        switch key {
+        case .hero:
+            DashboardHeroCard(
+                period: period,
+                anchorDate: anchorDate,
+                summary: snapshot.periodSummary,
+                scoreSummaries: snapshot.periodScoreSummaries,
+                totalDuration: snapshot.totalDuration,
+                recordedDayCount: snapshot.recordedDayCount,
+                topCategory: snapshot.topCategoryStat
+            )
+        case .metrics:
+            DashboardMetricRow(
+                totalDuration: snapshot.totalDuration,
+                chapterCount: snapshot.chapters.count,
+                recordedDayCount: snapshot.recordedDayCount
+            )
+        case .scoreBreakdown:
+            ScoreBreakdownCard(summary: snapshot.periodSummary)
+        case .timeOfDayTrend:
+            DashboardTimeOfDayTrendCard(summary: snapshot.timeOfDaySummary)
+        case .periodDelta:
+            DashboardPeriodDeltaCard(summary: snapshot.periodDeltaSummary)
+        case .categoryShare:
+            CategoryShareCard(chapters: snapshot.chapters)
+        case .hourRhythm:
+            HourRhythmCard(chapters: snapshot.chapters)
+        case .scoreTrend:
+            ScoreTrendCard(period: period, summaries: snapshot.periodScoreSummaries)
+        case .recentTrend:
+            RecentTrendCard(chapters: snapshot.recentChapters)
         }
     }
 }

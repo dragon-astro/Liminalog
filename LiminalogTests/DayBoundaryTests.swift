@@ -156,3 +156,43 @@ struct DashboardPeriodTests {
         #expect(previousMonth.end == month.start)
     }
 }
+
+@Suite("DashboardCardKey")
+struct DashboardCardKeyTests {
+    @Test("保存されたカード順は無効値と重複を除いて不足分を補う")
+    func displayOrderNormalizesStoredOrder() {
+        let order = DashboardCardKey.displayOrder(
+            from: [
+                "recentTrend",
+                "unknown",
+                "periodDelta",
+                "recentTrend",
+                "hero"
+            ],
+            for: .week
+        )
+
+        #expect(Array(order.prefix(3)) == [.recentTrend, .periodDelta, .hero])
+        #expect(order.count == DashboardCardKey.defaultOrder(for: .week).count)
+        #expect(Set(order).count == order.count)
+        #expect(order.contains(.scoreBreakdown))
+    }
+
+    @Test("期間にないカードは表示順から除外される")
+    func displayOrderDropsUnavailableCardsForPeriod() {
+        let order = DashboardCardKey.displayOrder(
+            from: [
+                "periodDelta",
+                "timeOfDayTrend",
+                "scoreTrend",
+                "hero"
+            ],
+            for: .month
+        )
+
+        #expect(!order.contains(.periodDelta))
+        #expect(!order.contains(.timeOfDayTrend))
+        #expect(order.first == .scoreTrend)
+        #expect(order.contains(.hero))
+    }
+}
