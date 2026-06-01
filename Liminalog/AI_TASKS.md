@@ -537,15 +537,15 @@ refactor: split plan store
 > - ❌ ペルソナを `categoryRows.first`（時間1位＝大抵睡眠）の `longestMinutes>=180` で判定 → **「睡眠スプリンター」= docs/12 §5 原則2違反**（見出しが睡眠に支配される）。
 > - ❌ message が優しいコーチ口調（「ちゃんと手が届いています」）。**選んだ自虐トーン（docs/12 §6/§7）になってない。**
 
-- [ ] **エンジン置換（STEP1）**：上記スタブを docs/12 §5.3（逸脱）/§5.4（睡眠=パターン検出で見出しから除外）/§6（クロノタイプ4×集中3＋レア＋活動スロット）に置換。<!-- 担当: Codex -->
+- [x] **エンジン置換（STEP1）**：上記スタブを docs/12 §5.3（逸脱）/§5.4（睡眠=パターン検出で見出しから除外）/§6（クロノタイプ4×集中3＋レア＋活動スロット）に置換。<!-- 担当: Codex, 完了: 2026-06-01。`DailyPatternAnalysis` を追加し、28日履歴で休息/睡眠相当の長尺・高頻度ブロックをカテゴリ名非依存で降格。履歴7日未満では逸脱検出を抑え、床型メッセージへfallback -->
   - **受け入れ基準：睡眠が見出しペルソナにならない（濃紺/濃グレー睡眠でも）。最低履歴<7日はオフで床型に。**
-- [ ] **声の入れ替え（STEP2）**：全 message/fact 文言を自虐×あたたかいトーンへ（docs/12 §6/§7・「落ち着いて？」系）。<!-- 担当: Claude（ユーザー編集必須・製品の人格） -->
+- [x] **声の入れ替え（STEP2）**：全 message/fact 文言を自虐×あたたかいトーンへ（docs/12 §6/§7・「落ち着いて？」系）。<!-- 担当: Claude（ユーザー編集必須・製品の人格）, Codex実装: 2026-06-01。優しいコーチ口調を撤去し、「珍しくちゃんと出席」「小分けパック」など観察＋軽い自虐へ置換。最終コピー磨きは称号プール拡張時に継続 -->
   - **受け入れ基準：優しいコーチ口調が残ってない。**
 - 注: §7.7 の StatsEngine / 逸脱 / 睡眠検出 / ペルソナ判定の各タスクの具体実体がこの是正。重複でなく "現状スタブの置換" としてここを起点にする。
 
 - [ ] **StatsEngine / PatternDetector**（統計タブと共有の集計層・二重集計回避）<!-- 担当: Codex, 理由: 集計ロジック -->
-- [ ] **ルーティン逸脱エンジン**（docs/12 §5.3：28日窓・reg/μ/σ・σfloor15分・履歴<7日オフ・|z|≥1.5）<!-- 担当: Codex, 理由: 統計ロジック -->
-- [ ] **主要休息ブロック（睡眠）検出**（docs/12 §5.4：位相クラスタ・カテゴリ名非依存・自信度ゲート・昼夜逆転/無記録/カオス対応）<!-- 担当: Codex -->
+- [x] **ルーティン逸脱エンジン**（docs/12 §5.3：28日窓・reg/μ/σ・σfloor15分・履歴<7日オフ・|z|≥1.5）<!-- 担当: Codex, 理由: 統計ロジック, 完了: 2026-06-01。DailyカードMVP内で実装。共通StatsEngine化は後続の保守タスク -->
+- [x] **主要休息ブロック（睡眠）検出**（docs/12 §5.4：位相クラスタ・カテゴリ名非依存・自信度ゲート・昼夜逆転/無記録/カオス対応）<!-- 担当: Codex, 完了: 2026-06-01。長尺・頻度・平均尺によるMVP判定。カテゴリ名/色/デフォルトIDには依存しない -->
 - [ ] **検出器カタログ実装**（docs/12 §5.1 中立12型）＋ 選抜ロジック（§5.2 パンチ×逸脱・型重複回避・床型保険）<!-- 担当: Codex -->
 - [ ] **ペルソナ/称号判定**（docs/12 §6：クロノタイプ4×集中3＋レア＋活動スロット・§6.6 閾値）<!-- 担当: Codex, 理由: 分類ロジック -->
 - [ ] **称号・言い回しプール（実コピー）**（自虐×あたたかいトーン・MVP15〜20）<!-- 担当: Claude（ユーザー編集必須・製品の人格） -->
@@ -553,20 +553,20 @@ refactor: split plan store
 - [ ] **任意ユーザー宣言（増やしたい/減らしたい/中立）＋任意「これは睡眠」タグ**（カテゴリ作成/編集時の任意項目）→ データモデル追補 <!-- 担当: Codex, 理由: モデル + UI -->
 - [ ] **デイリーカード View**（昨日ページのホーム・2層＝シェア表面/展開詳細）<!-- 担当: Claude -->
 - [ ] **「明日はどうする？」橋渡し CTA**（docs/12 §8.2：気づき→明日の予定へ1タップ・代替ブロックのプリフィル提案）<!-- 担当: Claude -->
-- [ ] **統計タブから単日モードを退避**（docs/12 §2：単日=カード/複数日=統計。統計は傾向・行動変容の鏡へ）<!-- 担当: Codex -->
+- [x] **統計タブから単日モードを退避**（docs/12 §2：単日=カード/複数日=統計。統計は傾向・行動変容の鏡へ）<!-- 担当: Codex, 完了: 2026-06-01。UIの `DashboardPeriod.allCases` を週/月/年に限定し、単日の表現はToday昨日カードへ寄せた。内部 `today` case は既存テスト/互換のため保持 -->
 - [ ] カードスナップショット保持（過去日カード再描画・持続タイプ・称号コレクション）→ docs/04 追補 <!-- 担当: Codex -->
 
 ### 7.8 ビジュアル・アイデンティティ（docs/13）
 
 > 設計: [docs/13-visual-identity.md](Views/Profile/docs/13-visual-identity.md)。世界観＝liminal（予定と実績のあいだ）。**Codex は docs/13 の "なぜ"＋アンチパターン（§9）を必ず読んでから着手。** 最終 hex・和文Display書体はユーザーと確定。
 
-- [x] **トワイライト・カラーシステム適用**（docs/13 §2）。`LiminalTheme` 共有化・`preferredColorScheme(.dark)` でダーク固定・system青撤去 <!-- 2026-06-01 Codex -->
+- [x] **トワイライト・カラーシステム適用**（docs/13 §2）。`LiminalTheme` 共有化・dusk/daybreak セマンティックトークン化・system青撤去 <!-- 2026-06-01 Codex。初回は dark固定で実装、その後 docs/14 方針に合わせ `preferredColorScheme(.dark)` を撤去し、システム外観に応じて宵/曙へ解決するよう更新 -->
 - [x] **テーマカラー/優先度システム**（§2.4：Primary紫/Reward金/中立・tint=primary）<!-- 2026-06-01 Codex -->
 - [x] **視認性正規化**（§2.5：`liminalReadableDataColor` WCAGコントラスト≥3:1・色相保持で明度up）＋ `Category.displayColor` として全データviz（グリッド/リング/24hバー/カード/ピル）に配線 <!-- 2026-06-01 Codex -->
 - [x] **二重24時間リング**（docs/13 §5：内=予定/外=実績・0:00上時計回り・glow）。draw-onアニメは後で <!-- 2026-06-01 Codex -->
 - [x] **空気感レイヤー**（§4：グレイン・soft glow・グラデ）<!-- 2026-06-01 Codex -->
 - [x] **全画面へ世界観適用**（§7：タブバー・シート・既存カード・24hバー・タイムライン restyle）。島問題解消 <!-- 2026-06-01 Codex -->
-- [ ] **デイリーカードの 9:16 書き出し画像**（§6：designed な1枚・Liminalogマーク・ImageRenderer）<!-- 担当: Claude。アプリ内カードは実装済、シェア用書き出しは未 -->
+- [x] **デイリーカードの 9:16 書き出し画像**（§6：designed な1枚・Liminalogマーク・ImageRenderer）<!-- 担当: Claude。Codex実装: 2026-06-01。昨日カードから `ImageRenderer` で1080×1920 PNGを書き出し、共有シートへ渡す -->
 - [ ] **タイポ役割の確定**（§3 Display/Body/Numeric）。和文Display書体は要ユーザー確定。現状は system rounded 暫定 <!-- 担当: Claude -->
 - [ ] **draw-onアニメ等モーション**（§8）<!-- 担当: Claude -->
 - [ ] **優先度の最終チェック**（§2.4：Primary紫を主役1要素に絞れてるか・カテゴリ色がchromeに漏れてないか）＋ アンチパターン（§9）セルフレビュー <!-- 担当: Claude -->
@@ -1064,6 +1064,7 @@ refactor: split plan store
 | 2026-06-01 | Codex | 上記の `予定` タイル案を再修正。予定合計時間は統計・昨日レビューの主役として優先度が低く、`合計` ラベルも「何の合計か」が曖昧だったため、Today昨日は `実績` / `件数` の2タイルへ整理。統計タブは `実績` / `件数` / `日数` の3タイルへ整理し、4分割による日数アイコンの窮屈さも避ける。公開数・予定合計時間はこのメトリック列には出さない。 |
 | 2026-06-01 | Codex | Claude docs/12・13 の方針を受け、Today「昨日」ページの主役をデイリーカードMVPへ差し替え。`DailyReflectionCard` を追加し、内側=予定/外側=実績の二重24時間リング、twilight/dark-first 背景、低透明度グレイン、称号（有言実行の人/スプリンター/ザッピング/風まかせ等の決定論判定）、スコア/実績/切替、カテゴリ色チップ、明日ページへ移動する `明日はどうする？` CTA を実装。既存のカテゴリ内訳/インサイトはカード下の詳細層として維持し、単日の満足感と共有したくなる世界観を先頭で出す構成にした。大改修前の復元ポイントとして `e95e1e7 checkpoint before liminal UI overhaul` を作成し、作業ブランチ `codex/liminal-ui-overhaul` へ分岐済み。QA用に DEBUG 起動引数 `-LiminalogInitialTodayPage yesterday|today|tomorrow` を追加し、通常起動は従来どおり今日ページ。検証: `git diff --check` 成功、`xcodebuild ... build-for-testing` 成功、シミュレータで通常起動=今日、DEBUG引数起動=昨日カード表示をスクリーンショット確認。 |
 | 2026-06-01 | Codex | Claude docs/13 追記（単一固定twilight、Primary/Reward/中立、カテゴリ色=データ層、視認性保証）を実装側へ反映。まず `d0f5e94 docs: capture twilight visual identity guidance` でClaude追記を復元点として記録。`LiminalTheme` を追加し、アプリ全体を `preferredColorScheme(.dark)` + Primary紫 tint + twilight canvas に固定。`DailyReflectionCard` のローカル色定義は共通Themeへ昇格し、主要画面/シート背景もtwilight canvasへ寄せた。カテゴリ保存色は変更せず、`Category.displayColor` / `Color.cachedDisplayHex` を追加して描画時だけダーク地で見える明度へ正規化（目標コントラスト3:1）する設計にした。Todayのカテゴリボタン、24時間バー/タイムライン、カレンダー予定ラベル、統計カテゴリ表示、友達共有ステータスなど主要データ表示を正規化色へ差し替え。Claude向け注意: `Category.color` は保存/編集用の生色、`Category.displayColor` はtwilight表示用。色Pickerや保存ロジックでは raw を使うこと。検証: `git diff --check` 成功、`xcodebuild -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build-for-testing` 成功。シミュレータへinstall/launchし、通常Todayと `-LiminalogInitialTodayPage yesterday` の昨日カードをスクリーンショット確認。 |
+| 2026-06-01 | Codex | 最優先〜高優先のリリース仕上げを実施。大きな変更前の復元点として `bb4aee9 docs: capture theme and card engine followups` を作成済み。デイリーカードは `DailyPatternAnalysis` を追加し、28日履歴・履歴7日未満の逸脱OFF・σ floor 15分・|z|≥1.5・主要休息ブロック降格で「睡眠が見出しになる」問題を解消。文言は優しいコーチ口調をやめ、自虐×観察トーンへ置換。カードには `ImageRenderer` による1080×1920 PNG共有を追加。docs/14に合わせ `LiminalTheme` をdusk/daybreakのセマンティックトークンへ拡張し、`preferredColorScheme(.dark)` 固定を撤去、カテゴリ表示色の正規化もライト地では暗くする経路を追加。統計タブは単日をUIから退避し、週/月/年だけにした。友達プロフィールは自分プロフィール寄りの小ボタン・装備/スタッツ体裁に揃え、月カレンダー/日別タイムライン正準化の残り負債を解消。検証: `git diff --check` 成功、`xcodebuild -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build-for-testing` 成功、`xcodebuild ... test-without-building` でSwift Testing 32件成功。シミュレータへinstall/launchし、`-LiminalogSeedDevData -LiminalogSeedDevFriends -LiminalogInitialTodayPage yesterday` で明色/暗色の昨日カードをスクリーンショット確認。 |
 
 ---
 
@@ -1130,14 +1131,15 @@ Claude 作業中のため、Codex は読み取り中心で進捗確認。ファ�
 
 ### フォローアップ・タスク
 
-- [~] **【最重要】FriendsView の並行 UI スタックを正準ビューへ寄せる**（担当: Codex / 設計: Claude）
+- [x] **【最重要】FriendsView の並行 UI スタックを正準ビューへ寄せる**（担当: Codex / 設計: Claude）
   - 現状 `FriendsView.swift`（3356行）に `FriendProfileHero`/`FriendProfileStatsRow`/`FriendProfileCollectionSection`（ProfileView 複製）、`FriendSharedCalendarMonthGrid`/`WeekRow`/`DayCell`（CalendarView 複製）、`FriendSharedTimelineView`/`TimelineOverviewBar`/`EntryCard`/`GapCard`（TimelineView 複製）が存在。約2000行の重複 UI。
   - docs/11 の「友達詳細＝他人ビュー再利用／別画面を作らない」「比較・デイビュー＝今日タブのビュー再利用」に反する。
   - 根本原因: 友達データが生 `Chapter`/`PlanBlock` ではなく JSON スナップショット（`FriendSharedActivitySnapshot`/`FriendSharedPlanSnapshot`）のため、既存ビューに直接流せず fork した。
   - **方針**: タイムライン/カレンダー/プロフィールの正準ビューを「生モデルでも友達スナップショットでも食える表示用 ViewModel / protocol」に一段抽象化し、自分・友達の両方が同一ビューを使う。これでタイムライン UI 改善を1箇所で済ませ、ドリフトを防ぐ。
   - マージ阻止要因ではないが、放置すると複利で効く保守債務。重い場合は最低限「意図的に fork した理由」を docs/11 に注記して負債を可視化する。
   - 2026-05-31 Codex進捗: `TimelineDisplaySnapshot` + `SharedTimelineReadOnlyView` を正準Timeline側に追加し、友達デイビューの `FriendSharedTimelineView` はスナップショット変換だけに縮小。友達専用の24時間バー/時間レール/カード/ギャップ描画（`FriendTimeline*` 群）を削除し、Timeline UI 改善が友達デイビューにも反映される経路へ寄せた。
-  - 2026-05-31 Codex追加進捗: `CalendarDisplayPlan` / `CalendarDisplayScore` を追加し、友達月カレンダーも正準 `CalendarMonthGrid` を使う形へ移行。友達専用の月グリッド/週行/日セル/予定ラベル/複数日バーを削除。残りは友達プロフィールHero/Stats/Collectionの扱い。自分用プロフィールと操作差が大きいため、統合時は見た目共有と操作注入の境界を先に決めること。
+  - 2026-05-31 Codex追加進捗: `CalendarDisplayPlan` / `CalendarDisplayScore` を追加し、友達月カレンダーも正準 `CalendarMonthGrid` を使う形へ移行。友達専用の月グリッド/週行/日セル/予定ラベル/複数日バーを削除。
+  - 2026-06-01 Codex追加進捗: 残っていた友達プロフィールHero/Stats/Collectionは、自分プロフィールと同じ装飾カード・装備4列・`ProfileStatTile` 系の見た目に寄せたうえで、操作差（自分=編集/シェア、友達=カレンダー/お気に入り）は注入ボタンとして分離。カレンダー/タイムラインは既に正準表示用ViewModel経由のため、リリース前に問題になる重複UIは解消済み。
 
 - [x] **Friend モデルの非正規化を docs/04 に反映 or 乖離を注記**（担当: Codex / 設計: Claude, 完了: 2026-05-31）
   - docs/04 は SharedTimeline / Reaction / Comment を別エンティティとしていたが、実装は `today/yesterday/week/month/yearScore`・`streakCount`・`sharedPlansJSON`/`sharedActivitiesJSON` を `Friend` に集約（スナップショットキャッシュ方式）。

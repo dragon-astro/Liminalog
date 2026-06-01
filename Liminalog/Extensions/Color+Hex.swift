@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 extension Color {
     // hex文字列→Colorのパースは Scanner を使うため、ボタン等で毎描画ごとに呼ぶと
@@ -66,11 +67,17 @@ extension Color {
 
 private extension UIColor {
     func liminalReadableDataColor(minContrast: CGFloat) -> UIColor {
-        let background = UIColor(red: 0.051, green: 0.043, blue: 0.086, alpha: 1)
+        let source = self
+        return UIColor { traits in
+            let background = LiminalTheme.uiCanvas(for: traits)
+            return source.adjustedForReadability(against: background, minContrast: minContrast)
+        }
+    }
+
+    private func adjustedForReadability(against background: UIColor, minContrast: CGFloat) -> UIColor {
         guard contrastRatio(against: background) < minContrast else {
             return self
         }
-
         var hue: CGFloat = 0
         var saturation: CGFloat = 0
         var brightness: CGFloat = 0
@@ -79,13 +86,21 @@ private extension UIColor {
             return UIColor(red: 0.78, green: 0.65, blue: 1, alpha: 1)
         }
 
-        var adjustedBrightness = max(brightness, 0.52)
+        let backgroundIsLight = background.relativeLuminance() > 0.5
+        var adjustedBrightness = backgroundIsLight ? min(brightness, 0.48) : max(brightness, 0.52)
         let adjustedSaturation = max(saturation, 0.18)
         var candidate = UIColor(hue: hue, saturation: adjustedSaturation, brightness: adjustedBrightness, alpha: alpha)
 
-        while candidate.contrastRatio(against: background) < minContrast && adjustedBrightness < 0.96 {
-            adjustedBrightness += 0.04
-            candidate = UIColor(hue: hue, saturation: adjustedSaturation, brightness: min(adjustedBrightness, 0.96), alpha: alpha)
+        if backgroundIsLight {
+            while candidate.contrastRatio(against: background) < minContrast && adjustedBrightness > 0.16 {
+                adjustedBrightness -= 0.04
+                candidate = UIColor(hue: hue, saturation: adjustedSaturation, brightness: max(adjustedBrightness, 0.16), alpha: alpha)
+            }
+        } else {
+            while candidate.contrastRatio(against: background) < minContrast && adjustedBrightness < 0.96 {
+                adjustedBrightness += 0.04
+                candidate = UIColor(hue: hue, saturation: adjustedSaturation, brightness: min(adjustedBrightness, 0.96), alpha: alpha)
+            }
         }
         return candidate
     }

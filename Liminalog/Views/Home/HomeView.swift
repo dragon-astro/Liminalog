@@ -287,7 +287,7 @@ private struct YesterdayReviewPage: View {
         let boundary = DayBoundary(date: date, calendar: .japanese)
         let dayStart = boundary.dayStart
         let dayEnd = boundary.dayEnd
-        let chapterLookbackStart = Calendar.japanese.date(byAdding: .day, value: -14, to: dayStart) ?? dayStart
+        let chapterLookbackStart = Calendar.japanese.date(byAdding: .day, value: -28, to: dayStart) ?? dayStart
         _queriedPlans = Query(
             filter: #Predicate<PlanBlock> {
                 $0.startTime < dayEnd && $0.endTime > dayStart
@@ -309,6 +309,7 @@ private struct YesterdayReviewPage: View {
                     date: date,
                     summary: scoreSummary,
                     chapters: dayChapters,
+                    historyChapters: historyChapters,
                     plans: dayPlans,
                     dayBoundary: dayBoundary,
                     categoryRows: categoryRows,
@@ -343,6 +344,10 @@ private struct YesterdayReviewPage: View {
         return queriedChapters
             .filter { $0.startTime < dayBoundary.dayEnd && ($0.endTime ?? now) > dayBoundary.dayStart }
             .sorted { $0.startTime < $1.startTime }
+    }
+
+    private var historyChapters: [Chapter] {
+        queriedChapters.sorted { $0.startTime < $1.startTime }
     }
 
     private var scoreSummary: ScoreSummary {

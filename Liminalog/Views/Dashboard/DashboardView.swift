@@ -2,7 +2,7 @@ import SwiftUI
 import SwiftData
 
 struct DashboardView: View {
-    @State private var period: DashboardPeriod = .today
+    @State private var period: DashboardPeriod = .week
     @State private var anchorDate = Date()
     @State private var isShowingPeriodPicker = false
     @State private var clock = TickClock(interval: 60)
@@ -713,6 +713,8 @@ struct DashboardSmallValue: View {
 
 enum DashboardPeriod: String, CaseIterable, Identifiable {
     case today, week, month, year
+    static let allCases: [DashboardPeriod] = [.week, .month, .year]
+
     var id: String { rawValue }
     var title: String {
         switch self {

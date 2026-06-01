@@ -995,8 +995,8 @@ private struct FriendProfileHero: View {
                 FriendProfileActionButton(systemImage: "calendar", label: "カレンダー", action: onCalendar)
                 FriendProfileActionButton(systemImage: friend.isFavorite ? "star.fill" : "star", label: "お気に入り", action: onFavorite)
             }
-            .padding(.top, 22)
-            .padding(.trailing, 14)
+            .padding(.top, 18)
+            .padding(.trailing, 18)
             .zIndex(2)
         }
     }
@@ -1010,8 +1010,8 @@ private struct FriendProfileActionButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: systemImage)
-                .font(.subheadline.weight(.bold))
-                .frame(width: 44, height: 44)
+                .font(.footnote.weight(.semibold))
+                .frame(width: 30, height: 30)
                 .background(.thinMaterial, in: Circle())
                 .overlay {
                     Circle()
@@ -1048,8 +1048,8 @@ private struct FriendProfileStatsRow: View {
     var body: some View {
         HStack(spacing: 10) {
             ProfileStatTile(title: "ストリーク", value: "\(friend.streakCount)日", systemImage: friend.streakIconStyle.systemImage, tint: Color(hex: friend.streakIconStyle.tintHex))
-            ProfileStatTile(title: "昨日", value: "\(Int(round(friend.yesterdayScore)))pt", systemImage: "star.fill", tint: Color(hex: "#F2994A"))
-            ProfileStatTile(title: "今週", value: "\(Int(round(friend.weekScore)))pt", systemImage: "chart.line.uptrend.xyaxis", tint: Color(hex: "#27AE60"))
+            ProfileStatTile(title: "今月", value: "\(Int(round(friend.monthScore)))pt", systemImage: "star.fill", tint: Color(hex: "#F2994A"))
+            ProfileStatTile(title: "年間", value: "\(Int(round(friend.yearScore)))pt", systemImage: "chart.line.uptrend.xyaxis", tint: Color(hex: "#27AE60"))
         }
     }
 }
