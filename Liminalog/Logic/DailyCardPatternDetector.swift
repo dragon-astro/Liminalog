@@ -1,6 +1,21 @@
 import Foundation
 
 struct DailyCardPatternDetector {
+    enum DetectorKind {
+        case routineDeviation
+        case difference
+        case personalBest
+        case dayShape
+        case timeOfDay
+        case planMatch
+        case categoryComposition
+        case sensoryConversion
+        case recordingHabit
+        case mood
+        case friendOverlap
+        case declaredIntent
+    }
+
     enum Shape {
         case sprinter
         case marathon
@@ -21,6 +36,7 @@ struct DailyCardPatternDetector {
     let shape: Shape
     let chronotype: Chronotype
     let signal: DailyCardPatternSignal?
+    let spotlightFact: DailyCardPatternFact?
     let discretionaryDuration: TimeInterval
     let restWasExcluded: Bool
     let isChargeDay: Bool
@@ -50,18 +66,22 @@ struct DailyCardPatternDetector {
         let shape = Self.shape(for: effectiveChapters, dayBoundary: dayBoundary)
         let meaningfulSwitchCount = Self.meaningfulSwitchCount(for: effectiveChapters, dayBoundary: dayBoundary)
         let longestMeaningful = Self.longestMeaningfulBlock(for: effectiveChapters, dayBoundary: dayBoundary)
+        let spotlight = Self.spotlight(
+            categoryRows: categoryRows,
+            effectiveRows: nonRestRows,
+            effectiveChapters: effectiveChapters,
+            historyChapters: historyChapters,
+            dayBoundary: dayBoundary,
+            excludedCategoryIDs: restCategoryIDs
+        )
 
         self.focusCategory = nonRestRows.first ?? (restCategoryIDs.isEmpty ? categoryRows.first : nil)
         self.longestMeaningfulCategory = longestMeaningful.category
         self.longestMeaningfulDuration = longestMeaningful.duration
         self.shape = shape
         self.chronotype = Self.chronotype(for: effectiveChapters, dayBoundary: dayBoundary)
-        self.signal = Self.signal(
-            categoryRows: categoryRows,
-            historyChapters: historyChapters,
-            dayBoundary: dayBoundary,
-            excludedCategoryIDs: restCategoryIDs
-        )
+        self.signal = spotlight?.signal
+        self.spotlightFact = spotlight?.fact
         self.discretionaryDuration = discretionaryDuration
         self.restWasExcluded = restWasExcluded
         self.isChargeDay = restWasExcluded && (restDuration >= 10 * 60 * 60 || (discretionaryDuration <= 60 * 60 && recordedDuration >= 8 * 60 * 60))
@@ -73,22 +93,21 @@ struct DailyCardPatternDetector {
         historyChapters: [Chapter],
         dayBoundary: DayBoundary
     ) -> Set<UUID> {
-        let calendar = Calendar.japanese
         let explicitRestIDs = Set((chapters + historyChapters).compactMap { chapter in
             chapter.category?.isDailyCardSleepCategory == true ? chapter.category?.id : nil
         })
-        let historyStart = calendar.date(byAdding: .day, value: -28, to: dayBoundary.dayStart) ?? dayBoundary.dayStart
+        let historyStart = dayBoundary.dayStart.addingTimeInterval(-28 * 24 * 60 * 60)
         let historical = historyChapters.filter { chapter in
             chapter.startTime >= historyStart && chapter.startTime < dayBoundary.dayStart
         }
-        let historicalDays = Set(historical.map { DayBoundary.dayStart(for: $0.startTime, calendar: calendar) }).count
+        let historicalDays = Set(historical.map { dayOffset(for: $0.startTime, dayBoundary: dayBoundary) }).count
         let source = historicalDays >= 7 ? historical : chapters
         guard !source.isEmpty else { return explicitRestIDs }
 
         struct RestCandidate {
             var category: Category
             var totalLongBlocks = 0
-            var presenceDays = Set<Date>()
+            var presenceDays = Set<Int>()
             var longestTotal: TimeInterval = 0
             var blockCount = 0
         }
@@ -98,7 +117,7 @@ struct DailyCardPatternDetector {
             guard let category = chapter.category else { continue }
             let duration = rawDuration(for: chapter, fallbackEnd: dayBoundary.dayEnd)
             guard duration >= 3 * 60 * 60 else { continue }
-            let day = DayBoundary.dayStart(for: chapter.startTime, calendar: calendar)
+            let day = dayOffset(for: chapter.startTime, dayBoundary: dayBoundary)
             var candidate = candidates[category.id] ?? RestCandidate(category: category)
             candidate.totalLongBlocks += 1
             candidate.presenceDays.insert(day)
@@ -169,38 +188,69 @@ struct DailyCardPatternDetector {
         }
     }
 
-    private static func signal(
+    private static func spotlight(
         categoryRows: [(category: Category, duration: TimeInterval)],
+        effectiveRows: [(category: Category, duration: TimeInterval)],
+        effectiveChapters: [Chapter],
         historyChapters: [Chapter],
         dayBoundary: DayBoundary,
         excludedCategoryIDs: Set<UUID>
-    ) -> DailyCardPatternSignal? {
-        let calendar = Calendar.japanese
-        let historyStart = calendar.date(byAdding: .day, value: -28, to: dayBoundary.dayStart) ?? dayBoundary.dayStart
+    ) -> DailyCardPatternSpotlight? {
+        let historyStart = dayBoundary.dayStart.addingTimeInterval(-28 * 24 * 60 * 60)
         let historical = historyChapters.filter { chapter in
             chapter.startTime >= historyStart && chapter.startTime < dayBoundary.dayStart
         }
-        let historyDays = Set(historical.map { DayBoundary.dayStart(for: $0.startTime, calendar: calendar) }).count
-        guard historyDays >= 7 else { return nil }
-
+        let historyDays = Set(historical.map { dayOffset(for: $0.startTime, dayBoundary: dayBoundary) }).count
+        var candidates: [DailyCardPatternSpotlight] = []
         let todayRows = categoryRows.filter { !excludedCategoryIDs.contains($0.category.id) }
-        var best: (signal: DailyCardPatternSignal, score: Double)?
 
-        for row in todayRows where !excludedCategoryIDs.contains(row.category.id) {
-            var dailyTotals: [Date: TimeInterval] = [:]
-            var lastSeen: Date?
+        if historyDays >= 7 {
+            candidates += historicalCandidates(
+                todayRows: todayRows,
+                historical: historical,
+                dayBoundary: dayBoundary
+            )
+            if let streakCandidate = recordingStreakCandidate(
+                historical: historical,
+                effectiveChapters: effectiveChapters,
+                dayBoundary: dayBoundary
+            ) {
+                candidates.append(streakCandidate)
+            }
+        }
+
+        if let composition = categoryCompositionCandidate(effectiveRows: effectiveRows) {
+            candidates.append(composition)
+        }
+
+        let punchCandidates = candidates.filter { !$0.isFloor }
+        let pool = punchCandidates.isEmpty ? candidates : punchCandidates
+        return pool.max { lhs, rhs in
+            lhs.selectionScore < rhs.selectionScore
+        }
+    }
+
+    private static func historicalCandidates(
+        todayRows: [(category: Category, duration: TimeInterval)],
+        historical: [Chapter],
+        dayBoundary: DayBoundary
+    ) -> [DailyCardPatternSpotlight] {
+        var candidates: [DailyCardPatternSpotlight] = []
+
+        for row in todayRows {
+            var dailyTotals: [Int: TimeInterval] = [:]
+            var lastSeenOffset: Int?
             var historicalCount = 0
             for chapter in historical where chapter.category?.id == row.category.id {
-                let day = DayBoundary.dayStart(for: chapter.startTime, calendar: calendar)
+                let day = dayOffset(for: chapter.startTime, dayBoundary: dayBoundary)
                 let duration = rawDuration(for: chapter, fallbackEnd: dayBoundary.dayStart)
                 dailyTotals[day, default: 0] += duration
-                lastSeen = max(lastSeen ?? day, day)
+                lastSeenOffset = max(lastSeenOffset ?? day, day)
                 historicalCount += 1
             }
 
-            let values = (0..<28).compactMap { offset -> TimeInterval? in
-                guard let day = calendar.date(byAdding: .day, value: -offset - 1, to: dayBoundary.dayStart) else { return nil }
-                return dailyTotals[day, default: 0]
+            let values = (1...28).map { offset -> TimeInterval in
+                dailyTotals[-offset, default: 0]
             }
             let mean = values.reduce(0, +) / Double(max(values.count, 1))
             let variance = values.reduce(0) { partial, value in
@@ -208,28 +258,127 @@ struct DailyCardPatternDetector {
             } / Double(max(values.count, 1))
             let std = max(sqrt(variance), 15 * 60)
             let z = (row.duration - mean) / std
-            let daysSinceLast: Int? = lastSeen.map { calendar.dateComponents([.day], from: $0, to: dayBoundary.dayStart).day ?? 0 }
+            let daysSinceLast: Int? = lastSeenOffset.map { abs($0) }
             let delta = abs(row.duration - mean)
-            let candidate: (DailyCardPatternSignal, Double)?
+            let previousBest = values.max() ?? 0
+            let isPersonalBest = previousBest >= 15 * 60 && row.duration >= previousBest + 20 * 60
 
             if historicalCount == 0, row.duration >= 15 * 60 {
-                candidate = (.firstRecord(category: row.category), 4 + min(row.duration / (60 * 60), 3))
+                candidates.append(DailyCardPatternSpotlight(
+                    kind: .routineDeviation,
+                    signal: .firstRecord(category: row.category),
+                    fact: DailyCardPatternFact(id: "signal-first", title: "初記録", value: row.category.name, suffix: nil, systemImage: "sparkles"),
+                    punch: 4 + min(row.duration / (60 * 60), 3),
+                    newsworthiness: 1.1,
+                    isFloor: false
+                ))
             } else if let daysSinceLast, daysSinceLast >= 10 {
-                candidate = (.returnAfterGap(category: row.category, days: daysSinceLast), 3 + min(Double(daysSinceLast) / 14, 3))
-            } else if abs(z) >= 1.5, delta >= 20 * 60 {
-                candidate = z > 0
-                    ? (.moreThanUsual(category: row.category, delta: delta), abs(z))
-                    : (.lessThanUsual(category: row.category, delta: delta), abs(z))
-            } else {
-                candidate = nil
+                candidates.append(DailyCardPatternSpotlight(
+                    kind: .routineDeviation,
+                    signal: .returnAfterGap(category: row.category, days: daysSinceLast),
+                    fact: DailyCardPatternFact(id: "signal-gap", title: "復帰", value: "\(daysSinceLast)", suffix: "日ぶり", systemImage: "hand.wave.fill"),
+                    punch: 3 + min(Double(daysSinceLast) / 14, 3),
+                    newsworthiness: 1.0,
+                    isFloor: false
+                ))
             }
 
-            if let candidate, candidate.1 > (best?.score ?? -Double.infinity) {
-                best = (candidate.0, candidate.1)
+            if isPersonalBest {
+                let improvement = row.duration - previousBest
+                candidates.append(DailyCardPatternSpotlight(
+                    kind: .personalBest,
+                    signal: .personalBest(category: row.category, duration: row.duration, previousBest: previousBest),
+                    fact: DailyCardPatternFact(id: "signal-best", title: "自己最長", value: formatPatternDuration(row.duration), suffix: nil, systemImage: "crown.fill"),
+                    punch: 6.0 + min(improvement / (30 * 60), 2.0),
+                    newsworthiness: 1.15,
+                    isFloor: false
+                ))
+            }
+
+            if abs(z) >= 1.5, delta >= 20 * 60 {
+                let declaredIntentMatches = row.category.dailyCardIntent != .neutral
+                if isPersonalBest && !declaredIntentMatches {
+                    continue
+                }
+                let signal: DailyCardPatternSignal = z > 0
+                    ? .moreThanUsual(category: row.category, delta: delta)
+                    : .lessThanUsual(category: row.category, delta: delta)
+                let fact = DailyCardPatternFact(
+                    id: z > 0 ? "signal-more" : "signal-less",
+                    title: "いつもより",
+                    value: formatPatternDuration(delta),
+                    suffix: z > 0 ? "多め" : "控えめ",
+                    systemImage: z > 0 ? "arrow.up.right" : "arrow.down.right"
+                )
+                candidates.append(DailyCardPatternSpotlight(
+                    kind: declaredIntentMatches ? .declaredIntent : .difference,
+                    signal: signal,
+                    fact: fact,
+                    punch: min(abs(z), 5.5) + (declaredIntentMatches ? 1.3 : 0),
+                    newsworthiness: declaredIntentMatches ? 1.45 : 1.0,
+                    isFloor: false
+                ))
             }
         }
 
-        return best?.signal
+        return candidates
+    }
+
+    private static func recordingStreakCandidate(
+        historical: [Chapter],
+        effectiveChapters: [Chapter],
+        dayBoundary: DayBoundary
+    ) -> DailyCardPatternSpotlight? {
+        guard !effectiveChapters.isEmpty else { return nil }
+        let daysWithRecords = Set(historical.map { dayOffset(for: $0.startTime, dayBoundary: dayBoundary) })
+        var streak = 1
+        var offset = -1
+        while daysWithRecords.contains(offset) {
+            streak += 1
+            offset -= 1
+        }
+        guard streak >= 5 else { return nil }
+        return DailyCardPatternSpotlight(
+            kind: .recordingHabit,
+            signal: nil,
+            fact: DailyCardPatternFact(id: "habit-streak", title: "記録", value: "\(streak)", suffix: "日連続", systemImage: "flame.fill"),
+            punch: 1.4 + min(Double(streak) / 20, 1.2),
+            newsworthiness: 0.8,
+            isFloor: true
+        )
+    }
+
+    private static func categoryCompositionCandidate(
+        effectiveRows: [(category: Category, duration: TimeInterval)]
+    ) -> DailyCardPatternSpotlight? {
+        let rows = effectiveRows.filter { $0.duration >= 15 * 60 }
+        let total = rows.reduce(TimeInterval(0)) { $0 + $1.duration }
+        guard total >= 2 * 60 * 60, let top = rows.max(by: { $0.duration < $1.duration }) else { return nil }
+        let topShare = top.duration / total
+
+        if rows.count >= 3, topShare <= 0.55 {
+            return DailyCardPatternSpotlight(
+                kind: .categoryComposition,
+                signal: nil,
+                fact: DailyCardPatternFact(id: "composition-split", title: "構成", value: "\(rows.count)", suffix: "カテゴリ", systemImage: "square.grid.3x3.fill"),
+                punch: 1.7,
+                newsworthiness: 0.75,
+                isFloor: true
+            )
+        }
+
+        if topShare >= 0.75 {
+            return DailyCardPatternSpotlight(
+                kind: .categoryComposition,
+                signal: nil,
+                fact: DailyCardPatternFact(id: "composition-focus", title: "主成分", value: top.category.name, suffix: "\(Int((topShare * 100).rounded()))%", systemImage: "chart.pie.fill"),
+                punch: 1.5,
+                newsworthiness: 0.7,
+                isFloor: true
+            )
+        }
+
+        return nil
     }
 
     private static func meaningfulSwitchCount(for chapters: [Chapter], dayBoundary: DayBoundary) -> Int {
@@ -262,6 +411,10 @@ struct DailyCardPatternDetector {
         max(0, (chapter.endTime ?? fallbackEnd).timeIntervalSince(chapter.startTime))
     }
 
+    private static func dayOffset(for date: Date, dayBoundary: DayBoundary) -> Int {
+        Int(floor(date.timeIntervalSince(dayBoundary.dayStart) / (24 * 60 * 60)))
+    }
+
     private static func medianDuration(_ durations: [TimeInterval]) -> TimeInterval {
         guard !durations.isEmpty else { return 0 }
         let middle = durations.count / 2
@@ -275,6 +428,60 @@ struct DailyCardPatternDetector {
 enum DailyCardPatternSignal {
     case firstRecord(category: Category)
     case returnAfterGap(category: Category, days: Int)
+    case personalBest(category: Category, duration: TimeInterval, previousBest: TimeInterval)
     case moreThanUsual(category: Category, delta: TimeInterval)
     case lessThanUsual(category: Category, delta: TimeInterval)
+}
+
+struct DailyCardPatternFact: Hashable {
+    let id: String
+    let title: String
+    let value: String
+    let suffix: String?
+    let systemImage: String
+}
+
+private struct DailyCardPatternSpotlight {
+    let kind: DailyCardPatternDetector.DetectorKind
+    let signal: DailyCardPatternSignal?
+    let fact: DailyCardPatternFact
+    let punch: Double
+    let newsworthiness: Double
+    let isFloor: Bool
+
+    var selectionScore: Double {
+        kindPriority + punch * newsworthiness
+    }
+
+    private var kindPriority: Double {
+        switch kind {
+        case .declaredIntent:
+            return 30
+        case .personalBest:
+            return 20
+        case .routineDeviation:
+            return 12
+        case .difference, .timeOfDay:
+            return 8
+        case .planMatch, .dayShape:
+            return 4
+        case .recordingHabit, .categoryComposition:
+            return 1
+        case .sensoryConversion, .mood, .friendOverlap:
+            return 0
+        }
+    }
+}
+
+private func formatPatternDuration(_ seconds: TimeInterval) -> String {
+    let totalMinutes = max(Int(seconds / 60), 0)
+    let hours = totalMinutes / 60
+    let minutes = totalMinutes % 60
+    if hours > 0, minutes > 0 {
+        return "\(hours)時間\(minutes)分"
+    } else if hours > 0 {
+        return "\(hours)時間"
+    } else {
+        return "\(minutes)分"
+    }
 }

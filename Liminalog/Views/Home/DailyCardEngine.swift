@@ -92,7 +92,9 @@ struct DailyPersona {
                 systemImage: "rectangle.2.swap"
             )
         ]
-        if let signalFact = analysis.signal?.fact {
+        if let spotlightFact = analysis.spotlightFact {
+            facts.append(DailyCardFact(spotlightFact))
+        } else if let signalFact = analysis.signal?.fact {
             facts.append(signalFact)
         }
         return Array(facts.prefix(3))
@@ -125,6 +127,16 @@ private extension DailyCardPatternSignal {
                     "\(days)日ぶりの\(category.name)。久々すぎて、今日のカードがちょっと二度見しています。"
                 ],
                 symbol: "hand.wave.fill"
+            )
+        case let .personalBest(category, duration, previousBest):
+            let improvement = max(duration - previousBest, 0)
+            return DailyPersonaCopy(
+                title: "\(category.name)自己最長",
+                messages: [
+                    "\(category.name)が\(formatDailyCardDuration(duration))で自己最長。前回ベストより\(formatDailyCardDuration(improvement))、じわっと更新。",
+                    "\(category.name)、今日は自己ベスト更新。\(formatDailyCardDuration(duration))ぶん居座った集中、なかなか強い。"
+                ],
+                symbol: "crown.fill"
             )
         case let .moreThanUsual(category, delta):
             switch category.dailyCardIntent {
@@ -197,11 +209,25 @@ private extension DailyCardPatternSignal {
             return DailyCardFact(id: "signal-first", title: "初記録", value: category.name, suffix: nil, systemImage: "sparkles")
         case let .returnAfterGap(_, days):
             return DailyCardFact(id: "signal-gap", title: "復帰", value: "\(days)", suffix: "日ぶり", systemImage: "hand.wave.fill")
+        case let .personalBest(_, duration, _):
+            return DailyCardFact(id: "signal-best", title: "自己最長", value: formatDailyCardDuration(duration), suffix: nil, systemImage: "crown.fill")
         case let .moreThanUsual(_, delta):
             return DailyCardFact(id: "signal-more", title: "いつもより", value: formatDailyCardDuration(delta), suffix: "多め", systemImage: "arrow.up.right")
         case let .lessThanUsual(_, delta):
             return DailyCardFact(id: "signal-less", title: "いつもより", value: formatDailyCardDuration(delta), suffix: "控えめ", systemImage: "arrow.down.right")
         }
+    }
+}
+
+private extension DailyCardFact {
+    init(_ patternFact: DailyCardPatternFact) {
+        self.init(
+            id: patternFact.id,
+            title: patternFact.title,
+            value: patternFact.value,
+            suffix: patternFact.suffix,
+            systemImage: patternFact.systemImage
+        )
     }
 }
 

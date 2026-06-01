@@ -175,6 +175,55 @@ struct DailyCardEngineTests {
         #expect(persona.facts.contains { $0.id == "signal-first" && $0.value == "料理" })
     }
 
+    @Test("自己ベスト検出は中立な増減より優先される")
+    func personalBestSignalTakesPriorityOverNeutralDifference() throws {
+        let calendar = Calendar.liminalogTest
+        let day = try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1)))
+        let study = Category(name: "勉強", colorHex: "#2F80ED", icon: "book.fill")
+        let today = try makeChapter(category: study, day: day, calendar: calendar, startHour: 9, durationMinutes: 120)
+        let history = try (1...7).map { offset in
+            let historyDay = try #require(calendar.date(byAdding: .day, value: -offset, to: day))
+            return try makeChapter(category: study, day: historyDay, calendar: calendar, startHour: 9, durationMinutes: 60)
+        }
+
+        let persona = DailyPersona.make(
+            summary: ScoreSummary(date: day, categoryScore: 0, timelineScore: 0, totalScore: 45, plannedDuration: 3 * 60 * 60, recordedDuration: 2 * 60 * 60, matchedDuration: 0),
+            chapters: [today],
+            historyChapters: history,
+            categoryRows: [(study, 2 * 60 * 60)],
+            recordedDuration: 2 * 60 * 60,
+            dayBoundary: DayBoundary(date: day, calendar: calendar)
+        )
+
+        #expect(persona.title == "勉強自己最長")
+        #expect(persona.facts.contains { $0.id == "signal-best" && $0.value == "2時間" })
+    }
+
+    @Test("パンチ検出がない日はカテゴリ構成の床型factを出す")
+    func categoryCompositionFactWorksAsFloorDetector() throws {
+        let calendar = Calendar.liminalogTest
+        let day = try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1)))
+        let study = Category(name: "勉強", colorHex: "#2F80ED", icon: "book.fill")
+        let work = Category(name: "制作", colorHex: "#9B51E0", icon: "hammer.fill")
+        let hobby = Category(name: "趣味", colorHex: "#F2994A", icon: "sparkles")
+        let chapters = try [
+            makeChapter(category: study, day: day, calendar: calendar, startHour: 9, durationMinutes: 60),
+            makeChapter(category: work, day: day, calendar: calendar, startHour: 11, durationMinutes: 60),
+            makeChapter(category: hobby, day: day, calendar: calendar, startHour: 20, durationMinutes: 60)
+        ]
+
+        let persona = DailyPersona.make(
+            summary: ScoreSummary(date: day, categoryScore: 0, timelineScore: 0, totalScore: 45, plannedDuration: 3 * 60 * 60, recordedDuration: 3 * 60 * 60, matchedDuration: 0),
+            chapters: chapters,
+            historyChapters: [],
+            categoryRows: [(study, 60 * 60), (work, 60 * 60), (hobby, 60 * 60)],
+            recordedDuration: 3 * 60 * 60,
+            dayBoundary: DayBoundary(date: day, calendar: calendar)
+        )
+
+        #expect(persona.facts.contains { $0.id == "composition-split" && $0.value == "3" })
+    }
+
     @Test("カテゴリの増減宣言は逸脱signalの称号と本文に反映される")
     func categoryIntentAdjustsDeviationCopy() throws {
         let calendar = Calendar.japanese
