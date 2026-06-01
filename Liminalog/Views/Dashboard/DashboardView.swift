@@ -464,8 +464,20 @@ struct DashboardHeroCard: View {
             }
 
             HStack(spacing: 10) {
-                DashboardHeroPill(title: "記録時間", value: formatDashboardDuration(totalDuration), tint: Color.accentColor)
-                DashboardHeroPill(title: "記録日", value: "\(recordedDayCount)日", tint: Color(hex: "#27AE60"))
+                DashboardHeroPill(
+                    title: "記録時間",
+                    value: formatDashboardDuration(totalDuration),
+                    countUpValue: totalDuration,
+                    countUpFormatter: formatDashboardDuration,
+                    tint: Color.accentColor
+                )
+                DashboardHeroPill(
+                    title: "記録日",
+                    value: "\(recordedDayCount)日",
+                    countUpValue: Double(recordedDayCount),
+                    countUpFormatter: { "\(Int($0.rounded()))日" },
+                    tint: Color(hex: "#27AE60")
+                )
                 DashboardHeroPill(title: "主役", value: topCategory?.name ?? "-", tint: topCategory?.color ?? Color.secondary)
             }
         }
@@ -523,6 +535,9 @@ struct DashboardScoreRing: View {
 
             VStack(spacing: 0) {
                 Text(hasScore ? "\(Int(score.rounded()))" : "-")
+                    .dashboardCountUp(value: score, isEnabled: hasScore, placeholder: "-") {
+                        "\(Int($0.rounded()))"
+                    }
                     .font(.system(size: 34, weight: .black, design: .rounded).monospacedDigit())
                 Text("pt")
                     .font(.caption.weight(.bold))
@@ -571,6 +586,8 @@ struct DashboardMiniSparkline: View {
 struct DashboardHeroPill: View {
     let title: String
     let value: String
+    var countUpValue: Double? = nil
+    var countUpFormatter: ((Double) -> String)? = nil
     let tint: Color
 
     var body: some View {
@@ -579,6 +596,7 @@ struct DashboardHeroPill: View {
                 .font(.caption2.weight(.bold))
                 .foregroundStyle(.secondary)
             Text(value)
+                .dashboardCountUpIfNeeded(value: countUpValue, formatter: countUpFormatter)
                 .font(.caption.weight(.bold))
                 .lineLimit(1)
                 .minimumScaleFactor(0.68)
@@ -597,9 +615,30 @@ struct DashboardMetricRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            DashboardMetricTile(title: "実績", value: formatDashboardDuration(totalDuration), systemImage: "clock.fill", tint: Color.accentColor)
-            DashboardMetricTile(title: "件数", value: "\(chapterCount)", systemImage: "list.bullet.clipboard.fill", tint: Color(hex: "#6C5CE7"))
-            DashboardMetricTile(title: "日数", value: "\(recordedDayCount)", systemImage: "calendar.badge.checkmark", tint: Color(hex: "#F2994A"))
+            DashboardMetricTile(
+                title: "実績",
+                value: formatDashboardDuration(totalDuration),
+                countUpValue: totalDuration,
+                countUpFormatter: formatDashboardDuration,
+                systemImage: "clock.fill",
+                tint: Color.accentColor
+            )
+            DashboardMetricTile(
+                title: "件数",
+                value: "\(chapterCount)",
+                countUpValue: Double(chapterCount),
+                countUpFormatter: { "\(Int($0.rounded()))" },
+                systemImage: "list.bullet.clipboard.fill",
+                tint: Color(hex: "#6C5CE7")
+            )
+            DashboardMetricTile(
+                title: "日数",
+                value: "\(recordedDayCount)",
+                countUpValue: Double(recordedDayCount),
+                countUpFormatter: { "\(Int($0.rounded()))" },
+                systemImage: "calendar.badge.checkmark",
+                tint: Color(hex: "#F2994A")
+            )
         }
     }
 }
@@ -607,6 +646,8 @@ struct DashboardMetricRow: View {
 struct DashboardMetricTile: View {
     let title: String
     let value: String
+    var countUpValue: Double? = nil
+    var countUpFormatter: ((Double) -> String)? = nil
     let systemImage: String
     let tint: Color
 
@@ -620,6 +661,7 @@ struct DashboardMetricTile: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(value)
+                    .dashboardCountUpIfNeeded(value: countUpValue, formatter: countUpFormatter)
                     .font(.headline.weight(.bold).monospacedDigit())
                     .lineLimit(1)
                     .minimumScaleFactor(0.62)
@@ -662,9 +704,24 @@ struct ScoreBreakdownCard: View {
                     )
 
                     HStack(spacing: 10) {
-                        DashboardSmallValue(title: "予定", value: formatDashboardDuration(summary.plannedDuration))
-                        DashboardSmallValue(title: "実績", value: formatDashboardDuration(summary.recordedDuration))
-                        DashboardSmallValue(title: "一致", value: formatDashboardDuration(summary.matchedDuration))
+                        DashboardSmallValue(
+                            title: "予定",
+                            value: formatDashboardDuration(summary.plannedDuration),
+                            countUpValue: summary.plannedDuration,
+                            countUpFormatter: formatDashboardDuration
+                        )
+                        DashboardSmallValue(
+                            title: "実績",
+                            value: formatDashboardDuration(summary.recordedDuration),
+                            countUpValue: summary.recordedDuration,
+                            countUpFormatter: formatDashboardDuration
+                        )
+                        DashboardSmallValue(
+                            title: "一致",
+                            value: formatDashboardDuration(summary.matchedDuration),
+                            countUpValue: summary.matchedDuration,
+                            countUpFormatter: formatDashboardDuration
+                        )
                     }
 
                     Text(summary.scoreFormulaText)
@@ -694,6 +751,9 @@ struct DashboardScoreFactorRow: View {
                     .foregroundStyle(.secondary)
                 Spacer()
                 Text("\(Int(score.rounded()))%")
+                    .dashboardCountUp(value: score) {
+                        "\(Int($0.rounded()))%"
+                    }
                     .font(.caption.weight(.bold).monospacedDigit())
                     .foregroundStyle(color)
             }
@@ -740,6 +800,9 @@ struct DashboardProgressRow: View {
                     .font(.caption.weight(.bold))
                 Spacer()
                 Text("\(Int(value.rounded()))%")
+                    .dashboardCountUp(value: value) {
+                        "\(Int($0.rounded()))%"
+                    }
                     .font(.caption.weight(.bold).monospacedDigit())
                     .foregroundStyle(color)
             }
@@ -761,6 +824,8 @@ struct DashboardProgressRow: View {
 struct DashboardSmallValue: View {
     let title: String
     let value: String
+    var countUpValue: Double? = nil
+    var countUpFormatter: ((Double) -> String)? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -768,6 +833,7 @@ struct DashboardSmallValue: View {
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(.secondary)
             Text(value)
+                .dashboardCountUpIfNeeded(value: countUpValue, formatter: countUpFormatter)
                 .font(.caption.weight(.bold).monospacedDigit())
                 .lineLimit(1)
                 .minimumScaleFactor(0.68)
@@ -940,8 +1006,12 @@ struct DashboardCategoryRow: View {
 
             VStack(alignment: .trailing, spacing: 1) {
                 Text(formatDashboardDuration(stat.duration))
+                    .dashboardCountUp(value: stat.duration, formatter: formatDashboardDuration)
                     .font(.caption.weight(.bold).monospacedDigit())
                 Text("\(Int((stat.duration / total * 100).rounded()))%")
+                    .dashboardCountUp(value: stat.duration / total * 100) {
+                        "\(Int($0.rounded()))%"
+                    }
                     .font(.caption2.monospacedDigit())
                     .foregroundStyle(.secondary)
             }
@@ -1089,6 +1159,7 @@ struct RecentTrendCard: View {
                             Spacer()
 
                             Text(formatDashboardDuration(chapter.durationLive))
+                                .dashboardCountUp(value: chapter.durationLive, formatter: formatDashboardDuration)
                                 .font(.caption.weight(.bold).monospacedDigit())
                                 .foregroundStyle(.secondary)
                         }

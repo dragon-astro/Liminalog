@@ -28,6 +28,7 @@ struct DashboardTimeOfDayTrendCard: View {
                         Text(dominantText)
                             .font(.subheadline.weight(.bold))
                         Text(formatDashboardDuration(summary.totalDuration))
+                            .dashboardCountUp(value: summary.totalDuration, formatter: formatDashboardDuration)
                             .font(.caption.monospacedDigit())
                             .foregroundStyle(.secondary)
                     }
@@ -70,8 +71,12 @@ struct DashboardTimeOfDayRowView: View {
 
                 VStack(alignment: .trailing, spacing: 1) {
                     Text(formatDashboardDuration(row.duration))
+                        .dashboardCountUp(value: row.duration, formatter: formatDashboardDuration)
                         .font(.caption.weight(.bold).monospacedDigit())
                     Text("\(Int((row.ratio * 100).rounded()))%")
+                        .dashboardCountUp(value: row.ratio * 100) {
+                            "\(Int($0.rounded()))%"
+                        }
                         .font(.caption2.monospacedDigit())
                         .foregroundStyle(.secondary)
                 }
@@ -162,6 +167,28 @@ struct DashboardDeltaDisplayRow: Identifiable {
     let deltaText: String
 
     var id: String { title }
+
+    func currentText(for value: Double) -> String {
+        switch title {
+        case "平均スコア":
+            return "\(Int(value.rounded()))pt"
+        case "スコア日":
+            return "\(Int(value.rounded()))日"
+        default:
+            return formatDashboardDuration(value)
+        }
+    }
+
+    func deltaText(for value: Double) -> String {
+        switch title {
+        case "平均スコア":
+            return formatDashboardSignedScore(value)
+        case "スコア日":
+            return formatDashboardSignedCount(value)
+        default:
+            return formatDashboardSignedDuration(value)
+        }
+    }
 }
 
 struct DashboardDeltaMetricRow: View {
@@ -192,9 +219,15 @@ struct DashboardDeltaMetricRow: View {
                 Spacer()
 
                 Text(row.currentText)
+                    .dashboardCountUp(value: row.metric.current) {
+                        row.currentText(for: $0)
+                    }
                     .font(.caption.weight(.bold).monospacedDigit())
 
                 Text(row.deltaText)
+                    .dashboardCountUp(value: row.metric.delta) {
+                        row.deltaText(for: $0)
+                    }
                     .font(.caption.weight(.bold).monospacedDigit())
                     .foregroundStyle(deltaColor)
             }
