@@ -7,10 +7,9 @@ enum UnlockKind: String, Codable, CaseIterable, Identifiable {
     case nameBadge
     case streakIcon
     case cardStyle
-    case appIcon
-    case stamp
+    case iconSet
     case barStyle
-    case cardTemplate
+    case monthArt
 
     var id: String { rawValue }
 }

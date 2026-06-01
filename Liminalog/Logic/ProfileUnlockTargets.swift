@@ -31,14 +31,12 @@ struct ProfileUnlockTarget: Identifiable, Equatable {
             return "ストリーク"
         case .cardStyle:
             return "カード"
-        case .appIcon:
-            return "アイコン"
-        case .stamp:
-            return "スタンプ"
+        case .iconSet:
+            return "アイコンセット"
         case .barStyle:
             return "バー"
-        case .cardTemplate:
-            return "カード"
+        case .monthArt:
+            return "月アート"
         }
     }
 

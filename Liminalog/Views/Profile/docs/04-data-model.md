@@ -266,11 +266,10 @@ public enum UnlockKind: String, Codable {
     case iconFrame     // プロフィール画像フレーム
     case nameBadge     // 名前バッジ
     case streakIcon    // ストリーク炎
-    case cardStyle     // プロフィールカード装飾
-    case stamp         // スタンプ
-    case appIcon       // アプリアイコン
+    case cardStyle     // カード装飾
+    case iconSet       // カテゴリアイコンセット
     case barStyle      // 24時間バー装飾
-    case cardTemplate  // デイリーカードテンプレート
+    case monthArt      // 月アート
 }
 ```
 

@@ -14,6 +14,10 @@ final class UnlockStore {
         var items = fetchItems()
         var didChange = false
 
+        if migrateLegacyBuiltInItems(in: &items, now: now) {
+            didChange = true
+        }
+
         for seed in UnlockCatalog.items {
             if let existing = items.first(where: { $0.key == seed.key }) {
                 if apply(seed, to: existing, now: now) {
@@ -108,6 +112,43 @@ final class UnlockStore {
 
         if didChange {
             item.updatedAt = now
+        }
+        return didChange
+    }
+
+    private func migrateLegacyBuiltInItems(in items: inout [UnlockItem], now: Date) -> Bool {
+        var didChange = false
+        let seedsByKey = Dictionary(uniqueKeysWithValues: UnlockCatalog.items.map { ($0.key, $0) })
+
+        for item in items where item.isBuiltIn {
+            guard
+                let replacementKey = UnlockCatalog.legacyKeyReplacements[item.key],
+                let replacementSeed = seedsByKey[replacementKey]
+            else { continue }
+
+            if let existing = items.first(where: { $0 !== item && $0.key == replacementKey }) {
+                if existing.unlockedAt == nil || (item.unlockedAt.map { $0 < (existing.unlockedAt ?? $0) } ?? false) {
+                    existing.unlockedAt = item.unlockedAt
+                }
+                if existing.thumbnailName == nil {
+                    existing.thumbnailName = item.thumbnailName
+                }
+                existing.updatedAt = now
+                modelContext.delete(item)
+                didChange = true
+            } else {
+                item.key = replacementKey
+                if apply(replacementSeed, to: item, now: now) {
+                    didChange = true
+                } else {
+                    item.updatedAt = now
+                    didChange = true
+                }
+            }
+        }
+
+        if didChange {
+            items = fetchItems()
         }
         return didChange
     }

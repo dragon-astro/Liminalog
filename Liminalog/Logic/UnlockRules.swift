@@ -96,6 +96,13 @@ enum UnlockCatalog {
         182, 203, 224, 245, 266,
         300, 330, 365
     ]
+    static let legacyKeyReplacements: [String: String] = [
+        "stamp.daybreak": "icon_set.daybreak",
+        "stamp.twilight": "icon_set.twilight",
+        "app_icon.dusk": "month_art.dusk",
+        "app_icon.daybreak": "month_art.daybreak",
+        "card_template.mist": "card.mist"
+    ]
 
     static let items: [UnlockCatalogItem] = definitions.enumerated().map { index, definition in
         UnlockCatalogItem(
@@ -123,20 +130,20 @@ enum UnlockCatalog {
         ("frame.focus", .iconFrame, "Focus Frame", "scope", "#EB5757", "focus", nil),
         ("badge.ten_hours", .nameBadge, "10時間", "clock.fill", "#6C5CE7", "ten_hours", .init(kind: .recordedHours, value: 10)),
         ("streak.orange_flame", .streakIcon, "橙の炎", "flame.fill", "#F2994A", "sun", .init(kind: .streakDays, value: 14)),
-        ("stamp.daybreak", .stamp, "Daybreak Stamp", "sun.max.fill", "#F2C94C", "daybreak", .init(kind: .earlyRecordDays, value: 7)),
+        ("icon_set.daybreak", .iconSet, "Daybreak Icons", "sun.max.fill", "#F2C94C", "daybreak", .init(kind: .earlyRecordDays, value: 7)),
         ("badge.morning", .nameBadge, "朝の記録", "sunrise.fill", "#F2994A", "morning", .init(kind: .earlyRecordDays, value: 1)),
         ("card.mint", .cardStyle, "Mint Card", "leaf.fill", "#27AE60", "mint", nil),
         ("frame.crown", .iconFrame, "Crown Frame", "crown.fill", "#F2C94C", "crown", nil),
         ("theme.oboro", .theme, "朧 / Oboro", "moon.haze.fill", "#9A93B5", "oboro", .init(kind: .lateNightRecordDays, value: 3)),
         ("badge.seven_streak", .nameBadge, "7日連続", "flame.fill", "#EB5757", "seven_streak", .init(kind: .streakDays, value: 7)),
         ("bar.gradient", .barStyle, "Gradient Bar", "chart.bar.fill", "#C9A7FF", "gradient", .init(kind: .distinctCategoryCount, value: 5)),
-        ("stamp.twilight", .stamp, "Twilight Stamp", "sparkles", "#C9A7FF", "twilight", .init(kind: .lateNightRecordDays, value: 7)),
-        ("app_icon.dusk", .appIcon, "Dusk Icon", "app.fill", "#6B3FA0", "dusk", nil),
+        ("icon_set.twilight", .iconSet, "Twilight Icons", "sparkles", "#C9A7FF", "twilight", .init(kind: .lateNightRecordDays, value: 7)),
+        ("month_art.dusk", .monthArt, "Dusk Month Art", "moon.stars.fill", "#6B3FA0", "dusk", nil),
         ("theme.tsukishiro", .theme, "月白 / Tsukishiro", "moon.stars.fill", "#D8ECFF", "tsukishiro", nil),
-        ("card_template.mist", .cardTemplate, "Mist Card", "rectangle.on.rectangle.angled", "#8AB4FF", "mist", nil),
+        ("card.mist", .cardStyle, "Mist Card", "rectangle.on.rectangle.angled", "#8AB4FF", "mist", nil),
         ("streak.purple_flame", .streakIcon, "紫の炎", "flame.fill", "#6C5CE7", "spark", .init(kind: .streakDays, value: 30)),
         ("theme.zansho", .theme, "残照 / Zansho", "sunset.circle.fill", "#FFE3A3", "zansho", nil),
-        ("app_icon.daybreak", .appIcon, "Daybreak Icon", "app.badge.fill", "#F2994A", "daybreak", nil),
+        ("month_art.daybreak", .monthArt, "Daybreak Month Art", "sunrise.fill", "#F2994A", "daybreak", nil),
         ("theme.hisui", .theme, "翡翠 / Hisui", "leaf.circle.fill", "#00A8A8", "hisui", nil),
         ("theme.ruri", .theme, "瑠璃 / Ruri", "circle.hexagongrid.fill", "#4C6FFF", "ruri", nil)
     ]

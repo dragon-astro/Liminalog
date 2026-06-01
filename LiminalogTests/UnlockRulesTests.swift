@@ -16,6 +16,17 @@ struct UnlockRulesTests {
         #expect(thresholds == thresholds.sorted())
         #expect(thresholds.first == 7 * UnlockCatalog.scorePerPassingDay)
         #expect(thresholds.last == 365 * UnlockCatalog.scorePerPassingDay)
+        #expect(Set(UnlockKind.allCases) == Set([
+            .theme,
+            .iconFrame,
+            .nameBadge,
+            .streakIcon,
+            .cardStyle,
+            .iconSet,
+            .barStyle,
+            .monthArt
+        ]))
+        #expect(Set(items.map(\.kind)) == Set(UnlockKind.allCases))
         #expect(Array(UnlockCatalog.releaseScheduleDays.prefix(12)) == [7, 14, 21, 28, 35, 42, 49, 56, 63, 70, 77, 84])
         #expect(Array(UnlockCatalog.releaseScheduleDays.suffix(3)) == [300, 330, 365])
         #expect(Set(items.map(\.requirementKind)).isSuperset(of: [
@@ -114,6 +125,34 @@ struct UnlockRulesTests {
         #expect(glassItems.count == 1)
         #expect(glassItems.first?.id == primary.id)
         #expect(glassItems.first?.unlockedAt == olderUnlock)
+    }
+
+    @Test
+    func storeMigratesLegacyUnlockKindsToEightItemModel() throws {
+        let calendar = Calendar.liminalogTest
+        let container = try TestModelContainer.make()
+        let context = container.mainContext
+        let unlockedAt = try #require(calendar.date(from: DateComponents(year: 2026, month: 5, day: 2)))
+        let now = try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1)))
+        let legacy = UnlockItem()
+        legacy.key = "stamp.daybreak"
+        legacy.kindRawValue = "stamp"
+        legacy.displayName = "Daybreak Stamp"
+        legacy.targetID = "daybreak"
+        legacy.isBuiltIn = true
+        legacy.unlockedAt = unlockedAt
+        context.insert(legacy)
+        try context.save()
+
+        UnlockStore(modelContext: context).seedMasterItems(now: now)
+
+        let items = try context.fetch(FetchDescriptor<UnlockItem>())
+        #expect(items.count == 26)
+        #expect(items.allSatisfy { !UnlockCatalog.legacyKeyReplacements.keys.contains($0.key) })
+        let migrated = try #require(items.first { $0.key == "icon_set.daybreak" })
+        #expect(migrated.kind == .iconSet)
+        #expect(migrated.unlockedAt == unlockedAt)
+        #expect(migrated.targetID == "daybreak")
     }
 
     @Test
