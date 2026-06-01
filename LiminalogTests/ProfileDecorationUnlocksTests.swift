@@ -43,10 +43,43 @@ struct ProfileDecorationUnlocksTests {
         #expect(unlocks.equippedIconFrameID("crown") == "halo")
     }
 
-    private func unlockedItem(key: String, now: Date) throws -> UnlockItem {
-        let item = try #require(UnlockCatalog.items.first { $0.key == key }).item()
-        item.unlockedAt = now
-        return item
+}
+
+@MainActor
+struct ProfileUnlockTargetsTests {
+    @Test
+    func targetsSortByRemainingScoreAndLimit() throws {
+        let now = try #require(Calendar.liminalogTest.date(from: DateComponents(year: 2026, month: 6, day: 1)))
+        let firstRecord = try unlockedItem(key: "badge.first_record", now: now)
+        let glassCard = try lockedItem(key: "card.glass")
+        let signalFrame = try lockedItem(key: "frame.signal")
+        let goldFlame = try lockedItem(key: "streak.gold_flame")
+
+        let targets = ProfileUnlockTargetCatalog.targets(
+            cumulativeScore: 800,
+            unlockItems: [signalFrame, goldFlame, firstRecord, glassCard],
+            limit: 2
+        )
+
+        #expect(targets.map(\.key) == ["card.glass", "frame.signal"])
+        #expect(targets[0].remainingScore == 40)
+        #expect(targets[0].progressPercent == 95)
+        #expect(targets[0].kindTitle == "カード")
+        #expect(targets[1].remainingScore == 460)
+    }
+
+    @Test
+    func targetsReturnEmptyWhenEverythingIsUnlocked() throws {
+        let now = try #require(Calendar.liminalogTest.date(from: DateComponents(year: 2026, month: 6, day: 1)))
+        let firstRecord = try unlockedItem(key: "badge.first_record", now: now)
+        let glassCard = try unlockedItem(key: "card.glass", now: now)
+
+        let targets = ProfileUnlockTargetCatalog.targets(
+            cumulativeScore: 10_000,
+            unlockItems: [firstRecord, glassCard]
+        )
+
+        #expect(targets.isEmpty)
     }
 }
 
@@ -54,4 +87,14 @@ private extension UnlockCatalogItem {
     func item() -> UnlockItem {
         UnlockItem(seed: self)
     }
+}
+
+private func unlockedItem(key: String, now: Date) throws -> UnlockItem {
+    let item = try lockedItem(key: key)
+    item.unlockedAt = now
+    return item
+}
+
+private func lockedItem(key: String) throws -> UnlockItem {
+    try #require(UnlockCatalog.items.first { $0.key == key }).item()
 }

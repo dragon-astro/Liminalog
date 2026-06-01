@@ -53,6 +53,13 @@ struct ProfileView: View {
         ProfileBadgeCatalog.equippedBadge(id: settings?.profileBadgeID, badges: badges)
     }
 
+    private var nextUnlockTargets: [ProfileUnlockTarget] {
+        ProfileUnlockTargetCatalog.targets(
+            cumulativeScore: performanceSnapshot.totalEarnedScore,
+            unlockItems: unlockItems
+        )
+    }
+
     private var iconFrame: ProfileIconFrameStyle {
         ProfileIconFrameCatalog.item(for: decorationUnlocks.equippedIconFrameID(settings?.profileIconFrameID))
     }
@@ -87,6 +94,10 @@ struct ProfileView: View {
                         friendCount: acceptedFriendCount,
                         streakIcon: streakIcon
                     )
+
+                    if !nextUnlockTargets.isEmpty || !unlockItems.isEmpty {
+                        ProfileNextUnlockSection(targets: nextUnlockTargets)
+                    }
 
                     ProfileCollectionSection(
                         badges: badges,
@@ -489,6 +500,109 @@ struct ProfileStatTile: View {
                 .clipShape(Capsule())
                 .padding(10)
         }
+    }
+}
+
+private struct ProfileNextUnlockSection: View {
+    let targets: [ProfileUnlockTarget]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("次の解放")
+                .font(.headline)
+
+            if targets.isEmpty {
+                ProfileAllUnlockedCard()
+            } else {
+                VStack(spacing: 10) {
+                    ForEach(targets) { target in
+                        ProfileUnlockTargetRow(target: target)
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct ProfileUnlockTargetRow: View {
+    let target: ProfileUnlockTarget
+
+    private var tint: Color {
+        Color(hex: target.tintHex)
+    }
+
+    private var progressLabel: String {
+        "\(target.progressPercent)%"
+    }
+
+    private var remainingLabel: String {
+        target.remainingScore > 0 ? "あと \(target.remainingScore.formatted())pt" : "受け取り待ち"
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(tint.opacity(0.16))
+                Image(systemName: target.systemImageName)
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(tint)
+            }
+            .frame(width: 42, height: 42)
+
+            VStack(alignment: .leading, spacing: 7) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(target.displayName)
+                        .font(.subheadline.weight(.semibold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+
+                    Text(target.kindTitle)
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(tint)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(tint.opacity(0.12), in: Capsule())
+                }
+
+                ProgressView(value: target.progress)
+                    .tint(tint)
+
+                HStack {
+                    Text(remainingLabel)
+                    Spacer(minLength: 8)
+                    Text(progressLabel)
+                }
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.secondary)
+            }
+        }
+        .padding(12)
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+}
+
+private struct ProfileAllUnlockedCard: View {
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "checkmark.seal.fill")
+                .font(.title3.weight(.bold))
+                .foregroundStyle(Color(hex: "#27AE60"))
+                .frame(width: 42, height: 42)
+                .background(Color(hex: "#27AE60").opacity(0.14), in: Circle())
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("全解放済み")
+                    .font(.subheadline.weight(.semibold))
+                Text("今の装備を磨ける状態")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(12)
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 }
 

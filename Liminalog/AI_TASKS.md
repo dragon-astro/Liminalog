@@ -427,7 +427,7 @@ refactor: split plan store
 - [x] 装着状態の永続化（`UserSettings` または専用モデルで「装着中アイテムID」を保持）<!-- 担当: Codex, 完了: 2026-06-01: UserSettings の profileBadgeID/profileIconFrameID/profileStreakIconID/profileCardStyleID を保存元とし、ProfileDecorationUnlocks で未解放IDをdefaultへ戻す -->
 - [ ] 解放条件判定ロジック（累計時間/ストリーク/パターン達成）<!-- 担当: Codex, 2026-06-01: 累計スコア閾値による解放は実装済み。ストリーク/パターン専用条件は未実装 -->
 - [ ] コレクションハブ UI（種類別タブ、解放済/未解放、装着切替）<!-- 担当: Claude, 理由: SwiftUI レイアウト勝負 -->
-- [ ] 「次に狙う解放」セクション（達成までの近さでソート）<!-- 担当: Claude -->
+- [x] 「次に狙う解放」セクション（達成までの近さでソート）<!-- 担当: Codex, 完了: 2026-06-01: ProfileUnlockTargetCatalog で未解放アイテムを残りスコア昇順に上位3件抽出し、プロフィールに進捗カードを表示 -->
 - [ ] プロフィール画像フレームの装着レンダリング<!-- 担当: Claude -->
 - [ ] 名前バッジの装着レンダリング<!-- 担当: Claude -->
 - [ ] ストリーク炎バリエーションの装着レンダリング<!-- 担当: Claude -->
@@ -506,7 +506,7 @@ refactor: split plan store
 - [x] マスターデータ seed（26件・解放スケジュール逆算）<!-- 担当: Codex, 完了: 2026-06-01。週1×12、隔週×6、6〜9ヶ月×5、9〜12ヶ月×3の26件を `UnlockCatalog` に固定。解放後は失効しない -->
 - [x] `UnlockRulesTests` <!-- 担当: Codex, 完了: 2026-06-01。カタログ26件/閾値/seed重複統合/再評価で再解放・失効しないことを検証 -->
 - [x] `UnlockStore` 実装（解放トリガー・状態管理）<!-- 担当: Codex, 完了: 2026-06-01。起動時seed、プロフィール集計時の累計スコアrefresh、重複key統合、最古unlockedAt保持を実装 -->
-- [ ] プロフィール画面のアンロック進捗カード <!-- 担当: Claude -->
+- [x] プロフィール画面のアンロック進捗カード <!-- 担当: Codex, 完了: 2026-06-01: 次の解放カードとして未解放アイテムの残りpt/進捗率/種類を表示。全解放時は完了状態カードへ切替 -->
 - [ ] `UnlockGalleryView`（解放済みコレクション一覧）<!-- 担当: Claude -->
 - [ ] アンロック解放時の通知・お祝い演出 <!-- 担当: Claude, 理由: SwiftUIアニメ -->
 
@@ -797,6 +797,7 @@ refactor: split plan store
 
 | 日付 | 担当 | 内容 |
 |---|---|---|
+| 2026-06-01 | Codex | プロフィール画面に「次の解放」セクションを追加。`ProfileUnlockTargetCatalog` で `UnlockItem.unlockedAt == nil` の装着対象アイテムを残り累計スコア昇順に並べ、上位3件を `ProfileView` に進捗カードとして表示するようにした。各カードは種類、残りpt、進捗率、アイコン色を表示し、全解放済みの場合は完了状態カードへ切り替える。CSV書き出しは不要・スコープ外のまま維持。検証: `git diff --check` 成功、`xcodebuild test -scheme Liminalog -destination 'id=72181B45-004C-49C5-931F-AE873C13CD9C' -derivedDataPath /private/tmp/LiminalogDerivedData -only-testing:LiminalogTests/ProfileDecorationUnlocksTests -only-testing:LiminalogTests/ProfileUnlockTargetsTests` 成功（4 tests / 2 suites）、`xcodebuild test-without-building -scheme Liminalog -destination 'id=72181B45-004C-49C5-931F-AE873C13CD9C' -derivedDataPath /private/tmp/LiminalogDerivedData` 成功（61 tests / 17 suites）、`xcodebuild -scheme Liminalog -destination generic/platform=iOS -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功。 |
 | 2026-06-01 | Codex | プロフィール装備UIを `UnlockItem.unlockedAt` ベースへ接続。`ProfileDecorationUnlocks` を追加し、`starter` / `halo` / `flame` / `clean` のdefault装備は常時利用可能、その他は解放済み `UnlockItem.targetID` のみ選択可能にした。プロフィール表示・編集初期値・保存時のいずれでもロック済み/古い装備IDをdefaultへ戻し、フレーム/ストリーク/カード選択UIはロック表示 + 選択不可に統一。Phase 1の実績直判定バッジ配列は `UnlockItem` マスターデータ由来の `ProfileBadgeCatalog` へ差し替え、進捗表示も `UnlockRules.progress` へ寄せた。CSV書き出しは引き続き不要・スコープ外。検証: `git diff --check` 成功、`xcodebuild -scheme Liminalog -destination generic/platform=iOS -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功、`xcodebuild test -scheme Liminalog -destination 'id=72181B45-004C-49C5-931F-AE873C13CD9C' -derivedDataPath /private/tmp/LiminalogDerivedData -only-testing:LiminalogTests/ProfileDecorationUnlocksTests` 成功（2 tests / 1 suite）、`xcodebuild test-without-building -scheme Liminalog -destination 'id=72181B45-004C-49C5-931F-AE873C13CD9C' -derivedDataPath /private/tmp/LiminalogDerivedData` 成功（59 tests / 16 suites）。 |
 | 2026-06-01 | Codex | Phase 2 アンロック基盤を実装。`UnlockItem` を CloudKit 同期対象モデルに追加し、DEBUG開発ストア世代を `2026060103` へ更新。`UnlockCatalog` に装着可能アイテム26件をseedし、仕様書の1年解放ペースを「合格ライン60pt/日」から累計スコア閾値へ逆算。`UnlockRules` は累計スコアから解放key/次アイテム/進捗を算出し、`UnlockStore` は起動時seed、プロフィール集計時refresh、重複key統合、最古 `unlockedAt` 保持、解放後非失効を担う。docs/04 のモデル記述も実装に同期。プロフィール画面の進捗カード/Gallery/解放演出UIはClaude担当として残す。検証: `git diff --check` 成功、`xcodebuild test-without-building -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' -derivedDataPath /private/tmp/LiminalogDerivedData` 成功（57 tests / 15 suites）、`xcodebuild -scheme Liminalog -destination generic/platform=iOS -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功。 |
 | 2026-06-01 | Codex | Phase 2 Dashboard拡充の集計ロジックを追加。`DashboardTimeOfDaySummary` で朝(5:00-12:00)・昼(12:00-18:00)・夜(18:00-翌5:00)の実績時間割合と支配時間帯を算出し、日跨ぎ/active Chapter/期間クリップに対応。`DashboardPeriodDeltaSummary` で現期間と前期間の平均スコア、実績時間、予定時間、一致時間、スコア対象日数の差分と増減率を算出する。表示UI（時間帯別傾向/先週比差分バー）はClaude担当として残す。検証: `git diff --check` 成功、`xcodebuild test-without-building -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' -derivedDataPath /private/tmp/LiminalogDerivedData` 成功（52 tests / 14 suites）、`xcodebuild -scheme Liminalog -destination generic/platform=iOS -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功。 |
