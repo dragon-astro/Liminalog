@@ -790,23 +790,23 @@ private struct RecordingGridCell: View {
         VStack(spacing: isCompact ? 3 : 6) {
             ZStack {
                 Circle()
-                    .fill(Color(liminalogHex: category.colorHex).opacity(isActive ? 1 : 0.18))
+                    .fill(Color.cachedHex(category.colorHex).opacity(isActive ? 1 : 0.18))
                     .frame(width: iconSize, height: iconSize)
 
                 if isActive {
                     Circle()
-                        .stroke(Color(liminalogHex: category.colorHex), lineWidth: 2.2)
+                        .stroke(Color.cachedHex(category.colorHex), lineWidth: 2.2)
                         .frame(width: activeRingSize, height: activeRingSize)
                 }
 
                 Image(systemName: category.icon ?? "circle.fill")
                     .font(.system(size: isCompact ? 12 : 15, weight: .semibold))
-                    .foregroundStyle(isActive ? .white : Color(liminalogHex: category.colorHex))
+                    .foregroundStyle(isActive ? .white : Color.cachedHex(category.colorHex))
             }
 
             Text(category.name)
                 .font(.system(size: isCompact ? 9 : 11, weight: isActive ? .semibold : .regular))
-                .foregroundStyle(isActive ? Color(liminalogHex: category.colorHex) : .primary)
+                .foregroundStyle(isActive ? Color.cachedHex(category.colorHex) : .primary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
         }
@@ -814,7 +814,7 @@ private struct RecordingGridCell: View {
         .frame(height: isCompact ? 48 : 62)
         .background(
             RoundedRectangle(cornerRadius: 10)
-                .fill(isActive ? Color(liminalogHex: category.colorHex).opacity(0.12) : Color.secondary.opacity(0.08))
+                .fill(isActive ? Color.cachedHex(category.colorHex).opacity(0.12) : Color.secondary.opacity(0.08))
         )
         .overlay(alignment: .topTrailing) {
             if isPending {
@@ -859,36 +859,5 @@ private struct RecordingGridEmptyCell: View {
                 .fill(Color.secondary.opacity(0.05))
         )
         .accessibilityHidden(true)
-    }
-}
-
-private extension Color {
-    init(liminalogHex hex: String) {
-        let cleaned = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
-        var value: UInt64 = 0
-        Scanner(string: cleaned).scanHexInt64(&value)
-
-        let red: UInt64
-        let green: UInt64
-        let blue: UInt64
-
-        switch cleaned.count {
-        case 6:
-            red = (value >> 16) & 0xFF
-            green = (value >> 8) & 0xFF
-            blue = value & 0xFF
-        default:
-            red = 0x8E
-            green = 0x8E
-            blue = 0x93
-        }
-
-        self.init(
-            .sRGB,
-            red: Double(red) / 255,
-            green: Double(green) / 255,
-            blue: Double(blue) / 255,
-            opacity: 1
-        )
     }
 }

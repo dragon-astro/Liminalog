@@ -7,8 +7,8 @@ struct LiminalogLiveActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: LiminalogActivityAttributes.self) { context in
             LiveActivityLockScreenView(state: context.state)
-                .activityBackgroundTint(Color(hex: context.state.colorHex).opacity(0.16))
-                .activitySystemActionForegroundColor(Color(hex: context.state.colorHex))
+                .activityBackgroundTint(Color.cachedHex(context.state.colorHex).opacity(0.16))
+                .activitySystemActionForegroundColor(Color.cachedHex(context.state.colorHex))
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.center) {
@@ -33,7 +33,7 @@ struct LiminalogLiveActivityWidget: Widget {
             } minimal: {
                 CategoryIcon(state: context.state, size: 12)
             }
-            .keylineTint(Color(hex: context.state.colorHex))
+            .keylineTint(Color.cachedHex(context.state.colorHex))
         }
     }
 }
@@ -153,16 +153,16 @@ private struct DynamicIslandCategoryButton: View {
         HStack(spacing: 4) {
             ZStack {
                 Circle()
-                    .fill(Color(hex: category.colorHex).opacity(isActive ? 1 : 0.24))
+                    .fill(Color.cachedHex(category.colorHex).opacity(isActive ? 1 : 0.24))
                     .frame(width: 18, height: 18)
                 Image(systemName: category.icon ?? "circle.fill")
                     .font(.system(size: 8, weight: .bold))
-                    .foregroundStyle(isActive ? .white : Color(hex: category.colorHex))
+                    .foregroundStyle(isActive ? .white : Color.cachedHex(category.colorHex))
             }
 
             Text(category.name)
                 .font(.system(size: 9, weight: isActive ? .bold : .semibold))
-                .foregroundStyle(isActive ? Color(hex: category.colorHex) : .primary)
+                .foregroundStyle(isActive ? Color.cachedHex(category.colorHex) : .primary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.55)
         }
@@ -170,12 +170,12 @@ private struct DynamicIslandCategoryButton: View {
         .frame(maxWidth: .infinity, minHeight: 28, maxHeight: 28)
         .background(
             Capsule()
-                .fill(Color(hex: category.colorHex).opacity(isActive ? 0.22 : 0.1))
+                .fill(Color.cachedHex(category.colorHex).opacity(isActive ? 0.22 : 0.1))
         )
         .overlay {
             if isActive {
                 Capsule()
-                    .stroke(Color(hex: category.colorHex).opacity(0.85), lineWidth: 1)
+                    .stroke(Color.cachedHex(category.colorHex).opacity(0.85), lineWidth: 1)
             }
         }
         .contentShape(Capsule())
@@ -190,43 +190,12 @@ private struct CategoryIcon: View {
     var body: some View {
         ZStack {
             Circle()
-                .fill(Color(hex: state.colorHex))
+                .fill(Color.cachedHex(state.colorHex))
 
             Image(systemName: state.icon ?? "circle.fill")
                 .font(.system(size: size * 0.48, weight: .bold))
                 .foregroundStyle(.white)
         }
         .frame(width: size, height: size)
-    }
-}
-
-private extension Color {
-    init(hex: String) {
-        let cleaned = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
-        var value: UInt64 = 0
-        Scanner(string: cleaned).scanHexInt64(&value)
-
-        let red: UInt64
-        let green: UInt64
-        let blue: UInt64
-
-        switch cleaned.count {
-        case 6:
-            red = (value >> 16) & 0xFF
-            green = (value >> 8) & 0xFF
-            blue = value & 0xFF
-        default:
-            red = 0x8E
-            green = 0x8E
-            blue = 0x93
-        }
-
-        self.init(
-            .sRGB,
-            red: Double(red) / 255,
-            green: Double(green) / 255,
-            blue: Double(blue) / 255,
-            opacity: 1
-        )
     }
 }
