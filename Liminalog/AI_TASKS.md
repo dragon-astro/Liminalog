@@ -840,6 +840,7 @@ refactor: split plan store
 
 | 日付 | 担当 | 内容 |
 |---|---|---|
+| 2026-06-02 | Codex | 横断レビューの保守性タスクとして、Dashboard のサブビュー外出しを実施。`DashboardView.swift` に同居していた hero/metric/score/category/hour/trend 系カードを `DashboardCards.swift`、`DashboardScoreAggregate` / `DashboardCategoryStat` / duration formatter などを `DashboardModels.swift` へ移し、画面本体は Query・期間選択・カード差し込みに集中させた。ProfileView の外出しは同タスクの後続として残す。検証: `xcodebuild -scheme Liminalog -destination generic/platform=iOS -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功。 |
 | 2026-06-02 | Codex | Dailyカード検出器の「昨日と同型回避」を実装。`DailyPersona.make` が前日カードの spotlight kind を再計算し、当日候補選抜へ避ける kind を渡すようにした。別候補がある日は前日と同じ自己最長などの連続表示を避け、候補がそれしかない場合は従来通り表示できる。日付境界は当日 `DayBoundary` 基準で前日を作るため、テストカレンダーと `Calendar.japanese` のズレも避ける。検証: `git diff --check` 成功、`xcodebuild test -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' -derivedDataPath /private/tmp/LiminalogDerivedData -only-testing:LiminalogTests/DailyCardEngineTests` 成功（10 tests）、`xcodebuild -scheme Liminalog -destination generic/platform=iOS -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功。 |
 | 2026-06-02 | Codex | docs/12 §5.1/§5.2 の検出器カタログ実装を前進。`DailyCardPatternDetector` に detector kind / spotlight fact / punch×newsworthiness の候補選抜を追加し、既存 A/B/L（初記録・久々・いつもより増減・宣言ベース）に加えて C（自己最長）、G（カテゴリ構成の床型fact）、I（記録連続の床型fact）を接続した。`DailyCardEngine` は spotlight fact をカードfactへ変換し、自己ベストコピーも追加。H体感換算、J気分、K友達、昨日と同型回避はデータ/仕様依存の後続として残す。検証: `git diff --check` 成功、`DailyCardEngineTests` 9件成功、build-for-testing成功。 |
 | 2026-06-02 | Codex | デイリーカードのスナップショット保持を実装。`DailyCardSnapshot` を CloudKit 同期対象モデルに追加し、`DailyCardPersonaKind`・称号・本文・symbol・score・fact/category JSON payload を日付単位で保持する構成にした。`DailyCardSnapshotStore` は同じ `dayIdentifier` を upsert し、重複時は最古 `createdAt` の1件へ統合する。昨日ページ表示時に現在の `DailyPersona` を snapshot 化するため、過去日カード再描画と称号コレクション集計の土台ができた。docs/04 へモデル追補し、DEBUG開発ストア世代も `2026060201` へ更新。検証: `git diff --check` 成功、`xcodebuild -scheme Liminalog -destination generic/platform=iOS -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功。対象テスト `DailyCardSnapshotStoreTests` / `DailyCardEngineTests` はコンパイル完了後に Simulator 実行フェーズが無出力で止まったため中断し、通過扱いにはしていない。CSV書き出しは不要・スコープ外を維持。 |
@@ -1253,8 +1254,9 @@ Claude 作業中のため、Codex は読み取り中心で進捗確認。ファ�
   - スコア各期間フィールドの**再計算・同期の所有者が未定**（現状 debug seed と FriendsView が書くのみ）。Phase 3 の CloudKit 共有実装時に同期ポリシーを定義する。
   - docs/04 を現実装の方針へ更新するか、乖離点を注記する。
 
-- [ ] **DashboardView(1192行) / ProfileView(1058行) のサブビュー外出し**（担当: Codex）
+- [~] **DashboardView(1192行) / ProfileView(1058行) のサブビュー外出し**（担当: Codex）
   - FriendsView ほどではない（単一タブ内で凝集・他タブの複製ではない）が、ナビゲーション性のためファイル分割したい。優先度は上記2件より低。
+  - 2026-06-02 Codex進捗: `DashboardView.swift` からカード表示部品を `DashboardCards.swift`、集計/フォーマット型を `DashboardModels.swift` へ外出し。`DashboardView.swift` は画面構成・Query・期間選択に絞り、1335行から400行へ縮小。ProfileView 側は後続。
 
 - [x] **軽微: `Friend.score(for:)` の `.day`/`.yesterday` 二重マッピング**（担当: Codex, 完了: 2026-05-31）
   - 両者が `yesterdayScore` を返す。意図的だが紛らわしい。enum 整理 or コメント補足。
