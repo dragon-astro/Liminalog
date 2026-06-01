@@ -171,6 +171,7 @@ final class Friend {
 
 struct FriendSharedPlanSnapshot: Codable, Identifiable, Hashable {
     var id: UUID
+    var categoryID: UUID?
     var title: String
     var startTime: Date
     var endTime: Date
@@ -183,6 +184,7 @@ struct FriendSharedPlanSnapshot: Codable, Identifiable, Hashable {
 
     init(
         id: UUID = UUID(),
+        categoryID: UUID? = nil,
         title: String,
         startTime: Date,
         endTime: Date,
@@ -194,6 +196,7 @@ struct FriendSharedPlanSnapshot: Codable, Identifiable, Hashable {
         updatedAt: Date = Date()
     ) {
         self.id = id
+        self.categoryID = categoryID
         self.title = title
         self.startTime = startTime
         self.endTime = endTime
@@ -207,6 +210,7 @@ struct FriendSharedPlanSnapshot: Codable, Identifiable, Hashable {
 
     init(plan: PlanBlock) {
         self.id = plan.id
+        self.categoryID = plan.category?.id
         self.title = plan.title
         self.startTime = plan.startTime
         self.endTime = plan.endTime
@@ -251,6 +255,7 @@ struct FriendSharedPlanSnapshot: Codable, Identifiable, Hashable {
 
 struct FriendSharedActivitySnapshot: Codable, Identifiable, Hashable {
     var id: UUID
+    var categoryID: UUID?
     var title: String
     var startTime: Date
     var endTime: Date
@@ -264,6 +269,7 @@ struct FriendSharedActivitySnapshot: Codable, Identifiable, Hashable {
 
     init(
         id: UUID = UUID(),
+        categoryID: UUID? = nil,
         title: String,
         startTime: Date,
         endTime: Date,
@@ -276,6 +282,7 @@ struct FriendSharedActivitySnapshot: Codable, Identifiable, Hashable {
         updatedAt: Date = Date()
     ) {
         self.id = id
+        self.categoryID = categoryID
         self.title = title
         self.startTime = startTime
         self.endTime = endTime
@@ -290,6 +297,7 @@ struct FriendSharedActivitySnapshot: Codable, Identifiable, Hashable {
 
     init(chapter: Chapter, now: Date = Date()) {
         self.id = chapter.id
+        self.categoryID = chapter.category?.id
         self.title = chapter.category?.name ?? "未分類"
         self.startTime = chapter.startTime
         self.endTime = max(chapter.endTime ?? now, chapter.startTime)
@@ -359,6 +367,7 @@ private struct FriendSharingVisibilityPolicy {
 
         var snapshot = FriendSharedPlanSnapshot(plan: plan)
         if freeTimeOnly {
+            snapshot.categoryID = nil
             snapshot.title = Self.redactedPlanTitle
             snapshot.categoryTitle = ""
             snapshot.categoryIconName = "calendar"

@@ -6,10 +6,11 @@ enum SharedModelContainer {
     static let appGroupID = "group.app.YasudaRyuga.Liminalog"
     static let cloudKitContainerID = "iCloud.app.YasudaRyuga.Liminalog"
     private static let developmentStoreVersionKey = "development.storeVersion"
-    private static let currentDevelopmentStoreVersion = 2026060101
+    private static let currentDevelopmentStoreVersion = 2026060102
     private static let requiredDevelopmentStoreColumns: [(table: String, columns: [String])] = [
         ("ZUSERSETTINGS", ["ZPROFILEACCENTCOLORHEX", "ZPROFILEBADGEID", "ZPROFILEICONFRAMEID", "ZPROFILESTREAKICONID", "ZPROFILECARDSTYLEID"]),
         ("ZFRIEND", ["ZSTATUSRAWVALUE", "ZPROFILEBADGEID", "ZPROFILEICONFRAMEID", "ZPROFILESTREAKICONID", "ZPROFILECARDSTYLEID", "ZSTREAKCOUNT", "ZMONTHSCORE", "ZYEARSCORE", "ZSHAREDPLANSJSON", "ZSHAREDACTIVITIESJSON"]),
+        ("ZFRIENDCATEGORYMAPPING", ["ZMYCATEGORYID", "ZFRIENDCATEGORYID", "ZUSEUNIFIEDCOLOR"]),
         ("ZVISIBILITYPRESET", ["ZISBUILTIN", "ZSORTORDER", "ZPUBLISHMODERAWVALUE", "ZHIDEMOODANDNOTE", "ZHIDEPHOTO", "ZHIDELOCATION", "ZEXCLUDEDCATEGORYIDS", "ZFREETIMEONLY"])
     ]
 
@@ -41,7 +42,8 @@ enum SharedModelContainer {
             PlanBlock.self,
             VisibilityPreset.self,
             UserSettings.self,
-            Friend.self
+            Friend.self,
+            FriendCategoryMapping.self
         ])
     }
 
@@ -60,6 +62,7 @@ enum SharedModelContainer {
             VisibilityPreset.self,
             UserSettings.self,
             Friend.self,
+            FriendCategoryMapping.self,
             CalendarEventCache.self
         ])
     }

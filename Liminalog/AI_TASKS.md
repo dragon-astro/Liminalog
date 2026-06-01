@@ -651,8 +651,8 @@ refactor: split plan store
 
 ### 8.6 カテゴリマッピング
 
-- [ ] `FriendCategoryMapping` モデル <!-- 担当: Codex -->
-- [ ] 自動マッピングロジック（デフォルトカテゴリ同士）<!-- 担当: Codex -->
+- [x] `FriendCategoryMapping` モデル <!-- 担当: Codex, 完了: 2026-06-01。友達ごとの myCategoryID / friendCategoryID / useUnifiedColor を保持するCloudKit互換SwiftDataモデルを追加し、比較用に友達スナップショットへ categoryID を付与 -->
+- [x] 自動マッピングロジック（デフォルトカテゴリ同士）<!-- 担当: Codex, 完了: 2026-06-01。共有予定/実績スナップショットからカテゴリ記述子を抽出し、同名のデフォルトカテゴリだけを自動対応。既存手動マッピングとカスタムカテゴリは上書きしない -->
 - [ ] `FriendCategoryMappingSheet`（手動マッピング・多対一）<!-- 担当: Claude -->
 - [ ] 比較表示時のカラー統一スイッチ <!-- 担当: Claude -->
 - [ ] 未マッピング時の促し UI <!-- 担当: Claude -->
@@ -797,6 +797,7 @@ refactor: split plan store
 
 | 日付 | 担当 | 内容 |
 |---|---|---|
+| 2026-06-01 | Codex | Phase 3 カテゴリマッピング基盤を実装。`FriendCategoryMapping` SwiftDataモデルを追加し、`LiminalogSchemaV1` / `SharedModelContainer` / Preview schema に登録、DEBUG開発ストア世代を `2026060102` へ更新。友達共有スナップショットには任意の `categoryID` を追加し、通常公開時はカテゴリ対応に使えるようにしつつ、`freeTimeOnly` の予定では categoryID も nil にして匿名化を維持。`FriendCategoryMappingResolver` で共有予定/実績からカテゴリ記述子を抽出し、同名のデフォルトカテゴリだけを自動マッピングする。docs/04のスナップショット実装メモも同期。多対一モデル保存、カテゴリ記述子抽出、自動マッピングが既存手動設定/カスタムカテゴリを上書きしないことをテスト化。検証: `xcodebuild test -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' -derivedDataPath /private/tmp/LiminalogDerivedData` 成功（44 tests / 12 suites）。手動マッピングUI、比較表示時のカラー統一スイッチ、未マッピング促しはClaude/UIタスクとして継続。 |
 | 2026-06-01 | Codex | Phase 3 公開設定フィルター品質対応。友達共有用の `FriendSharedPlanSnapshot.snapshots` / `FriendSharedActivitySnapshot.snapshots` に `VisibilityPreset` を任意指定できるようにし、既存の `isPublic` 境界に加えて publishMode none / 旧level none、カテゴリ除外、メモ・気分・場所の隠蔽、予定の空き時間のみ（タイトル/カテゴリ/色を「予定あり」へ匿名化）を適用。写真は共有スナップショットにフィールドがないため現時点で漏れない。`PublishMode.nextDay` の実配信タイミングと CKShare 実送受信は Developer/CloudKit 環境が必要な別タスクとして残す。検証: `xcodebuild test -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' -derivedDataPath /private/tmp/LiminalogDerivedData` 成功（41 tests / 11 suites）。`xcodebuild -scheme Liminalog -destination generic/platform=iOS -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功。 |
 | 2026-06-01 | Codex | liminal UI 着手（branch `codex/liminal-ui-overhaul`）。(1) `DailyReflectionCard`（二重24hリング・twilightカード・グレイン/glow・「明日はどうする？」CTA）を昨日ページに追加。(2) twilight 視覚システムを全画面適用：`LiminalTheme` 共有化＋`preferredColorScheme(.dark)`固定＋テーマトークン（Primary `#C9A7FF`/Reward `#FFE3A3`）＋視認性正規化 `liminalReadableDataColor`(WCAG≥3:1・色相保持) を `Category.displayColor` として全データvizに配線。island問題解消。**Claudeレビュー: ビジュアル/テーマ/視認性は docs/13 §2/§7 通りで合格。ただしカード中身（ペルソナ）が暫定スタブのまま＝睡眠が見出しに（§5原則2違反）＋声が優しいコーチ口調で自虐トーン未反映。是正は §7.7.1 に起票。** |
 | 2026-05-31 | Claude | 設計フェーズ大幅前進。docs/12（デイリーカード&コンテンツエンジン）・docs/13（ビジュアル・アイデンティティ）を新規作成。コア論点を一気通貫で確定: (1)プロダクトの肝は「予定+スコア=moat」で薄めない。摩擦を消すのでなくコスト↓×payoff↑。(2)ターゲット=ショート漬けZ世代。気づき≠行動変容で、振り返り→明日の予定への1タップ橋渡しが核。(3)1日の総括「デイリーカード」を成長エンジン兼フックに据える(シェア→流入→比較)。単日=カード/複数日=統計の境界確定(統計タブは単日退避し傾向の鏡へ)。10 §3.4 DayDigest保留を解消(=カードに統合)。(4)楽しさはAIでなく「検出器×声×バリエーション」(決定論・ゼロコスト)。中立デフォルト(善悪判定しない)・見出し=ルーティン逸脱・カテゴリ意味非依存(睡眠もパターン検出)の3原則。逸脱エンジン/睡眠検出の計算仕様を昼夜逆転・無記録・カオスまでstress test。(5)ペルソナ称号(形ベース12×レア×活動スロット×2階建て×コレクション)・自虐トーン確定・ネーミング原則(面白い∧伝わる)。(6)世界観=liminal(予定と実績のあいだ)。トワイライト/ダークファースト・二重24時間リング(gap可視化)をsignatureに。戦略: カード先行→solo配布→拡散測定→その後 友達インフラ。タスクは §7.7/§7.8 に起票。 |

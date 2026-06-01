@@ -37,9 +37,11 @@ struct FriendSharedPlanSnapshotTests {
         let snapshots = FriendSharedPlanSnapshot.snapshots(from: [laterPublic, privatePlan, earlierPublic])
 
         #expect(snapshots.map(\.title) == ["朝の予定", "午後の予定"])
+        #expect(snapshots[1].categoryID == category.id)
         #expect(snapshots[1].categoryTitle == "勉強")
         #expect(snapshots[1].categoryIconName == "book.fill")
         #expect(snapshots[1].categoryColorHex == "#4F8BFF")
+        #expect(snapshots[0].categoryID == nil)
         #expect(snapshots[0].categoryIconName == "calendar")
     }
 
@@ -84,6 +86,7 @@ struct FriendSharedPlanSnapshotTests {
         #expect(snapshots[0].startTime == start)
         #expect(snapshots[0].endTime == end)
         #expect(snapshots[0].isImportant)
+        #expect(snapshots[0].categoryID == nil)
         #expect(snapshots[0].categoryTitle.isEmpty)
         #expect(snapshots[0].categoryIconName == "calendar")
         #expect(snapshots[0].categoryColorHex == "#8E8E93")
@@ -170,6 +173,7 @@ struct FriendSharedPlanSnapshotTests {
         #expect(snapshots.map(\.title) == ["勉強", "勉強"])
         #expect(snapshots[0].note == "集中できた")
         #expect(snapshots[1].endTime == now)
+        #expect(snapshots[1].categoryID == category.id)
         #expect(snapshots[1].categoryIconName == "book.fill")
         #expect(snapshots[1].categoryColorHex == "#4F8BFF")
     }

@@ -315,6 +315,7 @@ public enum FriendStatus: String, Codable {
 
 - `todayScore` / `yesterdayScore` / `weekScore` / `monthScore` / `yearScore` / `streakCount` を `Friend` に保持し、友達一覧・ランキング・プロフィール詳細を高速に描画する
 - `sharedPlansJSON` は `[FriendSharedPlanSnapshot]`、`sharedActivitiesJSON` は `[FriendSharedActivitySnapshot]` のJSON文字列を保持する
+- `FriendSharedPlanSnapshot` / `FriendSharedActivitySnapshot` は比較・カテゴリマッピング用に `categoryID` を任意保持する。ただし `freeTimeOnly` で匿名化した予定では categoryID も落とす
 - 友達の予定/実績は自分の `PlanBlock` / `Chapter` とは永続化責務が違うため、生モデルへ統合しない
 - 表示は `TimelineDisplaySnapshot` のような軽量表示モデルへ変換し、Today/Timelineの正準ビューへ渡す
 - Phase 3 の CloudKit 共有実装では、各スコアフィールドとJSONスナップショットを「誰が・いつ再計算して・どの粒度で同期するか」を `ShareCoordinator` 側で確定する
