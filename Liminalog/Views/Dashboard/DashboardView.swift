@@ -958,7 +958,7 @@ struct CategoryShareCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            DashboardSectionHeader(title: "カテゴリ構成", systemImage: "square.grid.2x2.fill", tint: Color(hex: "#6C5CE7"))
+            DashboardSectionHeader(title: "カテゴリ別トータル", systemImage: "square.grid.2x2.fill", tint: Color(hex: "#6C5CE7"))
 
             if rows.isEmpty {
                 EmptyStatText(text: "記録を始めるとカテゴリの比率が見えます")
@@ -1004,36 +1004,53 @@ struct DashboardCategoryRow: View {
     let stat: DashboardCategoryStat
     let total: TimeInterval
 
+    private var share: Double {
+        total > 0 ? stat.duration / total : 0
+    }
+
     var body: some View {
-        HStack(spacing: 10) {
-            Text("\(rank)")
-                .font(.caption.weight(.bold).monospacedDigit())
-                .foregroundStyle(stat.color)
-                .frame(width: 22, height: 22)
-                .background(stat.color.opacity(0.12), in: Circle())
-
-            Label {
-                Text(stat.name)
-                    .font(.subheadline.weight(.semibold))
-                    .lineLimit(1)
-            } icon: {
-                Image(systemName: stat.icon)
-                    .foregroundStyle(stat.color)
-            }
-
-            Spacer()
-
-            VStack(alignment: .trailing, spacing: 1) {
-                Text(formatDashboardDuration(stat.duration))
-                    .dashboardCountUp(value: stat.duration, formatter: formatDashboardDuration)
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(spacing: 10) {
+                Text("\(rank)")
                     .font(.caption.weight(.bold).monospacedDigit())
-                Text("\(Int((stat.duration / total * 100).rounded()))%")
-                    .dashboardCountUp(value: stat.duration / total * 100) {
-                        "\(Int($0.rounded()))%"
-                    }
-                    .font(.caption2.monospacedDigit())
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(stat.color)
+                    .frame(width: 22, height: 22)
+                    .background(stat.color.opacity(0.12), in: Circle())
+
+                Label {
+                    Text(stat.name)
+                        .font(.subheadline.weight(.semibold))
+                        .lineLimit(1)
+                } icon: {
+                    Image(systemName: stat.icon)
+                        .foregroundStyle(stat.color)
+                }
+
+                Spacer()
+
+                VStack(alignment: .trailing, spacing: 1) {
+                    Text(formatDashboardDuration(stat.duration))
+                        .dashboardCountUp(value: stat.duration, formatter: formatDashboardDuration)
+                        .font(.caption.weight(.bold).monospacedDigit())
+                    Text("\(Int((share * 100).rounded()))%")
+                        .dashboardCountUp(value: share * 100) {
+                            "\(Int($0.rounded()))%"
+                        }
+                        .font(.caption2.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
             }
+
+            GeometryReader { proxy in
+                Capsule()
+                    .fill(Color(.tertiarySystemGroupedBackground))
+                    .overlay(alignment: .leading) {
+                        Capsule()
+                            .fill(stat.color)
+                            .frame(width: proxy.size.width * min(max(share, 0), 1))
+                    }
+            }
+            .frame(height: 8)
         }
     }
 }

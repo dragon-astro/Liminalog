@@ -26,7 +26,7 @@ enum DashboardCardKey: String, CaseIterable, Identifiable {
         case .periodDelta:
             return "前期間比"
         case .categoryShare:
-            return "カテゴリ構成"
+            return "カテゴリ別トータル"
         case .hourRhythm:
             return "24時間リズム"
         case .scoreTrend:
