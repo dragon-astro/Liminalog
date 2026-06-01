@@ -5,13 +5,13 @@ import SwiftData
 final class CategoryStore {
     private let modelContext: ModelContext
 
-    private let defaultCategorySpecs: [(name: String, hex: String, icon: String)] = [
-        ("勉強", "#2F80ED", "book.closed.fill"),
-        ("仕事", "#6C5CE7", "briefcase.fill"),
-        ("趣味", "#EB5757", "sparkles"),
-        ("休憩", "#27AE60", "cup.and.saucer.fill"),
-        ("移動", "#F2994A", "tram.fill"),
-        ("睡眠", "#9B51E0", "moon.fill"),
+    private let defaultCategorySpecs: [(name: String, hex: String, icon: String, isSleep: Bool)] = [
+        ("勉強", "#2F80ED", "book.closed.fill", false),
+        ("仕事", "#6C5CE7", "briefcase.fill", false),
+        ("趣味", "#EB5757", "sparkles", false),
+        ("休憩", "#27AE60", "cup.and.saucer.fill", false),
+        ("移動", "#F2994A", "tram.fill", false),
+        ("睡眠", "#9B51E0", "moon.fill", true),
     ]
 
     init(modelContext: ModelContext) {
@@ -26,20 +26,42 @@ final class CategoryStore {
     }
 
     @discardableResult
-    func addCategory(name: String, colorHex: String, icon: String? = nil) -> Bool {
+    func addCategory(
+        name: String,
+        colorHex: String,
+        icon: String? = nil,
+        dailyCardIntent: DailyCardCategoryIntent = .neutral,
+        isDailyCardSleepCategory: Bool = false
+    ) -> Bool {
         let all = allCategories()
         let nextOrder = (all.map(\.sortOrder).max() ?? -1) + 1
-        let category = Category(name: name, colorHex: colorHex, icon: icon, sortOrder: nextOrder)
+        let category = Category(
+            name: name,
+            colorHex: colorHex,
+            icon: icon,
+            sortOrder: nextOrder,
+            dailyCardIntent: dailyCardIntent,
+            isDailyCardSleepCategory: isDailyCardSleepCategory
+        )
         modelContext.insert(category)
         try? modelContext.save()
         return true
     }
 
     @discardableResult
-    func updateCategory(_ category: Category, name: String, colorHex: String, icon: String? = nil) -> Bool {
+    func updateCategory(
+        _ category: Category,
+        name: String,
+        colorHex: String,
+        icon: String? = nil,
+        dailyCardIntent: DailyCardCategoryIntent = .neutral,
+        isDailyCardSleepCategory: Bool = false
+    ) -> Bool {
         category.name = name
         category.colorHex = colorHex
         category.icon = icon
+        category.dailyCardIntent = dailyCardIntent
+        category.isDailyCardSleepCategory = isDailyCardSleepCategory
         try? modelContext.save()
         return true
     }
@@ -58,11 +80,19 @@ final class CategoryStore {
 
     @discardableResult
     func seedDefaultCategoriesIfNeeded() -> Bool {
-        let existingNames = Set(allCategories().map(\.name))
+        let all = allCategories()
+        let existingNames = Set(all.map(\.name))
         var didInsert = false
 
         for (index, spec) in defaultCategorySpecs.enumerated() where !existingNames.contains(spec.name) {
-            let category = Category(name: spec.name, colorHex: spec.hex, icon: spec.icon, sortOrder: index, isDefault: true)
+            let category = Category(
+                name: spec.name,
+                colorHex: spec.hex,
+                icon: spec.icon,
+                sortOrder: index,
+                isDefault: true,
+                isDailyCardSleepCategory: spec.isSleep
+            )
             modelContext.insert(category)
             didInsert = true
         }

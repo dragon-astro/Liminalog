@@ -178,13 +178,16 @@ private struct DailyCardPatternDetector {
         dayBoundary: DayBoundary
     ) -> Set<UUID> {
         let calendar = Calendar.japanese
+        let explicitRestIDs = Set((chapters + historyChapters).compactMap { chapter in
+            chapter.category?.isDailyCardSleepCategory == true ? chapter.category?.id : nil
+        })
         let historyStart = calendar.date(byAdding: .day, value: -28, to: dayBoundary.dayStart) ?? dayBoundary.dayStart
         let historical = historyChapters.filter { chapter in
             chapter.startTime >= historyStart && chapter.startTime < dayBoundary.dayStart
         }
         let historicalDays = Set(historical.map { DayBoundary.dayStart(for: $0.startTime, calendar: calendar) }).count
         let source = historicalDays >= 7 ? historical : chapters
-        guard !source.isEmpty else { return [] }
+        guard !source.isEmpty else { return explicitRestIDs }
 
         struct RestCandidate {
             var category: Category
@@ -208,7 +211,7 @@ private struct DailyCardPatternDetector {
             candidates[category.id] = candidate
         }
 
-        return Set(candidates.compactMap { id, candidate in
+        let detectedRestIDs = Set(candidates.compactMap { id, candidate in
             let averageLongBlock = candidate.longestTotal / Double(max(candidate.blockCount, 1))
             let dayBase = max(historicalDays, 1)
             let frequency = Double(candidate.presenceDays.count) / Double(dayBase)
@@ -218,6 +221,7 @@ private struct DailyCardPatternDetector {
                 return candidate.totalLongBlocks >= 1 && averageLongBlock >= 6 * 60 * 60 ? id : nil
             }
         })
+        return explicitRestIDs.union(detectedRestIDs)
     }
 
     private static func shape(
@@ -399,6 +403,28 @@ private enum DailyCardSignal {
                 symbol: "hand.wave.fill"
             )
         case let .moreThanUsual(category, delta):
+            switch category.dailyCardIntent {
+            case .increase:
+                return DailyPersonaCopy(
+                    title: "\(category.name)、狙い通り増量",
+                    messages: [
+                        "増やしたい\(category.name)が、いつもより\(formatDailyCardDuration(delta))多め。珍しく宣言と現実が握手しました。",
+                        "\(category.name)を増やす作戦、本日は成功寄り。いつもより\(formatDailyCardDuration(delta))、ちゃんと上乗せ。"
+                    ],
+                    symbol: "arrow.up.right.circle.fill"
+                )
+            case .decrease:
+                return DailyPersonaCopy(
+                    title: "\(category.name)増えちゃった",
+                    messages: [
+                        "減らしたい\(category.name)が、いつもより\(formatDailyCardDuration(delta))多め。まあ、そういう日もあります。",
+                        "\(category.name)を減らしたい側なのに、今日は\(formatDailyCardDuration(delta))増量。現実、たまに強い。"
+                    ],
+                    symbol: "exclamationmark.triangle.fill"
+                )
+            case .neutral:
+                break
+            }
             return DailyPersonaCopy(
                 title: "\(category.name)増量中",
                 messages: [
@@ -408,6 +434,28 @@ private enum DailyCardSignal {
                 symbol: "speaker.wave.3.fill"
             )
         case let .lessThanUsual(category, delta):
+            switch category.dailyCardIntent {
+            case .increase:
+                return DailyPersonaCopy(
+                    title: "\(category.name)足りなめ",
+                    messages: [
+                        "増やしたい\(category.name)は、いつもより\(formatDailyCardDuration(delta))控えめ。明日の自分にメモだけ渡しておきます。",
+                        "\(category.name)を増やす予定のはずが、今日は少し静か。いつもより\(formatDailyCardDuration(delta))ぶん、余白が残りました。"
+                    ],
+                    symbol: "arrow.down.right.circle.fill"
+                )
+            case .decrease:
+                return DailyPersonaCopy(
+                    title: "\(category.name)、控えめ成功",
+                    messages: [
+                        "減らしたい\(category.name)が、いつもより\(formatDailyCardDuration(delta))控えめ。今日はちゃんと舵が効いています。",
+                        "\(category.name)を減らす宣言、今日は現実側も協力的。いつもより\(formatDailyCardDuration(delta))静かでした。"
+                    ],
+                    symbol: "checkmark.circle.fill"
+                )
+            case .neutral:
+                break
+            }
             return DailyPersonaCopy(
                 title: "\(category.name)控えめ",
                 messages: [

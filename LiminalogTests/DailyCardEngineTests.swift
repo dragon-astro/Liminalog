@@ -12,9 +12,9 @@ struct DailyCardEngineTests {
         let study = Category(name: "勉強", colorHex: "#2F80ED", icon: "book.fill")
 
         let sleepChapter = Chapter(category: sleep, startTime: try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1, hour: 0))))
-        sleepChapter.endTime = try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1, hour: 7)))
+        sleepChapter.endTime = calendar.date(from: DateComponents(year: 2026, month: 6, day: 1, hour: 7))
         let studyChapter = Chapter(category: study, startTime: try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1, hour: 9))))
-        studyChapter.endTime = try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1, hour: 11)))
+        studyChapter.endTime = calendar.date(from: DateComponents(year: 2026, month: 6, day: 1, hour: 11))
 
         let persona = DailyPersona.make(
             summary: ScoreSummary(date: day, categoryScore: 0, timelineScore: 0, totalScore: 0, plannedDuration: 0, recordedDuration: 9 * 60 * 60, matchedDuration: 0),
@@ -29,13 +29,41 @@ struct DailyCardEngineTests {
         #expect(persona.facts.first?.value == "2時間")
     }
 
+    @Test("明示した睡眠タグは短い休息でも裁量時間から除外する")
+    func explicitSleepTagExcludesShortRestFromFacts() throws {
+        let calendar = Calendar.liminalogTest
+        let day = try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1)))
+        let nap = Category(
+            name: "仮眠",
+            colorHex: "#6C5CE7",
+            icon: "bed.double.fill",
+            isDailyCardSleepCategory: true
+        )
+        let study = Category(name: "勉強", colorHex: "#2F80ED", icon: "book.fill")
+        let napChapter = try makeChapter(category: nap, day: day, calendar: calendar, startHour: 0, durationMinutes: 120)
+        let studyChapter = try makeChapter(category: study, day: day, calendar: calendar, startHour: 9, durationMinutes: 120)
+
+        let persona = DailyPersona.make(
+            summary: ScoreSummary(date: day, categoryScore: 0, timelineScore: 0, totalScore: 0, plannedDuration: 0, recordedDuration: 4 * 60 * 60, matchedDuration: 0),
+            chapters: [napChapter, studyChapter],
+            historyChapters: [],
+            categoryRows: [(nap, 2 * 60 * 60), (study, 2 * 60 * 60)],
+            recordedDuration: 4 * 60 * 60,
+            dayBoundary: DayBoundary(date: day, calendar: calendar)
+        )
+
+        #expect(persona.facts.first?.title == "裁量時間")
+        #expect(persona.facts.first?.value == "2時間")
+        #expect(persona.title != "ガチ充電デー")
+    }
+
     @Test("高スコア予定一致の称号と本文は同じ意味を補強する")
     func highScorePersonaDoesNotBorrowUnrelatedSignalCopy() throws {
         let calendar = Calendar.liminalogTest
         let day = try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1)))
         let category = Category(name: "趣味", colorHex: "#F2994A", icon: "sparkles")
         let chapter = Chapter(category: category, startTime: try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1, hour: 20))))
-        chapter.endTime = try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1, hour: 22)))
+        chapter.endTime = calendar.date(from: DateComponents(year: 2026, month: 6, day: 1, hour: 22))
 
         let persona = DailyPersona.make(
             summary: ScoreSummary(date: day, categoryScore: 100, timelineScore: 90, totalScore: 95, plannedDuration: 2 * 60 * 60, recordedDuration: 2 * 60 * 60, matchedDuration: 2 * 60 * 60),
@@ -57,7 +85,7 @@ struct DailyCardEngineTests {
         let day = try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1)))
         let category = Category(name: "勉強", colorHex: "#2F80ED", icon: "book.fill")
         let chapter = Chapter(category: category, startTime: try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1, hour: 9))))
-        chapter.endTime = try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1, hour: 12)))
+        chapter.endTime = calendar.date(from: DateComponents(year: 2026, month: 6, day: 1, hour: 12))
 
         let persona = DailyPersona.make(
             summary: ScoreSummary(date: day, categoryScore: 0, timelineScore: 0, totalScore: 0, plannedDuration: 0, recordedDuration: 3 * 60 * 60, matchedDuration: 0),
@@ -145,6 +173,61 @@ struct DailyCardEngineTests {
 
         #expect(persona.title == "料理、はじめました")
         #expect(persona.facts.contains { $0.id == "signal-first" && $0.value == "料理" })
+    }
+
+    @Test("カテゴリの増減宣言は逸脱signalの称号と本文に反映される")
+    func categoryIntentAdjustsDeviationCopy() throws {
+        let calendar = Calendar.japanese
+        let day = try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1)))
+        let exercise = Category(
+            name: "運動",
+            colorHex: "#27AE60",
+            icon: "figure.run",
+            dailyCardIntent: .increase
+        )
+        let social = Category(
+            name: "SNS",
+            colorHex: "#EB5757",
+            icon: "iphone",
+            dailyCardIntent: .decrease
+        )
+
+        let exerciseToday = try makeChapter(category: exercise, day: day, calendar: calendar, startHour: 7, durationMinutes: 90)
+        let exerciseHistory = try (1...7).map { offset in
+            let historyDay = try #require(calendar.date(byAdding: .day, value: -offset, to: day))
+            return try makeChapter(category: exercise, day: historyDay, calendar: calendar, startHour: 7, durationMinutes: 30)
+        }
+
+        let increasedPersona = DailyPersona.make(
+            summary: ScoreSummary(date: day, categoryScore: 0, timelineScore: 0, totalScore: 40, plannedDuration: 2 * 60 * 60, recordedDuration: 90 * 60, matchedDuration: 0),
+            chapters: [exerciseToday],
+            historyChapters: exerciseHistory,
+            categoryRows: [(exercise, 90 * 60)],
+            recordedDuration: 90 * 60,
+            dayBoundary: DayBoundary(date: day, calendar: calendar)
+        )
+
+        let socialToday = try makeChapter(category: social, day: day, calendar: calendar, startHour: 21, durationMinutes: 60)
+        let socialHistory = try (1...28).map { offset in
+            let historyDay = try #require(calendar.date(byAdding: .day, value: -offset, to: day))
+            return try makeChapter(category: social, day: historyDay, calendar: calendar, startHour: 21, durationMinutes: 180)
+        }
+
+        let decreasedPersona = DailyPersona.make(
+            summary: ScoreSummary(date: day, categoryScore: 0, timelineScore: 0, totalScore: 40, plannedDuration: 2 * 60 * 60, recordedDuration: 60 * 60, matchedDuration: 0),
+            chapters: [socialToday],
+            historyChapters: socialHistory,
+            categoryRows: [(social, 60 * 60)],
+            recordedDuration: 60 * 60,
+            dayBoundary: DayBoundary(date: day, calendar: calendar)
+        )
+
+        #expect(increasedPersona.title == "運動、狙い通り増量")
+        #expect(increasedPersona.message.contains("増やしたい"))
+        #expect(increasedPersona.facts.contains { $0.id == "signal-more" })
+        #expect(decreasedPersona.title == "SNS、控えめ成功")
+        #expect(decreasedPersona.message.contains("減らしたい"))
+        #expect(decreasedPersona.facts.contains { $0.id == "signal-less" })
     }
 
     private func makePersona(

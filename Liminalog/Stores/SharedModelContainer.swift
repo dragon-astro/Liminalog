@@ -6,8 +6,9 @@ enum SharedModelContainer {
     static let appGroupID = "group.app.YasudaRyuga.Liminalog"
     static let cloudKitContainerID = "iCloud.app.YasudaRyuga.Liminalog"
     private static let developmentStoreVersionKey = "development.storeVersion"
-    private static let currentDevelopmentStoreVersion = 2026060105
+    private static let currentDevelopmentStoreVersion = 2026060106
     private static let requiredDevelopmentStoreColumns: [(table: String, columns: [String])] = [
+        ("ZCATEGORY", ["ZDAILYCARDINTENTRAWVALUE", "ZISDAILYCARDSLEEPCATEGORY"]),
         ("ZUSERSETTINGS", ["ZPROFILEACCENTCOLORHEX", "ZPROFILEBADGEID", "ZPROFILEICONFRAMEID", "ZPROFILESTREAKICONID", "ZPROFILECARDSTYLEID", "ZDASHBOARDHIDDENCARDKEYS"]),
         ("ZFRIEND", ["ZSTATUSRAWVALUE", "ZPROFILEBADGEID", "ZPROFILEICONFRAMEID", "ZPROFILESTREAKICONID", "ZPROFILECARDSTYLEID", "ZSTREAKCOUNT", "ZMONTHSCORE", "ZYEARSCORE", "ZSHAREDPLANSJSON", "ZSHAREDACTIVITIESJSON"]),
         ("ZFRIENDCATEGORYMAPPING", ["ZMYCATEGORYID", "ZFRIENDCATEGORYID", "ZUSEUNIFIEDCOLOR"]),

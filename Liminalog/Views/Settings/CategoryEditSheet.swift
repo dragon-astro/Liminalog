@@ -9,6 +9,8 @@ struct CategoryEditSheet: View {
     @State private var name: String = ""
     @State private var color: Color = .blue
     @State private var icon: String = "circle.fill"
+    @State private var dailyCardIntent: DailyCardCategoryIntent = .neutral
+    @State private var isDailyCardSleepCategory = false
 
     private let icons = ["book.closed.fill", "briefcase.fill", "sparkles", "cup.and.saucer.fill", "tram.fill", "moon.fill", "fork.knife", "figure.run", "gamecontroller.fill", "music.note", "heart.fill", "paintpalette.fill"]
 
@@ -41,6 +43,17 @@ struct CategoryEditSheet: View {
                         }
                     }
                     .padding(.vertical, 4)
+                }
+
+                Section("デイリーカード") {
+                    Picker("傾向", selection: $dailyCardIntent) {
+                        ForEach(DailyCardCategoryIntent.allCases) { intent in
+                            Text(intent.title).tag(intent)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+
+                    Toggle("睡眠として扱う", isOn: $isDailyCardSleepCategory)
                 }
 
                 Section {
@@ -82,6 +95,8 @@ struct CategoryEditSheet: View {
                     name = cat.name
                     color = cat.color
                     icon = cat.icon ?? "circle.fill"
+                    dailyCardIntent = cat.dailyCardIntent
+                    isDailyCardSleepCategory = cat.isDailyCardSleepCategory
                 }
             }
         }
@@ -92,9 +107,22 @@ struct CategoryEditSheet: View {
         guard !trimmed.isEmpty else { return }
 
         if let cat = category {
-            store.updateCategory(cat, name: trimmed, colorHex: color.hexString, icon: icon)
+            store.updateCategory(
+                cat,
+                name: trimmed,
+                colorHex: color.hexString,
+                icon: icon,
+                dailyCardIntent: dailyCardIntent,
+                isDailyCardSleepCategory: isDailyCardSleepCategory
+            )
         } else {
-            store.addCategory(name: trimmed, colorHex: color.hexString, icon: icon)
+            store.addCategory(
+                name: trimmed,
+                colorHex: color.hexString,
+                icon: icon,
+                dailyCardIntent: dailyCardIntent,
+                isDailyCardSleepCategory: isDailyCardSleepCategory
+            )
         }
         dismiss()
     }

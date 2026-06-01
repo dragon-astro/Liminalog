@@ -45,6 +45,12 @@
 ### 2.1 Category
 
 ```swift
+public enum DailyCardCategoryIntent: String, Codable, CaseIterable {
+    case neutral
+    case increase
+    case decrease
+}
+
 @Model
 public final class Category {
     public var id: UUID = UUID()
@@ -53,6 +59,8 @@ public final class Category {
     public var icon: String? = nil
     public var sortOrder: Int = 0
     public var isDefault: Bool = false
+    public var dailyCardIntentRawValue: String = DailyCardCategoryIntent.neutral.rawValue
+    public var isDailyCardSleepCategory: Bool = false
     public var createdAt: Date = Date()
 
     @Relationship(deleteRule: .nullify, inverse: \Chapter.category)
@@ -61,11 +69,20 @@ public final class Category {
     @Relationship(deleteRule: .nullify, inverse: \PlanBlock.category)
     public var plans: [PlanBlock] = []
 
+    public var dailyCardIntent: DailyCardCategoryIntent {
+        get { DailyCardCategoryIntent(rawValue: dailyCardIntentRawValue) ?? .neutral }
+        set { dailyCardIntentRawValue = newValue.rawValue }
+    }
+
     public init() {}  // CloudKit互換のため引数なしを必須
     public init(name: String, colorHex: String, icon: String? = nil,
-                sortOrder: Int = 0, isDefault: Bool = false) {
+                sortOrder: Int = 0, isDefault: Bool = false,
+                dailyCardIntent: DailyCardCategoryIntent = .neutral,
+                isDailyCardSleepCategory: Bool = false) {
         self.name = name; self.colorHex = colorHex; self.icon = icon
         self.sortOrder = sortOrder; self.isDefault = isDefault
+        self.dailyCardIntentRawValue = dailyCardIntent.rawValue
+        self.isDailyCardSleepCategory = isDailyCardSleepCategory
     }
 }
 ```
@@ -74,6 +91,7 @@ public final class Category {
 - 全プロパティにデフォルト値（CloudKit要件）
 - `plans` への inverse relationship 追加（PlanBlock も逆参照可能に）
 - `usageCount` は廃止済み。CategorySet の位置指定スロットで表示順を管理する
+- `dailyCardIntentRawValue` / `isDailyCardSleepCategory` を追加。デイリーカードで「増やしたい/減らしたい/中立」の宣言と、カテゴリ名に依存しない任意の睡眠扱いを保存する
 - `id` は論理識別子として使うが、CloudKit 同期対象なので `@Attribute(.unique)` は付けない
 
 ### 2.2 Chapter

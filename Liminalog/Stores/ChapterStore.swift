@@ -336,14 +336,40 @@ final class ChapterStore {
 
     // MARK: - Category management
 
-    func addCategory(name: String, colorHex: String, icon: String? = nil) {
-        if categoryStore.addCategory(name: name, colorHex: colorHex, icon: icon) {
+    func addCategory(
+        name: String,
+        colorHex: String,
+        icon: String? = nil,
+        dailyCardIntent: DailyCardCategoryIntent = .neutral,
+        isDailyCardSleepCategory: Bool = false
+    ) {
+        if categoryStore.addCategory(
+            name: name,
+            colorHex: colorHex,
+            icon: icon,
+            dailyCardIntent: dailyCardIntent,
+            isDailyCardSleepCategory: isDailyCardSleepCategory
+        ) {
             markChanged()
         }
     }
 
-    func updateCategory(_ category: Category, name: String, colorHex: String, icon: String? = nil) {
-        if categoryStore.updateCategory(category, name: name, colorHex: colorHex, icon: icon) {
+    func updateCategory(
+        _ category: Category,
+        name: String,
+        colorHex: String,
+        icon: String? = nil,
+        dailyCardIntent: DailyCardCategoryIntent = .neutral,
+        isDailyCardSleepCategory: Bool = false
+    ) {
+        if categoryStore.updateCategory(
+            category,
+            name: name,
+            colorHex: colorHex,
+            icon: icon,
+            dailyCardIntent: dailyCardIntent,
+            isDailyCardSleepCategory: isDailyCardSleepCategory
+        ) {
             markChanged()
             updateLiveActivity()
         }
