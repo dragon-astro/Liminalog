@@ -296,6 +296,7 @@ private struct ProfileHero: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(displayName)
                         .font(.title2.weight(.bold))
+                        .foregroundStyle(cardStyle.textColor)
                         .lineLimit(2)
                         .minimumScaleFactor(0.82)
                         .padding(.trailing, 76)
@@ -304,7 +305,7 @@ private struct ProfileHero: View {
 
                     Text(bio.isEmpty ? "プロフィールを育てよう" : bio)
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(cardStyle.secondaryTextColor)
                         .lineLimit(2)
                         .frame(minHeight: 42, alignment: .topLeading)
                 }
@@ -1319,13 +1320,34 @@ struct ProfileCardStyle: Identifiable {
     let id: String
     let title: String
     let systemImage: String
-    let backgroundHex: String
+    let lightBackgroundHex: String
+    let darkBackgroundHex: String
     let markHex: String?
     let stripOpacity: Double
     let borderWidth: CGFloat
 
     var backgroundColor: Color {
-        Color(hex: backgroundHex)
+        Color(
+            UIColor { traits in
+                UIColor(liminalHex: traits.userInterfaceStyle == .light ? lightBackgroundHex : darkBackgroundHex)
+            }
+        )
+    }
+
+    var textColor: Color {
+        Color(
+            UIColor { traits in
+                UIColor(liminalHex: traits.userInterfaceStyle == .light ? "#2A2440" : "#ECE8F5")
+            }
+        )
+    }
+
+    var secondaryTextColor: Color {
+        Color(
+            UIColor { traits in
+                UIColor(liminalHex: traits.userInterfaceStyle == .light ? "#6A6388" : "#C8C1DA")
+            }
+        )
     }
 
     func markColor(accentColor: Color) -> Color {
@@ -1344,10 +1366,10 @@ struct ProfileCardStyle: Identifiable {
 enum ProfileCardStyleCatalog {
     static let defaultID = "clean"
     static let items: [ProfileCardStyle] = [
-        ProfileCardStyle(id: "clean", title: "Clean", systemImage: "rectangle", backgroundHex: "#FFFFFF", markHex: nil, stripOpacity: 0.35, borderWidth: 1),
-        ProfileCardStyle(id: "glass", title: "Glass", systemImage: "sparkle.magnifyingglass", backgroundHex: "#F7FBFF", markHex: "#2F80ED", stripOpacity: 0.38, borderWidth: 1),
-        ProfileCardStyle(id: "dawn", title: "Dawn", systemImage: "sunrise.fill", backgroundHex: "#FFF8F0", markHex: "#F2994A", stripOpacity: 0.42, borderWidth: 1),
-        ProfileCardStyle(id: "mint", title: "Mint", systemImage: "leaf.fill", backgroundHex: "#F2FBF6", markHex: "#27AE60", stripOpacity: 0.38, borderWidth: 1)
+        ProfileCardStyle(id: "clean", title: "Clean", systemImage: "rectangle", lightBackgroundHex: "#FFFFFF", darkBackgroundHex: "#1F1A38", markHex: nil, stripOpacity: 0.35, borderWidth: 1),
+        ProfileCardStyle(id: "glass", title: "Glass", systemImage: "sparkle.magnifyingglass", lightBackgroundHex: "#F7FBFF", darkBackgroundHex: "#221B3A", markHex: "#2F80ED", stripOpacity: 0.38, borderWidth: 1),
+        ProfileCardStyle(id: "dawn", title: "Dawn", systemImage: "sunrise.fill", lightBackgroundHex: "#FFF8F0", darkBackgroundHex: "#2A2032", markHex: "#F2994A", stripOpacity: 0.42, borderWidth: 1),
+        ProfileCardStyle(id: "mint", title: "Mint", systemImage: "leaf.fill", lightBackgroundHex: "#F2FBF6", darkBackgroundHex: "#18312B", markHex: "#27AE60", stripOpacity: 0.38, borderWidth: 1)
     ]
 
     static func item(for id: String?) -> ProfileCardStyle {

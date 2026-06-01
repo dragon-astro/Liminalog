@@ -12,8 +12,12 @@ private enum RootTab: Hashable {
 struct RootTabView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var appStores: AppStores?
-    @State private var selectedTab: RootTab = .today
+    @State private var selectedTab: RootTab
     @State private var pendingFriendInviteURL: URL?
+
+    init() {
+        _selectedTab = State(initialValue: Self.initialTab())
+    }
 
     var body: some View {
         Group {
@@ -57,11 +61,49 @@ struct RootTabView: View {
             }
             #endif
             appStores = initializedStores
+            #if DEBUG
+            selectedTab = Self.initialTab()
+            #endif
         }
         .onOpenURL { url in
             guard FriendInvitePayload(url: url) != nil else { return }
             pendingFriendInviteURL = url
             selectedTab = .friends
+        }
+    }
+
+    private static func initialTab() -> RootTab {
+        #if DEBUG
+        if let environmentValue = ProcessInfo.processInfo.environment["LiminalogInitialRootTab"] {
+            return tab(from: environmentValue)
+        }
+
+        let arguments = ProcessInfo.processInfo.arguments
+        guard
+            let flagIndex = arguments.firstIndex(of: "-LiminalogInitialRootTab"),
+            arguments.indices.contains(arguments.index(after: flagIndex))
+        else {
+            return .today
+        }
+
+        return tab(from: arguments[arguments.index(after: flagIndex)])
+        #else
+        return .today
+        #endif
+    }
+
+    private static func tab(from rawValue: String) -> RootTab {
+        switch rawValue.lowercased() {
+        case "calendar":
+            return .calendar
+        case "dashboard":
+            return .dashboard
+        case "friends":
+            return .friends
+        case "profile":
+            return .profile
+        default:
+            return .today
         }
     }
 }

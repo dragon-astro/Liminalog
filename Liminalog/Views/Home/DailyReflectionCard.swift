@@ -72,11 +72,7 @@ struct DailyReflectionCard: View {
                 .foregroundStyle(LiminalTheme.text)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
-                .background(
-                    Capsule(style: .continuous)
-                        .fill(.white.opacity(0.075))
-                        .overlay(Capsule(style: .continuous).stroke(.white.opacity(0.12), lineWidth: 1))
-                )
+                .liminalGlassFill(in: Capsule(style: .continuous))
             }
             .buttonStyle(.plain)
             .accessibilityLabel("デイリーカードを画像で共有")
@@ -165,7 +161,7 @@ struct DailyReflectionCard: View {
             .foregroundStyle(LiminalTheme.text.opacity(0.88))
             .padding(.horizontal, 10)
             .padding(.vertical, 7)
-            .background(.white.opacity(0.08), in: Capsule(style: .continuous))
+            .liminalGlassFill(in: Capsule(style: .continuous))
         }
     }
 
@@ -283,7 +279,7 @@ private struct DailyShareCardView: View {
                         .foregroundStyle(LiminalTheme.text)
                         .padding(.horizontal, 24)
                         .padding(.vertical, 16)
-                        .background(.white.opacity(0.08), in: Capsule(style: .continuous))
+                        .liminalGlassFill(in: Capsule(style: .continuous))
                 }
 
                 DailyTwentyFourHourRing(
@@ -361,8 +357,7 @@ private struct ShareMetricTile: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(22)
-        .background(.white.opacity(0.075), in: RoundedRectangle(cornerRadius: 26, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 26, style: .continuous).stroke(.white.opacity(0.1), lineWidth: 1))
+        .liminalGlassFill(in: RoundedRectangle(cornerRadius: 26, style: .continuous))
     }
 }
 
@@ -419,8 +414,7 @@ private struct DailyTwentyFourHourRing: View {
                     .font(.system(size: 24, weight: .bold))
                     .foregroundStyle(LiminalTheme.reward)
                     .frame(width: 48, height: 48)
-                    .background(.white.opacity(0.08), in: Circle())
-                    .overlay(Circle().stroke(.white.opacity(0.12), lineWidth: 1))
+                    .liminalGlassFill(in: Circle())
 
                 Text(hasScore ? "\(Int(score.rounded()))pt" : "-- pt")
                     .font(.system(size: 26, weight: .black, design: .rounded).monospacedDigit())
@@ -547,8 +541,7 @@ private struct DailyFactPill: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 10)
         .padding(.vertical, 10)
-        .background(.white.opacity(0.075), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(.white.opacity(0.08), lineWidth: 1))
+        .liminalGlassFill(in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }
 

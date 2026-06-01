@@ -36,46 +36,44 @@ struct CurrentChapterCard: View {
     }
 
     private func activeCard(chapter: Chapter, category: Category) -> some View {
-        RoundedRectangle(cornerRadius: 12)
-            .fill(category.displayColor.opacity(0.12))
-            .overlay(
-                HStack(spacing: 12) {
-                    Circle()
-                        .fill(category.displayColor)
-                        .frame(width: 10, height: 10)
-                        .shadow(color: category.displayColor.opacity(0.4), radius: 4, x: 0, y: 2)
+        HStack(spacing: 12) {
+            Circle()
+                .fill(category.displayColor)
+                .frame(width: 10, height: 10)
+                .shadow(color: category.displayColor.opacity(0.4), radius: 4, x: 0, y: 2)
 
-                    Text(category.name)
-                        .font(.subheadline.weight(.semibold))
-                        .lineLimit(1)
+            Text(category.name)
+                .font(.subheadline.weight(.semibold))
+                .lineLimit(1)
 
-                    Spacer()
+            Spacer()
 
-                    Text(formatDuration(clock.now.timeIntervalSince(chapter.startTime)))
-                        .font(.caption.monospacedDigit().weight(.semibold))
-                        .foregroundStyle(.secondary)
+            Text(formatDuration(clock.now.timeIntervalSince(chapter.startTime)))
+                .font(.caption.monospacedDigit().weight(.semibold))
+                .foregroundStyle(.secondary)
 
-                    Button {
-                        store.endActiveChapter()
-                    } label: {
-                        Image(systemName: "stop.fill")
-                            .foregroundStyle(category.displayColor)
-                            .frame(width: 30, height: 30)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("記録を終了")
+            Button {
+                store.endActiveChapter()
+            } label: {
+                Image(systemName: "stop.fill")
+                    .foregroundStyle(category.displayColor)
+                    .frame(width: 30, height: 30)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("記録を終了")
 
-                    Button {
-                        store.setChapterVisibility(chapter, isPublic: !chapter.isPublic)
-                    } label: {
-                        Image(systemName: chapter.isPublic ? "eye" : "eye.slash")
-                            .foregroundStyle(.secondary)
-                            .frame(width: 30, height: 30)
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding(.horizontal, 12)
-            )
+            Button {
+                store.setChapterVisibility(chapter, isPublic: !chapter.isPublic)
+            } label: {
+                Image(systemName: chapter.isPublic ? "eye" : "eye.slash")
+                    .foregroundStyle(.secondary)
+                    .frame(width: 30, height: 30)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 12)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .liminalCanvasChip(tint: category.displayColor, in: RoundedRectangle(cornerRadius: 12))
     }
 
     private var placeholderCard: some View {

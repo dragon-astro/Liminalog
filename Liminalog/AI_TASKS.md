@@ -19,6 +19,7 @@ ClaudeとCodexが連携してLiminalogを開発するための共有タスク管
 | [../Liminalog/Views/Profile/docs/07-codex-plan-review.md](../Liminalog/Views/Profile/docs/07-codex-plan-review.md) | Codex 計画レビュー（修正指示） |
 | [../Liminalog/Views/Profile/docs/08-timeline-redesign.md](../Liminalog/Views/Profile/docs/08-timeline-redesign.md) | タイムライン UX 再設計（05 上書き） |
 | [../Liminalog/Views/Profile/docs/09-profile-design.md](../Liminalog/Views/Profile/docs/09-profile-design.md) | プロフィール画面 情報設計 v2（二面性・装飾アイテム経済・05 上書き） |
+| [../Liminalog/Design/docs/theme-system.md](../Liminalog/Design/docs/theme-system.md) | テーマ定義型リファクタ 実装仕様（色＋扱い方を型化・§8.7） |
 | [../Liminalog/liminalog_spec_v04.md](../Liminalog/liminalog_spec_v04.md) | プロダクト仕様書 |
 | [../Liminalog/CLAUDE_v04.md](../Liminalog/CLAUDE_v04.md) | Claude向けプロジェクト概要 |
 
@@ -775,6 +776,48 @@ refactor: split plan store
 
 ---
 
+## 8.7 テーマ定義型リファクタ（docs/theme-system）
+
+> [Design/docs/theme-system.md](../Liminalog/Design/docs/theme-system.md) が実装仕様。**着手前に必読。**
+> ライト/ダークの場当たり分岐をやめ、**1テーマ=1値型（色＋扱い方）**にする。分岐は選択1関数に集約。
+> 既存 `LiminalTheme.token` 呼び出し（約57箇所）は無改修。**ダークの見た目は変えない（リグレッション禁止）。**
+> 追加方針（2026-06-02）: **宵(dusk)は現状を基準として維持し、曙(daybreak)は宵と同格の見やすさ・リッチ感まで再構成する。** 曙だけ薄い/見づらい/平たい状態を許容しない。
+> 優先順は docs §5 の P0→P3。P0 は純リファクタで見た目不変、各フェーズで §6 のスクショ検証必須。
+
+### P0: 基盤型 + 選択の一元化（最優先）
+
+- [x] `LiminalThemeDefinition.swift` 新規作成（型一式・docs §3）<!-- 担当: Codex, 完了: 2026-06-02。LiminalThemeDefinition / LiminalPalette / surface・glass・emphasis・effects treatment / LiminalThemeCatalog を追加 -->
+- [x] `LiminalThemeCatalog` に dusk/daybreak を定義（docs §4 の値・dusk は現状値を1:1転記）<!-- 担当: Codex, 完了: 2026-06-02。duskは既存hex維持、daybreakはP1.5初期改善値へ更新 -->
+- [x] `LiminalTheme` の token/gradient/uiCanvas をカタログ動的解決へ差し替え（シグネチャ不変）<!-- 担当: Codex, 完了: 2026-06-02。既存の LiminalTheme.primary 等の呼び出しは維持し、内部解決だけ LiminalThemeCatalog へ移行 -->
+- [x] 旧 duskPalette/daybreakPalette/LiminalThemePalette/activePalette を撤去 <!-- 担当: Codex, 完了: 2026-06-02 -->
+
+### P1: treatment を型経由に（ライトのみ改善・ダーク不変）
+
+- [x] `liminalCanvasChip` のハードコード分岐を `definition(for:).surface` 読みへ書き換え（先行実装を整理）<!-- 担当: Codex, 完了: 2026-06-02。surface treatment の glass/solid を参照する形へ移行 -->
+- [x] `liminalGlassFill(in:)` modifier 新設し `DailyReflectionCard` の `.white.opacity` ピル/パネルを置換（Canvas描画の意匠は対象外）<!-- 担当: Codex, 完了: 2026-06-02。共有ボタン/fact pill/share tile/リング中央アイコンなど背景+strokeペアを置換。Canvas上のリング下地・grainは意匠として維持 -->
+- [x] プロフィールカードの白固定を解消し、同じ装飾IDでも light/dark で背景・文字が読める色へ解決する <!-- 担当: Codex, 完了: 2026-06-02。ProfileCardStyle に light/dark 背景とカード内文字色を持たせ、宵で白地+白文字になる事故を修正。P1.5 で曙パレットと一緒に最終色を詰める -->
+
+### P1.5: 曙パレット再構成（ライトの見づらさ・リッチ感不足を解消）
+
+- [~] `daybreak` の canvas/surface/elevated/divider/gradient を再構成し、宵に比べて曙だけ情報階層が薄い問題を解消する <!-- 担当: Codex, 進捗: 2026-06-02。初期改善として背景を白寄り一辺倒から曙のラベンダー/ピーチへ寄せ、dividerを強めた。実機スクショで最終調整継続 -->
+- [~] `primary` / `reward` / `dawn` / `dusk` の曙用hexを詰め直し、黄土色化・ラベンダーと黄の温度割れ・彩度段差を潰す <!-- 担当: Codex, 進捗: 2026-06-02。rewardを黄土色から明るい金へ、gradientBottomを黄からピーチ寄りへ、duskを淡すぎないラベンダーへ初期調整。実機スクショで最終確認継続 -->
+- [ ] 曙スクショ監査: ProfileHero / DailyReflectionCard / CurrentChapterCard / Dashboard hero / 浮遊チップを light/dark 並列で確認し、曙だけ見づらい箇所を修正する <!-- 担当: Codex -->
+
+### P2: 横展開 + 文字/影
+
+- [ ] 全画面監査: グラデ直乗り＋不透明下地なしの半透明を洗い出し docs 末尾に表で追記してから `liminalCanvasChip`/`liminalGlassFill` 化（カード内の半透明は触らない）<!-- 担当: Codex -->
+- [ ] `emphasis`/`effects` を必要箇所へ配線し実機で値を詰める <!-- 担当: 未定 -->
+
+### P3: ユーザー選択テーマ（将来・今回スコープ外）
+
+- [ ] `@Environment(\.liminalTheme)` 注入 + 設定UI + `UserSettings` 保存 <!-- 担当: 未定, 依存: P2 -->
+
+### 先行実装済み（Claude / 2026-06-02・巻き戻さない）
+
+- [x] `liminalCanvasChip` modifier 追加 + `CurrentChapterCard` active リボンへ適用（実機でライト改善を確認）<!-- 担当: Claude, 完了: 2026-06-02。P1 で modifier 中身を型経由へ整理する前提。スクショ artifacts/{light,dark}-home-{before,after}.png -->
+
+---
+
 ## 9. Phase 4 — UX向上・ソーシャル深化
 
 - [ ] ダッシュボード 2 人比較 UI（24時間バー + カード要約の新タイムライン仕様に合わせる）<!-- 担当: Claude, 理由: SwiftUI レイアウト -->
@@ -797,6 +840,7 @@ refactor: split plan store
 
 | 日付 | 担当 | 内容 |
 |---|---|---|
+| 2026-06-02 | Codex | テーマ定義型リファクタ P0/P1 を実装。`LiminalThemeDefinition` / `LiminalPalette` / `LiminalThemeCatalog` と surface/glass treatment を追加し、既存 `LiminalTheme.primary` 等のfacadeは保ったまま内部解決をカタログ経由へ移行。`liminalCanvasChip` は treatment 読みに変更し、`liminalGlassFill(in:)` を新設して DailyReflectionCard の白フロスト系ピル/パネルを置換（Canvasリング下地・grainは意匠として維持）。曙は初期改善として canvas/surface/divider/gradient と primary/reward/dawn/dusk を更新し、黄土色化・黄×ラベンダーの温度割れを緩和。プロフィールカードは light/dark 背景とカード内文字色を持たせ、宵で白地+白文字になる事故を修正。DEBUG QA 用に `-LiminalogInitialRootTab profile` / `SIMCTL_CHILD_LiminalogInitialRootTab=profile` で初期タブを指定できる導線を追加。検証: `git diff --check` 成功、`xcodebuild -scheme Liminalog -destination generic/platform=iOS -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功。シミュレータはライトTodayのスクショを確認したが、途中でCoreSimulatorServiceが落ちたためProfileHeroのlight/dark並列スクショ監査は継続タスクとして残す。 |
 | 2026-06-01 | Codex | デイリーカード用のカテゴリメタ情報を追加。`Category.dailyCardIntentRawValue` / `isDailyCardSleepCategory` をCloudKit互換のデフォルト付きプロパティとして持たせ、カテゴリ作成/編集UIから「増やしたい/減らしたい/中立」と「睡眠として扱う」を保存できるようにした。デフォルト「睡眠」カテゴリは新規seed時に睡眠タグ付きにし、DailyCardEngineでは明示睡眠タグを休息除外へ反映、増減宣言に応じて逸脱signalの称号/本文を切り替える。docs/04とDEBUG開発ストア世代も更新。CSV書き出しは不要・スコープ外を維持。検証: `git diff --check` 成功、`xcodebuild test -scheme Liminalog -destination 'id=72181B45-004C-49C5-931F-AE873C13CD9C' -derivedDataPath /private/tmp/LiminalogDerivedData -only-testing:LiminalogTests/DailyCardEngineTests -only-testing:LiminalogTests/CategoryMetadataTests` 成功（10 tests / 2 suites）、`xcodebuild test-without-building -scheme Liminalog -destination 'id=72181B45-004C-49C5-931F-AE873C13CD9C' -derivedDataPath /private/tmp/LiminalogDerivedData` 成功（74 tests / 19 suites）、`xcodebuild -scheme Liminalog -destination generic/platform=iOS -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功。 |
 | 2026-06-01 | Codex | Phase 2 アンロック条件判定を累計スコア専用から `UnlockMetrics` ベースへ拡張。`UnlockItem` に `requirementKindRawValue` / `requiredValue` を追加し、マスターseedの条件更新、`UnlockStore.refresh(metrics:)`、プロフィール集計からの記録日数・累計記録時間・ストリーク・朝/深夜記録日数・カテゴリ種類数算出、「次の解放」カードの条件別残り表示へ接続した。DEBUG開発ストア世代も `2026060105` へ更新。CSV書き出しは不要・スコープ外を維持。検証: `git diff --check` 成功、`xcodebuild test -scheme Liminalog -destination 'id=72181B45-004C-49C5-931F-AE873C13CD9C' -derivedDataPath /private/tmp/LiminalogDerivedData -only-testing:LiminalogTests/UnlockRulesTests -only-testing:LiminalogTests/ProfileUnlockTargetsTests` 成功（8 tests / 2 suites）、`xcodebuild test-without-building -scheme Liminalog -destination 'id=72181B45-004C-49C5-931F-AE873C13CD9C' -derivedDataPath /private/tmp/LiminalogDerivedData` 成功（69 tests / 18 suites）、`xcodebuild -scheme Liminalog -destination generic/platform=iOS -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功。 |
 | 2026-06-01 | Codex | Phase 0 DEBUG seed隔離を完了。`ChapterStore` に残っていた preview/dev runtime seed本体を `PreviewRuntimeSeedSupport` へ移し、`ChapterStore` はDEBUG専用の薄い入口だけに縮小。`RootTabView` の判定は `PreviewSupport.runtimeSeedRequest()` に集約し、UserDefaults / 起動引数 / 環境変数で `LiminalogSeedPreviewData` または `LiminalogSeedDevData` が明示された場合だけ投入する。通常の実機DEBUG起動ではデモ予定/実績が入らないことをテスト化し、docs/01〜03の該当記述も更新。CSV書き出しは不要・スコープ外を維持。検証: `git diff --check` 成功、`xcodebuild test -scheme Liminalog -destination 'id=72181B45-004C-49C5-931F-AE873C13CD9C' -derivedDataPath /private/tmp/LiminalogDerivedData -only-testing:LiminalogTests/ChapterStoreTests` 成功（10 tests / 1 suite）、`xcodebuild test-without-building -scheme Liminalog -destination 'id=72181B45-004C-49C5-931F-AE873C13CD9C' -derivedDataPath /private/tmp/LiminalogDerivedData` 成功（68 tests / 18 suites）、`xcodebuild -scheme Liminalog -destination generic/platform=iOS -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功。 |
