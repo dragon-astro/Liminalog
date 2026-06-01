@@ -92,8 +92,8 @@ struct FriendsView: View {
                     if acceptedFriends.isEmpty {
                         emptyState
                     } else {
-                        friendsListSection
                         rankingSection
+                        friendsListSection
                     }
 
                     if !pendingOutgoingFriends.isEmpty {
