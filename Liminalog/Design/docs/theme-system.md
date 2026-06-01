@@ -2,7 +2,7 @@
 
 担当: **Codex**（アーキテクチャ転換・既存パターン置換のため。`AI_TASKS.md §2.3` 決定木）
 計画: Claude / 2026-06-02
-ステータス: P0/P1 実装済み。P1.5 は初期パレット改善まで実装済み、スクショ監査は継続。
+ステータス: P0/P1 実装済み。P1.5 は曙の白馴染み+朝ライト再調整とDailyReflectionCardスクショ確認まで実装済み、全画面監査は継続。
 
 ---
 
@@ -194,7 +194,9 @@ enum LiminalThemeCatalog {
 **受け入れ条件: 宵に比べて曙が情報密度・奥行き・可読性で劣らない。単に白く明るいだけにしない。**
 
 - [~] `daybreak` の `canvas` / `surface` / `elevated` / `divider` / `gradient*` を再構成し、背景グラデ・カード面・区切り線の階層が見えるようにする。
+      2026-06-02: 濃く輪郭を立てる方向から、白に馴染む薄い面 + 控えめなdividerへ再調整。
 - [~] `primary` / `reward` / `dawn` / `dusk` をライト背景で濁らない値へ調整する。特に reward が黄土色に沈む、dusk/primary の彩度差で安っぽく見える、下端の黄がラベンダーと割れる問題を潰す。
+      2026-06-02: `reward` は曙の朝ライトとして使える柔らかい金へ寄せ、`liminalAccentLight(in:)` でDailyReflectionCardの要所だけに差す。
 - [ ] `text` / `secondaryText` / `tertiaryText` を曙専用に再確認し、淡い背景・プロフィールカード・チップ上で薄すぎないことを確認する。
 - [ ] `ProfileHero` / 装備カード / DailyReflectionCard / CurrentChapterCard / Dashboard hero をライトで撮影し、宵スクショと並べて「曙だけ読みにくい」「曙だけ平たい」箇所を潰す。
 - [ ] プロフィールカードはテーマ非連動の白固定に戻さない。カード背景・文字・プレビューは light/dark の両方で同じ装飾IDを保ちつつ、各テーマで読める色へ解決する。
@@ -248,12 +250,13 @@ xcrun simctl io $SIM screenshot artifacts/<phase>-dark.png
 ## 7. パレット色調整（P1.5で必ず扱う）
 
 型ができた後に差し替える、ライトの色味の懸案:
-- グラデ下端 `gradientBottom #FFF0CE`(黄) が寒色のラベンダーと色温度で割れる → 暖ピンク寄りへ。
-- `reward #C98A1E` が黄土色に濁る → 明るい金（例 `#E0A33A`）へ。
-- ほぼ白の面と `dusk #C7B0EA`/`primary #7C4DD6` の彩度段差。
+- 曙は「濃くして見せる」より、白に近い薄い面に馴染ませ、昨日カードなど重要な場所だけ朝ライトを差す。
+- グラデ下端の黄はラベンダーと割れやすいので、白に近いピーチへ寄せる。
+- `reward` は黄土色ではなく、面を汚さずライトに使える柔らかい金へ。
+- `dusk`/`primary` は白背景で主張しすぎない紫へ抑え、可読性は文字色と面設計で担保する。
 - プロフィールカードや浮遊チップが曙では白っぽく平板、宵では文字だけ追従して消える事故。
 
-→ これらは `LiminalThemeCatalog.daybreak.palette` と treatment 値を変えるだけで効くように、P0/P1で型へ寄せてから P1.5 で必ず実施する。
+→ これらは `LiminalThemeCatalog.daybreak.palette` と treatment 値を変えるだけで効くように、P0/P1で型へ寄せてから P1.5 で実施する。局所的な朝ライトは `liminalAccentLight(in:)` を使い、darkではno-opにして宵の見た目を保つ。
 
 ---
 

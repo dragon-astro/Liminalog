@@ -2,6 +2,7 @@ import SwiftUI
 import UIKit
 
 struct DailyReflectionCard: View {
+    @Environment(\.colorScheme) private var colorScheme
     let date: Date
     let summary: ScoreSummary
     let chapters: [Chapter]
@@ -111,6 +112,15 @@ struct DailyReflectionCard: View {
                         .blur(radius: 46)
                         .offset(x: 62, y: -70)
                 }
+                .overlay(alignment: .topTrailing) {
+                    if colorScheme == .light {
+                        Circle()
+                            .fill(LiminalTheme.reward.opacity(0.2))
+                            .frame(width: 128, height: 128)
+                            .blur(radius: 36)
+                            .offset(x: 42, y: -44)
+                    }
+                }
                 .overlay(alignment: .bottomLeading) {
                     Circle()
                         .fill(LiminalTheme.dusk.opacity(0.24))
@@ -130,6 +140,7 @@ struct DailyReflectionCard: View {
                     lineWidth: 1
                 )
         )
+        .liminalAccentLight(in: RoundedRectangle(cornerRadius: 26, style: .continuous), intensity: 0.42)
         .shadow(color: LiminalTheme.dusk.opacity(0.2), radius: 24, y: 14)
         .accessibilityElement(children: .contain)
         .sheet(item: $shareItem) { item in
@@ -237,6 +248,7 @@ private struct DailyCardActivityView: UIViewControllerRepresentable {
 }
 
 private struct DailyShareCardView: View {
+    @Environment(\.colorScheme) private var colorScheme
     let date: Date
     let summary: ScoreSummary
     let planSegments: [DailyRingSegment]
@@ -253,6 +265,15 @@ private struct DailyShareCardView: View {
                         .frame(width: 720, height: 720)
                         .blur(radius: 110)
                         .offset(x: 330, y: -600)
+                }
+                .overlay {
+                    if colorScheme == .light {
+                        Circle()
+                            .fill(LiminalTheme.reward.opacity(0.2))
+                            .frame(width: 520, height: 520)
+                            .blur(radius: 86)
+                            .offset(x: 270, y: -520)
+                    }
                 }
                 .overlay {
                     Circle()
@@ -358,6 +379,7 @@ private struct ShareMetricTile: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(22)
         .liminalGlassFill(in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+        .liminalAccentLight(in: RoundedRectangle(cornerRadius: 26, style: .continuous), intensity: 0.38)
     }
 }
 
@@ -415,6 +437,7 @@ private struct DailyTwentyFourHourRing: View {
                     .foregroundStyle(LiminalTheme.reward)
                     .frame(width: 48, height: 48)
                     .liminalGlassFill(in: Circle())
+                    .liminalAccentLight(in: Circle(), intensity: 0.95)
 
                 Text(hasScore ? "\(Int(score.rounded()))pt" : "-- pt")
                     .font(.system(size: 26, weight: .black, design: .rounded).monospacedDigit())
@@ -542,6 +565,7 @@ private struct DailyFactPill: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 10)
         .liminalGlassFill(in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .liminalAccentLight(in: RoundedRectangle(cornerRadius: 14, style: .continuous), intensity: 0.26)
     }
 }
 

@@ -76,6 +76,13 @@ extension View {
     func liminalGlassFill<S: Shape>(in shape: S) -> some View {
         modifier(LiminalGlassFill(shape: shape))
     }
+
+    func liminalAccentLight<S: Shape>(
+        in shape: S,
+        intensity: Double = 1
+    ) -> some View {
+        modifier(LiminalAccentLight(shape: shape, intensity: intensity))
+    }
 }
 
 private struct LiminalCanvasChip<S: Shape>: ViewModifier {
@@ -120,5 +127,35 @@ private struct LiminalGlassFill<S: Shape>: ViewModifier {
                     }
                 }
         }
+    }
+}
+
+private struct LiminalAccentLight<S: Shape>: ViewModifier {
+    @Environment(\.colorScheme) private var scheme
+    let shape: S
+    let intensity: Double
+
+    func body(content: Content) -> some View {
+        content
+            .background {
+                if scheme == .light {
+                    shape
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    LiminalTheme.reward.opacity(0.22 * intensity),
+                                    LiminalTheme.dawn.opacity(0.11 * intensity),
+                                    Color.white.opacity(0)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .overlay(
+                            shape.stroke(LiminalTheme.reward.opacity(0.18 * intensity), lineWidth: 1)
+                        )
+                        .shadow(color: LiminalTheme.reward.opacity(0.18 * intensity), radius: 18 * intensity, y: 8)
+                }
+            }
     }
 }
