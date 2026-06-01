@@ -174,31 +174,41 @@ struct ChapterStoreTests {
         #expect(inserted.first?.endTime == nil)
     }
 
-    @Test("開発用Chapter seedは未来と重複を作らず現在の1件だけをactiveにする")
+    @Test("開発用Chapter seedは月跨ぎの昨日を含め、未来と重複を作らず現在の1件だけをactiveにする")
     func devSampleChapterSeedAvoidsFutureAndOverlaps() throws {
         let versionKey = "LiminalogDevSampleChapterSeedVersion"
+        let anchorKey = "LiminalogDevSampleChapterSeedAnchorDay"
         UserDefaults.standard.removeObject(forKey: versionKey)
-        defer { UserDefaults.standard.removeObject(forKey: versionKey) }
+        UserDefaults.standard.removeObject(forKey: anchorKey)
+        defer {
+            UserDefaults.standard.removeObject(forKey: versionKey)
+            UserDefaults.standard.removeObject(forKey: anchorKey)
+        }
 
-        let calendar = Calendar.liminalogTest
-        let now = try #require(calendar.date(from: DateComponents(year: 2026, month: 5, day: 28, hour: 10, minute: 15)))
+        let calendar = Calendar.current
+        let now = try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1, hour: 10, minute: 15)))
         let clock = MutableTestClock(now: now)
         let container = try TestModelContainer.make()
         let context = container.mainContext
         let staleCategory = Category(name: "古いダミー", colorHex: "#999999")
         context.insert(staleCategory)
-        let staleActive = Chapter(category: staleCategory, startTime: try #require(calendar.date(from: DateComponents(year: 2026, month: 5, day: 28))))
+        let staleActive = Chapter(category: staleCategory, startTime: try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1))))
         context.insert(staleActive)
         try context.save()
+        UserDefaults.standard.set(999, forKey: versionKey)
+        UserDefaults.standard.set("20260531", forKey: anchorKey)
 
         let store = ChapterStore(modelContext: context, clock: clock)
         store.seedDevSampleChaptersIfNeeded()
 
         let chapters = try context.fetch(FetchDescriptor<Chapter>(sortBy: [SortDescriptor(\.startTime)]))
+        let yesterdayStart = try #require(calendar.date(from: DateComponents(year: 2026, month: 5, day: 31)))
+        let todayStart = try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1)))
         #expect(!chapters.isEmpty)
         #expect(chapters.filter { $0.endTime == nil }.count == 1)
         #expect(chapters.allSatisfy { $0.startTime <= now })
         #expect(chapters.allSatisfy { ($0.endTime ?? now) <= now })
+        #expect(chapters.contains { $0.startTime < todayStart && ($0.endTime ?? now) > yesterdayStart })
         #expect(!chapters.contains { $0.category?.name == "古いダミー" })
 
         for index in chapters.indices {
@@ -212,14 +222,14 @@ struct ChapterStoreTests {
         }
     }
 
-    @Test("開発用予定seedは5月全日を24時間埋めて重要予定の見せ場も作る")
+    @Test("開発用予定seedは今月と前後1日を24時間埋めて重要予定の見せ場も作る")
     func previewPlanSeedPopulatesFullMonthShowcaseData() throws {
         let versionKey = "LiminalogPreviewPlanSeedVersion"
         UserDefaults.standard.removeObject(forKey: versionKey)
         defer { UserDefaults.standard.removeObject(forKey: versionKey) }
 
         let calendar = Calendar.current
-        let now = try #require(calendar.date(from: DateComponents(year: 2026, month: 5, day: 31, hour: 10, minute: 15)))
+        let now = try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1, hour: 10, minute: 15)))
         let clock = MutableTestClock(now: now)
         let container = try TestModelContainer.make()
         let context = container.mainContext
@@ -230,11 +240,13 @@ struct ChapterStoreTests {
         let plans = try context.fetch(FetchDescriptor<PlanBlock>(sortBy: [SortDescriptor(\.startTime)]))
         let monthStart = try #require(calendar.date(from: calendar.dateComponents([.year, .month], from: now)))
         let monthEnd = try #require(calendar.date(byAdding: .month, value: 1, to: monthStart))
+        let previousDayStart = try #require(calendar.date(byAdding: .day, value: -1, to: monthStart))
+        let nextMonthFirstDayEnd = try #require(calendar.date(byAdding: .day, value: 1, to: monthEnd))
         let timedPlans = plans.filter { !$0.isAllDay }
 
         var dayCount = 0
-        var cursor = monthStart
-        while cursor < monthEnd {
+        var cursor = previousDayStart
+        while cursor < nextMonthFirstDayEnd {
             let dayEnd = try #require(calendar.date(byAdding: .day, value: 1, to: cursor))
             let dayPlans = timedPlans.filter { $0.startTime < dayEnd && $0.endTime > cursor }
             #expect(plansCoverFullDayForTest(dayPlans, dayStart: cursor, dayEnd: dayEnd))
@@ -242,7 +254,7 @@ struct ChapterStoreTests {
             cursor = dayEnd
         }
 
-        #expect(dayCount == 31)
+        #expect(dayCount == 32)
         #expect(plans.contains { $0.isImportant && !$0.isAllDay && $0.title == "中間発表" })
         #expect(plans.contains { $0.isImportant && !$0.isAllDay && $0.title == "デイリー共有" })
         #expect(plans.contains { $0.isImportant && $0.isAllDay && $0.title == "集中制作週間" })

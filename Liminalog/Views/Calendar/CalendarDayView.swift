@@ -185,7 +185,10 @@ struct CalendarDayView: View {
 
     private var planningDeadlineCard: some View {
         let coverage = planningCoverage
-        let tint = coverage.hasActionableGap ? Color.orange : Color.green
+        let hasGap = coverage.hasActionableGap
+        let tint = hasGap ? Color.orange : Color.green
+        let statusText = hasGap ? "空きあり" : "予定登録済み"
+        let statusIcon = hasGap ? "circle.fill" : "checkmark.circle.fill"
         return HStack(spacing: 8) {
             Image(systemName: "timer")
                 .font(.caption.weight(.bold))
@@ -193,10 +196,10 @@ struct CalendarDayView: View {
                 .font(.caption.weight(.bold))
                 .monospacedDigit()
             Spacer(minLength: 10)
-            Circle()
-                .fill(tint)
-                .frame(width: 6, height: 6)
-            Text(coverage.hasActionableGap ? "空きあり" : "見通しあり")
+            Image(systemName: statusIcon)
+                .font(.caption2.weight(.bold))
+                .symbolRenderingMode(.hierarchical)
+            Text(statusText)
                 .font(.caption2.weight(.semibold))
         }
         .foregroundStyle(tint)
@@ -212,7 +215,7 @@ struct CalendarDayView: View {
                     .stroke(tint.opacity(0.28), lineWidth: 1)
             )
             .accessibilityLabel("明日の予定づくりの残り時間")
-            .accessibilityValue("\(planningDeadlineText)、\(coverage.hasActionableGap ? "空きあり" : "見通しあり")")
+            .accessibilityValue("\(planningDeadlineText)、\(statusText)")
     }
 
     private var scoreArea: some View {

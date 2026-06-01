@@ -288,9 +288,7 @@ private struct YesterdayReviewPage: View {
                 )
                 YesterdaySummaryStrip(
                     chapterCount: dayChapters.count,
-                    recordedDuration: recordedDuration,
-                    publicCount: dayChapters.filter(\.isPublic).count,
-                    topCategory: topCategory?.category
+                    recordedDuration: recordedDuration
                 )
                 YesterdayCategoryBreakdown(rows: categoryRows)
                 YesterdayInsightCard(
@@ -585,14 +583,11 @@ private struct YesterdayInsightCard: View {
 private struct YesterdaySummaryStrip: View {
     let chapterCount: Int
     let recordedDuration: TimeInterval
-    let publicCount: Int
-    let topCategory: Category?
 
     var body: some View {
         HStack(spacing: 10) {
-            ReviewMetricTile(title: "記録", value: "\(chapterCount)", systemImage: "list.bullet.clipboard.fill", tint: Color(hex: "#6C5CE7"))
-            ReviewMetricTile(title: "合計", value: friendlyDuration(recordedDuration), systemImage: "clock.fill", tint: Color.accentColor)
-            ReviewMetricTile(title: "公開", value: "\(publicCount)", systemImage: "eye.fill", tint: topCategory?.color ?? Color(hex: "#27AE60"))
+            ReviewMetricTile(title: "実績", value: friendlyDuration(recordedDuration), systemImage: "clock.fill", tint: Color.accentColor)
+            ReviewMetricTile(title: "件数", value: "\(chapterCount)", systemImage: "list.bullet.clipboard.fill", tint: Color(hex: "#6C5CE7"))
         }
     }
 }

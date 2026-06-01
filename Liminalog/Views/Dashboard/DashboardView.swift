@@ -118,7 +118,6 @@ struct DashboardPeriodContent: View {
                 DashboardMetricRow(
                     totalDuration: snapshot.totalDuration,
                     chapterCount: snapshot.chapters.count,
-                    publicCount: snapshot.publicCount,
                     recordedDayCount: snapshot.recordedDayCount
                 )
 
@@ -141,7 +140,6 @@ private struct DashboardPeriodSnapshot {
     let periodScoreSummaries: [ScoreSummary]
     let periodSummary: DashboardScoreAggregate
     let totalDuration: TimeInterval
-    let publicCount: Int
     let recordedDayCount: Int
     let topCategoryStat: DashboardCategoryStat?
     let recentChapters: [Chapter]
@@ -182,7 +180,6 @@ private struct DashboardPeriodSnapshot {
         self.periodScoreSummaries = summaries
         self.periodSummary = DashboardScoreAggregate(summaries: summaries)
         self.totalDuration = chapters.reduce(0) { $0 + max(0, ($1.endTime ?? clockNow).timeIntervalSince($1.startTime)) }
-        self.publicCount = chapters.filter(\.isPublic).count
         self.recordedDayCount = Set(chapters.map { DayBoundary.dayStart(for: $0.startTime, calendar: calendar) }).count
         self.topCategoryStat = DashboardCategoryStat.stats(from: chapters, now: clockNow).first
         self.recentChapters = Array(chapters.sorted { $0.startTime > $1.startTime }.prefix(30))
@@ -531,14 +528,12 @@ struct DashboardHeroPill: View {
 struct DashboardMetricRow: View {
     let totalDuration: TimeInterval
     let chapterCount: Int
-    let publicCount: Int
     let recordedDayCount: Int
 
     var body: some View {
         HStack(spacing: 10) {
-            DashboardMetricTile(title: "合計", value: formatDashboardDuration(totalDuration), systemImage: "clock.fill", tint: Color.accentColor)
-            DashboardMetricTile(title: "記録", value: "\(chapterCount)", systemImage: "list.bullet.clipboard.fill", tint: Color(hex: "#6C5CE7"))
-            DashboardMetricTile(title: "公開", value: "\(publicCount)", systemImage: "eye.fill", tint: Color(hex: "#27AE60"))
+            DashboardMetricTile(title: "実績", value: formatDashboardDuration(totalDuration), systemImage: "clock.fill", tint: Color.accentColor)
+            DashboardMetricTile(title: "件数", value: "\(chapterCount)", systemImage: "list.bullet.clipboard.fill", tint: Color(hex: "#6C5CE7"))
             DashboardMetricTile(title: "日数", value: "\(recordedDayCount)", systemImage: "calendar.badge.checkmark", tint: Color(hex: "#F2994A"))
         }
     }

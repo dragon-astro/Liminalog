@@ -18,7 +18,8 @@ final class ChapterStore {
     private static let enabledCategorySetCacheKey = "recording.enabledCategorySetID"
     private static let surfaceSnapshotCacheKey = "recording.surfaceSnapshot"
     private static let devSampleChapterSeedVersionKey = "LiminalogDevSampleChapterSeedVersion"
-    private static let currentDevSampleChapterSeedVersion = 3
+    private static let devSampleChapterSeedAnchorDayKey = "LiminalogDevSampleChapterSeedAnchorDay"
+    private static let currentDevSampleChapterSeedVersion = 4
 
     init(
         modelContext: ModelContext,
@@ -443,24 +444,25 @@ final class ChapterStore {
         seedDefaultCategorySetsIfNeeded()
 
         let seedVersionKey = "LiminalogPreviewPlanSeedVersion"
-        let currentSeedVersion = 6
+        let currentSeedVersion = 7
         let calendar = Calendar.current
         let today = DayBoundary.dayStart(for: clock.now, calendar: calendar)
         guard let month = monthInterval(containing: today, calendar: calendar) else { return }
-        let monthPlans = planStore.plannedBlocks(from: month.start, to: month.end)
+        let seedInterval = expandedInterval(month, leadingDays: 1, trailingDays: 1, calendar: calendar) ?? month
+        let seedPlans = planStore.plannedBlocks(from: seedInterval.start, to: seedInterval.end)
         let hasCurrentSeedVersion = UserDefaults.standard.integer(forKey: seedVersionKey) >= currentSeedVersion
 
-        if hasCurrentSeedVersion && monthHasCompleteShowcasePlans(monthPlans, in: month, calendar: calendar) {
+        if hasCurrentSeedVersion && monthHasCompleteShowcasePlans(seedPlans, in: seedInterval, calendar: calendar) {
             return
         }
 
         let categories = Dictionary(uniqueKeysWithValues: categoryStore.allCategories().map { ($0.name, $0) })
 
-        for plan in monthPlans {
+        for plan in seedPlans {
             modelContext.delete(plan)
         }
 
-        for day in days(in: month, calendar: calendar) {
+        for day in days(in: seedInterval, calendar: calendar) {
             for (index, segment) in previewPlanSegments(for: day, calendar: calendar) {
                 guard
                     let category = categories[segment.categoryName],
@@ -494,6 +496,15 @@ final class ChapterStore {
         guard
             let start = calendar.date(from: components),
             let end = calendar.date(byAdding: .month, value: 1, to: start),
+            end > start
+        else { return nil }
+        return DateInterval(start: start, end: end)
+    }
+
+    private func expandedInterval(_ interval: DateInterval, leadingDays: Int, trailingDays: Int, calendar: Calendar) -> DateInterval? {
+        guard
+            let start = calendar.date(byAdding: .day, value: -leadingDays, to: interval.start),
+            let end = calendar.date(byAdding: .day, value: trailingDays, to: interval.end),
             end > start
         else { return nil }
         return DateInterval(start: start, end: end)
@@ -681,13 +692,23 @@ final class ChapterStore {
     func seedDevSampleChaptersIfNeeded() {
         seedDefaultCategoriesIfNeeded()
 
+        let calendar = Calendar.current
+        let now = clock.now
+        let today = DayBoundary.dayStart(for: now, calendar: calendar)
+        let todayKey = dateKey(for: today, calendar: calendar)
+        guard let month = monthInterval(containing: today, calendar: calendar) else { return }
+        let seedInterval = expandedInterval(month, leadingDays: 1, trailingDays: 1, calendar: calendar) ?? month
+
         let chapterDescriptor = FetchDescriptor<Chapter>()
         let existingChapters = (try? modelContext.fetch(chapterDescriptor)) ?? []
         let hasCurrentSeedVersion = UserDefaults.standard.integer(
             forKey: Self.devSampleChapterSeedVersionKey
         ) >= Self.currentDevSampleChapterSeedVersion
+        let hasCurrentAnchorDay = UserDefaults.standard.string(
+            forKey: Self.devSampleChapterSeedAnchorDayKey
+        ) == todayKey
 
-        if hasCurrentSeedVersion && !existingChapters.isEmpty {
+        if hasCurrentSeedVersion && hasCurrentAnchorDay && !existingChapters.isEmpty {
             return
         }
 
@@ -697,13 +718,9 @@ final class ChapterStore {
         }
 
         let categoriesByName = Dictionary(uniqueKeysWithValues: categoryStore.allCategories().map { ($0.name, $0) })
-        let calendar = Calendar.current
-        let now = clock.now
-        let today = DayBoundary.dayStart(for: now, calendar: calendar)
-        guard let month = monthInterval(containing: today, calendar: calendar) else { return }
 
-        insertDevSleepChapters(in: month, now: now, calendar: calendar, categories: categoriesByName)
-        insertDevDaytimeChapters(in: month, now: now, calendar: calendar, categories: categoriesByName)
+        insertDevSleepChapters(in: seedInterval, now: now, calendar: calendar, categories: categoriesByName)
+        insertDevDaytimeChapters(in: seedInterval, now: now, calendar: calendar, categories: categoriesByName)
 
         if saveModelContext() {
             syncActiveCategoryCacheFromStore()
@@ -712,6 +729,7 @@ final class ChapterStore {
             Self.currentDevSampleChapterSeedVersion,
             forKey: Self.devSampleChapterSeedVersionKey
         )
+        UserDefaults.standard.set(todayKey, forKey: Self.devSampleChapterSeedAnchorDayKey)
         markChanged()
         updateLiveActivity()
     }
@@ -727,21 +745,21 @@ final class ChapterStore {
     }
 
     private func insertDevSleepChapters(
-        in month: DateInterval,
+        in interval: DateInterval,
         now: Date,
         calendar: Calendar,
         categories: [String: Category]
     ) {
         guard
             let sleep = categories["睡眠"],
-            let previousDay = calendar.date(byAdding: .day, value: -1, to: month.start),
+            let previousDay = calendar.date(byAdding: .day, value: -1, to: interval.start),
             let firstNightStart = calendar.date(byAdding: .minute, value: 22 * 60 + 30, to: previousDay)
         else { return }
 
         var nightStart = firstNightStart
-        while nightStart < now && nightStart < month.end {
+        while nightStart < now && nightStart < interval.end {
             guard let plannedEnd = calendar.date(byAdding: .minute, value: 8 * 60 + 30, to: nightStart) else { break }
-            if plannedEnd > month.start {
+            if plannedEnd > interval.start {
                 let chapter = Chapter(category: sleep, startTime: nightStart)
                 chapter.endTime = plannedEnd <= now ? plannedEnd : nil
                 chapter.mood = "😴"
@@ -754,13 +772,13 @@ final class ChapterStore {
     }
 
     private func insertDevDaytimeChapters(
-        in month: DateInterval,
+        in interval: DateInterval,
         now: Date,
         calendar: Calendar,
         categories: [String: Category]
     ) {
         var didInsertActive = false
-        for day in days(in: month, calendar: calendar) {
+        for day in days(in: interval, calendar: calendar) {
             guard day <= now, !didInsertActive else { break }
             for segment in devDaytimeChapterSegments(for: day, calendar: calendar) {
                 guard
