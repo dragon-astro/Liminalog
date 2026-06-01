@@ -423,9 +423,9 @@ refactor: split plan store
 > docs/09 が v2 に更新され、コレクションの位置づけが「達成バッジ表示」から「**装着可能な装飾アイテム経済**」に変わった。
 > 既存の Phase 1 最小版バッジ（§6.4 で実装済）は **暫定表示** として残し、Phase 2 で本格的な装着システムに置き換える。
 
-- [ ] 装飾アイテムモデル設計（フレーム/バッジ/炎/アイコンセット/テーマ/バー/カード/月アート の8種類）<!-- 担当: Codex, 理由: モデル + マスターデータ設計、docs/09 §4.1 参照 -->
-- [ ] 装着状態の永続化（`UserSettings` または専用モデルで「装着中アイテムID」を保持）<!-- 担当: Codex -->
-- [ ] 解放条件判定ロジック（累計時間/ストリーク/パターン達成）<!-- 担当: Codex, 理由: docs/09 §4.2 のルール表とロジック -->
+- [ ] 装飾アイテムモデル設計（フレーム/バッジ/炎/アイコンセット/テーマ/バー/カード/月アート の8種類）<!-- 担当: Codex, 2026-06-01: UnlockItem / UnlockCatalog / UnlockKind の土台は実装済み。月アート/アイコンセットなど最終分類整理は残 -->
+- [x] 装着状態の永続化（`UserSettings` または専用モデルで「装着中アイテムID」を保持）<!-- 担当: Codex, 完了: 2026-06-01: UserSettings の profileBadgeID/profileIconFrameID/profileStreakIconID/profileCardStyleID を保存元とし、ProfileDecorationUnlocks で未解放IDをdefaultへ戻す -->
+- [ ] 解放条件判定ロジック（累計時間/ストリーク/パターン達成）<!-- 担当: Codex, 2026-06-01: 累計スコア閾値による解放は実装済み。ストリーク/パターン専用条件は未実装 -->
 - [ ] コレクションハブ UI（種類別タブ、解放済/未解放、装着切替）<!-- 担当: Claude, 理由: SwiftUI レイアウト勝負 -->
 - [ ] 「次に狙う解放」セクション（達成までの近さでソート）<!-- 担当: Claude -->
 - [ ] プロフィール画像フレームの装着レンダリング<!-- 担当: Claude -->
@@ -433,7 +433,7 @@ refactor: split plan store
 - [ ] ストリーク炎バリエーションの装着レンダリング<!-- 担当: Claude -->
 - [ ] テーマカラー解放と装着（標準8色は既存、拡張色を解放対象に）<!-- 担当: Claude -->
 - [ ] 装着アイテムの両ビュー（自分/友達）反映<!-- 担当: Claude, 依存: Phase 3 友達機能 -->
-- [ ] 既存の Phase 1 バッジ表示を装飾アイテム経済データソースに差し替え<!-- 担当: Codex -->
+- [x] 既存の Phase 1 バッジ表示を装飾アイテム経済データソースに差し替え<!-- 担当: Codex, 完了: 2026-06-01: ProfileBadgeCatalog を UnlockItem / unlockedAt ベースへ接続し、未解放バッジはロック表示に統一 -->
 
 ---
 
@@ -797,6 +797,7 @@ refactor: split plan store
 
 | 日付 | 担当 | 内容 |
 |---|---|---|
+| 2026-06-01 | Codex | プロフィール装備UIを `UnlockItem.unlockedAt` ベースへ接続。`ProfileDecorationUnlocks` を追加し、`starter` / `halo` / `flame` / `clean` のdefault装備は常時利用可能、その他は解放済み `UnlockItem.targetID` のみ選択可能にした。プロフィール表示・編集初期値・保存時のいずれでもロック済み/古い装備IDをdefaultへ戻し、フレーム/ストリーク/カード選択UIはロック表示 + 選択不可に統一。Phase 1の実績直判定バッジ配列は `UnlockItem` マスターデータ由来の `ProfileBadgeCatalog` へ差し替え、進捗表示も `UnlockRules.progress` へ寄せた。CSV書き出しは引き続き不要・スコープ外。検証: `git diff --check` 成功、`xcodebuild -scheme Liminalog -destination generic/platform=iOS -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功、`xcodebuild test -scheme Liminalog -destination 'id=72181B45-004C-49C5-931F-AE873C13CD9C' -derivedDataPath /private/tmp/LiminalogDerivedData -only-testing:LiminalogTests/ProfileDecorationUnlocksTests` 成功（2 tests / 1 suite）、`xcodebuild test-without-building -scheme Liminalog -destination 'id=72181B45-004C-49C5-931F-AE873C13CD9C' -derivedDataPath /private/tmp/LiminalogDerivedData` 成功（59 tests / 16 suites）。 |
 | 2026-06-01 | Codex | Phase 2 アンロック基盤を実装。`UnlockItem` を CloudKit 同期対象モデルに追加し、DEBUG開発ストア世代を `2026060103` へ更新。`UnlockCatalog` に装着可能アイテム26件をseedし、仕様書の1年解放ペースを「合格ライン60pt/日」から累計スコア閾値へ逆算。`UnlockRules` は累計スコアから解放key/次アイテム/進捗を算出し、`UnlockStore` は起動時seed、プロフィール集計時refresh、重複key統合、最古 `unlockedAt` 保持、解放後非失効を担う。docs/04 のモデル記述も実装に同期。プロフィール画面の進捗カード/Gallery/解放演出UIはClaude担当として残す。検証: `git diff --check` 成功、`xcodebuild test-without-building -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' -derivedDataPath /private/tmp/LiminalogDerivedData` 成功（57 tests / 15 suites）、`xcodebuild -scheme Liminalog -destination generic/platform=iOS -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功。 |
 | 2026-06-01 | Codex | Phase 2 Dashboard拡充の集計ロジックを追加。`DashboardTimeOfDaySummary` で朝(5:00-12:00)・昼(12:00-18:00)・夜(18:00-翌5:00)の実績時間割合と支配時間帯を算出し、日跨ぎ/active Chapter/期間クリップに対応。`DashboardPeriodDeltaSummary` で現期間と前期間の平均スコア、実績時間、予定時間、一致時間、スコア対象日数の差分と増減率を算出する。表示UI（時間帯別傾向/先週比差分バー）はClaude担当として残す。検証: `git diff --check` 成功、`xcodebuild test-without-building -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' -derivedDataPath /private/tmp/LiminalogDerivedData` 成功（52 tests / 14 suites）、`xcodebuild -scheme Liminalog -destination generic/platform=iOS -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功。 |
 | 2026-06-01 | Codex | ユーザー判断によりCSV書き出しをリリーススコープ外へ変更し、作成途中のCSVエクスポータ案は破棄。代わりにリリース品質の検証補強として `TimelineBarLayout` を追加し、24時間バーの位置/幅/アイコン閾値をテスト可能な純粋ロジックへ分離。`TimelineDisplayTests` で読み取り専用Timelineの前日跨ぎクリップ、短時間記録、5分未満gap抑制、バー位置計算を固定。既存のScoreCalculator日跨ぎテストもAI_TASKS上で完了扱いへ整理。検証: `git diff --check` 成功、`xcodebuild test-without-building -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' -derivedDataPath /private/tmp/LiminalogDerivedData` 成功（48 tests / 13 suites）、`xcodebuild -scheme Liminalog -destination generic/platform=iOS -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功。 |

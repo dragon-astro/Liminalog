@@ -7,6 +7,7 @@ struct ProfileView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \UserSettings.createdAt) private var settingsList: [UserSettings]
     @Query(sort: \Friend.createdAt) private var friends: [Friend]
+    @Query(sort: \UnlockItem.sortOrder) private var unlockItems: [UnlockItem]
 
     @State private var isShowingSettings = false
     @State private var isShowingEditProfile = false
@@ -30,6 +31,10 @@ struct ProfileView: View {
         iconFrame.primaryColor
     }
 
+    private var decorationUnlocks: ProfileDecorationUnlocks {
+        ProfileDecorationUnlocks(unlockItems: unlockItems)
+    }
+
     private var invitePayload: FriendInvitePayload {
         FriendInvitePayload(
             code: FriendInvitePayload.code(from: settings?.id ?? UUID()),
@@ -38,56 +43,10 @@ struct ProfileView: View {
     }
 
     private var badges: [ProfileBadgeModel] {
-        [
-            ProfileBadgeModel(
-                id: "starter",
-                title: "ルーキー",
-                systemImage: "person.crop.circle.fill.badge.checkmark",
-                tint: "#2F80ED",
-                isUnlocked: true,
-                progressText: "初期"
-            ),
-            ProfileBadgeModel(
-                id: "first_record",
-                title: "はじめの記録",
-                systemImage: "sparkles",
-                tint: "#2F80ED",
-                isUnlocked: performanceSnapshot.hasAnyRecord,
-                progressText: performanceSnapshot.hasAnyRecord ? "達成" : "0/1"
-            ),
-            ProfileBadgeModel(
-                id: "three_days",
-                title: "3日記録",
-                systemImage: "calendar.badge.checkmark",
-                tint: "#27AE60",
-                isUnlocked: performanceSnapshot.recordedDayCount >= 3,
-                progressText: "\(min(performanceSnapshot.recordedDayCount, 3))/3"
-            ),
-            ProfileBadgeModel(
-                id: "seven_streak",
-                title: "7日連続",
-                systemImage: "flame.fill",
-                tint: "#EB5757",
-                isUnlocked: performanceSnapshot.streakCount >= 7,
-                progressText: "\(min(performanceSnapshot.streakCount, 7))/7"
-            ),
-            ProfileBadgeModel(
-                id: "ten_hours",
-                title: "10時間",
-                systemImage: "clock.fill",
-                tint: "#6C5CE7",
-                isUnlocked: performanceSnapshot.totalRecordedDuration >= 36_000,
-                progressText: "\(min(Int(performanceSnapshot.totalRecordedDuration / 3600), 10))/10h"
-            ),
-            ProfileBadgeModel(
-                id: "morning",
-                title: "朝の記録",
-                systemImage: "sunrise.fill",
-                tint: "#F2994A",
-                isUnlocked: performanceSnapshot.hasMorningRecord,
-                progressText: performanceSnapshot.hasMorningRecord ? "達成" : "未達成"
-            )
-        ]
+        ProfileBadgeCatalog.items(
+            cumulativeScore: performanceSnapshot.totalEarnedScore,
+            unlockItems: unlockItems
+        )
     }
 
     private var equippedBadge: ProfileBadgeModel {
@@ -95,15 +54,15 @@ struct ProfileView: View {
     }
 
     private var iconFrame: ProfileIconFrameStyle {
-        ProfileIconFrameCatalog.item(for: settings?.profileIconFrameID)
+        ProfileIconFrameCatalog.item(for: decorationUnlocks.equippedIconFrameID(settings?.profileIconFrameID))
     }
 
     private var streakIcon: ProfileStreakIconStyle {
-        ProfileStreakIconCatalog.item(for: settings?.profileStreakIconID)
+        ProfileStreakIconCatalog.item(for: decorationUnlocks.equippedStreakIconID(settings?.profileStreakIconID))
     }
 
     private var cardStyle: ProfileCardStyle {
-        ProfileCardStyleCatalog.item(for: settings?.profileCardStyleID)
+        ProfileCardStyleCatalog.item(for: decorationUnlocks.equippedCardStyleID(settings?.profileCardStyleID))
     }
 
     var body: some View {
@@ -157,7 +116,12 @@ struct ProfileView: View {
                 SettingsView()
             }
             .sheet(isPresented: $isShowingEditProfile) {
-                ProfileEditSheet(settings: settings, badges: badges, onSave: saveProfile)
+                ProfileEditSheet(
+                    settings: settings,
+                    badges: badges,
+                    unlocks: decorationUnlocks,
+                    onSave: saveProfile
+                )
             }
             .sheet(isPresented: $isShowingShareProfile) {
                 ProfileShareSheet(payload: invitePayload)
@@ -204,10 +168,10 @@ struct ProfileView: View {
         target.profileDisplayName = draft.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
         target.profileBio = draft.bio.trimmingCharacters(in: .whitespacesAndNewlines)
         target.profileImageData = draft.imageData
-        target.profileBadgeID = draft.badgeID
-        target.profileIconFrameID = draft.iconFrameID
-        target.profileStreakIconID = draft.streakIconID
-        target.profileCardStyleID = draft.cardStyleID
+        target.profileBadgeID = ProfileBadgeCatalog.equippedBadge(id: draft.badgeID, badges: badges).id
+        target.profileIconFrameID = decorationUnlocks.equippedIconFrameID(draft.iconFrameID)
+        target.profileStreakIconID = decorationUnlocks.equippedStreakIconID(draft.streakIconID)
+        target.profileCardStyleID = decorationUnlocks.equippedCardStyleID(draft.cardStyleID)
         target.updatedAt = Date()
         try? modelContext.save()
     }
@@ -715,17 +679,24 @@ private struct ProfileEditSheet: View {
     @State private var selectedPhoto: PhotosPickerItem?
 
     let badges: [ProfileBadgeModel]
+    let unlocks: ProfileDecorationUnlocks
     let onSave: (ProfileDraft) -> Void
 
-    init(settings: UserSettings?, badges: [ProfileBadgeModel], onSave: @escaping (ProfileDraft) -> Void) {
+    init(
+        settings: UserSettings?,
+        badges: [ProfileBadgeModel],
+        unlocks: ProfileDecorationUnlocks,
+        onSave: @escaping (ProfileDraft) -> Void
+    ) {
         _displayName = State(initialValue: settings?.profileDisplayName ?? "")
         _bio = State(initialValue: settings?.profileBio ?? "")
         _imageData = State(initialValue: settings?.profileImageData)
         _badgeID = State(initialValue: ProfileBadgeCatalog.equippedBadge(id: settings?.profileBadgeID, badges: badges).id)
-        _iconFrameID = State(initialValue: settings?.profileIconFrameID ?? ProfileIconFrameCatalog.defaultID)
-        _streakIconID = State(initialValue: settings?.profileStreakIconID ?? ProfileStreakIconCatalog.defaultID)
-        _cardStyleID = State(initialValue: settings?.profileCardStyleID ?? ProfileCardStyleCatalog.defaultID)
+        _iconFrameID = State(initialValue: unlocks.equippedIconFrameID(settings?.profileIconFrameID))
+        _streakIconID = State(initialValue: unlocks.equippedStreakIconID(settings?.profileStreakIconID))
+        _cardStyleID = State(initialValue: unlocks.equippedCardStyleID(settings?.profileCardStyleID))
         self.badges = badges
+        self.unlocks = unlocks
         self.onSave = onSave
     }
 
@@ -775,16 +746,19 @@ private struct ProfileEditSheet: View {
 
                     ProfileFrameSelector(
                         selectedID: $iconFrameID,
-                        accentColor: visualAccentColor
+                        accentColor: visualAccentColor,
+                        unlockedIDs: unlocks.iconFrameIDs
                     )
 
                     ProfileStreakIconSelector(
-                        selectedID: $streakIconID
+                        selectedID: $streakIconID,
+                        unlockedIDs: unlocks.streakIconIDs
                     )
 
                     ProfileCardStyleSelector(
                         selectedID: $cardStyleID,
-                        accentColor: visualAccentColor
+                        accentColor: visualAccentColor,
+                        unlockedIDs: unlocks.cardStyleIDs
                     )
                 }
             }
@@ -910,6 +884,7 @@ private struct ProfileSelectableBadge: View {
 private struct ProfileFrameSelector: View {
     @Binding var selectedID: String
     let accentColor: Color
+    let unlockedIDs: Set<String>
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -918,12 +893,23 @@ private struct ProfileFrameSelector: View {
 
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 2), spacing: 10) {
                 ForEach(ProfileIconFrameCatalog.items) { item in
+                    let isUnlocked = unlockedIDs.contains(item.id)
                     Button {
+                        guard isUnlocked else { return }
                         selectedID = item.id
                     } label: {
                         HStack(spacing: 10) {
-                            ProfileIconFrameView(style: item, accentColor: accentColor, size: 44)
-                                .frame(width: 48, height: 48)
+                            ZStack {
+                                ProfileIconFrameView(style: item, accentColor: accentColor, size: 44)
+                                if !isUnlocked {
+                                    Image(systemName: "lock.fill")
+                                        .font(.caption.weight(.bold))
+                                        .foregroundStyle(.secondary)
+                                        .padding(5)
+                                        .background(Color(.secondarySystemGroupedBackground), in: Circle())
+                                }
+                            }
+                            .frame(width: 48, height: 48)
                             Text(item.title)
                                 .font(.caption.weight(.semibold))
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -936,6 +922,8 @@ private struct ProfileFrameSelector: View {
                         }
                     }
                     .buttonStyle(.plain)
+                    .disabled(!isUnlocked)
+                    .opacity(isUnlocked ? 1 : 0.48)
                 }
             }
         }
@@ -945,6 +933,7 @@ private struct ProfileFrameSelector: View {
 
 private struct ProfileStreakIconSelector: View {
     @Binding var selectedID: String
+    let unlockedIDs: Set<String>
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -953,15 +942,19 @@ private struct ProfileStreakIconSelector: View {
 
             HStack(spacing: 10) {
                 ForEach(ProfileStreakIconCatalog.items) { item in
+                    let isUnlocked = unlockedIDs.contains(item.id)
                     Button {
+                        guard isUnlocked else { return }
                         selectedID = item.id
                     } label: {
                         VStack(spacing: 7) {
-                            Image(systemName: item.systemImage)
-                                .font(.title3.weight(.bold))
-                                .foregroundStyle(Color(hex: item.tintHex))
-                                .frame(width: 44, height: 44)
-                                .background(Color(hex: item.tintHex).opacity(0.14), in: Circle())
+                            ZStack {
+                                Image(systemName: isUnlocked ? item.systemImage : "lock.fill")
+                                    .font(.title3.weight(.bold))
+                                    .foregroundStyle(isUnlocked ? Color(hex: item.tintHex) : Color.secondary)
+                                    .frame(width: 44, height: 44)
+                                    .background((isUnlocked ? Color(hex: item.tintHex) : Color.secondary).opacity(0.14), in: Circle())
+                            }
                             Text(item.title)
                                 .font(.caption2.weight(.semibold))
                                 .lineLimit(1)
@@ -975,6 +968,8 @@ private struct ProfileStreakIconSelector: View {
                         }
                     }
                     .buttonStyle(.plain)
+                    .disabled(!isUnlocked)
+                    .opacity(isUnlocked ? 1 : 0.48)
                 }
             }
         }
@@ -985,6 +980,7 @@ private struct ProfileStreakIconSelector: View {
 private struct ProfileCardStyleSelector: View {
     @Binding var selectedID: String
     let accentColor: Color
+    let unlockedIDs: Set<String>
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -993,14 +989,16 @@ private struct ProfileCardStyleSelector: View {
 
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 2), spacing: 10) {
                 ForEach(ProfileCardStyleCatalog.items) { item in
+                    let isUnlocked = unlockedIDs.contains(item.id)
                     Button {
+                        guard isUnlocked else { return }
                         selectedID = item.id
                     } label: {
                         VStack(alignment: .leading, spacing: 8) {
                             HStack {
-                                Image(systemName: item.systemImage)
+                                Image(systemName: isUnlocked ? item.systemImage : "lock.fill")
                                     .font(.headline.weight(.bold))
-                                    .foregroundStyle(item.markColor(accentColor: accentColor))
+                                    .foregroundStyle(isUnlocked ? item.markColor(accentColor: accentColor) : Color.secondary)
                                 Spacer()
                                 if selectedID == item.id {
                                     Image(systemName: "checkmark.circle.fill")
@@ -1023,6 +1021,8 @@ private struct ProfileCardStyleSelector: View {
                         }
                     }
                     .buttonStyle(.plain)
+                    .disabled(!isUnlocked)
+                    .opacity(isUnlocked ? 1 : 0.48)
                 }
             }
         }
@@ -1072,6 +1072,38 @@ private struct ProfileBadgeModel: Identifiable {
 }
 
 private enum ProfileBadgeCatalog {
+    static let defaultBadge = ProfileBadgeModel(
+        id: ProfileDecorationUnlocks.defaultNameBadgeID,
+        title: "ルーキー",
+        systemImage: "person.crop.circle.fill.badge.checkmark",
+        tint: "#2F80ED",
+        isUnlocked: true,
+        progressText: "初期"
+    )
+
+    static func items(cumulativeScore: Int, unlockItems: [UnlockItem]) -> [ProfileBadgeModel] {
+        let unlockedIDs = ProfileDecorationUnlocks(unlockItems: unlockItems).nameBadgeIDs
+        let unlockBadges = unlockItems
+            .filter { $0.kind == .nameBadge }
+            .sorted {
+                if $0.sortOrder == $1.sortOrder {
+                    return $0.key < $1.key
+                }
+                return $0.sortOrder < $1.sortOrder
+            }
+            .map { item in
+                ProfileBadgeModel(
+                    id: item.targetID,
+                    title: item.displayName,
+                    systemImage: item.systemImageName,
+                    tint: item.tintHex,
+                    isUnlocked: unlockedIDs.contains(item.targetID),
+                    progressText: progressText(cumulativeScore: cumulativeScore, item: item)
+                )
+            }
+        return [defaultBadge] + unlockBadges
+    }
+
     static func equippedBadge(id: String?, badges: [ProfileBadgeModel]) -> ProfileBadgeModel {
         if let id, let selected = badges.first(where: { $0.id == id && $0.isUnlocked }) {
             return selected
@@ -1079,14 +1111,16 @@ private enum ProfileBadgeCatalog {
         if let unlocked = badges.first(where: \.isUnlocked) {
             return unlocked
         }
-        return badges.first ?? ProfileBadgeModel(
-            id: "starter",
-            title: "ルーキー",
-            systemImage: "person.crop.circle.fill.badge.checkmark",
-            tint: "#2F80ED",
-            isUnlocked: true,
-            progressText: "初期"
-        )
+        return badges.first ?? defaultBadge
+    }
+
+    private static func progressText(cumulativeScore: Int, item: UnlockItem) -> String {
+        if item.unlockedAt != nil {
+            return "達成"
+        }
+        guard item.requiredCumulativeScore > 0 else { return "0%" }
+        let percent = Int((UnlockRules.progress(cumulativeScore: cumulativeScore, toward: item) * 100).rounded(.down))
+        return "\(percent)%"
     }
 }
 
