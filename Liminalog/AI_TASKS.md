@@ -531,6 +531,18 @@ refactor: split plan store
 
 > 設計: [docs/12-daily-card-engine.md](Views/Profile/docs/12-daily-card-engine.md)。1日の総括カード＝成長ループの中核。文章生成AIは使わない（決定論）。**この一連は「カード先行 → solo で出す → 拡散を測る → その後 友達インフラ」の戦略（§オープン論点参照）に沿って、Phase 3 友達より先に手を付ける候補。**
 
+#### 7.7.1 【最優先・是正】カードの "中身" を本物のエンジン＋自虐の声にする
+
+> 現状（2026-06-01）: `DailyReflectionCard.swift` の `DailyPersona.make` が**暫定スタブ**。カードの殻（ビジュアル）は完成したが中身が仮。Claude レビュー指摘:
+> - ❌ ペルソナを `categoryRows.first`（時間1位＝大抵睡眠）の `longestMinutes>=180` で判定 → **「睡眠スプリンター」= docs/12 §5 原則2違反**（見出しが睡眠に支配される）。
+> - ❌ message が優しいコーチ口調（「ちゃんと手が届いています」）。**選んだ自虐トーン（docs/12 §6/§7）になってない。**
+
+- [ ] **エンジン置換（STEP1）**：上記スタブを docs/12 §5.3（逸脱）/§5.4（睡眠=パターン検出で見出しから除外）/§6（クロノタイプ4×集中3＋レア＋活動スロット）に置換。<!-- 担当: Codex -->
+  - **受け入れ基準：睡眠が見出しペルソナにならない（濃紺/濃グレー睡眠でも）。最低履歴<7日はオフで床型に。**
+- [ ] **声の入れ替え（STEP2）**：全 message/fact 文言を自虐×あたたかいトーンへ（docs/12 §6/§7・「落ち着いて？」系）。<!-- 担当: Claude（ユーザー編集必須・製品の人格） -->
+  - **受け入れ基準：優しいコーチ口調が残ってない。**
+- 注: §7.7 の StatsEngine / 逸脱 / 睡眠検出 / ペルソナ判定の各タスクの具体実体がこの是正。重複でなく "現状スタブの置換" としてここを起点にする。
+
 - [ ] **StatsEngine / PatternDetector**（統計タブと共有の集計層・二重集計回避）<!-- 担当: Codex, 理由: 集計ロジック -->
 - [ ] **ルーティン逸脱エンジン**（docs/12 §5.3：28日窓・reg/μ/σ・σfloor15分・履歴<7日オフ・|z|≥1.5）<!-- 担当: Codex, 理由: 統計ロジック -->
 - [ ] **主要休息ブロック（睡眠）検出**（docs/12 §5.4：位相クラスタ・カテゴリ名非依存・自信度ゲート・昼夜逆転/無記録/カオス対応）<!-- 担当: Codex -->
@@ -548,13 +560,16 @@ refactor: split plan store
 
 > 設計: [docs/13-visual-identity.md](Views/Profile/docs/13-visual-identity.md)。世界観＝liminal（予定と実績のあいだ）。**Codex は docs/13 の "なぜ"＋アンチパターン（§9）を必ず読んでから着手。** 最終 hex・和文Display書体はユーザーと確定。
 
-- [ ] **トワイライト・カラーシステム適用**（docs/13 §2：ダークファースト・純黒/純白不使用・実hex）。system青アクセント撤去 <!-- 担当: Claude, 理由: SwiftUI テーマ -->
-- [ ] **二重24時間リング**（docs/13 §5：内=予定/外=実績・gap可視化・0:00上時計回り・glow・draw-onアニメ）<!-- 担当: Claude, 理由: Canvas/Path描画 -->
-- [ ] **空気感レイヤー**（§4：グレイン3〜5%・soft glow・微グラデ。抑制）<!-- 担当: Claude -->
-- [ ] **タイポ役割**（§3 Display/Body/Numeric）。和文Display書体は要ユーザー確定 <!-- 担当: Claude -->
-- [ ] **デイリーカードのビジュアル実装**（§6：9:16書き出し・designed な1枚・Liminalogマーク）<!-- 担当: Claude, 理由: ImageRenderer -->
-- [ ] **全画面へ世界観適用**（§7：タブバー・シート・既存カード restyle・24hバーをリングと同じ色ロジックに）<!-- 担当: Claude -->
-- [ ] アンチパターン（§9）に抵触してないかセルフレビュー <!-- 担当: Claude -->
+- [x] **トワイライト・カラーシステム適用**（docs/13 §2）。`LiminalTheme` 共有化・`preferredColorScheme(.dark)` でダーク固定・system青撤去 <!-- 2026-06-01 Codex -->
+- [x] **テーマカラー/優先度システム**（§2.4：Primary紫/Reward金/中立・tint=primary）<!-- 2026-06-01 Codex -->
+- [x] **視認性正規化**（§2.5：`liminalReadableDataColor` WCAGコントラスト≥3:1・色相保持で明度up）＋ `Category.displayColor` として全データviz（グリッド/リング/24hバー/カード/ピル）に配線 <!-- 2026-06-01 Codex -->
+- [x] **二重24時間リング**（docs/13 §5：内=予定/外=実績・0:00上時計回り・glow）。draw-onアニメは後で <!-- 2026-06-01 Codex -->
+- [x] **空気感レイヤー**（§4：グレイン・soft glow・グラデ）<!-- 2026-06-01 Codex -->
+- [x] **全画面へ世界観適用**（§7：タブバー・シート・既存カード・24hバー・タイムライン restyle）。島問題解消 <!-- 2026-06-01 Codex -->
+- [ ] **デイリーカードの 9:16 書き出し画像**（§6：designed な1枚・Liminalogマーク・ImageRenderer）<!-- 担当: Claude。アプリ内カードは実装済、シェア用書き出しは未 -->
+- [ ] **タイポ役割の確定**（§3 Display/Body/Numeric）。和文Display書体は要ユーザー確定。現状は system rounded 暫定 <!-- 担当: Claude -->
+- [ ] **draw-onアニメ等モーション**（§8）<!-- 担当: Claude -->
+- [ ] **優先度の最終チェック**（§2.4：Primary紫を主役1要素に絞れてるか・カテゴリ色がchromeに漏れてないか）＋ アンチパターン（§9）セルフレビュー <!-- 担当: Claude -->
 
 ---
 
@@ -754,6 +769,7 @@ refactor: split plan store
 
 | 日付 | 担当 | 内容 |
 |---|---|---|
+| 2026-06-01 | Codex | liminal UI 着手（branch `codex/liminal-ui-overhaul`）。(1) `DailyReflectionCard`（二重24hリング・twilightカード・グレイン/glow・「明日はどうする？」CTA）を昨日ページに追加。(2) twilight 視覚システムを全画面適用：`LiminalTheme` 共有化＋`preferredColorScheme(.dark)`固定＋テーマトークン（Primary `#C9A7FF`/Reward `#FFE3A3`）＋視認性正規化 `liminalReadableDataColor`(WCAG≥3:1・色相保持) を `Category.displayColor` として全データvizに配線。island問題解消。**Claudeレビュー: ビジュアル/テーマ/視認性は docs/13 §2/§7 通りで合格。ただしカード中身（ペルソナ）が暫定スタブのまま＝睡眠が見出しに（§5原則2違反）＋声が優しいコーチ口調で自虐トーン未反映。是正は §7.7.1 に起票。** |
 | 2026-05-31 | Claude | 設計フェーズ大幅前進。docs/12（デイリーカード&コンテンツエンジン）・docs/13（ビジュアル・アイデンティティ）を新規作成。コア論点を一気通貫で確定: (1)プロダクトの肝は「予定+スコア=moat」で薄めない。摩擦を消すのでなくコスト↓×payoff↑。(2)ターゲット=ショート漬けZ世代。気づき≠行動変容で、振り返り→明日の予定への1タップ橋渡しが核。(3)1日の総括「デイリーカード」を成長エンジン兼フックに据える(シェア→流入→比較)。単日=カード/複数日=統計の境界確定(統計タブは単日退避し傾向の鏡へ)。10 §3.4 DayDigest保留を解消(=カードに統合)。(4)楽しさはAIでなく「検出器×声×バリエーション」(決定論・ゼロコスト)。中立デフォルト(善悪判定しない)・見出し=ルーティン逸脱・カテゴリ意味非依存(睡眠もパターン検出)の3原則。逸脱エンジン/睡眠検出の計算仕様を昼夜逆転・無記録・カオスまでstress test。(5)ペルソナ称号(形ベース12×レア×活動スロット×2階建て×コレクション)・自虐トーン確定・ネーミング原則(面白い∧伝わる)。(6)世界観=liminal(予定と実績のあいだ)。トワイライト/ダークファースト・二重24時間リング(gap可視化)をsignatureに。戦略: カード先行→solo配布→拡散測定→その後 友達インフラ。タスクは §7.7/§7.8 に起票。 |
 | 2026-05-31 | Claude | 今日タブ/カレンダーのパフォーマンス改善一式。原因と対処: (1) カレンダー横ページングが毎描画で42日×3ページ分のスコア再計算をしていた→ページデータをメモ化し refresh 時のみ計算。(2) カレンダー/今日タブの月・日ページングを `TabView(.page)`(UIPageViewController) から `ScrollView+LazyHStack/HStack+.scrollTargetBehavior(.paging)` に統一（横スワイプ三重ネストのジェスチャー競合を解消）。(3) `Color(hex:)` を `Color.cachedHex` でキャッシュ化（毎描画の Scanner パースを除去・アプリ全体に効く）。(4) `TimelineView` の `TickClock` を 1秒→60秒（24hバーの毎秒全再構築を停止。ライブ秒は CurrentChapterCard 担当）。(5) `TimelineView.body` のエントリ計算(フィルタ+gapマージ)を1描画1回に。(6) 日タブを `LazyHStack` 化し save カスケード再描画を表示中ページのみに限定。(7) カテゴリセット切替の `setEnabledCategorySetID`(WidgetCenter+ActivityKit+UserDefaults) をデバウンス、`defaults.synchronize()` 撤去、`startChapter` を `reloadAllTimelines`→`reloadRecordingGridWidget` に。**重要な学び: 体感パフォーマンスは Debug シミュレータでは実機Releaseの5〜10倍遅く判断を誤る。最終的に Release ビルドで「全く気にならない」レベルに。今後 perf は Release で確認すること。** |
 | 2026-05-30 | Codex | 友達の日別詳細に、共有実績の読み取り専用タイムラインを追加。`Friend` に `sharedActivitiesJSON` を追加し、`Chapter.isPublic == true` の実績だけを `FriendSharedActivitySnapshot` として受け取る設計にした。友達カレンダーの日付セルを開くと、24時間バーは予定/実績の2段、下は実績/予定セグメント切替、時間レール付きカードリストで表示され、自分のTodayタイムラインに近い見た目で確認できる。編集・削除・追加はできない。DEBUG seedにはMika/Sora/Ren/Yuiの共有実績を追加し、シミュレータでMika 5/30の実績/予定タブ表示を確認済み。プロフィールカード右上でカード装飾マークがカレンダー/お気に入りボタンと重なっていたため、友達プロフィールヒーローからカード装飾マークだけ削除した。 |
