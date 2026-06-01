@@ -35,6 +35,7 @@ struct HomeView: View {
     @State private var addSheetStart = Date()
     @State private var clock = TickClock(interval: 60)
     @State private var tomorrowHasActionableGap = false
+    @State private var acceptsScrolledPageUpdates = false
 
     var body: some View {
         NavigationStack {
@@ -55,6 +56,7 @@ struct HomeView: View {
             .defaultScrollAnchor(.center)
             .scrollIndicators(.hidden)
             .onChange(of: scrolledPage) { _, newValue in
+                guard acceptsScrolledPageUpdates else { return }
                 if let newValue, newValue != selectedPage {
                     selectedPage = newValue
                 }
@@ -98,9 +100,7 @@ struct HomeView: View {
             }
             .onAppear {
                 clock.start()
-                let initialPage = debugInitialTodayPage
-                selectedPage = initialPage
-                scrolledPage = initialPage
+                applyInitialPage()
                 store.seedDefaultCategorySetsIfNeeded()
                 store.syncLiveActivityWithActiveChapter()
                 refreshTomorrowCoverage()
@@ -167,6 +167,20 @@ struct HomeView: View {
 
     private var debugInitialTodayPage: TodayPage {
         Self.defaultInitialTodayPage
+    }
+
+    private func applyInitialPage() {
+        let initialPage = debugInitialTodayPage
+        acceptsScrolledPageUpdates = false
+        selectedPage = initialPage
+        scrolledPage = initialPage
+
+        Task { @MainActor in
+            await Task.yield()
+            selectedPage = initialPage
+            scrolledPage = initialPage
+            acceptsScrolledPageUpdates = true
+        }
     }
 
     private static var defaultInitialTodayPage: TodayPage {
