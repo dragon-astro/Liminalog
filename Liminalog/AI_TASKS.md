@@ -484,9 +484,9 @@ refactor: split plan store
 #### 週間
 - [ ] カテゴリ別トータル横棒グラフ（既存を週間期間用に調整）<!-- 担当: Claude -->
 - [ ] 日ごとの積み上げ棒グラフ <!-- 担当: Claude -->
-- [ ] 時間帯別傾向（朝/昼/夜の割合計算）<!-- 担当: Codex, 理由: 集計ロジック -->
+- [x] 時間帯別傾向（朝/昼/夜の割合計算）<!-- 担当: Codex, 完了: 2026-06-01。`DashboardTimeOfDaySummary` で朝(5-12)/昼(12-18)/夜(18-翌5)の実績時間・割合・支配時間帯を算出。日跨ぎ/active/期間クリップをテスト済み -->
 - [ ] 時間帯別傾向の表示UI <!-- 担当: Claude -->
-- [ ] 先週比差分バー（集計）<!-- 担当: Codex -->
+- [x] 先週比差分バー（集計）<!-- 担当: Codex, 完了: 2026-06-01。`DashboardPeriodDeltaSummary` で現期間/前期間の平均スコア・実績時間・予定時間・一致時間・スコア対象日数の差分/増減率を算出。表示UIはClaudeタスクとして継続 -->
 - [ ] 先週比差分バーの表示UI <!-- 担当: Claude -->
 - [ ] 友達比較 placeholder（Phase 3で本実装）<!-- 担当: Claude -->
 
@@ -797,6 +797,7 @@ refactor: split plan store
 
 | 日付 | 担当 | 内容 |
 |---|---|---|
+| 2026-06-01 | Codex | Phase 2 Dashboard拡充の集計ロジックを追加。`DashboardTimeOfDaySummary` で朝(5:00-12:00)・昼(12:00-18:00)・夜(18:00-翌5:00)の実績時間割合と支配時間帯を算出し、日跨ぎ/active Chapter/期間クリップに対応。`DashboardPeriodDeltaSummary` で現期間と前期間の平均スコア、実績時間、予定時間、一致時間、スコア対象日数の差分と増減率を算出する。表示UI（時間帯別傾向/先週比差分バー）はClaude担当として残す。検証: `git diff --check` 成功、`xcodebuild test-without-building -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' -derivedDataPath /private/tmp/LiminalogDerivedData` 成功（52 tests / 14 suites）、`xcodebuild -scheme Liminalog -destination generic/platform=iOS -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功。 |
 | 2026-06-01 | Codex | ユーザー判断によりCSV書き出しをリリーススコープ外へ変更し、作成途中のCSVエクスポータ案は破棄。代わりにリリース品質の検証補強として `TimelineBarLayout` を追加し、24時間バーの位置/幅/アイコン閾値をテスト可能な純粋ロジックへ分離。`TimelineDisplayTests` で読み取り専用Timelineの前日跨ぎクリップ、短時間記録、5分未満gap抑制、バー位置計算を固定。既存のScoreCalculator日跨ぎテストもAI_TASKS上で完了扱いへ整理。検証: `git diff --check` 成功、`xcodebuild test-without-building -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' -derivedDataPath /private/tmp/LiminalogDerivedData` 成功（48 tests / 13 suites）、`xcodebuild -scheme Liminalog -destination generic/platform=iOS -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功。 |
 | 2026-06-01 | Codex | Phase 3 カテゴリマッピング基盤を実装。`FriendCategoryMapping` SwiftDataモデルを追加し、`LiminalogSchemaV1` / `SharedModelContainer` / Preview schema に登録、DEBUG開発ストア世代を `2026060102` へ更新。友達共有スナップショットには任意の `categoryID` を追加し、通常公開時はカテゴリ対応に使えるようにしつつ、`freeTimeOnly` の予定では categoryID も nil にして匿名化を維持。`FriendCategoryMappingResolver` で共有予定/実績からカテゴリ記述子を抽出し、同名のデフォルトカテゴリだけを自動マッピングする。docs/04のスナップショット実装メモも同期。多対一モデル保存、カテゴリ記述子抽出、自動マッピングが既存手動設定/カスタムカテゴリを上書きしないことをテスト化。検証: `xcodebuild test -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' -derivedDataPath /private/tmp/LiminalogDerivedData` 成功（44 tests / 12 suites）。手動マッピングUI、比較表示時のカラー統一スイッチ、未マッピング促しはClaude/UIタスクとして継続。 |
 | 2026-06-01 | Codex | Phase 3 公開設定フィルター品質対応。友達共有用の `FriendSharedPlanSnapshot.snapshots` / `FriendSharedActivitySnapshot.snapshots` に `VisibilityPreset` を任意指定できるようにし、既存の `isPublic` 境界に加えて publishMode none / 旧level none、カテゴリ除外、メモ・気分・場所の隠蔽、予定の空き時間のみ（タイトル/カテゴリ/色を「予定あり」へ匿名化）を適用。写真は共有スナップショットにフィールドがないため現時点で漏れない。`PublishMode.nextDay` の実配信タイミングと CKShare 実送受信は Developer/CloudKit 環境が必要な別タスクとして残す。検証: `xcodebuild test -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' -derivedDataPath /private/tmp/LiminalogDerivedData` 成功（41 tests / 11 suites）。`xcodebuild -scheme Liminalog -destination generic/platform=iOS -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功。 |
