@@ -92,8 +92,8 @@ struct FriendsView: View {
                     if acceptedFriends.isEmpty {
                         emptyState
                     } else {
-                        rankingSection
                         friendsListSection
+                        rankingSection
                     }
 
                     if !pendingOutgoingFriends.isEmpty {
@@ -216,7 +216,7 @@ struct FriendsView: View {
     }
 
     private var rankingSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack {
                 SectionTitle(title: "昨日のランキング", count: yesterdayRankingEntries.count)
                 Spacer()
@@ -232,9 +232,9 @@ struct FriendsView: View {
                     }
                     .font(.caption.weight(.bold))
                     .foregroundStyle(.secondary)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 7)
-                    .background(Capsule().fill(Color(.secondarySystemGroupedBackground)))
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 6)
+                    .background(Capsule().fill(Color(.tertiarySystemGroupedBackground)))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("ランキングをもっと見る")
@@ -254,14 +254,14 @@ struct FriendsView: View {
                         .allowsHitTesting(entry.friend != nil)
                     }
                 }
-                .padding(.vertical, 2)
+                .padding(.vertical, 1)
             }
         }
     }
 
     private var friendsListSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            SectionTitle(title: "友達", count: acceptedFriends.count)
+            SectionTitle(title: "今の友達", count: acceptedFriends.count)
 
             VStack(spacing: 10) {
                 ForEach(acceptedFriends) { friend in
@@ -447,36 +447,36 @@ private struct RankingCard: View {
     let entry: FriendRankingEntry
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack {
                 rankBadge
                 Spacer()
-                scoreBlock(font: .title3.weight(.black))
+                scoreBlock(font: .headline.weight(.black))
             }
 
-            HStack(spacing: 9) {
+            HStack(spacing: 8) {
                 rankingAvatar
 
                 Text(entry.name)
-                    .font(.subheadline.weight(.bold))
+                    .font(.caption.weight(.bold))
                     .lineLimit(1)
-                .minimumScaleFactor(0.78)
+                    .minimumScaleFactor(0.78)
             }
         }
-        .frame(width: 136, alignment: .leading)
-        .padding(13)
+        .frame(width: 118, alignment: .leading)
+        .padding(11)
         .background(
-            RoundedRectangle(cornerRadius: 17)
-                .fill(Color(.secondarySystemGroupedBackground))
+            RoundedRectangle(cornerRadius: 15)
+                .fill(Color(.tertiarySystemGroupedBackground))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 17)
-                .stroke(entryBorderColor, lineWidth: entry.isMe ? 1.4 : 1)
+            RoundedRectangle(cornerRadius: 15)
+                .stroke(entryBorderColor, lineWidth: entry.isMe ? 1.2 : 1)
         )
     }
 
     private var entryBorderColor: Color {
-        entry.isMe ? entry.tint.opacity(0.5) : Color.primary.opacity(0.06)
+        entry.isMe ? entry.tint.opacity(0.38) : Color.primary.opacity(0.05)
     }
 
     private var rankBadge: some View {
@@ -489,18 +489,18 @@ private struct RankingCard: View {
                         .font(.caption.weight(.black))
                 }
                 .foregroundStyle(rankColor)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 5)
-                .background(Capsule().fill(rankColor.opacity(0.14)))
+                .padding(.horizontal, 7)
+                .padding(.vertical, 4)
+                .background(Capsule().fill(rankColor.opacity(0.1)))
                 .overlay {
                     Capsule()
-                        .stroke(rankColor.opacity(0.5), lineWidth: 1)
+                        .stroke(rankColor.opacity(0.38), lineWidth: 1)
                 }
             } else {
                 Text("#\(entry.rank)")
                     .font(.caption.weight(.black))
                     .foregroundStyle(.secondary)
-                    .padding(.vertical, 5)
+                    .padding(.vertical, 4)
             }
         }
     }
@@ -522,7 +522,7 @@ private struct RankingCard: View {
             systemImage: entry.imageName,
             tint: entry.tint,
             frameStyle: entry.iconFrame,
-            size: 34
+            size: 30
         )
     }
 
