@@ -203,7 +203,7 @@ private struct DashboardPeriodSnapshot {
         self.chapters = chapters
 
         let calendar = Calendar.japanese
-        let summaries = Self.scoreSummaries(
+        let summaries = StatsEngine.dailyScoreSummaries(
             in: interval,
             chapters: chapters,
             plans: queriedPlans,
@@ -214,7 +214,7 @@ private struct DashboardPeriodSnapshot {
         let previousChapters = queriedChapters
             .filter { $0.startTime < previousInterval.end && ($0.endTime ?? clockNow) > previousInterval.start }
             .sorted { $0.startTime < $1.startTime }
-        let previousSummaries = Self.scoreSummaries(
+        let previousSummaries = StatsEngine.dailyScoreSummaries(
             in: previousInterval,
             chapters: previousChapters,
             plans: queriedPlans,
@@ -228,45 +228,16 @@ private struct DashboardPeriodSnapshot {
         self.recordedDayCount = Set(chapters.map { DayBoundary.dayStart(for: $0.startTime, calendar: calendar) }).count
         self.topCategoryStat = DashboardCategoryStat.stats(from: chapters, now: clockNow).first
         self.recentChapters = Array(chapters.sorted { $0.startTime > $1.startTime }.prefix(30))
-        self.timeOfDaySummary = DashboardTimeOfDaySummary.make(
+        self.timeOfDaySummary = StatsEngine.timeOfDaySummary(
             chapters: chapters,
             interval: interval,
             calendar: calendar,
             now: clockNow
         )
-        self.periodDeltaSummary = DashboardPeriodDeltaSummary.make(
+        self.periodDeltaSummary = StatsEngine.periodDeltaSummary(
             currentSummaries: summaries,
             previousSummaries: previousSummaries
         )
-    }
-
-    private static func scoreSummaries(
-        in interval: DateInterval,
-        chapters: [Chapter],
-        plans: [PlanBlock],
-        now: Date,
-        calendar: Calendar
-    ) -> [ScoreSummary] {
-        var dates: [Date] = []
-        var cursor = DayBoundary.dayStart(for: interval.start, calendar: calendar)
-        while cursor < interval.end {
-            dates.append(cursor)
-            guard let next = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
-            cursor = next
-        }
-
-        return dates.map { date in
-            let boundary = DayBoundary(date: date, calendar: calendar)
-            let dayPlans = plans.filter { $0.startTime < boundary.dayEnd && $0.endTime > boundary.dayStart }
-            let dayChapters = chapters.filter { $0.startTime < boundary.dayEnd && ($0.endTime ?? now) > boundary.dayStart }
-            return ScoreCalculator.summary(
-                date: date,
-                plans: dayPlans,
-                chapters: dayChapters,
-                calendar: calendar,
-                now: now
-            )
-        }
     }
 }
 
