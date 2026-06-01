@@ -409,6 +409,7 @@ private struct FlowLikeCategoryRow: View {
 }
 
 private struct DailyTwentyFourHourRing: View {
+    @Environment(\.colorScheme) private var colorScheme
     let planSegments: [DailyRingSegment]
     let actualSegments: [DailyRingSegment]
     let score: Double
@@ -420,7 +421,7 @@ private struct DailyTwentyFourHourRing: View {
             Circle()
                 .fill(
                     RadialGradient(
-                        colors: [LiminalTheme.primary.opacity(0.22), .clear],
+                        colors: centerGlowColors,
                         center: .center,
                         startRadius: 20,
                         endRadius: 128
@@ -449,6 +450,22 @@ private struct DailyTwentyFourHourRing: View {
             }
             .accessibilityElement(children: .combine)
         }
+    }
+
+    private var centerGlowColors: [Color] {
+        if colorScheme == .light {
+            return [
+                LiminalTheme.reward.opacity(0.34),
+                Color(hex: "#FFD8A8").opacity(0.18),
+                LiminalTheme.dawn.opacity(0.08),
+                .clear
+            ]
+        }
+
+        return [
+            LiminalTheme.primary.opacity(0.22),
+            .clear
+        ]
     }
 }
 
