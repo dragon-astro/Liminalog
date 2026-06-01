@@ -37,13 +37,25 @@ enum SeedCoordinator {
         let descriptor = FetchDescriptor<VisibilityPreset>(
             sortBy: [SortDescriptor(\.createdAt)]
         )
-        let presets = (try? context.fetch(descriptor)) ?? []
-        let grouped = Dictionary(grouping: presets) { $0.builtInKey ?? $0.name }
+        var presets = (try? context.fetch(descriptor)) ?? []
         var didChange = false
 
-        for group in grouped.values where group.count > 1 {
-            guard let primary = group.first else { continue }
-            for duplicate in group.dropFirst() {
+        for seed in builtInVisibilityPresetSeeds(now: now) {
+            if let existing = presets.first(where: { $0.builtInKey == seed.builtInKey }) {
+                if applyBuiltInVisibilityPresetSeed(seed, to: existing, now: now) {
+                    didChange = true
+                }
+            } else {
+                context.insert(seed)
+                presets.append(seed)
+                didChange = true
+            }
+        }
+
+        let builtInGroups = Dictionary(grouping: presets.filter { $0.builtInKey != nil }) { $0.builtInKey ?? "" }
+        for group in builtInGroups.values where group.count > 1 {
+            guard let primary = group.sorted(by: { $0.createdAt < $1.createdAt }).first else { continue }
+            for duplicate in group where duplicate !== primary {
                 if primary.name.isEmpty {
                     primary.name = duplicate.name
                 }
@@ -56,6 +68,78 @@ enum SeedCoordinator {
         if didChange {
             try? context.save()
         }
+    }
+
+    private static func builtInVisibilityPresetSeeds(now: Date) -> [VisibilityPreset] {
+        [
+            VisibilityPreset(
+                name: "仲良し",
+                level: .all,
+                builtInKey: "close_friends",
+                isBuiltIn: true,
+                sortOrder: 0,
+                publishMode: .realtime,
+                hideMoodAndNote: false,
+                hidePhoto: false,
+                hideLocation: false,
+                freeTimeOnly: false,
+                now: now
+            ),
+            VisibilityPreset(
+                name: "知り合い",
+                level: .partial,
+                builtInKey: "acquaintances",
+                isBuiltIn: true,
+                sortOrder: 10,
+                publishMode: .nextDay,
+                hideMoodAndNote: true,
+                hidePhoto: true,
+                hideLocation: true,
+                freeTimeOnly: true,
+                now: now
+            ),
+            VisibilityPreset(
+                name: "オフ",
+                level: .none,
+                builtInKey: "off",
+                isBuiltIn: true,
+                sortOrder: 20,
+                publishMode: .none,
+                hideMoodAndNote: true,
+                hidePhoto: true,
+                hideLocation: true,
+                freeTimeOnly: true,
+                now: now
+            )
+        ]
+    }
+
+    @discardableResult
+    private static func applyBuiltInVisibilityPresetSeed(_ seed: VisibilityPreset, to preset: VisibilityPreset, now: Date) -> Bool {
+        var didChange = false
+
+        func update<Value: Equatable>(_ keyPath: ReferenceWritableKeyPath<VisibilityPreset, Value>, to value: Value) {
+            if preset[keyPath: keyPath] != value {
+                preset[keyPath: keyPath] = value
+                didChange = true
+            }
+        }
+
+        update(\.name, to: seed.name)
+        update(\.level, to: seed.level)
+        update(\.isBuiltIn, to: true)
+        update(\.sortOrder, to: seed.sortOrder)
+        update(\.publishModeRawValue, to: seed.publishModeRawValue)
+        update(\.hideMoodAndNote, to: seed.hideMoodAndNote)
+        update(\.hidePhoto, to: seed.hidePhoto)
+        update(\.hideLocation, to: seed.hideLocation)
+        update(\.excludedCategoryIDs, to: seed.excludedCategoryIDs)
+        update(\.freeTimeOnly, to: seed.freeTimeOnly)
+
+        if didChange {
+            preset.updatedAt = now
+        }
+        return didChange
     }
 
     #if DEBUG

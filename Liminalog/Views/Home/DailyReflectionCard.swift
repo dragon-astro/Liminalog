@@ -19,6 +19,7 @@ struct DailyReflectionCard: View {
             chapters: chapters,
             historyChapters: historyChapters,
             categoryRows: categoryRows,
+            recordedDuration: recordedDuration,
             dayBoundary: dayBoundary
         )
     }
@@ -50,12 +51,7 @@ struct DailyReflectionCard: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            DailyFactStrip(
-                score: summary.totalScore,
-                hasScore: summary.plannedDuration > 0,
-                recordedDuration: recordedDuration,
-                chapterCount: chapters.count
-            )
+            DailyFactStrip(facts: persona.facts)
 
             if !categoryRows.isEmpty {
                 DailyCategoryConstellation(rows: Array(categoryRows.prefix(4)))
@@ -208,9 +204,7 @@ struct DailyReflectionCard: View {
             planSegments: planSegments,
             actualSegments: actualSegments,
             persona: persona,
-            categoryRows: Array(categoryRows.prefix(5)),
-            recordedDuration: recordedDuration,
-            chapterCount: chapters.count
+            categoryRows: Array(categoryRows.prefix(5))
         )
         .frame(width: 1080, height: 1920)
 
@@ -253,8 +247,6 @@ private struct DailyShareCardView: View {
     let actualSegments: [DailyRingSegment]
     let persona: DailyPersona
     let categoryRows: [(category: Category, duration: TimeInterval)]
-    let recordedDuration: TimeInterval
-    let chapterCount: Int
 
     var body: some View {
         ZStack {
@@ -319,9 +311,9 @@ private struct DailyShareCardView: View {
                 }
 
                 HStack(spacing: 18) {
-                    ShareMetricTile(title: "スコア", value: summary.plannedDuration > 0 ? "\(Int(summary.totalScore.rounded()))pt" : "--")
-                    ShareMetricTile(title: "実績", value: formatDailyDuration(recordedDuration))
-                    ShareMetricTile(title: "切替", value: "\(chapterCount)回")
+                    ForEach(persona.facts) { fact in
+                        ShareMetricTile(title: fact.title, value: fact.value + (fact.suffix ?? ""))
+                    }
                 }
 
                 if !categoryRows.isEmpty {
@@ -506,267 +498,19 @@ private struct DailyRingSegment {
     let color: Color
 }
 
-private struct DailyPersona {
-    let title: String
-    let message: String
-    let symbol: String
-
-    static func make(
-        summary: ScoreSummary,
-        chapters: [Chapter],
-        historyChapters: [Chapter],
-        categoryRows: [(category: Category, duration: TimeInterval)],
-        dayBoundary: DayBoundary
-    ) -> DailyPersona {
-        let analysis = DailyPatternAnalysis(
-            chapters: chapters,
-            historyChapters: historyChapters,
-            categoryRows: categoryRows,
-            dayBoundary: dayBoundary
-        )
-
-        guard !chapters.isEmpty else {
-            return DailyPersona(title: "行方不明の1日", message: "記録が薄い日。たぶん何かはしてた、という人類共通の強い気持ちだけ残りました。", symbol: "moon.dust.fill")
-        }
-
-        if summary.plannedDuration > 0, summary.totalScore >= 88 {
-            let signal = analysis.signalMessage ?? "未来の自分が置いた予定に、現在の自分が珍しくちゃんと出席しました。えらい、これは事件。"
-            return DailyPersona(title: "有言実行の人", message: signal, symbol: "checkmark.seal.fill")
-        }
-
-        if let focus = analysis.focusCategory, analysis.shape == .sprinter {
-            return DailyPersona(
-                title: "\(analysis.chronoPrefix)スプリンター",
-                message: analysis.signalMessage ?? "\(focus.category.name)に\(formatDailyDuration(focus.duration))。寄り道する脳をなんとか椅子に縛った日です。",
-                symbol: "bolt.fill"
-            )
-        }
-
-        if analysis.shape == .zapping {
-            return DailyPersona(
-                title: "\(analysis.chronoPrefix)ザッピング",
-                message: analysis.signalMessage ?? "\(chapters.count)回の切り替え。集中力は小分けパックでしたが、ちゃんと1日は組み上がっています。",
-                symbol: "sparkles"
-            )
-        }
-
-        if summary.plannedDuration == 0 {
-            return DailyPersona(title: "風まかせ", message: analysis.signalMessage ?? "予定なしで流れた日。地図はなかったけど、足跡だけは妙にリアルです。", symbol: "wind")
-        }
-
-        return DailyPersona(
-            title: "\(analysis.chronoPrefix)マラソナー",
-            message: analysis.signalMessage ?? "派手な爆発はなし。代わりに、地味な前進をちゃんと積んだ日です。地味、でも強い。",
-            symbol: "figure.run"
-        )
-    }
-}
-
-private struct DailyPatternAnalysis {
-    enum Shape {
-        case sprinter
-        case marathon
-        case zapping
-    }
-
-    let focusCategory: (category: Category, duration: TimeInterval)?
-    let shape: Shape
-    let chronoPrefix: String
-    let signalMessage: String?
-
-    init(
-        chapters: [Chapter],
-        historyChapters: [Chapter],
-        categoryRows: [(category: Category, duration: TimeInterval)],
-        dayBoundary: DayBoundary
-    ) {
-        let restCategoryIDs = Self.majorRestCategoryIDs(
-            chapters: chapters,
-            historyChapters: historyChapters,
-            dayBoundary: dayBoundary
-        )
-        let nonRestRows = categoryRows.filter { !restCategoryIDs.contains($0.category.id) }
-        let nonRestChapters = chapters.filter { chapter in
-            guard let id = chapter.category?.id else { return true }
-            return !restCategoryIDs.contains(id)
-        }
-        let effectiveChapters = nonRestChapters.isEmpty && !restCategoryIDs.isEmpty ? [] : (nonRestChapters.isEmpty ? chapters : nonRestChapters)
-
-        self.focusCategory = nonRestRows.first ?? (restCategoryIDs.isEmpty ? categoryRows.first : nil)
-        self.shape = Self.shape(for: effectiveChapters, focusCategory: focusCategory, dayBoundary: dayBoundary)
-        self.chronoPrefix = Self.chronoPrefix(for: effectiveChapters, dayBoundary: dayBoundary)
-        self.signalMessage = Self.signalMessage(
-            focusCategory: focusCategory,
-            categoryRows: categoryRows,
-            historyChapters: historyChapters,
-            dayBoundary: dayBoundary,
-            excludedCategoryIDs: restCategoryIDs
-        )
-    }
-
-    private static func majorRestCategoryIDs(
-        chapters: [Chapter],
-        historyChapters: [Chapter],
-        dayBoundary: DayBoundary
-    ) -> Set<UUID> {
-        let calendar = Calendar.japanese
-        let historyStart = calendar.date(byAdding: .day, value: -28, to: dayBoundary.dayStart) ?? dayBoundary.dayStart
-        let historical = historyChapters.filter { chapter in
-            chapter.startTime >= historyStart && chapter.startTime < dayBoundary.dayStart
-        }
-        let historicalDays = Set(historical.map { DayBoundary.dayStart(for: $0.startTime, calendar: calendar) }).count
-        let source = historicalDays >= 7 ? historical : chapters
-        guard !source.isEmpty else { return [] }
-
-        struct RestCandidate {
-            var category: Category
-            var totalLongBlocks = 0
-            var presenceDays = Set<Date>()
-            var longestTotal: TimeInterval = 0
-            var blockCount = 0
-        }
-
-        var candidates: [UUID: RestCandidate] = [:]
-        for chapter in source {
-            guard let category = chapter.category else { continue }
-            let duration = max(0, (chapter.endTime ?? dayBoundary.dayEnd).timeIntervalSince(chapter.startTime))
-            guard duration >= 3 * 60 * 60 else { continue }
-            let day = DayBoundary.dayStart(for: chapter.startTime, calendar: calendar)
-            var candidate = candidates[category.id] ?? RestCandidate(category: category)
-            candidate.totalLongBlocks += 1
-            candidate.presenceDays.insert(day)
-            candidate.longestTotal += duration
-            candidate.blockCount += 1
-            candidates[category.id] = candidate
-        }
-
-        return Set(candidates.compactMap { id, candidate in
-            let averageLongBlock = candidate.longestTotal / Double(max(candidate.blockCount, 1))
-            let dayBase = max(historicalDays, 1)
-            let frequency = Double(candidate.presenceDays.count) / Double(dayBase)
-            if historicalDays >= 7 {
-                return frequency >= 0.42 && averageLongBlock >= 4 * 60 * 60 ? id : nil
-            } else {
-                return candidate.totalLongBlocks >= 1 && averageLongBlock >= 6 * 60 * 60 ? id : nil
-            }
-        })
-    }
-
-    private static func shape(
-        for chapters: [Chapter],
-        focusCategory: (category: Category, duration: TimeInterval)?,
-        dayBoundary: DayBoundary
-    ) -> Shape {
-        let durations = chapters.map { chapter -> TimeInterval in
-            let start = max(chapter.startTime, dayBoundary.dayStart)
-            let end = min(chapter.endTime ?? dayBoundary.dayEnd, dayBoundary.dayEnd)
-            return max(end.timeIntervalSince(start), 0)
-        }
-        let total = durations.reduce(0, +)
-        let longest = max(durations.max() ?? 0, focusCategory?.duration ?? 0)
-        let meaningfulSwitchCount = durations.filter { $0 >= 5 * 60 }.count
-        let average = total / Double(max(meaningfulSwitchCount, 1))
-
-        if meaningfulSwitchCount >= 8 || average <= 35 * 60 {
-            return .zapping
-        }
-        if longest >= 150 * 60 && (total == 0 || longest / total >= 0.42) {
-            return .sprinter
-        }
-        return .marathon
-    }
-
-    private static func chronoPrefix(for chapters: [Chapter], dayBoundary: DayBoundary) -> String {
-        let weighted = chapters.reduce((total: TimeInterval(0), weighted: TimeInterval(0))) { partial, chapter in
-            let start = max(chapter.startTime, dayBoundary.dayStart)
-            let end = min(chapter.endTime ?? dayBoundary.dayEnd, dayBoundary.dayEnd)
-            let duration = max(end.timeIntervalSince(start), 0)
-            let midpoint = start.timeIntervalSince(dayBoundary.dayStart) + duration / 2
-            return (partial.total + duration, partial.weighted + midpoint * duration)
-        }
-        guard weighted.total > 0 else { return "今日の" }
-        let hour = weighted.weighted / weighted.total / 3600
-        switch hour {
-        case 0..<5: return "深夜の"
-        case 5..<11: return "朝の"
-        case 11..<16: return "昼の"
-        default: return "夜の"
-        }
-    }
-
-    private static func signalMessage(
-        focusCategory: (category: Category, duration: TimeInterval)?,
-        categoryRows: [(category: Category, duration: TimeInterval)],
-        historyChapters: [Chapter],
-        dayBoundary: DayBoundary,
-        excludedCategoryIDs: Set<UUID>
-    ) -> String? {
-        let calendar = Calendar.japanese
-        let historyStart = calendar.date(byAdding: .day, value: -28, to: dayBoundary.dayStart) ?? dayBoundary.dayStart
-        let historical = historyChapters.filter { chapter in
-            chapter.startTime >= historyStart && chapter.startTime < dayBoundary.dayStart
-        }
-        let historyDays = Set(historical.map { DayBoundary.dayStart(for: $0.startTime, calendar: calendar) }).count
-        guard historyDays >= 7 else {
-            if let focusCategory {
-                return "\(focusCategory.category.name)が\(formatDailyDuration(focusCategory.duration))。データはまだ少なめ、でも今日の主張だけはもう強いです。"
-            }
-            return nil
-        }
-
-        let todayRows = categoryRows.filter { !excludedCategoryIDs.contains($0.category.id) }
-        var best: (category: Category, duration: TimeInterval, z: Double, mean: Double, daysSinceLast: Int?)?
-
-        for row in todayRows where !excludedCategoryIDs.contains(row.category.id) {
-            var dailyTotals: [Date: TimeInterval] = [:]
-            var lastSeen: Date?
-            for chapter in historical where chapter.category?.id == row.category.id {
-                let day = DayBoundary.dayStart(for: chapter.startTime, calendar: calendar)
-                let duration = max(0, (chapter.endTime ?? dayBoundary.dayStart).timeIntervalSince(chapter.startTime))
-                dailyTotals[day, default: 0] += duration
-                lastSeen = max(lastSeen ?? day, day)
-            }
-
-            let values = (0..<28).compactMap { offset -> TimeInterval? in
-                guard let day = calendar.date(byAdding: .day, value: -offset - 1, to: dayBoundary.dayStart) else { return nil }
-                return dailyTotals[day, default: 0]
-            }
-            let mean = values.reduce(0, +) / Double(max(values.count, 1))
-            let variance = values.reduce(0) { partial, value in
-                partial + pow(value - mean, 2)
-            } / Double(max(values.count, 1))
-            let std = max(sqrt(variance), 15 * 60)
-            let z = (row.duration - mean) / std
-            let daysSinceLast: Int? = lastSeen.map { calendar.dateComponents([.day], from: $0, to: dayBoundary.dayStart).day ?? 0 }
-            let isSignal = abs(z) >= 1.5 || (daysSinceLast ?? 0) >= 10
-            if isSignal, abs(z) > abs(best?.z ?? 0) || best == nil {
-                best = (row.category, row.duration, z, mean, daysSinceLast)
-            }
-        }
-
-        guard let best else { return nil }
-        if let days = best.daysSinceLast, days >= 10 {
-            return "\(days)日ぶりの\(best.category.name)。急に帰ってきたので、今日のカードが少しざわついています。"
-        }
-        if best.z > 0 {
-            return "\(best.category.name)がいつもより多め。今日の自分、そこだけ急にボリューム上げてきました。"
-        } else {
-            return "\(best.category.name)はいつもより控えめ。空いた余白に、別の今日が入り込んでいます。"
-        }
-    }
-}
-
 private struct DailyFactStrip: View {
-    let score: Double
-    let hasScore: Bool
-    let recordedDuration: TimeInterval
-    let chapterCount: Int
+    let facts: [DailyCardFact]
 
     var body: some View {
         HStack(spacing: 9) {
-            DailyFactPill(title: "スコア", value: hasScore ? "\(Int(score.rounded()))" : "--", suffix: "pt", systemImage: "star.fill")
-            DailyFactPill(title: "実績", value: formatDailyDuration(recordedDuration), suffix: nil, systemImage: "clock.fill")
-            DailyFactPill(title: "切替", value: "\(chapterCount)", suffix: "回", systemImage: "rectangle.2.swap")
+            ForEach(facts) { fact in
+                DailyFactPill(
+                    title: fact.title,
+                    value: fact.value,
+                    suffix: fact.suffix,
+                    systemImage: fact.systemImage
+                )
+            }
         }
     }
 }

@@ -277,7 +277,7 @@ refactor: split plan store
 ### 5.1 基盤準備
 
 - [x] App Group ID を確定（候補: `group.app.YasudaRyuga.Liminalog`）<!-- 担当: Codex, 完了: 2026-05-28 ユーザーの「さっきの方針で進めて」を受け候補IDで確定 -->
-- [~] CloudKit Container 作成（候補: `iCloud.app.YasudaRyuga.Liminalog`）<!-- 担当: Codex, 進捗: 2026-05-28 entitlements / ModelConfiguration は設定済。Apple Developer 側の実体確認は実機署名時に必要 -->
+- [!] CloudKit Container 作成（候補: `iCloud.app.YasudaRyuga.Liminalog`） <!-- 担当: Codex, entitlements / ModelConfiguration / coordinator 土台は実装済。Apple Developer 側の実コンテナ作成・実機署名・CloudKit Dashboard確認はローカルAI環境では完了不可 -->
 - [x] Xcode Capability: App Groups を App / Widget 両方に追加 <!-- 担当: Codex, 理由: Xcode 設定の機械作業, 完了: 2026-05-28 -->
 - [x] Xcode Capability: iCloud (CloudKit) を App に追加 <!-- 担当: Codex, 完了: 2026-05-28 -->
 - [x] `SharedModelContainer` を実装（App Group URL + CloudKit Private DB）<!-- 担当: Codex, 理由: 既存 ModelContainer の置換・ボイラープレート, 完了: 2026-05-28 -->
@@ -331,7 +331,7 @@ refactor: split plan store
 - [x] `Chapter.updatedAt`, `Chapter.visibilityScope` 追加 <!-- 担当: Codex, 完了: 2026-05-28 -->
 - [x] `PlanBlock.sourceEventID`, `PlanBlock.updatedAt`, `PlanBlock.visibilityScope` 追加 <!-- 担当: Codex, 完了: 2026-05-28 -->
 - [x] `UserSettings` モデル新規作成 + シード（`settingsKey` 重複統合ロジック必須）<!-- 担当: Codex, 理由: §8.5 BootstrapStore/SeedCoordinator と一体, 完了: 2026-05-28 -->
-- [~] 既存 `VisibilityPreset` を `docs/04 §4.5` の新設計で置換（`builtInKey` 重複統合ロジック必須）<!-- 担当: Codex, 進捗: 2026-05-28 builtInKey/updatedAt/default init/重複統合のみ実装。publishMode 等の本格プリセット設計は未実装 -->
+- [x] 既存 `VisibilityPreset` を `docs/04 §4.5` の新設計で置換（`builtInKey` 重複統合ロジック必須） <!-- 担当: Codex, 完了: 2026-06-01 publishMode / hideMoodAndNote / hidePhoto / hideLocation / excludedCategoryIDs / freeTimeOnly / built-in seed（仲良し・知り合い・オフ）/ builtInKey重複統合を実装。旧levelは移行互換として維持 -->
 - [x] `LiminalogActivityAttributes.ContentState.categories` を削除（App Groups経由で読むため不要）<!-- 担当: Codex, 完了: 2026-05-28。Live Activity の ContentState は現在カテゴリ/カテゴリセット名/公開状態だけを持ち、カテゴリ配列は Widget/App Group 側で読む前提へ寄せた -->
 - [x] `VersionedSchema` + `SchemaMigrationPlan` の骨格を追加 <!-- 担当: Codex, 理由: SwiftData の作法・複雑, 完了: 2026-05-28 -->
 
@@ -547,10 +547,10 @@ refactor: split plan store
 
 > 1回目の是正でエンジン/声/テーマ/共有まで実装され、カードの殻・核は合格。残るは「深さと掃除」。コピーとテーマhexは **Claude が具体指定**（docs参照）＝Codex は実装するだけ。
 
-- [ ] **A.【最重要・アーキ】エンジンを View から独立レイヤーへ抽出**：`DailyPatternAnalysis`・ペルソナ・睡眠検出・逸脱が `DailyReflectionCard.swift`（900行超 View）に埋まってる。**共有 `StatsEngine`/`PatternDetector` に抽出**し統計タブと再利用（docs/12 §4・二重実装回避）。<!-- 担当: Codex -->
-- [ ] **B. 称号タイトルと本文の不一致を解消**：例「有言実行の人」(予定一致) なのに本文が「趣味が主役」(逸脱)。**タイトルと message が同じ事を補強**するよう、signalMessage 採用時はタイトル選択もそれに整合させる。<!-- 担当: Codex（ロジック）＋ Claude（コピー） -->
-- [ ] **C. 「データはまだ少なめ」等のメタ文言を共有コピーから除去**：コールドスタートの内部事情が、シェアする1枚の表に出ない。床型は別の自虐コピーで埋める（docs/12 §6.7）。<!-- 担当: Claude（コピー）＋ Codex -->
-- [ ] **D. 「実績 24時間」＝睡眠込み生集計を是正**：fact strip の実績は**主要休息ブロックを除いた裁量時間**にする or ラベルを「記録カバー」等に変更。生24hを見出し数字にしない。<!-- 担当: Codex -->
+- [x] **A.【最重要・アーキ】エンジンを View から独立レイヤーへ抽出**：`DailyPatternAnalysis`・ペルソナ・睡眠検出・逸脱が `DailyReflectionCard.swift`（900行超 View）に埋まってる。**共有 `StatsEngine`/`PatternDetector` に抽出**し統計タブと再利用（docs/12 §4・二重実装回避）。 <!-- 担当: Codex, 完了: 2026-06-01 DailyCardEngine.swift に抽出し View から称号/睡眠検出/逸脱判定を分離 -->
+- [x] **B. 称号タイトルと本文の不一致を解消**：例「有言実行の人」(予定一致) なのに本文が「趣味が主役」(逸脱)。**タイトルと message が同じ事を補強**するよう、signalMessage 採用時はタイトル選択もそれに整合させる。 <!-- 担当: Codex, 完了: 2026-06-01 高スコア予定一致は予定一致コピーに固定し、逸脱signalはsignal由来タイトルへ揃える。テスト追加 -->
+- [x] **C. 「データはまだ少なめ」等のメタ文言を共有コピーから除去**：コールドスタートの内部事情が、シェアする1枚の表に出ない。床型は別の自虐コピーで埋める（docs/12 §6.7）。 <!-- 担当: Codex, 完了: 2026-06-01 history不足時はsignalを出さず、床型/形状コピーへフォールバック。テスト追加 -->
+- [x] **D. 「実績 24時間」＝睡眠込み生集計を是正**：fact strip の実績は**主要休息ブロックを除いた裁量時間**にする or ラベルを「記録カバー」等に変更。生24hを見出し数字にしない。 <!-- 担当: Codex, 完了: 2026-06-01 主要休息検出時は「裁量時間」、休息除外なしは「記録カバー」に変更。スコアpillは削除。テスト追加 -->
 - [ ] **E. ペルソナを docs/12 §6 まで拡充**：現状約6種＝MVP下限以下ですぐ繰り返す。**§6.7 の称号コピー・カタログ（Claude指定）**を実装し、レア・活動スロット・signalMessage 変奏を入れて 15〜20+ へ。<!-- 担当: Codex（判定）＋ Claude（コピー＝docs/12 §6.7） -->
 - [ ] **F. 昨日ページの重複撤去**：カード下の旧 `YesterdayCategoryBreakdown`＋`YesterdayInsightCard` を、カードの**展開層（2層の裏）に畳む or 撤去**（docs/12 §3）。<!-- 担当: Claude -->
 - [ ] **G.（軽微）リング中央の整理**：グリフ＋pt＋ラベルで詰まり気味。docs/13 §5.3「中央は余白基調」へ。<!-- 担当: Claude -->
@@ -572,12 +572,12 @@ refactor: split plan store
 
 > 設計: [docs/15-ia-refinement.md](Views/Profile/docs/15-ia-refinement.md)。「強すぎる情報を降格・不要を削除・UXのためUI洗練」の横断パス。判断基準＝スコア遍在させない/色は希少(chrome⇔data分離)/静けさ。**Codex は docs/15 §9 の優先度つき指示をそのまま実装。**
 
-- [ ] **P1-1 スコアの遍在を絞る**（§1.1）：カードfact stripのスコア削除・カレンダー全セルの**数値をアンビエント化**（§5 ミニリング/濃淡でスキャン・正確値は日詳細）。**プロフィール累計は削除せず longevity（続けた長さ）として残す**（成績と読ませない見せ方＝XP/レベル化 or 記録日数/累計時間とペア）。スコア数値の主役はカード中央/友達ランキング/統計トレンド。<!-- 担当: Codex -->
-- [ ] **P1-2 統計タブをトレンド主役に**（§6）：単日モード(dayピッカー)削除・単期間breakdown降格/削除・期間は週/月/年・トレンド系を上へ。<!-- 担当: Codex -->
-- [ ] **P1-3 昨日カード fact strip を意味ある2項へ＋中央を余白化**（§3）。<!-- 担当: Claude/Codex -->
+- [x] **P1-1 スコアの遍在を絞る**（§1.1）：カードfact stripのスコア削除・カレンダー全セルの**数値をアンビエント化**（§5 ミニリング/濃淡でスキャン・正確値は日詳細）。**プロフィール累計は削除せず longevity（続けた長さ）として残す**（成績と読ませない見せ方＝XP/レベル化 or 記録日数/累計時間とペア）。スコア数値の主役はカード中央/友達ランキング/統計トレンド。 <!-- 担当: Codex, 完了: 2026-06-01 Daily fact stripからスコア削除、月カレンダー日セルを数値badgeからミニリングへ変更 -->
+- [x] **P1-2 統計タブをトレンド主役に**（§6）：単日モード(dayピッカー)削除・単期間breakdown降格/削除・期間は週/月/年・トレンド系を上へ。 <!-- 担当: Codex, 完了: 2026-06-01 DashboardPeriod.allCases は週/月/年のみ、日間はUIから外れ、期間ピッカー/横スワイプは維持 -->
+- [x] **P1-3 昨日カード fact strip を意味ある2項へ＋中央を余白化**（§3）。 <!-- 担当: Codex, 完了: 2026-06-01 fact stripを「裁量時間/記録カバー」「切替」の2項へ整理 -->
 - [ ] **P2-4 自己説明ラベル削除**（§1.3：「24時間バー」見出し等）。<!-- 担当: Claude -->
 - [ ] **P2-5 今日ページの 実績/予定 segmented を控えめ inline トグルへ・リスト=実績デフォルト**（§2）。<!-- 担当: Claude -->
-- [ ] **P2-6 カレンダー月グリッドをアンビエント化**（§5）：スコア数値→ミニ二重リング/濃淡でスキャン可・正確値は日詳細。重要予定ラベルも最小限。<!-- 担当: Codex -->
+- [x] **P2-6 カレンダー月グリッドをアンビエント化**（§5）：スコア数値→ミニ二重リング/濃淡でスキャン可・正確値は日詳細。重要予定ラベルも最小限。 <!-- 担当: Codex, 完了: 2026-06-01 CalendarScoreBadge を数値表示からミニリングへ変更。accessibilityには正確値を保持 -->
 - [ ] **P2-7 昨日ページ重複ブロック撤去**（§3＝§7.7.2 F）。<!-- 担当: Claude -->
 - [ ] **P3-8 色の希少・chrome/data分離の全画面洗い出し**（§1.2）。<!-- 担当: Claude -->
 - [ ] **P3-9 友達一覧の主役をステータスリストに・ランキング従・@handle非強調**（§7）。<!-- 担当: Codex -->
@@ -607,7 +607,7 @@ refactor: split plan store
 > Phase 0 で CloudKit Private DB を ON 済の前提。
 > Phase 3 では CKShare による友達共有を追加。
 
-- [ ] `CloudKitSyncCoordinator` 実装（アカウント状態監視・同期エラー通知）<!-- 担当: Codex, 理由: CKContainer の async API + エラー分岐 -->
+- [x] `CloudKitSyncCoordinator` 実装（アカウント状態監視・同期エラー通知） <!-- 担当: Codex, 完了: 2026-06-01 CKContainer.accountStatus async 監視、AccountState、ユーザー向けメッセージ、lastError/lastCheckedAt を実装。実CloudKit同期の検証はApple Developer環境が必要 -->
 - [ ] iCloud 未ログイン時のフォールバック UI <!-- 担当: Claude -->
 - [ ] 同期エラーバナー <!-- 担当: Claude -->
 - [ ] `MyRecordsZone` への移行（Chapter / PlanBlock を専用ゾーンへ）<!-- 担当: Codex, 理由: CloudKitゾーン操作 -->
@@ -626,8 +626,8 @@ refactor: split plan store
 
 ### 8.3 公開設定（本格実装）
 
-- [ ] `VisibilityPreset` モデル（新設計）<!-- 担当: Codex -->
-- [ ] ビルトインプリセット seed（仲良し/知り合い/オフ/カスタム）<!-- 担当: Codex -->
+- [x] `VisibilityPreset` モデル（新設計）<!-- 担当: Codex, 完了: 2026-06-01。Phase 0 §5.5で先行実装。publishMode/detail flags/built-in識別/並び順/旧level互換を追加 -->
+- [x] ビルトインプリセット seed（仲良し/知り合い/オフ/カスタム）<!-- 担当: Codex, 完了: 2026-06-01。仲良し/知り合い/オフをSeedCoordinatorで作成し、カスタムはbuiltInKey nilのユーザー作成として同名でも統合しない。重複統合テスト更新済み -->
 - [ ] `VisibilityPresetManagementView` <!-- 担当: Claude -->
 - [ ] `VisibilitySheet` を多段（プリセット / カスタム / カテゴリ別）に拡張 <!-- 担当: Claude -->
 - [ ] 翌日公開モードのバックグラウンドタスク（深夜に SharedTimeline へスナップショット書き出し）<!-- 担当: Codex, 理由: BGTaskScheduler + データ加工 -->
@@ -791,6 +791,7 @@ refactor: split plan store
 ---
 
 ## 10. 完了ログ
+| 2026-06-01 | Codex | Phase0-3品質対応: DailyCardEngineをViewから抽出し、称号/本文整合・メタ文言除去・休息除外fact stripを実装。月カレンダーのスコア数値をミニリング化。VisibilityPresetをdocs/04 §4.5設計へ拡張し built-in seed/重複統合を実装。CloudKitSyncCoordinatorのアカウント状態監視土台を追加。追加品質対応としてVisibilityPreset seedの不要なupdatedAt更新を抑制し、built-in seed/重複統合/カスタム非統合テストへ更新。検証: `xcodebuild test -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' -derivedDataPath /private/tmp/LiminalogDerivedData` 成功（35 tests / 11 suites）。iOS実機向け `build-for-testing` も `CODE_SIGNING_ALLOWED=NO` で成功。 |
 
 新規タスクの追加・実装完了・設計変更を時系列で記録。**日付は ISO 形式（YYYY-MM-DD）で。**
 

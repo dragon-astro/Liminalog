@@ -73,22 +73,25 @@ struct SeedCoordinatorTests {
         #expect(merged.dashboardCardOrder == ["score", "heatmap"])
     }
 
-    @Test("builtInKeyが同じVisibilityPresetを1件に統合する")
-    func consolidateBuiltInVisibilityPresetDuplicates() throws {
+    @Test("VisibilityPresetのbuilt-in seedを作成しbuiltInKey重複だけを統合する")
+    func seedAndConsolidateBuiltInVisibilityPresets() throws {
         let calendar = Calendar.liminalogTest
         let container = try TestModelContainer.make()
         let context = container.mainContext
-        let first = VisibilityPreset(name: "", level: .all)
-        first.builtInKey = "friends"
+        let first = VisibilityPreset(name: "", level: .partial)
+        first.builtInKey = "close_friends"
+        first.hidePhoto = true
+        first.hideLocation = true
         first.createdAt = try #require(calendar.date(from: DateComponents(year: 2026, month: 5, day: 1)))
-        let duplicate = VisibilityPreset(name: "友達", level: .partial)
-        duplicate.builtInKey = "friends"
+        let duplicate = VisibilityPreset(name: "友達", level: .none)
+        duplicate.builtInKey = "close_friends"
         duplicate.createdAt = try #require(calendar.date(from: DateComponents(year: 2026, month: 5, day: 2)))
-        let separate = VisibilityPreset(name: "非公開", level: .none)
-        separate.builtInKey = "private"
+        let customA = VisibilityPreset(name: "カスタム", level: .partial)
+        let customB = VisibilityPreset(name: "カスタム", level: .none)
         context.insert(first)
         context.insert(duplicate)
-        context.insert(separate)
+        context.insert(customA)
+        context.insert(customB)
         try context.save()
 
         SeedCoordinator.consolidateBuiltInVisibilityPresets(
@@ -97,11 +100,17 @@ struct SeedCoordinatorTests {
         )
         let presets = try context.fetch(FetchDescriptor<VisibilityPreset>(sortBy: [SortDescriptor(\.builtInKey)]))
 
-        #expect(presets.count == 2)
-        let friends = try #require(presets.first { $0.builtInKey == "friends" })
-        #expect(friends.id == first.id)
-        #expect(friends.name == "友達")
-        #expect(presets.contains { $0.builtInKey == "private" })
+        #expect(presets.count == 5)
+        let closeFriends = try #require(presets.first { $0.builtInKey == "close_friends" })
+        #expect(closeFriends.id == first.id)
+        #expect(closeFriends.name == "仲良し")
+        #expect(closeFriends.level == .all)
+        #expect(closeFriends.publishMode == .realtime)
+        #expect(!closeFriends.hidePhoto)
+        #expect(!closeFriends.hideLocation)
+        #expect(presets.contains { $0.builtInKey == "acquaintances" })
+        #expect(presets.contains { $0.builtInKey == "off" })
+        #expect(presets.filter { $0.builtInKey == nil }.count == 2)
     }
 }
 

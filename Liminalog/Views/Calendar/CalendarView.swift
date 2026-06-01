@@ -1636,28 +1636,31 @@ struct CalendarMonthDayCell: View {
 private struct CalendarScoreBadge: View {
     let summary: CalendarDisplayScore
 
-    @ViewBuilder
     var body: some View {
-        Text(scoreText)
-            .font(.system(size: 9, weight: .bold, design: .rounded))
-            .foregroundStyle(scoreColor)
-            .monospacedDigit()
-            .frame(minWidth: 21, minHeight: 17)
-            .padding(.horizontal, 3)
-            .background(
-                Capsule()
-                    .fill(scoreColor.opacity(summary.hasData ? 0.12 : 0.08))
-            )
-            .overlay(
-                Capsule()
-                    .stroke(scoreColor.opacity(summary.hasData ? 0.24 : 0.14), lineWidth: 1)
-            )
-            .accessibilityLabel(accessibilityText)
+        ZStack {
+            Circle()
+                .stroke(scoreColor.opacity(summary.hasData ? 0.18 : 0.12), lineWidth: 2)
+
+            if summary.hasData {
+                Circle()
+                    .trim(from: 0, to: scoreProgress)
+                    .stroke(
+                        scoreColor.opacity(0.9),
+                        style: StrokeStyle(lineWidth: 2.4, lineCap: .round)
+                    )
+                    .rotationEffect(.degrees(-90))
+            } else {
+                Circle()
+                    .fill(Color.secondary.opacity(0.16))
+                    .frame(width: 4, height: 4)
+            }
+        }
+        .frame(width: 18, height: 18)
+        .accessibilityLabel(accessibilityText)
     }
 
-    private var scoreText: String {
-        guard summary.hasData else { return "-" }
-        return "\(Int(summary.value.rounded()))"
+    private var scoreProgress: Double {
+        min(max(summary.value / 100, 0), 1)
     }
 
     private var accessibilityText: String {
