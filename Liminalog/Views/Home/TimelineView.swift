@@ -3,7 +3,7 @@ import SwiftData
 
 let currentTimeMarkerID = "current-time-marker"
 
-private enum TimelineTab: String, CaseIterable, Identifiable {
+enum TimelineTab: String, CaseIterable, Identifiable {
     case actual
     case plan
 
@@ -28,7 +28,7 @@ private enum TimelineTab: String, CaseIterable, Identifiable {
     }
 }
 
-private enum TimelineEntryKind {
+enum TimelineEntryKind {
     case plan
     case actual
     case gap(TimelineTab)
@@ -50,7 +50,7 @@ private enum TimelineEntryKind {
     }
 }
 
-private struct TimelineEntryMetadata {
+struct TimelineEntryMetadata {
     var note: String?
     var mood: String?
     var locationName: String?
@@ -60,7 +60,7 @@ private struct TimelineEntryMetadata {
     var continuesToNextDay: Bool
 }
 
-private struct TimelineEntry: Identifiable {
+struct TimelineEntry: Identifiable {
     let id: String
     let kind: TimelineEntryKind
     let sourceID: UUID?
@@ -695,7 +695,7 @@ private extension TimelineView {
     }
 }
 
-private extension SharedTimelineReadOnlyView {
+extension SharedTimelineReadOnlyView {
     var dayStart: Date {
         DayBoundary.dayStart(for: date)
     }
@@ -910,19 +910,21 @@ private struct TimelineBarRow: View {
     }
 
     private func xOffset(for target: Date, width: CGFloat) -> CGFloat {
-        let clipped = min(max(target, dayStart), dayEnd)
-        let ratio = clipped.timeIntervalSince(dayStart) / dayEnd.timeIntervalSince(dayStart)
-        return max(0, min(width, width * ratio))
+        TimelineBarLayout.xOffset(for: target, dayStart: dayStart, dayEnd: dayEnd, width: width)
     }
 
     private func segmentWidth(for entry: TimelineEntry, width: CGFloat) -> CGFloat {
-        let duration = max(entry.clippedEnd.timeIntervalSince(entry.clippedStart), 60)
-        let ratio = duration / dayEnd.timeIntervalSince(dayStart)
-        return max(width * ratio, 1)
+        TimelineBarLayout.segmentWidth(
+            start: entry.clippedStart,
+            end: entry.clippedEnd,
+            dayStart: dayStart,
+            dayEnd: dayEnd,
+            width: width
+        )
     }
 
     private func shouldShowIcon(entry: TimelineEntry, width: CGFloat) -> Bool {
-        entry.clippedDuration >= 15 * 60 && width >= 24
+        TimelineBarLayout.shouldShowIcon(duration: entry.clippedDuration, width: width)
     }
 
 }

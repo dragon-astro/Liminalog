@@ -514,7 +514,7 @@ refactor: split plan store
 
 - [ ] タイムライン画像書き出し（縦長・Instagram向け）<!-- 担当: Claude, 理由: SwiftUI ImageRenderer の使い方 -->
 - [ ] 週間サマリー画像書き出し <!-- 担当: Claude -->
-- [ ] CSV書き出し（Chapter / PlanBlock）<!-- 担当: Codex, 理由: 文字列フォーマット・エスケープ処理 -->
+- [-] CSV書き出し（Chapter / PlanBlock）<!-- 不要 (2026-06-01): ユーザー判断によりリリーススコープ外。データ持ち出し導線は当面画像シェア中心に寄せる -->
 - [ ] `ExportView`（書き出しオプション選択画面）<!-- 担当: Claude -->
 
 ### 7.5 ストリーク UI
@@ -525,7 +525,7 @@ refactor: split plan store
 ### 7.6 日付またぎ・0:00固定境界
 
 - [ ] 日付またぎチャプターのタイムライン表示（0:00-24:00 固定の `DayBoundary` 適用済前提）<!-- 担当: Claude -->
-- [ ] ScoreCalculator の日跨ぎ正常性検証テスト <!-- 担当: Codex -->
+- [x] ScoreCalculator の日跨ぎ正常性検証テスト <!-- 担当: Codex, 完了: 2026-06-01。`ScoreCalculatorTests.crossDayEntriesAreClippedToTargetDay` で前日23:00→当日1:00の予定/実績を対象日0:00-1:00にクリップすることを検証済み -->
 
 ### 7.7 デイリーカード & コンテンツエンジン（docs/12）
 
@@ -769,7 +769,7 @@ refactor: split plan store
 - [x] 縦方向の時間比例ブロック描画を撤去 <!-- 担当: Codex, 完了: 2026-05-25 -->
 - [x] 左右分割レーン / 横カラム割当ロジックを撤去 <!-- 担当: Codex, 完了: 2026-05-25 -->
 - [x] 旧 `timelineDisplayMode` から新 `timelineSelectedTab` への扱いを決める（新 UI では参照しない）<!-- 担当: Codex, 完了: 2026-05-25 -->
-- [ ] 固定高さカード、短時間記録、日付またぎ、バー位置計算の Preview/Test を追加 <!-- 担当: Codex -->
+- [~] 固定高さカード、短時間記録、日付またぎ、バー位置計算の Preview/Test を追加 <!-- 担当: Codex, 進捗: 2026-06-01。`TimelineDisplayTests` で読み取り専用Timeline表示モデルの日付またぎクリップ/継続メタデータ、短時間記録保持、5分未満gap抑制、24時間バーのx位置・最小幅・アイコン表示閾値を検証。固定高さカードの視覚Preview/320pt確認はClaude/UI検証として継続 -->
 - [x] 日付またぎ Chapter は DB では1件のまま、表示・スコア・バーだけ 0:00-24:00 にクリップされるテストを追加 <!-- 担当: Codex, 完了: 2026-05-28。DayBoundary/ScoreCalculator のクリップをテスト済み -->
 - [ ] 実機で 320pt 幅でも目盛り・カード文言が破綻しないか確認 <!-- 担当: Claude -->
 
@@ -797,6 +797,7 @@ refactor: split plan store
 
 | 日付 | 担当 | 内容 |
 |---|---|---|
+| 2026-06-01 | Codex | ユーザー判断によりCSV書き出しをリリーススコープ外へ変更し、作成途中のCSVエクスポータ案は破棄。代わりにリリース品質の検証補強として `TimelineBarLayout` を追加し、24時間バーの位置/幅/アイコン閾値をテスト可能な純粋ロジックへ分離。`TimelineDisplayTests` で読み取り専用Timelineの前日跨ぎクリップ、短時間記録、5分未満gap抑制、バー位置計算を固定。既存のScoreCalculator日跨ぎテストもAI_TASKS上で完了扱いへ整理。検証: `git diff --check` 成功、`xcodebuild test-without-building -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' -derivedDataPath /private/tmp/LiminalogDerivedData` 成功（48 tests / 13 suites）、`xcodebuild -scheme Liminalog -destination generic/platform=iOS -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功。 |
 | 2026-06-01 | Codex | Phase 3 カテゴリマッピング基盤を実装。`FriendCategoryMapping` SwiftDataモデルを追加し、`LiminalogSchemaV1` / `SharedModelContainer` / Preview schema に登録、DEBUG開発ストア世代を `2026060102` へ更新。友達共有スナップショットには任意の `categoryID` を追加し、通常公開時はカテゴリ対応に使えるようにしつつ、`freeTimeOnly` の予定では categoryID も nil にして匿名化を維持。`FriendCategoryMappingResolver` で共有予定/実績からカテゴリ記述子を抽出し、同名のデフォルトカテゴリだけを自動マッピングする。docs/04のスナップショット実装メモも同期。多対一モデル保存、カテゴリ記述子抽出、自動マッピングが既存手動設定/カスタムカテゴリを上書きしないことをテスト化。検証: `xcodebuild test -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' -derivedDataPath /private/tmp/LiminalogDerivedData` 成功（44 tests / 12 suites）。手動マッピングUI、比較表示時のカラー統一スイッチ、未マッピング促しはClaude/UIタスクとして継続。 |
 | 2026-06-01 | Codex | Phase 3 公開設定フィルター品質対応。友達共有用の `FriendSharedPlanSnapshot.snapshots` / `FriendSharedActivitySnapshot.snapshots` に `VisibilityPreset` を任意指定できるようにし、既存の `isPublic` 境界に加えて publishMode none / 旧level none、カテゴリ除外、メモ・気分・場所の隠蔽、予定の空き時間のみ（タイトル/カテゴリ/色を「予定あり」へ匿名化）を適用。写真は共有スナップショットにフィールドがないため現時点で漏れない。`PublishMode.nextDay` の実配信タイミングと CKShare 実送受信は Developer/CloudKit 環境が必要な別タスクとして残す。検証: `xcodebuild test -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' -derivedDataPath /private/tmp/LiminalogDerivedData` 成功（41 tests / 11 suites）。`xcodebuild -scheme Liminalog -destination generic/platform=iOS -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功。 |
 | 2026-06-01 | Codex | liminal UI 着手（branch `codex/liminal-ui-overhaul`）。(1) `DailyReflectionCard`（二重24hリング・twilightカード・グレイン/glow・「明日はどうする？」CTA）を昨日ページに追加。(2) twilight 視覚システムを全画面適用：`LiminalTheme` 共有化＋`preferredColorScheme(.dark)`固定＋テーマトークン（Primary `#C9A7FF`/Reward `#FFE3A3`）＋視認性正規化 `liminalReadableDataColor`(WCAG≥3:1・色相保持) を `Category.displayColor` として全データvizに配線。island問題解消。**Claudeレビュー: ビジュアル/テーマ/視認性は docs/13 §2/§7 通りで合格。ただしカード中身（ペルソナ）が暫定スタブのまま＝睡眠が見出しに（§5原則2違反）＋声が優しいコーチ口調で自虐トーン未反映。是正は §7.7.1 に起票。** |
