@@ -217,6 +217,8 @@ public final class UnlockItem {
     public var key: String = ""                    // "theme.spring" など識別子
     public var kindRawValue: String = UnlockKind.theme.rawValue
     public var requiredCumulativeScore: Int = 0
+    public var requirementKindRawValue: String = UnlockRequirementKind.cumulativeScore.rawValue
+    public var requiredValue: Int = 0
     public var unlockedAt: Date? = nil             // nil = 未解放
     public var displayName: String = ""
     public var systemImageName: String = "sparkles"
@@ -229,6 +231,16 @@ public final class UnlockItem {
     public var updatedAt: Date = Date()
 
     public init() {}
+}
+
+public enum UnlockRequirementKind: String, Codable {
+    case cumulativeScore      // 累計スコア
+    case recordedDays         // 記録日数
+    case recordedHours        // 累計記録時間
+    case streakDays           // 連続達成日数
+    case earlyRecordDays      // 朝の記録日数
+    case lateNightRecordDays  // 深夜の記録日数
+    case distinctCategoryCount
 }
 
 public enum UnlockKind: String, Codable {
@@ -246,13 +258,13 @@ public enum UnlockKind: String, Codable {
 
 **運用**
 - 初回起動時にマスター26件を seed
-- 累計スコア計算時に「未解放で `requiredCumulativeScore` を超えたもの」を `unlockedAt = Date()` で更新
-- 解放スケジュール（仕様書）は seed データで `requiredCumulativeScore` を逆算してハードコード。現行は「合格ライン=60pt/日」を基準に、7日目から365日目まで26件を段階配置する
+- プロフィール集計時に `UnlockMetrics`（累計スコア、記録日数、累計記録時間、ストリーク、朝/深夜記録、カテゴリ種類数）を作り、未解放で `requirementKindRawValue` / `requiredValue` を満たしたものを `unlockedAt = Date()` で更新
+- 解放スケジュール（仕様書）は seed データで `requiredCumulativeScore` を逆算してハードコード。現行は「合格ライン=60pt/日」を基準に、7日目から365日目まで26件を段階配置しつつ、表示順・長期ロードマップ用の累計スコア閾値と、実際の解放条件を分けて保持する
 - 解放済みアイテムは失効させない。長期離脱後も `unlockedAt` を保持し、次の未解放アイテムへの進捗だけを再計算する
 
 **マスターデータ管理**
 - `UnlockItem` は CloudKit 同期する（解放済み状態はデバイス横断で一貫）
-- 新規マスター追加時は、起動時に「既存 key 以外」を追記 seed
+- 新規マスター追加時は、起動時に「既存 key 以外」を追記 seed。既存 key は表示名・種類・条件種別・必要値などのマスター定義を上書き同期する
 - `key` は論理一意キーだが `@Attribute(.unique)` は付けない。重複が同期された場合は `SeedCoordinator` が同じ `key` を1件に統合し、`unlockedAt` は最古の値を保持する
 
 ### 3.2 CalendarEventCache

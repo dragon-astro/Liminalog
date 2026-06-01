@@ -425,9 +425,9 @@ refactor: split plan store
 
 - [ ] 装飾アイテムモデル設計（フレーム/バッジ/炎/アイコンセット/テーマ/バー/カード/月アート の8種類）<!-- 担当: Codex, 2026-06-01: UnlockItem / UnlockCatalog / UnlockKind の土台は実装済み。月アート/アイコンセットなど最終分類整理は残 -->
 - [x] 装着状態の永続化（`UserSettings` または専用モデルで「装着中アイテムID」を保持）<!-- 担当: Codex, 完了: 2026-06-01: UserSettings の profileBadgeID/profileIconFrameID/profileStreakIconID/profileCardStyleID を保存元とし、ProfileDecorationUnlocks で未解放IDをdefaultへ戻す -->
-- [ ] 解放条件判定ロジック（累計時間/ストリーク/パターン達成）<!-- 担当: Codex, 2026-06-01: 累計スコア閾値による解放は実装済み。ストリーク/パターン専用条件は未実装 -->
+- [x] 解放条件判定ロジック（累計時間/ストリーク/パターン達成）<!-- 担当: Codex, 完了: 2026-06-01: UnlockRequirementKind / UnlockMetrics を追加し、累計スコア・記録日数・累計記録時間・ストリーク・朝/深夜記録・カテゴリ種類数で解放判定できるようにした -->
 - [ ] コレクションハブ UI（種類別タブ、解放済/未解放、装着切替）<!-- 担当: Claude, 理由: SwiftUI レイアウト勝負 -->
-- [x] 「次に狙う解放」セクション（達成までの近さでソート）<!-- 担当: Codex, 完了: 2026-06-01: ProfileUnlockTargetCatalog で未解放アイテムを残りスコア昇順に上位3件抽出し、プロフィールに進捗カードを表示 -->
+- [x] 「次に狙う解放」セクション（達成までの近さでソート）<!-- 担当: Codex, 完了: 2026-06-01: ProfileUnlockTargetCatalog で未解放アイテムを条件別進捗順に上位3件抽出し、プロフィールに進捗カードを表示 -->
 - [x] プロフィール画像フレームの装着レンダリング<!-- 担当: Codex, 完了確認: 2026-06-01: ProfileHero/ProfilePhotoView が装着中 ProfileIconFrameStyle を受け取り、ProfileIconFrameView でプロフィール画像外周へ反映済み -->
 - [x] 名前バッジの装着レンダリング<!-- 担当: Codex, 完了確認: 2026-06-01: ProfileHero の EquippedBadgePill が装着中 ProfileBadgeModel のアイコン/名称/色を表示済み -->
 - [x] ストリーク炎バリエーションの装着レンダリング<!-- 担当: Codex, 完了確認: 2026-06-01: ProfileStatsRow が装着中 ProfileStreakIconStyle の systemImage/tintHex をストリーク統計へ反映済み -->
@@ -501,12 +501,12 @@ refactor: split plan store
 
 ### 7.3 アンロックシステム
 
-- [x] `UnlockItem` モデル定義 <!-- 担当: Codex, 完了: 2026-06-01。CloudKit互換のdefault値つきSwiftDataモデルとして key/kindRawValue/requiredCumulativeScore/unlockedAt/targetID/sortOrder を保持 -->
-- [x] `UnlockRules` 純粋関数（累計スコア → 解放判定）<!-- 担当: Codex, 完了: 2026-06-01。60pt/日を合格ラインとして7日目〜365日目の累計スコア閾値から解放key/次アイテム/進捗を算出 -->
+- [x] `UnlockItem` モデル定義 <!-- 担当: Codex, 完了: 2026-06-01。CloudKit互換のdefault値つきSwiftDataモデルとして key/kindRawValue/requiredCumulativeScore/requirementKindRawValue/requiredValue/unlockedAt/targetID/sortOrder を保持 -->
+- [x] `UnlockRules` 純粋関数（複数メトリクス → 解放判定）<!-- 担当: Codex, 完了: 2026-06-01。60pt/日を合格ラインとする累計スコア閾値に加え、記録日数/累計記録時間/ストリーク/朝・深夜記録/カテゴリ種類数の条件で解放key/次アイテム/進捗を算出 -->
 - [x] マスターデータ seed（26件・解放スケジュール逆算）<!-- 担当: Codex, 完了: 2026-06-01。週1×12、隔週×6、6〜9ヶ月×5、9〜12ヶ月×3の26件を `UnlockCatalog` に固定。解放後は失効しない -->
-- [x] `UnlockRulesTests` <!-- 担当: Codex, 完了: 2026-06-01。カタログ26件/閾値/seed重複統合/再評価で再解放・失効しないことを検証 -->
-- [x] `UnlockStore` 実装（解放トリガー・状態管理）<!-- 担当: Codex, 完了: 2026-06-01。起動時seed、プロフィール集計時の累計スコアrefresh、重複key統合、最古unlockedAt保持を実装 -->
-- [x] プロフィール画面のアンロック進捗カード <!-- 担当: Codex, 完了: 2026-06-01: 次の解放カードとして未解放アイテムの残りpt/進捗率/種類を表示。全解放時は完了状態カードへ切替 -->
+- [x] `UnlockRulesTests` <!-- 担当: Codex, 完了: 2026-06-01。カタログ26件/閾値/条件種別/seed重複統合/ストリーク・朝記録・カテゴリ種類数解放/再評価で再解放・失効しないことを検証 -->
+- [x] `UnlockStore` 実装（解放トリガー・状態管理）<!-- 担当: Codex, 完了: 2026-06-01。起動時seed、プロフィール集計時の UnlockMetrics refresh、重複key統合、最古unlockedAt保持を実装 -->
+- [x] プロフィール画面のアンロック進捗カード <!-- 担当: Codex, 完了: 2026-06-01: 次の解放カードとして未解放アイテムの残り条件/進捗率/種類を表示。全解放時は完了状態カードへ切替 -->
 - [ ] `UnlockGalleryView`（解放済みコレクション一覧）<!-- 担当: Claude -->
 - [ ] アンロック解放時の通知・お祝い演出 <!-- 担当: Claude, 理由: SwiftUIアニメ -->
 
@@ -797,6 +797,7 @@ refactor: split plan store
 
 | 日付 | 担当 | 内容 |
 |---|---|---|
+| 2026-06-01 | Codex | Phase 2 アンロック条件判定を累計スコア専用から `UnlockMetrics` ベースへ拡張。`UnlockItem` に `requirementKindRawValue` / `requiredValue` を追加し、マスターseedの条件更新、`UnlockStore.refresh(metrics:)`、プロフィール集計からの記録日数・累計記録時間・ストリーク・朝/深夜記録日数・カテゴリ種類数算出、「次の解放」カードの条件別残り表示へ接続した。DEBUG開発ストア世代も `2026060105` へ更新。CSV書き出しは不要・スコープ外を維持。検証: `git diff --check` 成功、`xcodebuild test -scheme Liminalog -destination 'id=72181B45-004C-49C5-931F-AE873C13CD9C' -derivedDataPath /private/tmp/LiminalogDerivedData -only-testing:LiminalogTests/UnlockRulesTests -only-testing:LiminalogTests/ProfileUnlockTargetsTests` 成功（8 tests / 2 suites）、`xcodebuild test-without-building -scheme Liminalog -destination 'id=72181B45-004C-49C5-931F-AE873C13CD9C' -derivedDataPath /private/tmp/LiminalogDerivedData` 成功（69 tests / 18 suites）、`xcodebuild -scheme Liminalog -destination generic/platform=iOS -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功。 |
 | 2026-06-01 | Codex | Phase 0 DEBUG seed隔離を完了。`ChapterStore` に残っていた preview/dev runtime seed本体を `PreviewRuntimeSeedSupport` へ移し、`ChapterStore` はDEBUG専用の薄い入口だけに縮小。`RootTabView` の判定は `PreviewSupport.runtimeSeedRequest()` に集約し、UserDefaults / 起動引数 / 環境変数で `LiminalogSeedPreviewData` または `LiminalogSeedDevData` が明示された場合だけ投入する。通常の実機DEBUG起動ではデモ予定/実績が入らないことをテスト化し、docs/01〜03の該当記述も更新。CSV書き出しは不要・スコープ外を維持。検証: `git diff --check` 成功、`xcodebuild test -scheme Liminalog -destination 'id=72181B45-004C-49C5-931F-AE873C13CD9C' -derivedDataPath /private/tmp/LiminalogDerivedData -only-testing:LiminalogTests/ChapterStoreTests` 成功（10 tests / 1 suite）、`xcodebuild test-without-building -scheme Liminalog -destination 'id=72181B45-004C-49C5-931F-AE873C13CD9C' -derivedDataPath /private/tmp/LiminalogDerivedData` 成功（68 tests / 18 suites）、`xcodebuild -scheme Liminalog -destination generic/platform=iOS -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功。 |
 | 2026-06-01 | Codex | Phase 0 Swift Package化前の小掃除として、Widget側に残っていた `Color(hex:)` のfile-private重複実装を削除。`LiminalogLiveActivityWidget` と `RecordingGridWidget` は新規 `WidgetColor+Hex.swift` の `Color.cachedHex` を使うようにし、Widget target内でhexパース/キャッシュを1箇所へ統一した。CSV書き出しは不要・スコープ外を維持。検証: `git diff --check` 成功、`xcodebuild -scheme Liminalog -destination generic/platform=iOS -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功、`xcodebuild test-without-building -scheme Liminalog -destination 'id=72181B45-004C-49C5-931F-AE873C13CD9C' -derivedDataPath /private/tmp/LiminalogDerivedData` 成功（67 tests / 18 suites）。 |
 | 2026-06-01 | Codex | DailyCardEngineのペルソナ/称号判定をdocs/12 §6へ拡張。4クロノタイプ×3集中形の12称号表、docs/12 §6.7コピーのmessage配列、予定一致/風まかせ/ガチ充電/行方不明の床・レア型、初記録/久々/いつもより増減signalとfact stripを実装し、日付seedで安定して文言を選ぶようにした。検出器カタログ全12型のうち、体感換算・気分・友達・ユーザー宣言・昨日と同型回避は後続に残す。CSV書き出しは不要・スコープ外を維持。検証: `git diff --check` 成功、`xcodebuild test -scheme Liminalog -destination 'id=72181B45-004C-49C5-931F-AE873C13CD9C' -derivedDataPath /private/tmp/LiminalogDerivedData -only-testing:LiminalogTests/DailyCardEngineTests` 成功（5 tests / 1 suite）、`xcodebuild test-without-building -scheme Liminalog -destination 'id=72181B45-004C-49C5-931F-AE873C13CD9C' -derivedDataPath /private/tmp/LiminalogDerivedData` 成功（67 tests / 18 suites）、`xcodebuild -scheme Liminalog -destination generic/platform=iOS -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功。 |

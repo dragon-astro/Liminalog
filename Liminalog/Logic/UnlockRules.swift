@@ -1,9 +1,84 @@
 import Foundation
 
+enum UnlockRequirementKind: String, Codable, CaseIterable, Identifiable {
+    case cumulativeScore
+    case recordedDays
+    case recordedHours
+    case streakDays
+    case earlyRecordDays
+    case lateNightRecordDays
+    case distinctCategoryCount
+
+    var id: String { rawValue }
+
+    var unitLabel: String {
+        switch self {
+        case .cumulativeScore:
+            "pt"
+        case .recordedDays:
+            "日"
+        case .recordedHours:
+            "時間"
+        case .streakDays:
+            "日連続"
+        case .earlyRecordDays:
+            "朝"
+        case .lateNightRecordDays:
+            "深夜"
+        case .distinctCategoryCount:
+            "種類"
+        }
+    }
+}
+
+struct UnlockMetrics: Equatable {
+    var cumulativeScore: Int = 0
+    var recordedDays: Int = 0
+    var recordedHours: Int = 0
+    var streakDays: Int = 0
+    var earlyRecordDays: Int = 0
+    var lateNightRecordDays: Int = 0
+    var distinctCategoryCount: Int = 0
+
+    static func score(_ cumulativeScore: Int) -> UnlockMetrics {
+        UnlockMetrics(cumulativeScore: cumulativeScore)
+    }
+
+    func value(for kind: UnlockRequirementKind) -> Int {
+        switch kind {
+        case .cumulativeScore:
+            cumulativeScore
+        case .recordedDays:
+            recordedDays
+        case .recordedHours:
+            recordedHours
+        case .streakDays:
+            streakDays
+        case .earlyRecordDays:
+            earlyRecordDays
+        case .lateNightRecordDays:
+            lateNightRecordDays
+        case .distinctCategoryCount:
+            distinctCategoryCount
+        }
+    }
+}
+
+struct UnlockRequirement: Hashable {
+    let kind: UnlockRequirementKind
+    let value: Int
+
+    static func cumulativeScore(_ value: Int) -> UnlockRequirement {
+        UnlockRequirement(kind: .cumulativeScore, value: value)
+    }
+}
+
 struct UnlockCatalogItem: Hashable, Identifiable {
     let key: String
     let kind: UnlockKind
     let requiredCumulativeScore: Int
+    let requirementKind: UnlockRequirementKind
+    let requiredValue: Int
     let displayName: String
     let systemImageName: String
     let tintHex: String
@@ -27,6 +102,8 @@ enum UnlockCatalog {
             key: definition.key,
             kind: definition.kind,
             requiredCumulativeScore: releaseScheduleDays[index] * scorePerPassingDay,
+            requirementKind: definition.requirement?.kind ?? .cumulativeScore,
+            requiredValue: definition.requirement?.value ?? releaseScheduleDays[index] * scorePerPassingDay,
             displayName: definition.displayName,
             systemImageName: definition.systemImageName,
             tintHex: definition.tintHex,
@@ -35,45 +112,67 @@ enum UnlockCatalog {
         )
     }
 
-    private static let definitions: [(key: String, kind: UnlockKind, displayName: String, systemImageName: String, tintHex: String, targetID: String)] = [
-        ("badge.first_record", .nameBadge, "はじめの記録", "sparkles", "#2F80ED", "first_record"),
-        ("card.glass", .cardStyle, "Glass Card", "sparkle.magnifyingglass", "#2F80ED", "glass"),
-        ("frame.signal", .iconFrame, "Signal Frame", "dot.radiowaves.left.and.right", "#00A8A8", "signal"),
-        ("streak.gold_flame", .streakIcon, "金の炎", "flame.fill", "#F2C94C", "bolt"),
-        ("badge.three_days", .nameBadge, "3日記録", "calendar.badge.checkmark", "#27AE60", "three_days"),
-        ("theme.akane", .theme, "茜 / Akane", "sunset.fill", "#D9664A", "akane"),
-        ("card.dawn", .cardStyle, "Dawn Card", "sunrise.fill", "#F2994A", "dawn"),
-        ("frame.focus", .iconFrame, "Focus Frame", "scope", "#EB5757", "focus"),
-        ("badge.ten_hours", .nameBadge, "10時間", "clock.fill", "#6C5CE7", "ten_hours"),
-        ("streak.orange_flame", .streakIcon, "橙の炎", "flame.fill", "#F2994A", "sun"),
-        ("stamp.daybreak", .stamp, "Daybreak Stamp", "sun.max.fill", "#F2C94C", "daybreak"),
-        ("badge.morning", .nameBadge, "朝の記録", "sunrise.fill", "#F2994A", "morning"),
-        ("card.mint", .cardStyle, "Mint Card", "leaf.fill", "#27AE60", "mint"),
-        ("frame.crown", .iconFrame, "Crown Frame", "crown.fill", "#F2C94C", "crown"),
-        ("theme.oboro", .theme, "朧 / Oboro", "moon.haze.fill", "#9A93B5", "oboro"),
-        ("badge.seven_streak", .nameBadge, "7日連続", "flame.fill", "#EB5757", "seven_streak"),
-        ("bar.gradient", .barStyle, "Gradient Bar", "chart.bar.fill", "#C9A7FF", "gradient"),
-        ("stamp.twilight", .stamp, "Twilight Stamp", "sparkles", "#C9A7FF", "twilight"),
-        ("app_icon.dusk", .appIcon, "Dusk Icon", "app.fill", "#6B3FA0", "dusk"),
-        ("theme.tsukishiro", .theme, "月白 / Tsukishiro", "moon.stars.fill", "#D8ECFF", "tsukishiro"),
-        ("card_template.mist", .cardTemplate, "Mist Card", "rectangle.on.rectangle.angled", "#8AB4FF", "mist"),
-        ("streak.purple_flame", .streakIcon, "紫の炎", "flame.fill", "#6C5CE7", "spark"),
-        ("theme.zansho", .theme, "残照 / Zansho", "sunset.circle.fill", "#FFE3A3", "zansho"),
-        ("app_icon.daybreak", .appIcon, "Daybreak Icon", "app.badge.fill", "#F2994A", "daybreak"),
-        ("theme.hisui", .theme, "翡翠 / Hisui", "leaf.circle.fill", "#00A8A8", "hisui"),
-        ("theme.ruri", .theme, "瑠璃 / Ruri", "circle.hexagongrid.fill", "#4C6FFF", "ruri")
+    private static let definitions: [(key: String, kind: UnlockKind, displayName: String, systemImageName: String, tintHex: String, targetID: String, requirement: UnlockRequirement?)] = [
+        ("badge.first_record", .nameBadge, "はじめの記録", "sparkles", "#2F80ED", "first_record", .init(kind: .recordedDays, value: 1)),
+        ("card.glass", .cardStyle, "Glass Card", "sparkle.magnifyingglass", "#2F80ED", "glass", nil),
+        ("frame.signal", .iconFrame, "Signal Frame", "dot.radiowaves.left.and.right", "#00A8A8", "signal", .init(kind: .distinctCategoryCount, value: 3)),
+        ("streak.gold_flame", .streakIcon, "金の炎", "flame.fill", "#F2C94C", "bolt", .init(kind: .streakDays, value: 7)),
+        ("badge.three_days", .nameBadge, "3日記録", "calendar.badge.checkmark", "#27AE60", "three_days", .init(kind: .recordedDays, value: 3)),
+        ("theme.akane", .theme, "茜 / Akane", "sunset.fill", "#D9664A", "akane", nil),
+        ("card.dawn", .cardStyle, "Dawn Card", "sunrise.fill", "#F2994A", "dawn", .init(kind: .earlyRecordDays, value: 3)),
+        ("frame.focus", .iconFrame, "Focus Frame", "scope", "#EB5757", "focus", nil),
+        ("badge.ten_hours", .nameBadge, "10時間", "clock.fill", "#6C5CE7", "ten_hours", .init(kind: .recordedHours, value: 10)),
+        ("streak.orange_flame", .streakIcon, "橙の炎", "flame.fill", "#F2994A", "sun", .init(kind: .streakDays, value: 14)),
+        ("stamp.daybreak", .stamp, "Daybreak Stamp", "sun.max.fill", "#F2C94C", "daybreak", .init(kind: .earlyRecordDays, value: 7)),
+        ("badge.morning", .nameBadge, "朝の記録", "sunrise.fill", "#F2994A", "morning", .init(kind: .earlyRecordDays, value: 1)),
+        ("card.mint", .cardStyle, "Mint Card", "leaf.fill", "#27AE60", "mint", nil),
+        ("frame.crown", .iconFrame, "Crown Frame", "crown.fill", "#F2C94C", "crown", nil),
+        ("theme.oboro", .theme, "朧 / Oboro", "moon.haze.fill", "#9A93B5", "oboro", .init(kind: .lateNightRecordDays, value: 3)),
+        ("badge.seven_streak", .nameBadge, "7日連続", "flame.fill", "#EB5757", "seven_streak", .init(kind: .streakDays, value: 7)),
+        ("bar.gradient", .barStyle, "Gradient Bar", "chart.bar.fill", "#C9A7FF", "gradient", .init(kind: .distinctCategoryCount, value: 5)),
+        ("stamp.twilight", .stamp, "Twilight Stamp", "sparkles", "#C9A7FF", "twilight", .init(kind: .lateNightRecordDays, value: 7)),
+        ("app_icon.dusk", .appIcon, "Dusk Icon", "app.fill", "#6B3FA0", "dusk", nil),
+        ("theme.tsukishiro", .theme, "月白 / Tsukishiro", "moon.stars.fill", "#D8ECFF", "tsukishiro", nil),
+        ("card_template.mist", .cardTemplate, "Mist Card", "rectangle.on.rectangle.angled", "#8AB4FF", "mist", nil),
+        ("streak.purple_flame", .streakIcon, "紫の炎", "flame.fill", "#6C5CE7", "spark", .init(kind: .streakDays, value: 30)),
+        ("theme.zansho", .theme, "残照 / Zansho", "sunset.circle.fill", "#FFE3A3", "zansho", nil),
+        ("app_icon.daybreak", .appIcon, "Daybreak Icon", "app.badge.fill", "#F2994A", "daybreak", nil),
+        ("theme.hisui", .theme, "翡翠 / Hisui", "leaf.circle.fill", "#00A8A8", "hisui", nil),
+        ("theme.ruri", .theme, "瑠璃 / Ruri", "circle.hexagongrid.fill", "#4C6FFF", "ruri", nil)
     ]
 }
 
 enum UnlockRules {
+    static func isUnlocked(
+        _ item: UnlockCatalogItem,
+        metrics: UnlockMetrics
+    ) -> Bool {
+        guard item.requiredValue > 0 else { return true }
+        return metrics.value(for: item.requirementKind) >= item.requiredValue
+    }
+
+    static func isUnlocked(
+        _ item: UnlockItem,
+        metrics: UnlockMetrics
+    ) -> Bool {
+        guard item.requiredValue > 0 else { return true }
+        return metrics.value(for: item.requirementKind) >= item.requiredValue
+    }
+
     static func unlockedKeys(
         cumulativeScore: Int,
         catalog: [UnlockCatalogItem] = UnlockCatalog.items
     ) -> Set<String> {
-        guard cumulativeScore > 0 else { return [] }
+        unlockedKeys(metrics: .score(cumulativeScore), catalog: catalog)
+    }
+
+    static func unlockedKeys(
+        metrics: UnlockMetrics,
+        catalog: [UnlockCatalogItem] = UnlockCatalog.items
+    ) -> Set<String> {
         return Set(
             catalog
-                .filter { $0.requiredCumulativeScore <= cumulativeScore }
+                .filter { isUnlocked($0, metrics: metrics) }
                 .map(\.key)
         )
     }
@@ -82,9 +181,15 @@ enum UnlockRules {
         cumulativeScore: Int,
         items: [UnlockItem]
     ) -> [UnlockItem] {
-        guard cumulativeScore > 0 else { return [] }
+        itemsToUnlock(metrics: .score(cumulativeScore), items: items)
+    }
+
+    static func itemsToUnlock(
+        metrics: UnlockMetrics,
+        items: [UnlockItem]
+    ) -> [UnlockItem] {
         return items
-            .filter { $0.unlockedAt == nil && $0.requiredCumulativeScore <= cumulativeScore }
+            .filter { $0.unlockedAt == nil && isUnlocked($0, metrics: metrics) }
             .sorted {
                 if $0.sortOrder == $1.sortOrder {
                     return $0.key < $1.key
@@ -97,13 +202,27 @@ enum UnlockRules {
         cumulativeScore: Int,
         items: [UnlockItem]
     ) -> UnlockItem? {
+        nextLockedItem(metrics: .score(cumulativeScore), items: items)
+    }
+
+    static func nextLockedItem(
+        metrics: UnlockMetrics,
+        items: [UnlockItem]
+    ) -> UnlockItem? {
         items
-            .filter { $0.unlockedAt == nil && $0.requiredCumulativeScore > cumulativeScore }
+            .filter { $0.unlockedAt == nil && !isUnlocked($0, metrics: metrics) }
             .sorted {
-                if $0.requiredCumulativeScore == $1.requiredCumulativeScore {
+                let lhsProgress = progress(metrics: metrics, toward: $0)
+                let rhsProgress = progress(metrics: metrics, toward: $1)
+                if lhsProgress != rhsProgress {
+                    return lhsProgress > rhsProgress
+                }
+                let lhsRemaining = remainingValue(metrics: metrics, toward: $0)
+                let rhsRemaining = remainingValue(metrics: metrics, toward: $1)
+                if lhsRemaining == rhsRemaining {
                     return $0.sortOrder < $1.sortOrder
                 }
-                return $0.requiredCumulativeScore < $1.requiredCumulativeScore
+                return lhsRemaining < rhsRemaining
             }
             .first
     }
@@ -112,7 +231,22 @@ enum UnlockRules {
         cumulativeScore: Int,
         toward item: UnlockItem
     ) -> Double {
-        guard item.requiredCumulativeScore > 0 else { return 1 }
-        return min(max(Double(cumulativeScore) / Double(item.requiredCumulativeScore), 0), 1)
+        progress(metrics: .score(cumulativeScore), toward: item)
+    }
+
+    static func progress(
+        metrics: UnlockMetrics,
+        toward item: UnlockItem
+    ) -> Double {
+        guard item.requiredValue > 0 else { return 1 }
+        let currentValue = metrics.value(for: item.requirementKind)
+        return min(max(Double(currentValue) / Double(item.requiredValue), 0), 1)
+    }
+
+    static func remainingValue(
+        metrics: UnlockMetrics,
+        toward item: UnlockItem
+    ) -> Int {
+        max(item.requiredValue - metrics.value(for: item.requirementKind), 0)
     }
 }

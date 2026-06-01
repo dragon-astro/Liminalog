@@ -39,9 +39,14 @@ final class UnlockStore {
 
     @discardableResult
     func refresh(cumulativeScore: Int, now: Date = Date()) -> [UnlockItem] {
+        refresh(metrics: .score(cumulativeScore), now: now)
+    }
+
+    @discardableResult
+    func refresh(metrics: UnlockMetrics, now: Date = Date()) -> [UnlockItem] {
         let items = seedMasterItems(now: now)
         let newlyUnlocked = UnlockRules.itemsToUnlock(
-            cumulativeScore: cumulativeScore,
+            metrics: metrics,
             items: items
         )
 
@@ -59,8 +64,12 @@ final class UnlockStore {
     }
 
     func nextLockedItem(cumulativeScore: Int) -> UnlockItem? {
+        nextLockedItem(metrics: .score(cumulativeScore))
+    }
+
+    func nextLockedItem(metrics: UnlockMetrics) -> UnlockItem? {
         UnlockRules.nextLockedItem(
-            cumulativeScore: cumulativeScore,
+            metrics: metrics,
             items: allItems()
         )
     }
@@ -88,6 +97,8 @@ final class UnlockStore {
 
         update(\.kindRawValue, to: seed.kind.rawValue)
         update(\.requiredCumulativeScore, to: seed.requiredCumulativeScore)
+        update(\.requirementKindRawValue, to: seed.requirementKind.rawValue)
+        update(\.requiredValue, to: seed.requiredValue)
         update(\.displayName, to: seed.displayName)
         update(\.systemImageName, to: seed.systemImageName)
         update(\.tintHex, to: seed.tintHex)

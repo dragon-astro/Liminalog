@@ -8,7 +8,10 @@ struct ProfileUnlockTarget: Identifiable, Equatable {
     let systemImageName: String
     let tintHex: String
     let requiredCumulativeScore: Int
-    let remainingScore: Int
+    let requirementKind: UnlockRequirementKind
+    let requiredValue: Int
+    let currentValue: Int
+    let remainingValue: Int
     let progress: Double
     let sortOrder: Int
 
@@ -38,6 +41,26 @@ struct ProfileUnlockTarget: Identifiable, Equatable {
             return "カード"
         }
     }
+
+    var remainingText: String {
+        guard remainingValue > 0 else { return "受け取り待ち" }
+        switch requirementKind {
+        case .cumulativeScore:
+            return "あと \(remainingValue.formatted())pt"
+        case .recordedDays:
+            return "あと \(remainingValue.formatted())日"
+        case .recordedHours:
+            return "あと \(remainingValue.formatted())時間"
+        case .streakDays:
+            return "あと \(remainingValue.formatted())日連続"
+        case .earlyRecordDays:
+            return "あと \(remainingValue.formatted())回 朝記録"
+        case .lateNightRecordDays:
+            return "あと \(remainingValue.formatted())回 深夜記録"
+        case .distinctCategoryCount:
+            return "あと \(remainingValue.formatted())種類"
+        }
+    }
 }
 
 enum ProfileUnlockTargetCatalog {
@@ -46,13 +69,20 @@ enum ProfileUnlockTargetCatalog {
         unlockItems: [UnlockItem],
         limit: Int = 3
     ) -> [ProfileUnlockTarget] {
+        targets(metrics: .score(cumulativeScore), unlockItems: unlockItems, limit: limit)
+    }
+
+    static func targets(
+        metrics: UnlockMetrics,
+        unlockItems: [UnlockItem],
+        limit: Int = 3
+    ) -> [ProfileUnlockTarget] {
         guard limit > 0 else { return [] }
-        let currentScore = max(cumulativeScore, 0)
 
         return unlockItems
             .filter { $0.unlockedAt == nil && !$0.targetID.isEmpty }
             .map { item in
-                let remainingScore = max(item.requiredCumulativeScore - currentScore, 0)
+                let currentValue = metrics.value(for: item.requirementKind)
                 return ProfileUnlockTarget(
                     id: item.key,
                     key: item.key,
@@ -61,16 +91,22 @@ enum ProfileUnlockTargetCatalog {
                     systemImageName: item.systemImageName,
                     tintHex: item.tintHex,
                     requiredCumulativeScore: item.requiredCumulativeScore,
-                    remainingScore: remainingScore,
-                    progress: UnlockRules.progress(cumulativeScore: currentScore, toward: item),
+                    requirementKind: item.requirementKind,
+                    requiredValue: item.requiredValue,
+                    currentValue: currentValue,
+                    remainingValue: UnlockRules.remainingValue(metrics: metrics, toward: item),
+                    progress: UnlockRules.progress(metrics: metrics, toward: item),
                     sortOrder: item.sortOrder
                 )
             }
             .sorted {
-                if $0.remainingScore == $1.remainingScore {
+                if $0.progress != $1.progress {
+                    return $0.progress > $1.progress
+                }
+                if $0.remainingValue == $1.remainingValue {
                     return $0.sortOrder < $1.sortOrder
                 }
-                return $0.remainingScore < $1.remainingScore
+                return $0.remainingValue < $1.remainingValue
             }
             .prefix(limit)
             .map { $0 }

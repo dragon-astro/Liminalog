@@ -44,7 +44,7 @@ struct ProfileView: View {
 
     private var badges: [ProfileBadgeModel] {
         ProfileBadgeCatalog.items(
-            cumulativeScore: performanceSnapshot.totalEarnedScore,
+            metrics: performanceSnapshot.unlockMetrics,
             unlockItems: unlockItems
         )
     }
@@ -55,7 +55,7 @@ struct ProfileView: View {
 
     private var nextUnlockTargets: [ProfileUnlockTarget] {
         ProfileUnlockTargetCatalog.targets(
-            cumulativeScore: performanceSnapshot.totalEarnedScore,
+            metrics: performanceSnapshot.unlockMetrics,
             unlockItems: unlockItems
         )
     }
@@ -163,7 +163,7 @@ struct ProfileView: View {
     private func refreshPerformanceSnapshot() {
         let snapshot = ProfilePerformanceSnapshot.load(modelContext: modelContext, now: Date())
         performanceSnapshot = snapshot
-        UnlockStore(modelContext: modelContext).refresh(cumulativeScore: snapshot.totalEarnedScore)
+        UnlockStore(modelContext: modelContext).refresh(metrics: snapshot.unlockMetrics)
     }
 
     private func saveProfile(_ draft: ProfileDraft) {
@@ -193,16 +193,20 @@ private struct ProfilePerformanceSnapshot {
     let streakCount: Int
     let recordedDayCount: Int
     let totalRecordedDuration: TimeInterval
-    let hasAnyRecord: Bool
-    let hasMorningRecord: Bool
+    let earlyRecordDayCount: Int
+    let lateNightRecordDayCount: Int
+    let distinctCategoryCount: Int
+    let unlockMetrics: UnlockMetrics
 
     static let empty = ProfilePerformanceSnapshot(
         totalEarnedScore: 0,
         streakCount: 0,
         recordedDayCount: 0,
         totalRecordedDuration: 0,
-        hasAnyRecord: false,
-        hasMorningRecord: false
+        earlyRecordDayCount: 0,
+        lateNightRecordDayCount: 0,
+        distinctCategoryCount: 0,
+        unlockMetrics: UnlockMetrics()
     )
 
     @MainActor
@@ -229,15 +233,40 @@ private struct ProfilePerformanceSnapshot {
             streak += 1
         }
 
+        let totalEarnedScore = summaries.reduce(0) { $0 + Int($1.totalScore.rounded()) }
+        let recordedDayStarts = Set(allChapters.map { DayBoundary.dayStart(for: $0.startTime, calendar: calendar) })
+        let completedChapters = allChapters.filter { $0.endTime != nil }
+        let earlyRecordDayCount = Set(completedChapters.compactMap { chapter -> Date? in
+            let hour = calendar.component(.hour, from: chapter.startTime)
+            guard (5..<9).contains(hour) else { return nil }
+            return DayBoundary.dayStart(for: chapter.startTime, calendar: calendar)
+        }).count
+        let lateNightRecordDayCount = Set(completedChapters.compactMap { chapter -> Date? in
+            let hour = calendar.component(.hour, from: chapter.startTime)
+            guard hour >= 23 || hour < 3 else { return nil }
+            return DayBoundary.dayStart(for: chapter.startTime, calendar: calendar)
+        }).count
+        let totalRecordedDuration = allChapters.reduce(0) { $0 + max(0, ($1.endTime ?? now).timeIntervalSince($1.startTime)) }
+        let distinctCategoryCount = Set(allChapters.compactMap { $0.category?.id }).count
+        let unlockMetrics = UnlockMetrics(
+            cumulativeScore: totalEarnedScore,
+            recordedDays: recordedDayStarts.count,
+            recordedHours: max(0, Int(totalRecordedDuration / 3600)),
+            streakDays: streak,
+            earlyRecordDays: earlyRecordDayCount,
+            lateNightRecordDays: lateNightRecordDayCount,
+            distinctCategoryCount: distinctCategoryCount
+        )
+
         return ProfilePerformanceSnapshot(
-            totalEarnedScore: summaries.reduce(0) { $0 + Int($1.totalScore.rounded()) },
+            totalEarnedScore: totalEarnedScore,
             streakCount: streak,
-            recordedDayCount: Set(allChapters.map { DayBoundary.dayStart(for: $0.startTime, calendar: calendar) }).count,
-            totalRecordedDuration: allChapters.reduce(0) { $0 + max(0, ($1.endTime ?? now).timeIntervalSince($1.startTime)) },
-            hasAnyRecord: !allChapters.isEmpty,
-            hasMorningRecord: allChapters.contains { chapter in
-                chapter.endTime != nil && calendar.component(.hour, from: chapter.startTime) < 9
-            }
+            recordedDayCount: recordedDayStarts.count,
+            totalRecordedDuration: totalRecordedDuration,
+            earlyRecordDayCount: earlyRecordDayCount,
+            lateNightRecordDayCount: lateNightRecordDayCount,
+            distinctCategoryCount: distinctCategoryCount,
+            unlockMetrics: unlockMetrics
         )
     }
 }
@@ -536,7 +565,7 @@ private struct ProfileUnlockTargetRow: View {
     }
 
     private var remainingLabel: String {
-        target.remainingScore > 0 ? "あと \(target.remainingScore.formatted())pt" : "受け取り待ち"
+        target.remainingText
     }
 
     var body: some View {
@@ -1195,7 +1224,7 @@ private enum ProfileBadgeCatalog {
         progressText: "初期"
     )
 
-    static func items(cumulativeScore: Int, unlockItems: [UnlockItem]) -> [ProfileBadgeModel] {
+    static func items(metrics: UnlockMetrics, unlockItems: [UnlockItem]) -> [ProfileBadgeModel] {
         let unlockedIDs = ProfileDecorationUnlocks(unlockItems: unlockItems).nameBadgeIDs
         let unlockBadges = unlockItems
             .filter { $0.kind == .nameBadge }
@@ -1212,7 +1241,7 @@ private enum ProfileBadgeCatalog {
                     systemImage: item.systemImageName,
                     tint: item.tintHex,
                     isUnlocked: unlockedIDs.contains(item.targetID),
-                    progressText: progressText(cumulativeScore: cumulativeScore, item: item)
+                    progressText: progressText(metrics: metrics, item: item)
                 )
             }
         return [defaultBadge] + unlockBadges
@@ -1228,12 +1257,12 @@ private enum ProfileBadgeCatalog {
         return badges.first ?? defaultBadge
     }
 
-    private static func progressText(cumulativeScore: Int, item: UnlockItem) -> String {
+    private static func progressText(metrics: UnlockMetrics, item: UnlockItem) -> String {
         if item.unlockedAt != nil {
             return "達成"
         }
-        guard item.requiredCumulativeScore > 0 else { return "0%" }
-        let percent = Int((UnlockRules.progress(cumulativeScore: cumulativeScore, toward: item) * 100).rounded(.down))
+        guard item.requiredValue > 0 else { return "0%" }
+        let percent = Int((UnlockRules.progress(metrics: metrics, toward: item) * 100).rounded(.down))
         return "\(percent)%"
     }
 }

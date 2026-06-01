@@ -21,6 +21,8 @@ final class UnlockItem {
     var key: String = ""
     var kindRawValue: String = UnlockKind.theme.rawValue
     var requiredCumulativeScore: Int = 0
+    var requirementKindRawValue: String = UnlockRequirementKind.cumulativeScore.rawValue
+    var requiredValue: Int = 0
     var unlockedAt: Date?
     var displayName: String = ""
     var systemImageName: String = "sparkles"
@@ -37,6 +39,11 @@ final class UnlockItem {
         set { kindRawValue = newValue.rawValue }
     }
 
+    var requirementKind: UnlockRequirementKind {
+        get { UnlockRequirementKind(rawValue: requirementKindRawValue) ?? .cumulativeScore }
+        set { requirementKindRawValue = newValue.rawValue }
+    }
+
     init() {}
 
     init(seed: UnlockCatalogItem, now: Date = Date()) {
@@ -44,6 +51,8 @@ final class UnlockItem {
         self.key = seed.key
         self.kindRawValue = seed.kind.rawValue
         self.requiredCumulativeScore = seed.requiredCumulativeScore
+        self.requirementKindRawValue = seed.requirementKind.rawValue
+        self.requiredValue = seed.requiredValue
         self.displayName = seed.displayName
         self.systemImageName = seed.systemImageName
         self.tintHex = seed.tintHex

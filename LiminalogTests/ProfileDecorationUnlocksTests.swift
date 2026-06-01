@@ -48,7 +48,7 @@ struct ProfileDecorationUnlocksTests {
 @MainActor
 struct ProfileUnlockTargetsTests {
     @Test
-    func targetsSortByRemainingScoreAndLimit() throws {
+    func targetsSortByProgressAndLimit() throws {
         let now = try #require(Calendar.liminalogTest.date(from: DateComponents(year: 2026, month: 6, day: 1)))
         let firstRecord = try unlockedItem(key: "badge.first_record", now: now)
         let glassCard = try lockedItem(key: "card.glass")
@@ -56,16 +56,18 @@ struct ProfileUnlockTargetsTests {
         let goldFlame = try lockedItem(key: "streak.gold_flame")
 
         let targets = ProfileUnlockTargetCatalog.targets(
-            cumulativeScore: 800,
+            metrics: UnlockMetrics(cumulativeScore: 800, distinctCategoryCount: 2),
             unlockItems: [signalFrame, goldFlame, firstRecord, glassCard],
             limit: 2
         )
 
         #expect(targets.map(\.key) == ["card.glass", "frame.signal"])
-        #expect(targets[0].remainingScore == 40)
+        #expect(targets[0].remainingValue == 40)
         #expect(targets[0].progressPercent == 95)
         #expect(targets[0].kindTitle == "カード")
-        #expect(targets[1].remainingScore == 460)
+        #expect(targets[1].requirementKind == .distinctCategoryCount)
+        #expect(targets[1].remainingValue == 1)
+        #expect(targets[1].remainingText == "あと 1種類")
     }
 
     @Test

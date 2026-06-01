@@ -18,21 +18,49 @@ struct UnlockRulesTests {
         #expect(thresholds.last == 365 * UnlockCatalog.scorePerPassingDay)
         #expect(Array(UnlockCatalog.releaseScheduleDays.prefix(12)) == [7, 14, 21, 28, 35, 42, 49, 56, 63, 70, 77, 84])
         #expect(Array(UnlockCatalog.releaseScheduleDays.suffix(3)) == [300, 330, 365])
+        #expect(Set(items.map(\.requirementKind)).isSuperset(of: [
+            .cumulativeScore,
+            .recordedDays,
+            .recordedHours,
+            .streakDays,
+            .earlyRecordDays,
+            .lateNightRecordDays,
+            .distinctCategoryCount
+        ]))
     }
 
     @Test
-    func rulesUnlockItemsAtCumulativeScoreThresholds() {
+    func rulesUnlockItemsAtRequirementThresholds() {
         #expect(UnlockRules.unlockedKeys(cumulativeScore: -1).isEmpty)
         #expect(UnlockRules.unlockedKeys(cumulativeScore: 0).isEmpty)
-        #expect(UnlockRules.unlockedKeys(cumulativeScore: 419).isEmpty)
+        #expect(UnlockRules.unlockedKeys(cumulativeScore: 839).isEmpty)
 
-        let firstThresholdKeys = UnlockRules.unlockedKeys(cumulativeScore: 420)
-        #expect(firstThresholdKeys == Set(["badge.first_record"]))
+        let firstRecordKeys = UnlockRules.unlockedKeys(metrics: UnlockMetrics(recordedDays: 1))
+        #expect(firstRecordKeys == Set(["badge.first_record"]))
 
-        let secondThresholdKeys = UnlockRules.unlockedKeys(cumulativeScore: 840)
-        #expect(secondThresholdKeys == Set(["badge.first_record", "card.glass"]))
+        let firstScoreKeys = UnlockRules.unlockedKeys(cumulativeScore: 840)
+        #expect(firstScoreKeys == Set(["card.glass"]))
 
-        let allKeys = UnlockRules.unlockedKeys(cumulativeScore: 21_900)
+        let patternKeys = UnlockRules.unlockedKeys(
+            metrics: UnlockMetrics(
+                streakDays: 7,
+                earlyRecordDays: 1,
+                distinctCategoryCount: 3
+            )
+        )
+        #expect(patternKeys == Set(["frame.signal", "streak.gold_flame", "badge.morning", "badge.seven_streak"]))
+
+        let allKeys = UnlockRules.unlockedKeys(
+            metrics: UnlockMetrics(
+                cumulativeScore: 21_900,
+                recordedDays: 365,
+                recordedHours: 10,
+                streakDays: 30,
+                earlyRecordDays: 7,
+                lateNightRecordDays: 7,
+                distinctCategoryCount: 5
+            )
+        )
         #expect(allKeys.count == 26)
         #expect(allKeys.contains("theme.ruri"))
     }
@@ -54,6 +82,8 @@ struct UnlockRulesTests {
         let first = try #require(items.first { $0.key == "badge.first_record" })
         #expect(first.kind == .nameBadge)
         #expect(first.requiredCumulativeScore == 420)
+        #expect(first.requirementKind == .recordedDays)
+        #expect(first.requiredValue == 1)
         #expect(first.targetID == "first_record")
     }
 
@@ -95,10 +125,11 @@ struct UnlockRulesTests {
         let firstUnlockTime = try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1)))
         let secondUnlockTime = try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 2)))
 
-        let firstBatch = store.refresh(cumulativeScore: 840, now: firstUnlockTime)
+        let metrics = UnlockMetrics(cumulativeScore: 840, recordedDays: 1)
+        let firstBatch = store.refresh(metrics: metrics, now: firstUnlockTime)
         #expect(firstBatch.map(\.key) == ["badge.first_record", "card.glass"])
 
-        let repeated = store.refresh(cumulativeScore: 840, now: secondUnlockTime)
+        let repeated = store.refresh(metrics: metrics, now: secondUnlockTime)
         #expect(repeated.isEmpty)
 
         let lowerScore = store.refresh(cumulativeScore: 0, now: secondUnlockTime)
@@ -110,9 +141,34 @@ struct UnlockRulesTests {
         #expect(unlocked.map(\.key) == ["badge.first_record", "card.glass"])
         #expect(unlocked.allSatisfy { $0.unlockedAt == firstUnlockTime })
 
-        let next = try #require(store.nextLockedItem(cumulativeScore: 840))
-        #expect(next.key == "frame.signal")
-        #expect(UnlockRules.progress(cumulativeScore: 840, toward: next) > 0)
-        #expect(UnlockRules.progress(cumulativeScore: 840, toward: next) < 1)
+        let next = try #require(store.nextLockedItem(metrics: metrics))
+        #expect(next.key == "badge.three_days")
+        #expect(UnlockRules.progress(metrics: metrics, toward: next) > 0)
+        #expect(UnlockRules.progress(metrics: metrics, toward: next) < 1)
+    }
+
+    @Test
+    func refreshUnlocksPatternAndStreakItems() throws {
+        let calendar = Calendar.liminalogTest
+        let container = try TestModelContainer.make()
+        let context = container.mainContext
+        let store = UnlockStore(modelContext: context)
+        let now = try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1)))
+
+        let unlocked = store.refresh(
+            metrics: UnlockMetrics(
+                streakDays: 7,
+                earlyRecordDays: 1,
+                distinctCategoryCount: 3
+            ),
+            now: now
+        )
+
+        #expect(unlocked.map(\.key) == [
+            "frame.signal",
+            "streak.gold_flame",
+            "badge.morning",
+            "badge.seven_streak"
+        ])
     }
 }
