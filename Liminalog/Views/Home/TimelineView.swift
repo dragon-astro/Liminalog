@@ -837,7 +837,7 @@ private struct TimelineTabInlineToggle: View {
     }
 
     var body: some View {
-        HStack(spacing: 18) {
+        HStack(spacing: 28) {
             ForEach(TimelineTab.allCases) { tab in
                 Button {
                     selectedTabRawValue = tab.rawValue
@@ -856,6 +856,7 @@ private struct TimelineTabInlineToggle: View {
                             .frame(height: 2)
                     }
                     .fixedSize()
+                    .frame(minWidth: 64)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -863,6 +864,7 @@ private struct TimelineTabInlineToggle: View {
                 .accessibilityValue(selectedTab == tab ? "選択中" : "")
             }
         }
+        .frame(maxWidth: .infinity, alignment: .center)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("タイムライン表示")
     }
