@@ -321,17 +321,26 @@ struct FriendsView: View {
             )
         }
 
-        return ([selfEntry] + friendEntries)
-            .sorted { lhs, rhs in
-                if lhs.score == rhs.score {
-                    return lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
-                }
-                return lhs.score > rhs.score
+        let entries = [selfEntry] + friendEntries
+        let entriesByID = Dictionary(uniqueKeysWithValues: entries.map { ($0.id, $0) })
+        let placements = FriendRankingEngine.placements(
+            for: entries.map { entry in
+                FriendRankingCandidate(
+                    id: entry.id,
+                    sortKey: FriendRankingSortKey(
+                        stableID: entry.id,
+                        score: entry.score,
+                        displayName: entry.name,
+                        handle: entry.friend?.handle ?? "",
+                        isCurrentUser: entry.isMe
+                    )
+                )
             }
-            .enumerated()
-            .map { index, entry in
-                entry.withRank(index + 1)
-            }
+        )
+
+        return placements.compactMap { placement in
+            entriesByID[placement.id]?.withRank(placement.rank)
+        }
     }
 
     private func selfScore(for period: FriendScorePeriod, anchorDate: Date?) -> Double {
