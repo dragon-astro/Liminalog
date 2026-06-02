@@ -170,8 +170,7 @@ struct HomeView: View {
     }
 
     private var scrollPages: [TodayPage] {
-        let initialPage = debugInitialTodayPage
-        return [initialPage] + TodayPage.allCases.filter { $0 != initialPage }
+        TodayPage.allCases
     }
 
     private func applyInitialPage() {
@@ -182,6 +181,12 @@ struct HomeView: View {
 
         Task { @MainActor in
             await Task.yield()
+            selectedPage = initialPage
+            scrolledPage = initialPage
+            await Task.yield()
+            selectedPage = initialPage
+            scrolledPage = initialPage
+            try? await Task.sleep(nanoseconds: 50_000_000)
             selectedPage = initialPage
             scrolledPage = initialPage
             acceptsScrolledPageUpdates = true
