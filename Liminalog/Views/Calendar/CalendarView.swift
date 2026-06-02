@@ -1698,6 +1698,8 @@ private struct CalendarScoreBadge: View {
 }
 
 private struct CalendarImportantPlanLabel: View {
+    @Environment(\.colorScheme) private var colorScheme
+
     let plan: CalendarDisplayPlan
     let date: Date
 
@@ -1753,7 +1755,7 @@ private struct CalendarImportantPlanLabel: View {
                 roundsLeading: !continuesFromPreviousDay,
                 roundsTrailing: !continuesToNextDay
             )
-            .fill(color.opacity(0.14))
+            .fill(color.opacity(backgroundOpacity))
         }
     }
 
@@ -1764,10 +1766,10 @@ private struct CalendarImportantPlanLabel: View {
                 roundsLeading: !continuesFromPreviousDay,
                 roundsTrailing: !continuesToNextDay
             )
-            .stroke(color.opacity(0.24), lineWidth: 0.7)
+            .stroke(color.opacity(borderOpacity), lineWidth: 0.8)
         } else if labelStyle == .underline {
             Rectangle()
-                .fill(color.opacity(0.28))
+                .fill(color.opacity(markerOpacity))
                 .frame(height: markerHeight)
                 .frame(maxHeight: .infinity, alignment: .bottom)
                 .padding(.bottom, markerBottomPadding)
@@ -1784,11 +1786,29 @@ private struct CalendarImportantPlanLabel: View {
     }
 
     private var titleColor: Color {
-        labelStyle == .background ? .primary : color
+        if labelStyle == .background {
+            return colorScheme == .dark ? color : .primary
+        }
+        return color
     }
 
     private var timeColor: Color {
-        labelStyle == .background ? .secondary : color.opacity(0.75)
+        if labelStyle == .background {
+            return colorScheme == .dark ? color.opacity(0.88) : .secondary
+        }
+        return color.opacity(0.75)
+    }
+
+    private var backgroundOpacity: Double {
+        colorScheme == .dark ? 0.32 : 0.14
+    }
+
+    private var borderOpacity: Double {
+        colorScheme == .dark ? 0.62 : 0.24
+    }
+
+    private var markerOpacity: Double {
+        colorScheme == .dark ? 0.72 : 0.28
     }
 
     private var timeFontSize: Double {
@@ -1840,6 +1860,8 @@ private struct CalendarImportantPlanLabel: View {
 }
 
 private struct CalendarMultiDayPlanBar: View {
+    @Environment(\.colorScheme) private var colorScheme
+
     let plan: CalendarDisplayPlan
     let roundsLeading: Bool
     let roundsTrailing: Bool
@@ -1874,7 +1896,7 @@ private struct CalendarMultiDayPlanBar: View {
                 roundsLeading: roundsLeading,
                 roundsTrailing: roundsTrailing
             )
-            .fill(color.opacity(0.14))
+            .fill(color.opacity(backgroundOpacity))
         }
     }
 
@@ -1885,10 +1907,10 @@ private struct CalendarMultiDayPlanBar: View {
                 roundsLeading: roundsLeading,
                 roundsTrailing: roundsTrailing
             )
-            .stroke(color.opacity(0.24), lineWidth: 0.7)
+            .stroke(color.opacity(borderOpacity), lineWidth: 0.8)
         } else if labelStyle == .underline {
             Rectangle()
-                .fill(color.opacity(0.28))
+                .fill(color.opacity(markerOpacity))
                 .frame(height: markerHeight)
                 .frame(maxHeight: .infinity, alignment: .bottom)
                 .padding(.bottom, markerBottomPadding)
@@ -1904,7 +1926,22 @@ private struct CalendarMultiDayPlanBar: View {
     }
 
     private var titleColor: Color {
-        labelStyle == .background ? .primary : color
+        if labelStyle == .background {
+            return colorScheme == .dark ? color : .primary
+        }
+        return color
+    }
+
+    private var backgroundOpacity: Double {
+        colorScheme == .dark ? 0.32 : 0.14
+    }
+
+    private var borderOpacity: Double {
+        colorScheme == .dark ? 0.62 : 0.24
+    }
+
+    private var markerOpacity: Double {
+        colorScheme == .dark ? 0.72 : 0.28
     }
 
     private var markerHeight: CGFloat {
