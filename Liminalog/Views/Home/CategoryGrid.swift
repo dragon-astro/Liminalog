@@ -14,7 +14,14 @@ struct CategoryGrid: View {
     @State private var editingSetFromEmptySlot: CategorySet? = nil
     @State private var setSyncTask: Task<Void, Never>?
 
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 10), count: 4)
+    private let cardPadding: CGFloat = 14
+    private let gridSpacing: CGFloat = 10
+    private let pageInset: CGFloat = 2
+    private let tableHeight: CGFloat = 170
+
+    private var columns: [GridItem] {
+        Array(repeating: GridItem(.flexible(), spacing: gridSpacing), count: 4)
+    }
 
     private var categoryByID: [UUID: Category] {
         Dictionary(uniqueKeysWithValues: categories.map { ($0.id, $0) })
@@ -30,26 +37,30 @@ struct CategoryGrid: View {
                 headerBar
 
                 if isExpanded {
-                    ScrollView(.horizontal) {
-                        // セット数は少数（数個）なので遅延生成は逆効果。HStack で全ページを
-                        // 事前生成し、スクロール中の body 評価（色のhexパース等）によるヒッチを防ぐ。
-                        HStack(spacing: 0) {
-                            ForEach(categorySets) { set in
-                                gridPage(set: set)
-                                    .containerRelativeFrame(.horizontal)
-                                    .id(set.id)
+                    VStack(spacing: 10) {
+                        ScrollView(.horizontal) {
+                            // セット数は少数（数個）なので遅延生成は逆効果。HStack で全ページを
+                            // 事前生成し、スクロール中の body 評価（色のhexパース等）によるヒッチを防ぐ。
+                            HStack(spacing: 0) {
+                                ForEach(categorySets) { set in
+                                    gridPage(set: set)
+                                        .padding(pageInset)
+                                        .containerRelativeFrame(.horizontal)
+                                        .id(set.id)
+                                }
                             }
+                            .scrollTargetLayout()
                         }
-                        .scrollTargetLayout()
-                    }
-                    .scrollTargetBehavior(.paging)
-                    .scrollPosition(id: $scrolledSetID, anchor: .center)
-                    .scrollIndicators(.hidden)
-                    .frame(height: 196)
+                        .scrollTargetBehavior(.paging)
+                        .scrollPosition(id: $scrolledSetID, anchor: .center)
+                        .scrollIndicators(.hidden)
+                        .frame(height: tableHeight)
 
-                    if categorySets.count > 1 {
-                        pageIndicator
+                        if categorySets.count > 1 {
+                            pageIndicator
+                        }
                     }
+                    .liminalSectionCard(padding: cardPadding)
                 }
             }
             .animation(.easeInOut(duration: 0.22), value: isExpanded)
@@ -247,10 +258,6 @@ private struct EmptyGridSlot: View {
                 .lineLimit(1)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 8)
-        .background(
-            RoundedRectangle(cornerRadius: 14)
-                .fill(Color(.secondarySystemGroupedBackground).opacity(0.45))
-        )
+        .padding(.vertical, 6)
     }
 }
