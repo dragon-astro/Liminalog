@@ -521,7 +521,7 @@ refactor: split plan store
 ### 7.5 ストリーク UI
 
 - [ ] プロフィール画面のストリーク表示（🔥アイコン + 連続日数）<!-- 担当: Claude -->
-- [ ] ストリーク途切れ時の通知（Phase 2.5）<!-- 担当: Codex, 理由: UserNotifications 設定 -->
+- [x] ストリーク途切れ時の通知（Phase 2.5）<!-- 担当: Codex, 完了: 2026-06-02。`StreakBreakNotificationPlanner` / `StreakNotificationStore` / `UserNotificationStreakScheduler` を追加し、通知が許可済みの場合だけ、前日までの60点以上ストリークがあり今日が60点未満の夜に `UNUserNotificationCenter` の警告を1件差し替える。初回許可UI/設定Toggleは別タスク -->
 
 ### 7.6 日付またぎ・0:00固定境界
 
@@ -701,7 +701,7 @@ refactor: split plan store
 
 ### Phase 0 実装側への波及（既存 §5 タスクを上書き）
 
-- [ ] §5.1 `SharedModelContainer` 実装時は `groupContainer:` イニシャライザ + Bundle ID ベースの ID を使う <!-- 担当: Codex -->
+- [x] §5.1 `SharedModelContainer` 実装時は `groupContainer:` イニシャライザ + Bundle ID ベースの ID を使う <!-- 担当: Codex, 完了: 2026-06-02。`SharedModelContainer.appGroupCloud()` が Cloud/LocalCache 両ModelConfigurationで `groupContainer: .identifier("group.app.YasudaRyuga.Liminalog")` を使い、CloudKit private DBは Bundle ID ベースの `iCloud.app.YasudaRyuga.Liminalog` を指定。App/Widget entitlements も同IDを保持していることを確認 -->
 - [x] §5.5 全モデルから `@Attribute(.unique)` を入れない（既存ドラフト案を撤回）<!-- 担当: Codex, 完了: 2026-05-24 -->
 - [x] §5.5 `Chapter.photoData` の追加は保留。代わりに `photoLocalIdentifier`/`thumbnailData` を検討 <!-- 担当: Codex, 完了: 2026-05-24 -->
 - [x] `BootstrapStore` / `SeedCoordinator` の追加（singleton / master データの重複統合）<!-- 担当: Codex, 理由: 競合・重複ロジック, 完了: 2026-06-02。SeedCoordinator は UserSettings / builtInKey付き VisibilityPreset の重複統合を担当し、BootstrapStore は起動時に UserSettings / VisibilityPreset / UnlockItem / default CategorySet seed、短時間Chapter pruning、DEBUG友達seedを集約して実行する -->
@@ -840,6 +840,7 @@ refactor: split plan store
 
 | 日付 | 担当 | 内容 |
 |---|---|---|
+| 2026-06-02 | Codex | Phase 2.5 のストリーク途切れ通知土台を実装。`StreakBreakNotificationPlanner` が前日までのストリーク日数、今日の `ScoreSummary`、現在時刻から通知要否と発火時刻を純粋判定し、21:00前は21:00、21:00〜23:30前は1分後、23:30以降や今日60点以上/予定なし/前日ストリークなしでは通知しない。`StreakNotificationStore` は起動時に通知許可状態を確認し、許可済みなら `UNUserNotificationCenter` の `streak-break-warning` を1件だけ差し替え、未許可なら保留通知を消す。初回許可UI/設定Toggleは別タスクとして残す。あわせて §8.5 の `SharedModelContainer` groupContainer/Bundle ID 実装済み項目を現物確認で完了へ整理。検証: `xcodebuild test -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' -derivedDataPath /private/tmp/LiminalogDerivedData -only-testing:LiminalogTests/StreakNotificationStoreTests` 成功（4 tests）。 |
 | 2026-06-02 | Codex | EventKit連携のローカル同期土台として `CalendarEventSyncStore` を追加。EventKit APIに依存しない `CalendarEventSnapshot` を入力に、`CalendarEventCache` と `PlanBlock` を `sourceEventID` でupsertし、表示範囲から消えたイベントはcache/imported planを削除する。終日/時間未指定は非公開の重要予定、時間指定は非公開の時間つき予定へ変換し、外部カレンダー由来の予定が即共有されないよう `isPublic == false` を初期値にした。検証: `git diff --check` 成功、`xcodebuild test -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' -derivedDataPath /private/tmp/LiminalogDerivedData -only-testing:LiminalogTests/CalendarEventSyncStoreTests` 成功（3 tests）、`xcodebuild -scheme Liminalog -destination generic/platform=iOS -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功。EventKitStoreの権限取得/Apple API接続とUI表示は別タスクとして継続。CSV書き出しは不要・スコープ外を維持。 |
 | 2026-06-02 | Codex | Phase 0 §8.5 の `BootstrapStore` / `SeedCoordinator` タスクを完了。`BootstrapStore` を追加し、`AppStores.bootstrap()` に直書きされていた UserSettings singleton確保、built-in VisibilityPreset統合、UnlockItem master seed、短時間Chapter pruning、default CategorySet seed、DEBUG友達seedを起動時整備として集約した。`SeedCoordinator` は重複統合の実処理を維持し、`BootstrapStoreTests` で空ストアから singleton/master seed が作成され、二重実行しても増殖しないことをコンパイル対象に追加。docs/03ロードマップとAI_TASKS §8.5も完了へ更新。検証: `git diff --check` 成功、`xcodebuild -scheme Liminalog -destination generic/platform=iOS -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功。対象テスト `BootstrapStoreTests` / `SeedCoordinatorTests` はビルド後のSimulator実行フェーズが無出力で停止したため `killall xcodebuild` で中断し、実行通過扱いにはしていない。CSV書き出しは不要・スコープ外を維持。 |
 | 2026-06-02 | Codex | Todayタブ内タブの初期表示が再び「昨日」に寄り得る問題を追加修正。`HomeView` の横ページング実体順を `debugInitialTodayPage` 起点にし、通常起動では物理的な先頭ページも「今日」にすることで、SwiftUI の初期 `scrollPosition` がレイアウト前後で先頭へ落ちても昨日表示にならないようにした。DEBUG QA引数で `yesterday` / `tomorrow` を指定した場合は従来どおり指定ページを起点にする。検証: `git diff --check` 成功、`xcodebuild -scheme Liminalog -destination generic/platform=iOS -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功、`xcodebuild -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath /private/tmp/LiminalogDerivedData build` 成功。Simulator iPhone 17 Proへ通常起動し、上部サブタブが「今日」選択で開くことを確認。スクショ: `/private/tmp/liminalog-today-default-tab-20260602.png`。CSV書き出しは不要・スコープ外を維持。 |

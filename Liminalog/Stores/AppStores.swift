@@ -9,6 +9,7 @@ final class AppStores {
     let planStore: PlanStore
     let scoreStore: ScoreStore
     let unlockStore: UnlockStore
+    let streakNotificationStore: StreakNotificationStore
     let liveActivityCoordinator: LiveActivityCoordinator
     let chapterStore: ChapterStore
     let bootstrapStore: BootstrapStore
@@ -19,6 +20,7 @@ final class AppStores {
         let planStore = PlanStore(modelContext: modelContext, clock: clock)
         let scoreStore = ScoreStore(modelContext: modelContext, clock: clock)
         let unlockStore = UnlockStore(modelContext: modelContext)
+        let streakNotificationStore = StreakNotificationStore(modelContext: modelContext)
         let liveActivityCoordinator = LiveActivityCoordinator(categorySetStore: categorySetStore)
         let chapterStore = ChapterStore(
             modelContext: modelContext,
@@ -40,6 +42,7 @@ final class AppStores {
         self.planStore = planStore
         self.scoreStore = scoreStore
         self.unlockStore = unlockStore
+        self.streakNotificationStore = streakNotificationStore
         self.liveActivityCoordinator = liveActivityCoordinator
         self.chapterStore = chapterStore
         self.bootstrapStore = bootstrapStore

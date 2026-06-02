@@ -522,10 +522,12 @@ HomeView (Root)
 |------|------------|
 | 「今日のスコアが出ました」 | ProfileView または DashboardView の「今日」を表示 |
 | 「ストリーク◯日達成」 | ProfileView |
+| 「ストリークが途切れそうです」 | ProfileView |
 | 「友達から招待」 (Phase 3) | FriendsView の招待リスト |
 | 「翌日公開しました」 (Phase 3) | CalendarDayView (前日) |
 
 → Deep link は `liminalog://` URLスキーム + `Onenter URL Handler` で実装。Phase 1 では通知自体なし。
+→ 2026-06-02: 「ストリークが途切れそうです」は、通知許可済みの場合のみ起動時に `streak-break-warning` を1件差し替える。前日までに60点以上ストリークがあり、今日の予定があり、今日が60点未満の夜だけ対象。初回許可UI/設定Toggleは別タスク。
 
 ---
 

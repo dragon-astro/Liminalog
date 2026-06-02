@@ -61,6 +61,7 @@ struct RootTabView: View {
             }
             #endif
             appStores = initializedStores
+            await initializedStores.streakNotificationStore.refreshStreakBreakWarning()
             #if DEBUG
             selectedTab = Self.initialTab()
             #endif
