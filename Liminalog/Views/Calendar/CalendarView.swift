@@ -1787,28 +1787,28 @@ private struct CalendarImportantPlanLabel: View {
 
     private var titleColor: Color {
         if labelStyle == .background {
-            return colorScheme == .dark ? color : .primary
+            return color
         }
         return color
     }
 
     private var timeColor: Color {
         if labelStyle == .background {
-            return colorScheme == .dark ? color.opacity(0.88) : .secondary
+            return colorScheme == .dark ? color.opacity(0.88) : color.opacity(0.82)
         }
         return color.opacity(0.75)
     }
 
     private var backgroundOpacity: Double {
-        colorScheme == .dark ? 0.32 : 0.14
+        colorScheme == .dark ? 0.32 : 0.24
     }
 
     private var borderOpacity: Double {
-        colorScheme == .dark ? 0.62 : 0.24
+        colorScheme == .dark ? 0.62 : 0.52
     }
 
     private var markerOpacity: Double {
-        colorScheme == .dark ? 0.72 : 0.28
+        colorScheme == .dark ? 0.72 : 0.62
     }
 
     private var timeFontSize: Double {
@@ -1927,21 +1927,21 @@ private struct CalendarMultiDayPlanBar: View {
 
     private var titleColor: Color {
         if labelStyle == .background {
-            return colorScheme == .dark ? color : .primary
+            return color
         }
         return color
     }
 
     private var backgroundOpacity: Double {
-        colorScheme == .dark ? 0.32 : 0.14
+        colorScheme == .dark ? 0.32 : 0.24
     }
 
     private var borderOpacity: Double {
-        colorScheme == .dark ? 0.62 : 0.24
+        colorScheme == .dark ? 0.62 : 0.52
     }
 
     private var markerOpacity: Double {
-        colorScheme == .dark ? 0.72 : 0.28
+        colorScheme == .dark ? 0.72 : 0.62
     }
 
     private var markerHeight: CGFloat {
