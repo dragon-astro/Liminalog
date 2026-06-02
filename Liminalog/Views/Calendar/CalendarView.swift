@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UIKit
 
 struct CalendarView: View {
     @Environment(\.modelContext) private var modelContext
@@ -1755,7 +1756,7 @@ private struct CalendarImportantPlanLabel: View {
                 roundsLeading: !continuesFromPreviousDay,
                 roundsTrailing: !continuesToNextDay
             )
-            .fill(color.opacity(backgroundOpacity))
+            .fill(backgroundFillColor)
         }
     }
 
@@ -1766,10 +1767,10 @@ private struct CalendarImportantPlanLabel: View {
                 roundsLeading: !continuesFromPreviousDay,
                 roundsTrailing: !continuesToNextDay
             )
-            .stroke(color.opacity(borderOpacity), lineWidth: 0.8)
+            .stroke(borderColor, lineWidth: 0.8)
         } else if labelStyle == .underline {
             Rectangle()
-                .fill(color.opacity(markerOpacity))
+                .fill(markerColor)
                 .frame(height: markerHeight)
                 .frame(maxHeight: .infinity, alignment: .bottom)
                 .padding(.bottom, markerBottomPadding)
@@ -1787,28 +1788,40 @@ private struct CalendarImportantPlanLabel: View {
 
     private var titleColor: Color {
         if labelStyle == .background {
-            return color
+            return .primary
         }
         return color
     }
 
     private var timeColor: Color {
         if labelStyle == .background {
-            return colorScheme == .dark ? color.opacity(0.88) : color.opacity(0.82)
+            return .secondary
         }
-        return color.opacity(0.75)
+        return color
     }
 
-    private var backgroundOpacity: Double {
-        colorScheme == .dark ? 0.32 : 0.24
+    private var backgroundFillColor: Color {
+        CalendarPlanColorRendering.surface(
+            from: color,
+            colorScheme: colorScheme,
+            intensity: colorScheme == .dark ? 0.32 : 0.24
+        )
     }
 
-    private var borderOpacity: Double {
-        colorScheme == .dark ? 0.62 : 0.52
+    private var borderColor: Color {
+        CalendarPlanColorRendering.surface(
+            from: color,
+            colorScheme: colorScheme,
+            intensity: colorScheme == .dark ? 0.62 : 0.52
+        )
     }
 
-    private var markerOpacity: Double {
-        colorScheme == .dark ? 0.72 : 0.62
+    private var markerColor: Color {
+        CalendarPlanColorRendering.surface(
+            from: color,
+            colorScheme: colorScheme,
+            intensity: colorScheme == .dark ? 0.72 : 0.62
+        )
     }
 
     private var timeFontSize: Double {
@@ -1896,7 +1909,7 @@ private struct CalendarMultiDayPlanBar: View {
                 roundsLeading: roundsLeading,
                 roundsTrailing: roundsTrailing
             )
-            .fill(color.opacity(backgroundOpacity))
+            .fill(backgroundFillColor)
         }
     }
 
@@ -1907,10 +1920,10 @@ private struct CalendarMultiDayPlanBar: View {
                 roundsLeading: roundsLeading,
                 roundsTrailing: roundsTrailing
             )
-            .stroke(color.opacity(borderOpacity), lineWidth: 0.8)
+            .stroke(borderColor, lineWidth: 0.8)
         } else if labelStyle == .underline {
             Rectangle()
-                .fill(color.opacity(markerOpacity))
+                .fill(markerColor)
                 .frame(height: markerHeight)
                 .frame(maxHeight: .infinity, alignment: .bottom)
                 .padding(.bottom, markerBottomPadding)
@@ -1927,21 +1940,33 @@ private struct CalendarMultiDayPlanBar: View {
 
     private var titleColor: Color {
         if labelStyle == .background {
-            return color
+            return .primary
         }
         return color
     }
 
-    private var backgroundOpacity: Double {
-        colorScheme == .dark ? 0.32 : 0.24
+    private var backgroundFillColor: Color {
+        CalendarPlanColorRendering.surface(
+            from: color,
+            colorScheme: colorScheme,
+            intensity: colorScheme == .dark ? 0.32 : 0.24
+        )
     }
 
-    private var borderOpacity: Double {
-        colorScheme == .dark ? 0.62 : 0.52
+    private var borderColor: Color {
+        CalendarPlanColorRendering.surface(
+            from: color,
+            colorScheme: colorScheme,
+            intensity: colorScheme == .dark ? 0.62 : 0.52
+        )
     }
 
-    private var markerOpacity: Double {
-        colorScheme == .dark ? 0.72 : 0.62
+    private var markerColor: Color {
+        CalendarPlanColorRendering.surface(
+            from: color,
+            colorScheme: colorScheme,
+            intensity: colorScheme == .dark ? 0.72 : 0.62
+        )
     }
 
     private var markerHeight: CGFloat {
@@ -1954,6 +1979,45 @@ private struct CalendarMultiDayPlanBar: View {
 
     private var isPastPlan: Bool {
         plan.endTime <= Date()
+    }
+}
+
+private enum CalendarPlanColorRendering {
+    static func surface(from color: Color, colorScheme: ColorScheme, intensity: CGFloat) -> Color {
+        let style: UIUserInterfaceStyle = colorScheme == .dark ? .dark : .light
+        let traits = UITraitCollection(userInterfaceStyle: style)
+        let source = UIColor(color).resolvedColor(with: traits)
+        let base = UIColor.systemBackground.resolvedColor(with: traits)
+
+        return Color(uiColor: source.mixed(with: base, sourceAmount: intensity))
+    }
+}
+
+private extension UIColor {
+    func mixed(with base: UIColor, sourceAmount: CGFloat) -> UIColor {
+        var red: CGFloat = 0
+        var green: CGFloat = 0
+        var blue: CGFloat = 0
+        var alpha: CGFloat = 0
+        var baseRed: CGFloat = 0
+        var baseGreen: CGFloat = 0
+        var baseBlue: CGFloat = 0
+        var baseAlpha: CGFloat = 0
+
+        guard getRed(&red, green: &green, blue: &blue, alpha: &alpha),
+              base.getRed(&baseRed, green: &baseGreen, blue: &baseBlue, alpha: &baseAlpha) else {
+            return withAlphaComponent(1)
+        }
+
+        let clampedAmount = min(max(sourceAmount, 0), 1)
+        let baseAmount = 1 - clampedAmount
+
+        return UIColor(
+            red: red * clampedAmount + baseRed * baseAmount,
+            green: green * clampedAmount + baseGreen * baseAmount,
+            blue: blue * clampedAmount + baseBlue * baseAmount,
+            alpha: 1
+        )
     }
 }
 
