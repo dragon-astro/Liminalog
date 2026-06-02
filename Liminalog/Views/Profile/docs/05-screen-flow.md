@@ -545,6 +545,7 @@ HomeView (Root)
 | ProfileView | ScoreStore | (read via @Query for stats) |
 | SettingsView | UserSettings 直接 | 全 Store |
 | Widget | (App Groups 経由で SwiftData read) | StartChapterIntent → ChapterStore |
+| Siri / Shortcuts | App Group `shortcut.pendingRoute` | Open*ShortcutIntent / EndChapterIntent |
 
 ---
 

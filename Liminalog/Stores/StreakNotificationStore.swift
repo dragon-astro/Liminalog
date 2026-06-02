@@ -86,11 +86,11 @@ final class StreakNotificationStore {
 
     init(
         modelContext: ModelContext,
-        scheduler: any StreakNotificationScheduling = UserNotificationStreakScheduler(),
+        scheduler: (any StreakNotificationScheduling)? = nil,
         calendar: Calendar = .japanese
     ) {
         self.modelContext = modelContext
-        self.scheduler = scheduler
+        self.scheduler = scheduler ?? UserNotificationStreakScheduler()
         self.calendar = calendar
     }
 

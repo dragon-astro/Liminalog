@@ -574,7 +574,7 @@ class Category {
 - [ ] 複数人比較画像の書き出し
 - [ ] シンクロハイライト
 - [ ] カテゴリマッピング設定（手動・多対一対応）
-- [ ] Siri ショートカット（App Intents）
+- [x] Siri ショートカット（App Intents）<!-- 2026-06-02: Today/カレンダー/統計/プロフィールを開くショートカット + 記録終了Intentを追加。カテゴリ指定の記録開始はWidget/Live Activity向けStartChapterIntentで継続 -->
 - [ ] HealthKit 連携（就寝・起床自動検知）
 - [ ] テーマ着せ替え追加
 - [ ] チャプタータイマー表示

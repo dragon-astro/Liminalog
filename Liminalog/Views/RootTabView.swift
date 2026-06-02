@@ -11,6 +11,7 @@ private enum RootTab: Hashable {
 
 struct RootTabView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.scenePhase) private var scenePhase
     @State private var appStores: AppStores?
     @State private var selectedTab: RootTab
     @State private var pendingFriendInviteURL: URL?
@@ -62,15 +63,29 @@ struct RootTabView: View {
             #endif
             appStores = initializedStores
             await initializedStores.streakNotificationStore.refreshStreakBreakWarning()
+            let didConsumeShortcutRoute = consumePendingShortcutRoute()
             #if DEBUG
-            selectedTab = Self.initialTab()
+            if !didConsumeShortcutRoute {
+                selectedTab = Self.initialTab()
+            }
             #endif
+        }
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
+            consumePendingShortcutRoute()
         }
         .onOpenURL { url in
             guard FriendInvitePayload(url: url) != nil else { return }
             pendingFriendInviteURL = url
             selectedTab = .friends
         }
+    }
+
+    @discardableResult
+    private func consumePendingShortcutRoute() -> Bool {
+        guard let route = LiminalogShortcutRoute.consumePendingRoute() else { return false }
+        selectedTab = RootTab(route)
+        return true
     }
 
     private static func initialTab() -> RootTab {
@@ -105,6 +120,21 @@ struct RootTabView: View {
             return .profile
         default:
             return .today
+        }
+    }
+}
+
+private extension RootTab {
+    init(_ shortcutRoute: LiminalogShortcutRoute) {
+        switch shortcutRoute {
+        case .today:
+            self = .today
+        case .calendar:
+            self = .calendar
+        case .dashboard:
+            self = .dashboard
+        case .profile:
+            self = .profile
         }
     }
 }
