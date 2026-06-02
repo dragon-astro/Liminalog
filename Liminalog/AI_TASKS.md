@@ -455,13 +455,13 @@ refactor: split plan store
 - [x] `PlanBlock.isImportant` を追加し、「重要な予定としてカレンダーに表示」と「時間未指定 (`isAllDay`)」を分離 <!-- 担当: Codex, 完了: 2026-05-26, 理由: 時間つき予定でも重要なら月カレンダーに開始時刻付きで出すため -->
 - [x] `CalendarDayView` からチャプター新規作成導線を撤去し、日別タイムラインは既存実績の閲覧/編集 + 予定作成に限定 <!-- 担当: Codex, 完了: 2026-05-26, 理由: カレンダーは記録開始の場所にしない -->
 - [ ] 友達の重要予定を月カレンダーに重ねる仕様を設計 <!-- 担当: 未定, 理由: Phase 3 友達機能と連動 -->
-- [ ] 外部カレンダー取り込み時の変換ルールを実装（終日/時間未指定→重要予定、時間指定→時間つき予定）<!-- 担当: 未定, 理由: EventKit 連携は友達機能より低優先 -->
+- [x] 外部カレンダー取り込み時の変換ルールを実装（終日/時間未指定→重要予定、時間指定→時間つき予定）<!-- 担当: Codex, 完了: 2026-06-02。`CalendarEventSyncStore` が `CalendarEventSnapshot` を `PlanBlock` へ変換。終日/時間未指定は `isAllDay == true` + `isImportant == true`、時間指定は `isAllDay == false` + `isImportant == false`。外部予定は共有事故を避けるため初期 `isPublic == false` -->
 
 ### 7.1 EventKit 連携
 
 - [ ] `EventKitStore` 実装（権限取得・予定読み込み・差分同期）<!-- 担当: 未定, 理由: プラン必要 — Claude で API調査 → Codex でエラーケース詰め -->
 - [ ] `PermissionGate` 共通コンポーネント実装 <!-- 担当: Claude, 理由: 全機能で再利用するUI抽象化 -->
-- [ ] `CalendarEventCache` モデル + 同期ロジック <!-- 担当: Codex, 理由: EKEventStore の change notification 差分処理 -->
+- [x] `CalendarEventCache` モデル + 同期ロジック <!-- 担当: Codex, 完了: 2026-06-02。`CalendarEventCache` は既存ローカル限定ModelConfigurationで維持し、`CalendarEventSyncStore` が表示範囲のEventKitスナップショットをcache/PlanBlockへupsert、消えたイベントを削除、`sourceEventID` で二重取り込みを防止する。EventKit API接続と権限取得は `EventKitStore` タスクに残す -->
 - [ ] `CalendarDayView` の終日エリアに EventKit 予定を表示 <!-- 担当: Claude -->
 - [ ] `CalendarDayView` のタイムラインに EventKit 予定をうっすら表示 <!-- 担当: Claude -->
 - [ ] `CalendarEventCreateSheet` / `CalendarEventDetailSheet`（EventKit 書き込み）<!-- 担当: Claude, 理由: シートUI -->
@@ -840,6 +840,7 @@ refactor: split plan store
 
 | 日付 | 担当 | 内容 |
 |---|---|---|
+| 2026-06-02 | Codex | EventKit連携のローカル同期土台として `CalendarEventSyncStore` を追加。EventKit APIに依存しない `CalendarEventSnapshot` を入力に、`CalendarEventCache` と `PlanBlock` を `sourceEventID` でupsertし、表示範囲から消えたイベントはcache/imported planを削除する。終日/時間未指定は非公開の重要予定、時間指定は非公開の時間つき予定へ変換し、外部カレンダー由来の予定が即共有されないよう `isPublic == false` を初期値にした。検証: `git diff --check` 成功、`xcodebuild test -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' -derivedDataPath /private/tmp/LiminalogDerivedData -only-testing:LiminalogTests/CalendarEventSyncStoreTests` 成功（3 tests）、`xcodebuild -scheme Liminalog -destination generic/platform=iOS -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功。EventKitStoreの権限取得/Apple API接続とUI表示は別タスクとして継続。CSV書き出しは不要・スコープ外を維持。 |
 | 2026-06-02 | Codex | Phase 0 §8.5 の `BootstrapStore` / `SeedCoordinator` タスクを完了。`BootstrapStore` を追加し、`AppStores.bootstrap()` に直書きされていた UserSettings singleton確保、built-in VisibilityPreset統合、UnlockItem master seed、短時間Chapter pruning、default CategorySet seed、DEBUG友達seedを起動時整備として集約した。`SeedCoordinator` は重複統合の実処理を維持し、`BootstrapStoreTests` で空ストアから singleton/master seed が作成され、二重実行しても増殖しないことをコンパイル対象に追加。docs/03ロードマップとAI_TASKS §8.5も完了へ更新。検証: `git diff --check` 成功、`xcodebuild -scheme Liminalog -destination generic/platform=iOS -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功。対象テスト `BootstrapStoreTests` / `SeedCoordinatorTests` はビルド後のSimulator実行フェーズが無出力で停止したため `killall xcodebuild` で中断し、実行通過扱いにはしていない。CSV書き出しは不要・スコープ外を維持。 |
 | 2026-06-02 | Codex | Todayタブ内タブの初期表示が再び「昨日」に寄り得る問題を追加修正。`HomeView` の横ページング実体順を `debugInitialTodayPage` 起点にし、通常起動では物理的な先頭ページも「今日」にすることで、SwiftUI の初期 `scrollPosition` がレイアウト前後で先頭へ落ちても昨日表示にならないようにした。DEBUG QA引数で `yesterday` / `tomorrow` を指定した場合は従来どおり指定ページを起点にする。検証: `git diff --check` 成功、`xcodebuild -scheme Liminalog -destination generic/platform=iOS -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功、`xcodebuild -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath /private/tmp/LiminalogDerivedData build` 成功。Simulator iPhone 17 Proへ通常起動し、上部サブタブが「今日」選択で開くことを確認。スクショ: `/private/tmp/liminalog-today-default-tab-20260602.png`。CSV書き出しは不要・スコープ外を維持。 |
 | 2026-06-02 | Codex | 横断レビューの保守性タスクとして、Dashboard/Profile のサブビュー外出しを実施。`DashboardView.swift` はカード表示部品を `DashboardCards.swift`、集計/フォーマット型を `DashboardModels.swift` へ移し、画面本体は Query・期間選択・カード差し込みに集中。`ProfileView.swift` は表示部品/編集シート/装飾カタログ/集計スナップショットを `ProfileComponents.swift` / `ProfileEditSheet.swift` / `ProfileDecorations.swift` / `ProfilePerformanceSnapshot.swift` へ分離し、本体を画面構成・保存・ナビゲーションに絞った。検証: `xcodebuild -scheme Liminalog -destination generic/platform=iOS -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功。 |

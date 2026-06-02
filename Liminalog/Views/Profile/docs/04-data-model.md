@@ -348,6 +348,8 @@ public final class CalendarEventCache {
 - EventKit は読むたびに API 叩くと遅いので、表示範囲（前後3ヶ月）をキャッシュ
 - EventStore の change notification で差分更新
 - **CloudKit 同期しない**（デバイスローカル限定キャッシュ）→ 別の `ModelConfiguration` で隔離
+- 2026-06-02 実装: `CalendarEventSyncStore` が EventKit 非依存の `CalendarEventSnapshot` を受け取り、`CalendarEventCache` と `PlanBlock` を `sourceEventID` で upsert する
+- 終日/時間未指定イベントは `isAllDay == true` + `isImportant == true` の非公開予定、時間指定イベントは `isAllDay == false` + `isImportant == false` の非公開予定として取り込む
 
 ---
 
