@@ -353,7 +353,7 @@ public enum LiminalogTypography {
 - [ ] App Groups / CloudKit Container の正式 ID を確定（候補: `group.app.YasudaRyuga.Liminalog`, `iCloud.app.YasudaRyuga.Liminalog`）
 - [x] `#if DEBUG seedPreviewPlansIfNeeded` / `seedDevSampleChaptersIfNeeded` を起動引数または環境変数ゲート化（2026-06-01: `PreviewRuntimeSeedSupport` に集約）
 - [ ] `DayBoundary` を導入し、0:00-24:00 固定の dayStart/dayEnd を一元化する
-- [ ] `BootstrapStore` / `SeedCoordinator` を用意し、UserSettings / UnlockItem / built-in VisibilityPreset の重複を統合
+- [x] `BootstrapStore` / `SeedCoordinator` を用意し、UserSettings / UnlockItem / built-in VisibilityPreset の重複を統合（2026-06-02: 起動時整備を `BootstrapStore` に集約）
 
 ### Step 2: 最小 Core 化（Widget 前提）
 - [ ] `Packages/LiminalogCore` Swift Package を作成

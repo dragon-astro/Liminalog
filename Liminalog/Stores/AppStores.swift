@@ -4,8 +4,6 @@ import SwiftData
 @Observable
 @MainActor
 final class AppStores {
-    private let modelContext: ModelContext
-
     let categoryStore: CategoryStore
     let categorySetStore: CategorySetStore
     let planStore: PlanStore
@@ -13,23 +11,16 @@ final class AppStores {
     let unlockStore: UnlockStore
     let liveActivityCoordinator: LiveActivityCoordinator
     let chapterStore: ChapterStore
+    let bootstrapStore: BootstrapStore
 
     init(modelContext: ModelContext, clock: any LiminalogClock = SystemClock()) {
-        self.modelContext = modelContext
         let categoryStore = CategoryStore(modelContext: modelContext)
         let categorySetStore = CategorySetStore(modelContext: modelContext, categoryStore: categoryStore)
         let planStore = PlanStore(modelContext: modelContext, clock: clock)
         let scoreStore = ScoreStore(modelContext: modelContext, clock: clock)
         let unlockStore = UnlockStore(modelContext: modelContext)
         let liveActivityCoordinator = LiveActivityCoordinator(categorySetStore: categorySetStore)
-
-        self.categoryStore = categoryStore
-        self.categorySetStore = categorySetStore
-        self.planStore = planStore
-        self.scoreStore = scoreStore
-        self.unlockStore = unlockStore
-        self.liveActivityCoordinator = liveActivityCoordinator
-        self.chapterStore = ChapterStore(
+        let chapterStore = ChapterStore(
             modelContext: modelContext,
             clock: clock,
             categoryStore: categoryStore,
@@ -37,22 +28,25 @@ final class AppStores {
             planStore: planStore,
             liveActivityCoordinator: liveActivityCoordinator
         )
+        let bootstrapStore = BootstrapStore(
+            modelContext: modelContext,
+            categorySetStore: categorySetStore,
+            unlockStore: unlockStore,
+            chapterStore: chapterStore
+        )
+
+        self.categoryStore = categoryStore
+        self.categorySetStore = categorySetStore
+        self.planStore = planStore
+        self.scoreStore = scoreStore
+        self.unlockStore = unlockStore
+        self.liveActivityCoordinator = liveActivityCoordinator
+        self.chapterStore = chapterStore
+        self.bootstrapStore = bootstrapStore
     }
 
     @discardableResult
     func bootstrap() -> ChapterStore {
-        SeedCoordinator.ensureUserSettings(in: modelContext)
-        SeedCoordinator.consolidateBuiltInVisibilityPresets(in: modelContext)
-        unlockStore.seedMasterItems()
-        #if DEBUG
-        let shouldSeedDevFriends = UserDefaults.standard.bool(forKey: "LiminalogSeedDevFriends")
-            || ProcessInfo.processInfo.arguments.contains("-LiminalogSeedDevFriends")
-        if shouldSeedDevFriends {
-            SeedCoordinator.seedDebugFriendsIfNeeded(in: modelContext)
-        }
-        #endif
-        chapterStore.pruneShortChapters()
-        chapterStore.seedDefaultCategorySetsIfNeeded()
-        return chapterStore
+        bootstrapStore.bootstrap()
     }
 }
