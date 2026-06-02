@@ -1239,6 +1239,8 @@ struct CalendarMonthPageData {
 }
 
 struct CalendarMonthGrid: View {
+    @Environment(\.colorScheme) private var colorScheme
+
     let pageData: CalendarMonthPageData
     let onOpenDay: (Date, UUID?) -> Void
 
@@ -1259,11 +1261,11 @@ struct CalendarMonthGrid: View {
                 )
             }
         }
-        .background(Color(.separator).opacity(0.32))
+        .background(gridDividerColor)
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(Color(.separator).opacity(0.28), lineWidth: 1)
+                .stroke(gridBorderColor, lineWidth: 1)
         )
     }
 
@@ -1275,6 +1277,14 @@ struct CalendarMonthGrid: View {
 
     private var cellHeight: CGFloat {
         CalendarMonthDayCell.cellHeight(forWeekCount: weekDates.count)
+    }
+
+    private var gridDividerColor: Color {
+        colorScheme == .dark ? Color.white.opacity(0.14) : Color(.separator).opacity(0.32)
+    }
+
+    private var gridBorderColor: Color {
+        colorScheme == .dark ? Color.white.opacity(0.16) : Color(.separator).opacity(0.28)
     }
 }
 
