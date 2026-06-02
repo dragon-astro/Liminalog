@@ -1804,7 +1804,7 @@ private struct CalendarImportantPlanLabel: View {
         CalendarPlanColorRendering.surface(
             from: color,
             colorScheme: colorScheme,
-            intensity: colorScheme == .dark ? 0.24 : 0.18
+            intensity: colorScheme == .dark ? 0.48 : 0.28
         )
     }
 
@@ -1812,7 +1812,7 @@ private struct CalendarImportantPlanLabel: View {
         CalendarPlanColorRendering.surface(
             from: color,
             colorScheme: colorScheme,
-            intensity: colorScheme == .dark ? 0.48 : 0.38
+            intensity: colorScheme == .dark ? 0.84 : 0.64
         )
     }
 
@@ -1820,7 +1820,7 @@ private struct CalendarImportantPlanLabel: View {
         CalendarPlanColorRendering.surface(
             from: color,
             colorScheme: colorScheme,
-            intensity: colorScheme == .dark ? 0.58 : 0.48
+            intensity: colorScheme == .dark ? 0.92 : 0.78
         )
     }
 
@@ -1949,7 +1949,7 @@ private struct CalendarMultiDayPlanBar: View {
         CalendarPlanColorRendering.surface(
             from: color,
             colorScheme: colorScheme,
-            intensity: colorScheme == .dark ? 0.24 : 0.18
+            intensity: colorScheme == .dark ? 0.48 : 0.28
         )
     }
 
@@ -1957,7 +1957,7 @@ private struct CalendarMultiDayPlanBar: View {
         CalendarPlanColorRendering.surface(
             from: color,
             colorScheme: colorScheme,
-            intensity: colorScheme == .dark ? 0.48 : 0.38
+            intensity: colorScheme == .dark ? 0.84 : 0.64
         )
     }
 
@@ -1965,7 +1965,7 @@ private struct CalendarMultiDayPlanBar: View {
         CalendarPlanColorRendering.surface(
             from: color,
             colorScheme: colorScheme,
-            intensity: colorScheme == .dark ? 0.58 : 0.48
+            intensity: colorScheme == .dark ? 0.92 : 0.78
         )
     }
 
