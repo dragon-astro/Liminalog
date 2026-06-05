@@ -12,6 +12,7 @@ struct ProfileEditSheet: View {
     @State private var streakIconID: String
     @State private var cardStyleID: String
     @State private var selectedPhoto: PhotosPickerItem?
+    @State private var pendingCropImage: ProfilePhotoCropDraft?
     @State private var photoLoadError: String?
     @State private var saveError: String?
 
@@ -143,6 +144,21 @@ struct ProfileEditSheet: View {
                     await loadPhoto(newPhoto)
                 }
             }
+            .fullScreenCover(item: $pendingCropImage) { draft in
+                ProfilePhotoCropView(
+                    image: draft.image,
+                    displayName: previewDisplayName,
+                    accentColor: visualAccentColor,
+                    frameStyle: ProfileIconFrameCatalog.item(for: iconFrameID)
+                ) { croppedData in
+                    imageData = croppedData
+                    pendingCropImage = nil
+                    selectedPhoto = nil
+                } onCancel: {
+                    pendingCropImage = nil
+                    selectedPhoto = nil
+                }
+            }
             .alert("保存できませんでした", isPresented: saveErrorPresented) {
                 Button("OK", role: .cancel) {
                     saveError = nil
@@ -189,24 +205,265 @@ struct ProfileEditSheet: View {
                 photoLoadError = "写真を読み込めませんでした"
                 return
             }
-            imageData = Self.normalizedImageData(from: data) ?? data
+            guard let image = Self.preparedImage(from: data) else {
+                photoLoadError = "写真を読み込めませんでした"
+                return
+            }
+            pendingCropImage = ProfilePhotoCropDraft(image: image)
         } catch {
             NSLog("Liminalog: failed to load profile photo: \(String(describing: error))")
             photoLoadError = "写真を読み込めませんでした"
         }
     }
 
-    private static func normalizedImageData(from data: Data) -> Data? {
+    private static func preparedImage(from data: Data) -> UIImage? {
         guard let image = UIImage(data: data) else { return nil }
-        let maxDimension: CGFloat = 640
+        let maxDimension: CGFloat = 1600
         let longestSide = max(image.size.width, image.size.height)
         let scale = longestSide > 0 ? min(1, maxDimension / longestSide) : 1
         let targetSize = CGSize(width: image.size.width * scale, height: image.size.height * scale)
         let renderer = UIGraphicsImageRenderer(size: targetSize)
-        let rendered = renderer.image { _ in
+        return renderer.image { _ in
             image.draw(in: CGRect(origin: .zero, size: targetSize))
         }
-        return rendered.jpegData(compressionQuality: 0.82)
+    }
+}
+
+private struct ProfilePhotoCropDraft: Identifiable {
+    let id = UUID()
+    let image: UIImage
+}
+
+private struct ProfilePhotoCropView: View {
+    @Environment(\.dismiss) private var dismiss
+    let image: UIImage
+    let displayName: String
+    let accentColor: Color
+    let frameStyle: ProfileIconFrameStyle
+    let onUse: (Data) -> Void
+    let onCancel: () -> Void
+
+    @State private var offset: CGSize = .zero
+    @State private var committedOffset: CGSize = .zero
+    @State private var zoom: CGFloat = 1
+    @State private var committedZoom: CGFloat = 1
+
+    private let cropDiameter: CGFloat = 292
+    private let outputSide: CGFloat = 640
+    private let minZoom: CGFloat = 1
+    private let maxZoom: CGFloat = 4
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 26) {
+                Spacer(minLength: 12)
+
+                cropSurface
+
+                HStack(spacing: 14) {
+                    Image(systemName: "minus.magnifyingglass")
+                        .foregroundStyle(LiminalTheme.secondaryText)
+                    Slider(value: zoomBinding, in: minZoom...maxZoom)
+                    Image(systemName: "plus.magnifyingglass")
+                        .foregroundStyle(LiminalTheme.secondaryText)
+                }
+                .padding(.horizontal, 28)
+
+                Button {
+                    resetCrop()
+                } label: {
+                    Label("リセット", systemImage: "arrow.counterclockwise")
+                }
+                .buttonStyle(.bordered)
+                .tint(LiminalTheme.accent)
+
+                Spacer(minLength: 24)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(LiminalTheme.canvasGradient.ignoresSafeArea())
+            .navigationTitle("写真を調整")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("キャンセル") {
+                        onCancel()
+                        dismiss()
+                    }
+                }
+
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("適用") {
+                        guard let data = croppedImageData() else { return }
+                        onUse(data)
+                        dismiss()
+                    }
+                    .fontWeight(.semibold)
+                }
+            }
+        }
+    }
+
+    private var cropSurface: some View {
+        ZStack {
+            ZStack {
+                Circle()
+                    .fill(LiminalTheme.elevated)
+
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: displayedSize.width, height: displayedSize.height)
+                    .scaleEffect(zoom)
+                    .offset(offset)
+
+                Circle()
+                    .stroke(.white.opacity(0.76), lineWidth: 2)
+            }
+            .frame(width: cropDiameter, height: cropDiameter)
+            .clipShape(Circle())
+            .contentShape(Circle())
+            .gesture(cropGesture)
+
+            Circle()
+                .stroke(LiminalTheme.divider.opacity(0.55), lineWidth: 1)
+                .frame(width: cropDiameter, height: cropDiameter)
+
+            if frameStyle.id != ProfileDecorationUnlocks.noIconFrameID {
+                ProfileIconFrameView(style: frameStyle, accentColor: accentColor, size: cropDiameter + 20)
+                    .allowsHitTesting(false)
+            }
+        }
+        .frame(width: cropDiameter + 28, height: cropDiameter + 28)
+        .contentShape(Circle())
+        .shadow(color: accentColor.opacity(0.22), radius: 18, y: 8)
+        .overlay(alignment: .bottomTrailing) {
+            ProfileBadgePreviewInitial(displayName: displayName, accentColor: accentColor)
+                .padding(10)
+        }
+    }
+
+    private var cropGesture: some Gesture {
+        DragGesture()
+            .onChanged { value in
+                offset = clampedOffset(
+                    CGSize(
+                        width: committedOffset.width + value.translation.width,
+                        height: committedOffset.height + value.translation.height
+                    ),
+                    zoom: zoom
+                )
+            }
+            .onEnded { _ in
+                offset = clampedOffset(offset, zoom: zoom)
+                committedOffset = offset
+            }
+            .simultaneously(with:
+                MagnificationGesture()
+                    .onChanged { value in
+                        zoom = clampedZoom(committedZoom * value)
+                        offset = clampedOffset(offset, zoom: zoom)
+                    }
+                    .onEnded { _ in
+                        zoom = clampedZoom(zoom)
+                        offset = clampedOffset(offset, zoom: zoom)
+                        committedZoom = zoom
+                        committedOffset = offset
+                    }
+            )
+    }
+
+    private var zoomBinding: Binding<CGFloat> {
+        Binding {
+            zoom
+        } set: { newValue in
+            zoom = clampedZoom(newValue)
+            offset = clampedOffset(offset, zoom: zoom)
+            committedZoom = zoom
+            committedOffset = offset
+        }
+    }
+
+    private var displayedSize: CGSize {
+        let baseScale = max(cropDiameter / image.size.width, cropDiameter / image.size.height)
+        return CGSize(width: image.size.width * baseScale, height: image.size.height * baseScale)
+    }
+
+    private var transformedDisplayedSize: CGSize {
+        CGSize(width: displayedSize.width * zoom, height: displayedSize.height * zoom)
+    }
+
+    private func clampedZoom(_ value: CGFloat) -> CGFloat {
+        min(max(value, minZoom), maxZoom)
+    }
+
+    private func clampedOffset(_ proposed: CGSize, zoom: CGFloat) -> CGSize {
+        let size = CGSize(width: displayedSize.width * zoom, height: displayedSize.height * zoom)
+        let maxX = max(0, (size.width - cropDiameter) / 2)
+        let maxY = max(0, (size.height - cropDiameter) / 2)
+        return CGSize(
+            width: min(max(proposed.width, -maxX), maxX),
+            height: min(max(proposed.height, -maxY), maxY)
+        )
+    }
+
+    private func resetCrop() {
+        withAnimation(.snappy(duration: 0.22)) {
+            zoom = 1
+            committedZoom = 1
+            offset = .zero
+            committedOffset = .zero
+        }
+    }
+
+    private func croppedImageData() -> Data? {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        format.opaque = true
+        let renderer = UIGraphicsImageRenderer(
+            size: CGSize(width: outputSide, height: outputSide),
+            format: format
+        )
+        let output = renderer.image { context in
+            UIColor.systemBackground.setFill()
+            context.cgContext.fill(CGRect(x: 0, y: 0, width: outputSide, height: outputSide))
+
+            let factor = outputSide / cropDiameter
+            let size = transformedDisplayedSize
+            let origin = CGPoint(
+                x: (cropDiameter - size.width) / 2 + offset.width,
+                y: (cropDiameter - size.height) / 2 + offset.height
+            )
+            let drawRect = CGRect(
+                x: origin.x * factor,
+                y: origin.y * factor,
+                width: size.width * factor,
+                height: size.height * factor
+            )
+            image.draw(in: drawRect)
+        }
+        return output.jpegData(compressionQuality: 0.86)
+    }
+}
+
+private struct ProfileBadgePreviewInitial: View {
+    let displayName: String
+    let accentColor: Color
+
+    var body: some View {
+        Text(initial)
+            .font(.caption.weight(.bold))
+            .foregroundStyle(.white)
+            .frame(width: 34, height: 34)
+            .background(accentColor.gradient, in: Circle())
+            .overlay {
+                Circle()
+                    .stroke(.white.opacity(0.72), lineWidth: 1.5)
+            }
+    }
+
+    private var initial: String {
+        let trimmed = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return String((trimmed.isEmpty ? "L" : trimmed).prefix(1)).uppercased()
     }
 }
 
