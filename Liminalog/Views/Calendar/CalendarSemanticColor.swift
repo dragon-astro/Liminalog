@@ -11,7 +11,7 @@ enum CalendarSemanticColor {
     }
 
     static var importantPlan: Color {
-        adaptive(dark: "#FFD66B", light: "#B7791F")
+        adaptive(dark: "#FFD66B", light: "#E6A700")
     }
 
     private static func adaptive(dark: String, light: String) -> Color {
