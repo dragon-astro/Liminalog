@@ -27,15 +27,20 @@ enum SharedModelContainer {
         } catch {
             NSLog("Liminalog: falling back to local-only ModelContainer because shared Cloud container failed: \(String(describing: error))")
             do {
-                return try localOnly()
+                return try appGroupLocalOnly()
             } catch {
-                NSLog("Liminalog: falling back to in-memory ModelContainer because local ModelContainer failed: \(String(describing: error))")
+                NSLog("Liminalog: falling back to app-local ModelContainer because app group local ModelContainer failed: \(String(describing: error))")
                 do {
-                    return try inMemory()
+                    return try localOnly()
                 } catch {
-                    let message = "Liminalog: failed to create any ModelContainer: \(String(describing: error))"
-                    NSLog("%@", message)
-                    return try! inMemory()
+                    NSLog("Liminalog: falling back to in-memory ModelContainer because app-local ModelContainer failed: \(String(describing: error))")
+                    do {
+                        return try inMemory()
+                    } catch {
+                        let message = "Liminalog: failed to create any ModelContainer: \(String(describing: error))"
+                        NSLog("%@", message)
+                        return try! inMemory()
+                    }
                 }
             }
         }
@@ -88,6 +93,29 @@ enum SharedModelContainer {
             cloudKitDatabase: .none
         )
         return try ModelContainer(for: schema, configurations: [configuration])
+    }
+
+    static func appGroupLocalOnly() throws -> ModelContainer {
+        prepareDevelopmentStoresIfNeeded()
+
+        let cloudConfiguration = ModelConfiguration(
+            "Cloud",
+            schema: cloudSchema,
+            groupContainer: .identifier(appGroupID),
+            cloudKitDatabase: .none
+        )
+
+        let localCacheConfiguration = ModelConfiguration(
+            "LocalCache",
+            schema: localCacheSchema,
+            groupContainer: .identifier(appGroupID),
+            cloudKitDatabase: .none
+        )
+
+        return try ModelContainer(
+            for: schema,
+            configurations: [cloudConfiguration, localCacheConfiguration]
+        )
     }
 
     static func inMemory() throws -> ModelContainer {
