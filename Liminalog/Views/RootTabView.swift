@@ -2,7 +2,7 @@ import SwiftUI
 import SwiftData
 import UIKit
 
-private enum RootTab: Hashable {
+private enum RootTab: Hashable, CaseIterable {
     case today
     case calendar
     case dashboard
@@ -22,6 +22,7 @@ struct RootTabView: View {
     @State private var transitionSourceThemeID: String?
     @State private var themeTransitionProgress: CGFloat = 1
     @State private var themeTransitionNonce = 0
+    @State private var tabThemeRefreshEpochs: [RootTab: Int] = [:]
     #if DEBUG
     @AppStorage("debug.unlocks.allowLockedDecorations") private var allowsLockedDecorationTesting = false
     #endif
@@ -70,18 +71,23 @@ struct RootTabView: View {
                     TabView(selection: $selectedTab) {
                         Tab("今日", systemImage: "clock.fill", value: RootTab.today) {
                             HomeView()
+                                .id(themeRefreshID(for: .today))
                         }
                         Tab("カレンダー", systemImage: "calendar", value: RootTab.calendar) {
                             CalendarView()
+                                .id(themeRefreshID(for: .calendar))
                         }
                         Tab("統計", systemImage: "chart.bar.fill", value: RootTab.dashboard) {
                             DashboardView()
+                                .id(themeRefreshID(for: .dashboard))
                         }
                         Tab("友達", systemImage: "person.2.fill", value: RootTab.friends) {
                             FriendsView(pendingInviteURL: $pendingFriendInviteURL)
+                                .id(themeRefreshID(for: .friends))
                         }
                         Tab("プロフィール", systemImage: "person.crop.circle", value: RootTab.profile) {
                             ProfileView()
+                                .id(themeRefreshID(for: .profile))
                         }
                         .badge(freshUnlockCount)
                     }
@@ -173,6 +179,18 @@ struct RootTabView: View {
             guard themeTransitionNonce == nonce else { return }
             transitionSourceThemeID = nil
             themeTransitionProgress = 1
+            refreshThemeDependentTabs()
+        }
+    }
+
+    private func themeRefreshID(for tab: RootTab) -> String {
+        "\(tab)-\(tabThemeRefreshEpochs[tab, default: 0])"
+    }
+
+    private func refreshThemeDependentTabs() {
+        // テーマ選択中のナビゲーションを保つため、プロフィールタブは再生成しない。
+        for tab in RootTab.allCases where tab != .profile {
+            tabThemeRefreshEpochs[tab, default: 0] += 1
         }
     }
 
