@@ -2406,7 +2406,7 @@ private struct CalendarImportantPlanLabel: View {
     }
 
     private var color: Color {
-        CalendarSemanticColor.importantPlan
+        plan.color
     }
 
     private var labelStyle: CalendarPlanLabelStyle {
@@ -2598,7 +2598,7 @@ private struct CalendarMultiDayPlanBar: View {
     }
 
     private var color: Color {
-        CalendarSemanticColor.importantPlan
+        plan.color
     }
 
     private var titleColor: Color {

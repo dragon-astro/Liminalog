@@ -265,7 +265,7 @@ struct CalendarDayView: View {
                     Button {
                         editingPlan = plan
                     } label: {
-                        ImportantPlanRow(plan: plan, isHighlighted: plan.id == highlightedPlanID, tint: CalendarSemanticColor.importantPlan)
+                        ImportantPlanRow(plan: plan, isHighlighted: plan.id == highlightedPlanID)
                     }
                     .buttonStyle(.plain)
                     .contextMenu {
@@ -349,7 +349,7 @@ struct CalendarDayView: View {
     }
 
     private var headerAccentColor: Color {
-        importantPlans.isEmpty ? scoreColor(scoreSummary) : CalendarSemanticColor.importantPlan
+        importantPlans.first?.category?.displayColor ?? scoreColor(scoreSummary)
     }
 
     private var headerTitle: String {
@@ -647,17 +647,16 @@ private struct DayScoreMetric: View {
 private struct ImportantPlanRow: View {
     let plan: PlanBlock
     let isHighlighted: Bool
-    let tint: Color
 
     var body: some View {
         HStack(spacing: 10) {
             RoundedRectangle(cornerRadius: 3)
-                .fill(tint)
+                .fill(color)
                 .frame(width: 5)
 
             Image(systemName: plan.category?.icon ?? "star.fill")
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(tint)
+                .foregroundStyle(color)
                 .frame(width: 24)
 
             VStack(alignment: .leading, spacing: 3) {
@@ -681,13 +680,17 @@ private struct ImportantPlanRow: View {
         .padding(10)
         .background(
             RoundedRectangle(cornerRadius: 10)
-                .fill(isHighlighted ? tint.opacity(0.18) : tint.opacity(0.09))
+                .fill(isHighlighted ? color.opacity(0.16) : color.opacity(0.08))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 10)
-                .stroke(isHighlighted ? tint.opacity(0.74) : tint.opacity(0.38), lineWidth: isHighlighted ? 1.5 : 1)
+                .stroke(isHighlighted ? color.opacity(0.7) : color.opacity(0.34), lineWidth: isHighlighted ? 1.5 : 1)
         )
         .accessibilityElement(children: .combine)
+    }
+
+    private var color: Color {
+        plan.category?.displayColor ?? LiminalTheme.accent
     }
 
     private var dateRangeText: String {
