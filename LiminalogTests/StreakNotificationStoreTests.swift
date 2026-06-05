@@ -6,7 +6,7 @@ import Testing
 @MainActor
 @Suite("StreakNotificationStore")
 struct StreakNotificationStoreTests {
-    @Test("前日までのストリークがあり今日60点未満なら夜の警告を差し替える")
+    @Test("前日までのストリークがあり今日30点未満なら夜の警告を差し替える")
     func schedulesWarningWhenCurrentStreakCouldBreak() async throws {
         let calendar = Calendar.liminalogTest
         let container = try TestModelContainer.make()
@@ -41,6 +41,7 @@ struct StreakNotificationStoreTests {
         #expect(plan.identifier == StreakBreakNotificationPlan.identifier)
         #expect(calendar.component(.hour, from: plan.fireDate) == 21)
         #expect(plan.body.contains("1日ストリーク"))
+        #expect(plan.body.contains("30点"))
     }
 
     @Test("通知が未許可なら保留中のストリーク警告を消す")
@@ -59,13 +60,13 @@ struct StreakNotificationStoreTests {
         #expect(scheduler.replacedPlans[0] == nil)
     }
 
-    @Test("今日すでに60点以上なら警告しない")
+    @Test("今日すでに30点以上なら警告しない")
     func doesNotWarnAfterPassingToday() throws {
         let calendar = Calendar.liminalogTest
         let now = try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 16, hour: 20)))
         let firePlan = StreakBreakNotificationPlanner.makePlan(
             now: now,
-            todaySummary: summary(totalScore: 75, plannedDuration: 3_600),
+            todaySummary: summary(totalScore: 35, plannedDuration: 3_600),
             currentStreakDays: 3,
             calendar: calendar
         )
@@ -81,13 +82,13 @@ struct StreakNotificationStoreTests {
 
         let nearNowPlan = try #require(StreakBreakNotificationPlanner.makePlan(
             now: afterWarningHour,
-            todaySummary: summary(totalScore: 42, plannedDuration: 3_600),
+            todaySummary: summary(totalScore: 20, plannedDuration: 3_600),
             currentStreakDays: 3,
             calendar: calendar
         ))
         let tooLatePlan = StreakBreakNotificationPlanner.makePlan(
             now: tooLate,
-            todaySummary: summary(totalScore: 42, plannedDuration: 3_600),
+            todaySummary: summary(totalScore: 20, plannedDuration: 3_600),
             currentStreakDays: 3,
             calendar: calendar
         )

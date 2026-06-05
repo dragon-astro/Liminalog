@@ -14,7 +14,8 @@ struct ScoreSummary {
         case 90...: "かなり予定通り"
         case 75..<90: "いい感じ"
         case 60..<75: "合格ライン"
-        case 1..<60: "もう少し"
+        case 30..<60: "そこそこ"
+        case 1..<30: "もう少し"
         default: "予定待ち"
         }
     }

@@ -101,13 +101,19 @@ final class StreakNotificationStore {
             return
         }
 
-        let todaySummary = ScoreSnapshotLoader.summary(
+        guard let todaySummary = ScoreSnapshotLoader.summaryIfAvailable(
             on: now,
             modelContext: modelContext,
             now: now,
             calendar: calendar
-        )
-        let priorStreakDays = streakCountEndingYesterday(from: now)
+        ) else {
+            NSLog("Liminalog: skipped streak notification refresh because today's score could not be loaded")
+            return
+        }
+        guard let priorStreakDays = streakCountEndingYesterday(from: now) else {
+            NSLog("Liminalog: skipped streak notification refresh because streak scores could not be loaded")
+            return
+        }
         let plan = StreakBreakNotificationPlanner.makePlan(
             now: now,
             todaySummary: todaySummary,
@@ -126,18 +132,18 @@ final class StreakNotificationStore {
         }
     }
 
-    private func streakCountEndingYesterday(from now: Date) -> Int {
+    private func streakCountEndingYesterday(from now: Date) -> Int? {
         guard let yesterday = calendar.date(byAdding: .day, value: -1, to: now) else { return 0 }
 
         var count = 0
         for offset in 0..<365 {
             guard let target = calendar.date(byAdding: .day, value: -offset, to: yesterday) else { break }
-            let summary = ScoreSnapshotLoader.summary(
+            guard let summary = ScoreSnapshotLoader.summaryIfAvailable(
                 on: target,
                 modelContext: modelContext,
                 now: now,
                 calendar: calendar
-            )
+            ) else { return nil }
             guard summary.plannedDuration > 0,
                   summary.totalScore >= StreakBreakNotificationPlanner.passingScore
             else { break }

@@ -13,7 +13,16 @@ final class LiveActivityCoordinator {
         guard #available(iOS 16.2, *) else { return }
 
         Task {
-            let categories = categorySet.map { categorySetStore.assignedCategories(for: $0) } ?? []
+            let categories: [Category]
+            if let categorySet {
+                guard let assignedCategories = categorySetStore.assignedCategoriesIfAvailable(for: categorySet) else {
+                    NSLog("Liminalog: skipped Live Activity update because category set categories could not be fetched")
+                    return
+                }
+                categories = assignedCategories
+            } else {
+                categories = []
+            }
             await LiveActivityManager.shared.update(
                 activeChapter: activeChapter,
                 categorySetName: categorySet?.name ?? "カテゴリ",

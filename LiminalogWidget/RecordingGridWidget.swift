@@ -33,7 +33,7 @@ private enum RecordingWidgetStore {
     static let enabledCategorySetCacheKey = "recording.enabledCategorySetID"
     static let surfaceSnapshotCacheKey = "recording.surfaceSnapshot"
     private static let developmentStoreVersionKey = "development.storeVersion"
-    private static let currentDevelopmentStoreVersion = 2026052903
+    private static let currentDevelopmentStoreVersion = 2026060501
     private static let requiredDevelopmentStoreMarkers = [
         "ZPROFILEACCENTCOLORHEX"
     ]

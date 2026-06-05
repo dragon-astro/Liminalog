@@ -6,11 +6,15 @@ enum SharedModelContainer {
     static let appGroupID = "group.app.YasudaRyuga.Liminalog"
     static let cloudKitContainerID = "iCloud.app.YasudaRyuga.Liminalog"
     private static let developmentStoreVersionKey = "development.storeVersion"
-    private static let currentDevelopmentStoreVersion = 2026060201
+    private static let developmentStoreResetRequestedKey = "development.resetStoreOnNextLaunch"
+    private static let currentDevelopmentStoreVersion = 2026060501
     private static let requiredDevelopmentStoreColumns: [(table: String, columns: [String])] = [
-        ("ZCATEGORY", ["ZDAILYCARDINTENTRAWVALUE", "ZISDAILYCARDSLEEPCATEGORY"]),
-        ("ZUSERSETTINGS", ["ZPROFILEACCENTCOLORHEX", "ZPROFILEBADGEID", "ZPROFILEICONFRAMEID", "ZPROFILESTREAKICONID", "ZPROFILECARDSTYLEID", "ZDASHBOARDHIDDENCARDKEYS"]),
+        ("ZCATEGORY", ["ZDAILYCARDINTENTRAWVALUE", "ZISDAILYCARDSLEEPCATEGORY", "ZDEFAULTAUDIENCEFRIENDSETIDS", "ZDEFAULTAUDIENCEINCLUDEDFRIENDIDS", "ZDEFAULTAUDIENCEEXCLUDEDFRIENDIDS"]),
+        ("ZCHAPTER", ["ZAUDIENCEFRIENDIDS", "ZAUDIENCESOURCERAWVALUE", "ZHASAUDIENCESNAPSHOT"]),
+        ("ZPLANBLOCK", ["ZAUDIENCEFRIENDIDS", "ZAUDIENCESOURCERAWVALUE", "ZHASAUDIENCESNAPSHOT"]),
+        ("ZUSERSETTINGS", ["ZPROFILEACCENTCOLORHEX", "ZPROFILEBADGEID", "ZPROFILEICONFRAMEID", "ZPROFILESTREAKICONID", "ZPROFILECARDSTYLEID", "ZDASHBOARDHIDDENCARDKEYS", "ZDIDSEEDINITIALFRIENDSETS"]),
         ("ZFRIEND", ["ZSTATUSRAWVALUE", "ZPROFILEBADGEID", "ZPROFILEICONFRAMEID", "ZPROFILESTREAKICONID", "ZPROFILECARDSTYLEID", "ZSTREAKCOUNT", "ZMONTHSCORE", "ZYEARSCORE", "ZSHAREDPLANSJSON", "ZSHAREDACTIVITIESJSON"]),
+        ("ZFRIENDSET", ["ZNAME", "ZMEMBERFRIENDIDS", "ZSORTORDER"]),
         ("ZFRIENDCATEGORYMAPPING", ["ZMYCATEGORYID", "ZFRIENDCATEGORYID", "ZUSEUNIFIEDCOLOR"]),
         ("ZDAILYCARDSNAPSHOT", ["ZDAYIDENTIFIER", "ZPERSONAKINDRAWVALUE", "ZTITLE", "ZFACTPAYLOADJSON", "ZCATEGORYPAYLOADJSON"]),
         ("ZUNLOCKITEM", ["ZKEY", "ZKINDRAWVALUE", "ZREQUIREDCUMULATIVESCORE", "ZREQUIREMENTKINDRAWVALUE", "ZREQUIREDVALUE", "ZTARGETID", "ZISBUILTIN"]),
@@ -47,6 +51,7 @@ enum SharedModelContainer {
             VisibilityPreset.self,
             UserSettings.self,
             Friend.self,
+            FriendSet.self,
             FriendCategoryMapping.self,
             DailyCardSnapshot.self
         ])
@@ -68,6 +73,7 @@ enum SharedModelContainer {
             VisibilityPreset.self,
             UserSettings.self,
             Friend.self,
+            FriendSet.self,
             FriendCategoryMapping.self,
             DailyCardSnapshot.self,
             CalendarEventCache.self
@@ -130,12 +136,24 @@ enum SharedModelContainer {
             .appendingPathComponent("Library", isDirectory: true)
             .appendingPathComponent("Application Support", isDirectory: true)
 
-        guard developmentStoreNeedsReset(defaults: defaults, supportURL: supportURL) else { return }
+        guard developmentStoreResetWasRequested(defaults: defaults) else {
+            if defaults.integer(forKey: developmentStoreVersionKey) != currentDevelopmentStoreVersion {
+                defaults.set(currentDevelopmentStoreVersion, forKey: developmentStoreVersionKey)
+                defaults.synchronize()
+            }
+            return
+        }
 
         resetDevelopmentStores(supportURL: supportURL)
+        defaults.removeObject(forKey: developmentStoreResetRequestedKey)
         defaults.set(currentDevelopmentStoreVersion, forKey: developmentStoreVersionKey)
         defaults.synchronize()
         #endif
+    }
+
+    private static func developmentStoreResetWasRequested(defaults: UserDefaults) -> Bool {
+        defaults.bool(forKey: developmentStoreResetRequestedKey) ||
+            ProcessInfo.processInfo.arguments.contains("-LiminalogResetDevelopmentStore")
     }
 
     private static func developmentStoreNeedsReset(defaults: UserDefaults, supportURL: URL) -> Bool {

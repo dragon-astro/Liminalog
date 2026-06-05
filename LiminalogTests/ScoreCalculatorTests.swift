@@ -57,7 +57,7 @@ struct ScoreCalculatorTests {
 @MainActor
 @Suite("ScoreStore")
 struct ScoreStoreTests {
-    @Test("60点以上の日だけストリークとして連続カウントする")
+    @Test("30点以上の日だけストリークとして連続カウントする")
     func streakCountStopsAtFirstMissingOrLowScoreDay() throws {
         let calendar = Calendar.current
         let todayNoon = try #require(calendar.date(from: DateComponents(year: 2026, month: 5, day: 28, hour: 12)))
@@ -74,7 +74,7 @@ struct ScoreStoreTests {
             let end = try #require(calendar.date(byAdding: .hour, value: 1, to: start))
             context.insert(PlanBlock(category: category, title: "勉強", startTime: start, endTime: end))
             let chapter = Chapter(category: category, startTime: start)
-            chapter.endTime = end
+            chapter.endTime = try #require(calendar.date(byAdding: .minute, value: 30, to: start))
             context.insert(chapter)
         }
 
@@ -91,6 +91,35 @@ struct ScoreStoreTests {
 
         let store = ScoreStore(modelContext: context, clock: clock)
 
+        #expect(store.streakCount(endingAt: todayNoon) == 2)
+    }
+
+    @Test("今日が未達成でも昨日以前の連続を数える（進行中の今日は連続を切らない）")
+    func streakCountKeepsYesterdayStreakWhenTodayIncomplete() throws {
+        let calendar = Calendar.current
+        let todayNoon = try #require(calendar.date(from: DateComponents(year: 2026, month: 5, day: 28, hour: 12)))
+        let clock = MutableTestClock(now: todayNoon)
+        let container = try TestModelContainer.make()
+        let context = container.mainContext
+        let category = Category(name: "勉強", colorHex: "#3B82F6")
+        context.insert(category)
+
+        let today = calendar.startOfDay(for: todayNoon)
+        // 昨日・一昨日は予定どおり達成。今日は予定も記録も無し（進行中・未達）。
+        for offset in 1...2 {
+            let day = try #require(calendar.date(byAdding: .day, value: -offset, to: today))
+            let start = try #require(calendar.date(byAdding: .hour, value: 9, to: day))
+            let end = try #require(calendar.date(byAdding: .hour, value: 1, to: start))
+            context.insert(PlanBlock(category: category, title: "勉強", startTime: start, endTime: end))
+            let chapter = Chapter(category: category, startTime: start)
+            chapter.endTime = end
+            context.insert(chapter)
+        }
+        try context.save()
+
+        let store = ScoreStore(modelContext: context, clock: clock)
+
+        // 今日が0でも、昨日・一昨日の連続2日が保たれる。
         #expect(store.streakCount(endingAt: todayNoon) == 2)
     }
 }

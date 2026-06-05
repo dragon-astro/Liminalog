@@ -11,11 +11,11 @@ struct TimelineChapterCard: View {
             VStack(alignment: .trailing, spacing: 2) {
                 Text(chapter.startTime.shortTime)
                     .font(.caption.monospacedDigit())
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(LiminalTheme.text)
                 if let end = chapter.endTime {
                     Text(end.shortTime)
                         .font(.caption.monospacedDigit())
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(LiminalTheme.secondaryText)
                 }
             }
             .frame(width: 52)
@@ -24,11 +24,11 @@ struct TimelineChapterCard: View {
             // Connector
             VStack(spacing: 0) {
                 Circle()
-                    .fill(chapter.category?.displayColor ?? Color(.systemGray3))
+                    .fill(chapter.category?.displayColor ?? LiminalTheme.secondaryText)
                     .frame(width: 10, height: 10)
                     .padding(.top, 4)
                 Rectangle()
-                    .fill(Color(.systemGray5))
+                    .fill(LiminalTheme.divider)
                     .frame(width: 2)
                     .frame(maxHeight: .infinity)
             }
@@ -46,11 +46,11 @@ struct TimelineChapterCard: View {
                         if let duration = chapter.duration {
                             Text(formatDuration(duration))
                                 .font(.caption.monospacedDigit())
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(LiminalTheme.secondaryText)
                         } else {
                             Label("記録中", systemImage: "circle.fill")
                                 .font(.caption.bold())
-                                .foregroundStyle(chapter.category?.displayColor ?? .accentColor)
+                                .foregroundStyle(chapter.category?.displayColor ?? LiminalTheme.accent)
                                 .symbolEffect(.pulse)
                         }
                     }
@@ -58,26 +58,26 @@ struct TimelineChapterCard: View {
                     if let note = chapter.note {
                         Text(note)
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(LiminalTheme.secondaryText)
                             .lineLimit(2)
                     }
 
                     if let location = chapter.locationName {
                         Label(location, systemImage: "mappin.and.ellipse")
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(LiminalTheme.secondaryText)
                     }
                 }
                 .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(Color(.secondarySystemGroupedBackground))
+                        .fill(LiminalTheme.surface)
                 )
                 .overlay(alignment: .trailing) {
                     if let matchedPlan {
                         RoundedRectangle(cornerRadius: 2)
-                            .fill(matchedPlan.category?.displayColor ?? Color(.systemGray3))
+                            .fill(matchedPlan.category?.displayColor ?? LiminalTheme.secondaryText)
                             .frame(width: 4)
                             .padding(.vertical, 8)
                             .padding(.trailing, 4)

@@ -64,6 +64,37 @@ struct FriendSharedPlanSnapshotTests {
     }
 
     @Test
+    func nextDayVisibilityPresetOnlySharesPlansEndedBeforeToday() {
+        let calendar = Calendar.japanese
+        let now = calendar.date(from: DateComponents(year: 2026, month: 6, day: 4, hour: 12))!
+        let yesterdayStart = calendar.date(from: DateComponents(year: 2026, month: 6, day: 3, hour: 10))!
+        let todayStart = calendar.date(from: DateComponents(year: 2026, month: 6, day: 4, hour: 10))!
+        let visiblePlan = PlanBlock(
+            category: Category(name: "勉強", colorHex: "#4F8BFF", icon: "book.fill"),
+            title: "昨日の予定",
+            startTime: yesterdayStart,
+            endTime: calendar.date(byAdding: .hour, value: 1, to: yesterdayStart)!,
+            isPublic: true
+        )
+        let hiddenPlan = PlanBlock(
+            category: Category(name: "仕事", colorHex: "#6C5CE7", icon: "briefcase.fill"),
+            title: "今日の予定",
+            startTime: todayStart,
+            endTime: calendar.date(byAdding: .hour, value: 1, to: todayStart)!,
+            isPublic: true
+        )
+        let preset = VisibilityPreset(name: "控えめ", publishMode: .nextDay)
+
+        let snapshots = FriendSharedPlanSnapshot.snapshots(
+            from: [hiddenPlan, visiblePlan],
+            visibilityPreset: preset,
+            now: now
+        )
+
+        #expect(snapshots.map(\.title) == ["昨日の予定"])
+    }
+
+    @Test
     func freeTimeOnlyVisibilityPresetRedactsPlanDetails() {
         let calendar = Calendar.japanese
         let start = calendar.date(from: DateComponents(year: 2026, month: 5, day: 30, hour: 9))!
@@ -190,6 +221,29 @@ struct FriendSharedPlanSnapshotTests {
         let snapshots = FriendSharedActivitySnapshot.snapshots(from: [chapter], visibilityPreset: preset)
 
         #expect(snapshots.isEmpty)
+    }
+
+    @Test
+    func nextDayVisibilityPresetOnlySharesActivitiesEndedBeforeToday() {
+        let calendar = Calendar.japanese
+        let now = calendar.date(from: DateComponents(year: 2026, month: 6, day: 4, hour: 12))!
+        let yesterdayStart = calendar.date(from: DateComponents(year: 2026, month: 6, day: 3, hour: 9))!
+        let todayStart = calendar.date(from: DateComponents(year: 2026, month: 6, day: 4, hour: 9))!
+        let category = Category(name: "勉強", colorHex: "#4F8BFF", icon: "book.fill")
+        let visibleChapter = Chapter(category: category, startTime: yesterdayStart)
+        visibleChapter.endTime = calendar.date(byAdding: .hour, value: 1, to: yesterdayStart)!
+        let hiddenChapter = Chapter(category: category, startTime: todayStart)
+        hiddenChapter.endTime = calendar.date(byAdding: .hour, value: 1, to: todayStart)!
+        let activeChapter = Chapter(category: category, startTime: calendar.date(byAdding: .hour, value: -1, to: now)!)
+        let preset = VisibilityPreset(name: "控えめ", publishMode: .nextDay)
+
+        let snapshots = FriendSharedActivitySnapshot.snapshots(
+            from: [hiddenChapter, activeChapter, visibleChapter],
+            now: now,
+            visibilityPreset: preset
+        )
+
+        #expect(snapshots.map(\.id) == [visibleChapter.id])
     }
 
     @Test

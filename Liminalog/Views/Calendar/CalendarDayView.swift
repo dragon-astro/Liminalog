@@ -11,9 +11,10 @@ struct CalendarDayView: View {
     @State private var editingChapter: Chapter?
     @State private var editingPlan: PlanBlock?
     @State private var pendingCreateDate: Date
-    @State private var pendingPlanStartsAsImportant = false
+    @State private var pendingPlanStartsAsAllDay = false
     @State private var showingPlanSheet = false
     @State private var clock = TickClock(interval: 60)
+    @State private var operationError: String?
 
     private let highlightedPlanID: UUID?
     private let showsNavigationControls: Bool
@@ -80,31 +81,17 @@ struct CalendarDayView: View {
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    dayVisibilityMenu
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Menu {
+                    HStack(spacing: 14) {
+                        dayVisibilityMenu
                         Button {
-                            pendingCreateDate = Calendar.japanese.startOfDay(for: date)
-                            pendingPlanStartsAsImportant = true
-                            showingPlanSheet = true
+                            preparePlanCreation()
                         } label: {
-                            Label("重要な予定を追加", systemImage: "star")
+                            Image(systemName: "plus")
+                                .font(.title3.weight(.semibold))
+                                .foregroundStyle(LiminalTheme.accent)
+                                .frame(width: 32, height: 32)
                         }
-
-                        if canCreateTimedPlansForDay {
-                            Button {
-                                pendingCreateDate = defaultChapterStart
-                                pendingPlanStartsAsImportant = false
-                                showingPlanSheet = true
-                            } label: {
-                                Label("時間つき予定を追加", systemImage: "calendar.badge.plus")
-                            }
-                        } else {
-                            Label("今日以前の時間つき予定は追加できません", systemImage: "lock.fill")
-                        }
-                    } label: {
-                        Image(systemName: "plus")
+                        .accessibilityLabel("予定を追加")
                     }
                 }
             }
@@ -117,13 +104,20 @@ struct CalendarDayView: View {
             PlanCreateSheet(plan: plan)
         }
         .sheet(isPresented: $showingPlanSheet) {
-            PlanCreateSheet(initialDate: pendingCreateDate, startsAsAllDay: pendingPlanStartsAsImportant)
+            PlanCreateSheet(initialDate: pendingCreateDate, startsAsAllDay: pendingPlanStartsAsAllDay)
         }
         .onAppear {
             clock.start()
         }
         .onDisappear {
             clock.stop()
+        }
+        .alert("反映できませんでした", isPresented: operationErrorPresented) {
+            Button("OK") {
+                operationError = nil
+            }
+        } message: {
+            Text(operationError ?? "")
         }
     }
 
@@ -136,9 +130,10 @@ struct CalendarDayView: View {
                     Image(systemName: "chevron.left")
                         .font(.subheadline.weight(.bold))
                         .frame(width: 34, height: 34)
-                        .background(Color(.tertiarySystemGroupedBackground), in: Circle())
+                        .background(LiminalTheme.elevated, in: Circle())
                 }
                 .buttonStyle(.borderless)
+                .accessibilityLabel("前の日")
             }
 
             VStack(alignment: .leading, spacing: 10) {
@@ -148,8 +143,8 @@ struct CalendarDayView: View {
                     .minimumScaleFactor(0.8)
 
                 HStack(spacing: 7) {
-                    DayHeaderPill(systemImage: "star.fill", text: "重要 \(importantPlans.count)", tint: Color.yellow)
-                    DayHeaderPill(systemImage: "calendar.badge.clock", text: "予定 \(timedPlans.count)", tint: Color.accentColor)
+                    DayHeaderPill(systemImage: "star.fill", text: "重要 \(importantPlans.count)", tint: LiminalTheme.reward)
+                    DayHeaderPill(systemImage: "calendar.badge.clock", text: "予定 \(timedPlans.count)", tint: LiminalTheme.accent)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -163,15 +158,16 @@ struct CalendarDayView: View {
                     Image(systemName: "chevron.right")
                         .font(.subheadline.weight(.bold))
                         .frame(width: 34, height: 34)
-                        .background(Color(.tertiarySystemGroupedBackground), in: Circle())
+                        .background(LiminalTheme.elevated, in: Circle())
                 }
                 .buttonStyle(.borderless)
+                .accessibilityLabel("次の日")
             }
         }
         .padding(16)
         .background {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
+                .fill(LiminalTheme.surface)
                 .overlay(alignment: .bottom) {
                     DecorativeAccentStrip(color: headerAccentColor)
                         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
@@ -186,7 +182,7 @@ struct CalendarDayView: View {
     private var planningDeadlineCard: some View {
         let coverage = planningCoverage
         let hasGap = coverage.hasActionableGap
-        let tint = hasGap ? Color.orange : Color.green
+        let tint = hasGap ? LiminalTheme.reward : LiminalTheme.accent
         let statusText = hasGap ? "空きあり" : "予定登録済み"
         let statusIcon = hasGap ? "circle.fill" : "checkmark.circle.fill"
         return HStack(spacing: 8) {
@@ -208,11 +204,11 @@ struct CalendarDayView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(tint.opacity(0.14))
+                    .fill(tint.opacity(0.12))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
-                    .stroke(tint.opacity(0.28), lineWidth: 1)
+                    .stroke(tint.opacity(0.5), lineWidth: 1)
             )
             .accessibilityLabel("明日の予定づくりの残り時間")
             .accessibilityValue("\(planningDeadlineText)、\(statusText)")
@@ -234,23 +230,24 @@ struct CalendarDayView: View {
             HStack(spacing: 8) {
                 Image(systemName: "star.fill")
                     .font(.caption.weight(.bold))
-                    .foregroundStyle(.yellow)
+                    .foregroundStyle(LiminalTheme.reward)
                     .frame(width: 24, height: 24)
-                    .background(Color.yellow.opacity(0.14), in: Circle())
+                    .background(LiminalTheme.reward.opacity(0.12), in: Circle())
                 Text("重要な予定")
                     .font(.headline)
+                    .foregroundStyle(LiminalTheme.text)
                 Spacer()
                 if !importantPlans.isEmpty {
                     Text("\(importantPlans.count)")
                         .font(.caption.monospacedDigit().weight(.bold))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(LiminalTheme.reward)
                 }
             }
 
             if importantPlans.isEmpty {
                 Button {
                     pendingCreateDate = Calendar.japanese.startOfDay(for: date)
-                    pendingPlanStartsAsImportant = true
+                    pendingPlanStartsAsAllDay = true
                     showingPlanSheet = true
                 } label: {
                     HStack(spacing: 8) {
@@ -258,7 +255,7 @@ struct CalendarDayView: View {
                         Text("重要な予定を追加")
                     }
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(LiminalTheme.reward)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.vertical, 4)
                 }
@@ -281,7 +278,10 @@ struct CalendarDayView: View {
                             Label("今日以前の予定は削除できません", systemImage: "lock.fill")
                         } else {
                             Button(role: .destructive) {
-                                store.deletePlanBlock(plan)
+                                guard store.deletePlanBlock(plan) else {
+                                    operationError = "予定を削除できませんでした。時間をおいてもう一度試してください。"
+                                    return
+                                }
                             } label: {
                                 Label("削除", systemImage: "trash")
                             }
@@ -291,7 +291,7 @@ struct CalendarDayView: View {
             }
         }
         .padding(14)
-        .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color(.secondarySystemGroupedBackground)))
+        .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(LiminalTheme.surface))
     }
 
     private var timelineArea: some View {
@@ -316,6 +316,16 @@ struct CalendarDayView: View {
             }
     }
 
+    private var operationErrorPresented: Binding<Bool> {
+        Binding {
+            operationError != nil
+        } set: { isPresented in
+            if !isPresented {
+                operationError = nil
+            }
+        }
+    }
+
     private var timedPlans: [PlanBlock] {
         plannedBlocks(on: date).filter { !$0.isAllDay }
     }
@@ -335,7 +345,7 @@ struct CalendarDayView: View {
     }
 
     private var daySummaryText: String {
-        "重要 \(importantPlans.count)件 / 時間つき予定 \(timedPlans.count)件"
+        "重要 \(importantPlans.count)件 / 時間指定の予定 \(timedPlans.count)件"
     }
 
     private var headerAccentColor: Color {
@@ -398,14 +408,20 @@ struct CalendarDayView: View {
                         .font(.caption)
                 }
                 Button {
-                    store.setChaptersVisibility(visibleDayChapters, isPublic: true)
+                    guard store.setChaptersVisibility(visibleDayChapters, isPublic: true) else {
+                        operationError = "公開設定を変更できませんでした。時間をおいてもう一度試してください。"
+                        return
+                    }
                 } label: {
                     Label("すべて公開", systemImage: "eye")
                 }
                 .disabled(allPublic)
 
                 Button {
-                    store.setChaptersVisibility(visibleDayChapters, isPublic: false)
+                    guard store.setChaptersVisibility(visibleDayChapters, isPublic: false) else {
+                        operationError = "公開設定を変更できませんでした。時間をおいてもう一度試してください。"
+                        return
+                    }
                 } label: {
                     Label("すべて非公開", systemImage: "eye.slash")
                 }
@@ -417,10 +433,10 @@ struct CalendarDayView: View {
             }
         } label: {
             Image(systemName: allPrivate ? "eye.slash" : (isMixed ? "eye.fill" : "eye"))
-                .foregroundStyle(isMixed ? Color.accentColor : Color.primary)
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(LiminalTheme.accent)
         }
         .accessibilityLabel("この日の公開設定")
-        .disabled(visibleDayChapters.isEmpty)
     }
 
     private func plannedBlocks(on date: Date) -> [PlanBlock] {
@@ -433,6 +449,17 @@ struct CalendarDayView: View {
                 }
                 return lhs.startTime < rhs.startTime
             }
+    }
+
+    private func preparePlanCreation() {
+        if canCreateTimedPlansForDay {
+            pendingCreateDate = defaultChapterStart
+            pendingPlanStartsAsAllDay = false
+        } else {
+            pendingCreateDate = Calendar.japanese.startOfDay(for: date)
+            pendingPlanStartsAsAllDay = true
+        }
+        showingPlanSheet = true
     }
 
     private func chapters(on date: Date) -> [Chapter] {
@@ -533,7 +560,7 @@ private struct DayScoreCard: View {
                     .minimumScaleFactor(0.78)
 
                 HStack(spacing: 8) {
-                    DayScoreMetric(title: "予定", value: compactDuration(summary.plannedDuration), tint: Color.accentColor)
+                    DayScoreMetric(title: "予定", value: compactDuration(summary.plannedDuration), tint: LiminalTheme.accent)
                     DayScoreMetric(title: "一致", value: compactDuration(summary.matchedDuration), tint: color)
                     DayScoreMetric(title: "実績", value: compactDuration(summary.recordedDuration), tint: Color(hex: "#6C5CE7"))
                 }
@@ -543,7 +570,7 @@ private struct DayScoreCard: View {
         .padding(16)
         .background {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
+                .fill(LiminalTheme.surface)
         }
         .overlay(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -573,7 +600,7 @@ private struct DayScoreRing: View {
     var body: some View {
         ZStack {
             Circle()
-                .stroke(Color(.tertiarySystemGroupedBackground), lineWidth: 10)
+                .stroke(LiminalTheme.elevated, lineWidth: 10)
 
             Circle()
                 .trim(from: 0, to: hasScore ? min(max(score / 100, 0), 1) : 0)
@@ -586,7 +613,7 @@ private struct DayScoreRing: View {
                     .contentTransition(.numericText())
                 Text("pt")
                     .font(.caption2.weight(.bold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(LiminalTheme.secondaryText)
             }
         }
         .frame(width: 88, height: 88)
@@ -603,7 +630,7 @@ private struct DayScoreMetric: View {
         VStack(alignment: .leading, spacing: 3) {
             Text(title)
                 .font(.caption2.weight(.bold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(LiminalTheme.secondaryText)
             Text(value)
                 .font(.caption.monospacedDigit().weight(.bold))
                 .foregroundStyle(tint)
@@ -635,11 +662,11 @@ private struct ImportantPlanRow: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(plan.title)
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(LiminalTheme.text)
                     .lineLimit(1)
                 Text(dateRangeText)
                     .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(LiminalTheme.secondaryText)
                     .lineLimit(1)
             }
 
@@ -647,23 +674,23 @@ private struct ImportantPlanRow: View {
 
             Image(systemName: "chevron.right")
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(LiminalTheme.tertiaryText)
         }
         .frame(minHeight: 44)
         .padding(10)
         .background(
             RoundedRectangle(cornerRadius: 10)
-                .fill(isHighlighted ? color.opacity(0.18) : color.opacity(0.08))
+                .fill(isHighlighted ? color.opacity(0.16) : color.opacity(0.08))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 10)
-                .stroke(isHighlighted ? color.opacity(0.55) : color.opacity(0.16), lineWidth: isHighlighted ? 1.5 : 1)
+                .stroke(isHighlighted ? color.opacity(0.7) : color.opacity(0.34), lineWidth: isHighlighted ? 1.5 : 1)
         )
         .accessibilityElement(children: .combine)
     }
 
     private var color: Color {
-        plan.category?.displayColor ?? Color.accentColor
+        plan.category?.displayColor ?? LiminalTheme.accent
     }
 
     private var dateRangeText: String {

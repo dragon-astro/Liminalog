@@ -4,7 +4,6 @@ enum DashboardCardKey: String, CaseIterable, Identifiable {
     case hero
     case metrics
     case scoreBreakdown
-    case timeOfDayTrend
     case periodDelta
     case categoryShare
     case hourRhythm
@@ -21,8 +20,6 @@ enum DashboardCardKey: String, CaseIterable, Identifiable {
             return "メトリック"
         case .scoreBreakdown:
             return "スコア内訳"
-        case .timeOfDayTrend:
-            return "時間帯別傾向"
         case .periodDelta:
             return "前期間比"
         case .categoryShare:
@@ -44,8 +41,6 @@ enum DashboardCardKey: String, CaseIterable, Identifiable {
             return "number"
         case .scoreBreakdown:
             return "target"
-        case .timeOfDayTrend:
-            return "clock.fill"
         case .periodDelta:
             return "arrow.left.arrow.right"
         case .categoryShare:
@@ -64,7 +59,6 @@ enum DashboardCardKey: String, CaseIterable, Identifiable {
         case .today:
             return [
                 .hero,
-                .metrics,
                 .scoreBreakdown,
                 .categoryShare,
                 .hourRhythm,
@@ -73,9 +67,7 @@ enum DashboardCardKey: String, CaseIterable, Identifiable {
         case .week:
             return [
                 .hero,
-                .metrics,
                 .scoreBreakdown,
-                .timeOfDayTrend,
                 .periodDelta,
                 .categoryShare,
                 .hourRhythm,
@@ -85,7 +77,6 @@ enum DashboardCardKey: String, CaseIterable, Identifiable {
         case .month, .year:
             return [
                 .hero,
-                .metrics,
                 .scoreBreakdown,
                 .categoryShare,
                 .hourRhythm,

@@ -5,6 +5,8 @@ struct ChapterCreateSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(ChapterStore.self) private var store
     @Query(sort: \Category.sortOrder) private var categories: [Category]
+    @Query(sort: \FriendSet.sortOrder) private var friendSets: [FriendSet]
+    @Query(sort: \Friend.displayName) private var friends: [Friend]
 
     @State private var startTime = Date()
     @State private var endTime = Date()
@@ -12,6 +14,11 @@ struct ChapterCreateSheet: View {
     @State private var note = ""
     @State private var locationName = ""
     @State private var isPublic = true
+    @State private var audienceFriendIDs: [UUID] = []
+    @State private var audienceSource: AudienceSource = .categoryDefaultSnapshot
+    @State private var showingAudiencePicker = false
+    @State private var didInitializeAudience = false
+    @State private var saveError: String?
 
     init(initialDate: Date = Date()) {
         let now = Date()
@@ -46,11 +53,11 @@ struct ChapterCreateSheet: View {
                     if let validationMessage {
                         Label(validationMessage, systemImage: "exclamationmark.triangle.fill")
                             .font(.caption)
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(LiminalTheme.reward)
                     } else {
                         Text("実績の手動追加は今日の現在時刻までの範囲で保存できます。")
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(LiminalTheme.secondaryText)
                     }
                 }
 
@@ -67,6 +74,25 @@ struct ChapterCreateSheet: View {
                     Toggle(isOn: $isPublic) {
                         Label(isPublic ? "友達に見せる" : "自分だけ", systemImage: isPublic ? "eye" : "eye.slash")
                     }
+                    if isPublic {
+                        Button {
+                            showingAudiencePicker = true
+                            audienceSource = .custom
+                        } label: {
+                            AudienceSummaryRow(
+                                title: "公開相手",
+                                count: audienceFriendIDs.count,
+                                systemImage: "person.2.fill",
+                                tint: selectedCategory?.displayColor ?? LiminalTheme.accent
+                            )
+                        }
+
+                        Button {
+                            resetAudienceToCategoryDefault()
+                        } label: {
+                            Label("カテゴリ既定値に戻す", systemImage: "arrow.counterclockwise")
+                        }
+                    }
                 }
             }
             .navigationTitle("チャプターを追加")
@@ -82,8 +108,28 @@ struct ChapterCreateSheet: View {
                 }
             }
             .onAppear {
-                selectedCategory = categories.first
+                if selectedCategory == nil {
+                    selectedCategory = categories.first
+                }
+                if !didInitializeAudience {
+                    resetAudienceToCategoryDefault()
+                    didInitializeAudience = true
+                }
                 clampToToday()
+            }
+            .onChange(of: selectedCategory?.id) { _, _ in
+                guard didInitializeAudience, audienceSource == .categoryDefaultSnapshot else { return }
+                resetAudienceToCategoryDefault()
+            }
+            .sheet(isPresented: $showingAudiencePicker) {
+                AudienceSnapshotPickerSheet(audienceFriendIDs: $audienceFriendIDs)
+            }
+            .alert("保存できませんでした", isPresented: saveErrorPresented) {
+                Button("OK") {
+                    saveError = nil
+                }
+            } message: {
+                Text(saveError ?? "")
             }
         }
     }
@@ -130,6 +176,33 @@ struct ChapterCreateSheet: View {
         }
     }
 
+    private func resetAudienceToCategoryDefault() {
+        audienceFriendIDs = AudienceResolver.categoryDefaultAudience(
+            for: selectedCategory,
+            friendSets: friendSets,
+            friends: friends
+        )
+        audienceSource = .categoryDefaultSnapshot
+    }
+
+    private var saveErrorPresented: Binding<Bool> {
+        Binding {
+            saveError != nil
+        } set: { isPresented in
+            if !isPresented {
+                saveError = nil
+            }
+        }
+    }
+
+    private var shouldSaveAudienceSnapshot: Bool {
+        guard isPublic else { return false }
+        if audienceSource == .custom {
+            return true
+        }
+        return !audienceFriendIDs.isEmpty
+    }
+
     private func save() {
         guard let selectedCategory else { return }
         guard store.addChapter(
@@ -139,8 +212,14 @@ struct ChapterCreateSheet: View {
             note: note,
             mood: nil,
             locationName: locationName,
-            isPublic: isPublic
-        ) else { return }
+            isPublic: isPublic,
+            audienceFriendIDs: audienceFriendIDs,
+            audienceSource: audienceSource,
+            hasAudienceSnapshot: shouldSaveAudienceSnapshot
+        ) else {
+            saveError = "実績を保存できませんでした。時間をおいてもう一度試してください。"
+            return
+        }
         dismiss()
     }
 }

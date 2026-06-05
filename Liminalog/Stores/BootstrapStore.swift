@@ -22,8 +22,12 @@ final class BootstrapStore {
 
     @discardableResult
     func bootstrap(now: Date = Date()) -> ChapterStore {
-        SeedCoordinator.ensureUserSettings(in: modelContext, now: now)
-        SeedCoordinator.consolidateBuiltInVisibilityPresets(in: modelContext, now: now)
+        if SeedCoordinator.ensureUserSettingsIfAvailable(in: modelContext, now: now) != nil {
+            SeedCoordinator.consolidateBuiltInVisibilityPresets(in: modelContext, now: now)
+            SeedCoordinator.seedInitialFriendSetsIfNeeded(in: modelContext, now: now)
+        } else {
+            NSLog("Liminalog: skipped bootstrap user-scoped seeds because UserSettings could not be fetched")
+        }
         unlockStore.seedMasterItems(now: now)
 
         #if DEBUG
@@ -34,6 +38,7 @@ final class BootstrapStore {
 
         chapterStore.pruneShortChapters()
         categorySetStore.seedDefaultCategorySetsIfNeeded()
+        chapterStore.restoreRecordingStateAfterLaunch()
         return chapterStore
     }
 

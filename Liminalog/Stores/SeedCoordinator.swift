@@ -5,18 +5,39 @@ import SwiftData
 enum SeedCoordinator {
     @discardableResult
     static func ensureUserSettings(in context: ModelContext, now: Date = Date()) -> UserSettings {
+        if let settings = ensureUserSettingsIfAvailable(in: context, now: now) {
+            return settings
+        }
+
+        NSLog("Liminalog: creating fallback UserSettings after fetch failure")
+        let created = UserSettings()
+        created.createdAt = now
+        created.updatedAt = now
+        context.insert(created)
+        saveChanges(context, action: "fallback user settings")
+        return created
+    }
+
+    @discardableResult
+    static func ensureUserSettingsIfAvailable(in context: ModelContext, now: Date = Date()) -> UserSettings? {
         let descriptor = FetchDescriptor<UserSettings>(
             predicate: #Predicate { $0.settingsKey == "default" },
             sortBy: [SortDescriptor(\.createdAt)]
         )
-        let settings = (try? context.fetch(descriptor)) ?? []
+        let settings: [UserSettings]
+        do {
+            settings = try context.fetch(descriptor)
+        } catch {
+            NSLog("Liminalog: failed to fetch UserSettings: \(String(describing: error))")
+            return nil
+        }
 
         guard let primary = settings.first else {
             let created = UserSettings()
             created.createdAt = now
             created.updatedAt = now
             context.insert(created)
-            try? context.save()
+            saveChanges(context, action: "initial user settings")
             return created
         }
 
@@ -27,7 +48,7 @@ enum SeedCoordinator {
 
         if settings.count > 1 {
             primary.updatedAt = now
-            try? context.save()
+            saveChanges(context, action: "user settings consolidation")
         }
 
         return primary
@@ -37,7 +58,13 @@ enum SeedCoordinator {
         let descriptor = FetchDescriptor<VisibilityPreset>(
             sortBy: [SortDescriptor(\.createdAt)]
         )
-        var presets = (try? context.fetch(descriptor)) ?? []
+        var presets: [VisibilityPreset]
+        do {
+            presets = try context.fetch(descriptor)
+        } catch {
+            NSLog("Liminalog: skipped visibility preset seed because presets could not be fetched: \(String(describing: error))")
+            return
+        }
         var didChange = false
 
         for seed in builtInVisibilityPresetSeeds(now: now) {
@@ -66,14 +93,51 @@ enum SeedCoordinator {
         }
 
         if didChange {
-            try? context.save()
+            saveChanges(context, action: "visibility preset seed")
         }
+    }
+
+    static func seedInitialFriendSetsIfNeeded(in context: ModelContext, now: Date = Date()) {
+        guard let settings = ensureUserSettingsIfAvailable(in: context, now: now) else { return }
+        guard !settings.didSeedInitialFriendSets else { return }
+
+        let descriptor = FetchDescriptor<FriendSet>(
+            sortBy: [SortDescriptor(\.sortOrder)]
+        )
+        let existingSets: [FriendSet]
+        do {
+            existingSets = try context.fetch(descriptor)
+        } catch {
+            NSLog("Liminalog: skipped initial friend set seed because friend sets could not be fetched: \(String(describing: error))")
+            return
+        }
+        if existingSets.isEmpty {
+            context.insert(FriendSet(name: "仲良し", sortOrder: 0, now: now))
+        }
+        settings.didSeedInitialFriendSets = true
+        settings.updatedAt = now
+        saveChanges(context, action: "initial friend sets")
+    }
+
+    static func defaultFriendVisibilityPresetID(in context: ModelContext) -> UUID? {
+        let descriptor = FetchDescriptor<VisibilityPreset>(
+            sortBy: [SortDescriptor(\.sortOrder)]
+        )
+        let presets: [VisibilityPreset]
+        do {
+            presets = try context.fetch(descriptor)
+        } catch {
+            NSLog("Liminalog: failed to fetch visibility presets for default friend setting: \(String(describing: error))")
+            return nil
+        }
+        return presets.first { $0.builtInKey == "acquaintances" }?.id
+            ?? presets.first { $0.name == "控えめ" }?.id
     }
 
     private static func builtInVisibilityPresetSeeds(now: Date) -> [VisibilityPreset] {
         [
             VisibilityPreset(
-                name: "仲良し",
+                name: "詳細",
                 level: .all,
                 builtInKey: "close_friends",
                 isBuiltIn: true,
@@ -86,7 +150,7 @@ enum SeedCoordinator {
                 now: now
             ),
             VisibilityPreset(
-                name: "知り合い",
+                name: "控えめ",
                 level: .partial,
                 builtInKey: "acquaintances",
                 isBuiltIn: true,
@@ -126,15 +190,18 @@ enum SeedCoordinator {
         }
 
         update(\.name, to: seed.name)
-        update(\.level, to: seed.level)
         update(\.isBuiltIn, to: true)
         update(\.sortOrder, to: seed.sortOrder)
-        update(\.publishModeRawValue, to: seed.publishModeRawValue)
-        update(\.hideMoodAndNote, to: seed.hideMoodAndNote)
-        update(\.hidePhoto, to: seed.hidePhoto)
-        update(\.hideLocation, to: seed.hideLocation)
-        update(\.excludedCategoryIDs, to: seed.excludedCategoryIDs)
-        update(\.freeTimeOnly, to: seed.freeTimeOnly)
+
+        if !VisibilityPresetCustomization.isCustomized(preset.id) {
+            update(\.level, to: seed.level)
+            update(\.publishModeRawValue, to: seed.publishModeRawValue)
+            update(\.hideMoodAndNote, to: seed.hideMoodAndNote)
+            update(\.hidePhoto, to: seed.hidePhoto)
+            update(\.hideLocation, to: seed.hideLocation)
+            update(\.excludedCategoryIDs, to: seed.excludedCategoryIDs)
+            update(\.freeTimeOnly, to: seed.freeTimeOnly)
+        }
 
         if didChange {
             preset.updatedAt = now
@@ -147,9 +214,16 @@ enum SeedCoordinator {
         let descriptor = FetchDescriptor<Friend>(
             sortBy: [SortDescriptor(\.createdAt)]
         )
-        let friends = (try? context.fetch(descriptor)) ?? []
+        let friends: [Friend]
+        do {
+            friends = try context.fetch(descriptor)
+        } catch {
+            NSLog("Liminalog: skipped debug friend seed because friends could not be fetched: \(String(describing: error))")
+            return
+        }
 
-        let debugFriends = makeDebugFriends(now: now)
+        let defaultPresetID = defaultFriendVisibilityPresetID(in: context)
+        let debugFriends = makeDebugFriends(defaultVisibilityPresetID: defaultPresetID, now: now)
         for debugFriend in debugFriends {
             if let existing = friends.first(where: { $0.userRecordID == debugFriend.userRecordID }) {
                 updateDebugFriend(existing, from: debugFriend)
@@ -157,10 +231,10 @@ enum SeedCoordinator {
                 context.insert(debugFriend)
             }
         }
-        try? context.save()
+        saveChanges(context, action: "debug friends")
     }
 
-    private static func makeDebugFriends(now: Date) -> [Friend] {
+    private static func makeDebugFriends(defaultVisibilityPresetID: UUID?, now: Date) -> [Friend] {
         let calendar = Calendar.current
         return [
             makeDebugFriend(
@@ -179,13 +253,14 @@ enum SeedCoordinator {
                 monthScore: 88,
                 yearScore: 82,
                 streakCount: 12,
-                iconFrameID: "halo",
+                iconFrameID: "clear_air",
                 streakIconID: "spark",
-                cardStyleID: "mint",
+                cardStyleID: "leaf_panel",
                 sharedPlans: mikaSharedPlans(now: now),
                 sharedActivities: mikaSharedActivities(now: now),
                 isFavorite: true,
                 updatedAt: calendar.date(byAdding: .minute, value: -8, to: now) ?? now,
+                defaultVisibilityPresetID: defaultVisibilityPresetID,
                 now: now
             ),
             makeDebugFriend(
@@ -204,13 +279,14 @@ enum SeedCoordinator {
                 monthScore: 73,
                 yearScore: 77,
                 streakCount: 5,
-                iconFrameID: "crown",
+                iconFrameID: "wisteria_loop",
                 streakIconID: "sun",
-                cardStyleID: "glass",
+                cardStyleID: "thread_panel",
                 sharedPlans: soraSharedPlans(now: now),
                 sharedActivities: soraSharedActivities(now: now),
                 isFavorite: false,
                 updatedAt: calendar.date(byAdding: .minute, value: -21, to: now) ?? now,
+                defaultVisibilityPresetID: defaultVisibilityPresetID,
                 now: now
             ),
             makeDebugFriend(
@@ -229,13 +305,14 @@ enum SeedCoordinator {
                 monthScore: 69,
                 yearScore: 74,
                 streakCount: 2,
-                iconFrameID: "signal",
+                iconFrameID: "ripple_ring",
                 streakIconID: "bolt",
-                cardStyleID: "dawn",
+                cardStyleID: "dawn_panel",
                 sharedPlans: renSharedPlans(now: now),
                 sharedActivities: renSharedActivities(now: now),
                 isFavorite: false,
                 updatedAt: calendar.date(byAdding: .minute, value: -37, to: now) ?? now,
+                defaultVisibilityPresetID: defaultVisibilityPresetID,
                 now: now
             ),
             makeDebugFriend(
@@ -254,13 +331,14 @@ enum SeedCoordinator {
                 monthScore: 81,
                 yearScore: 70,
                 streakCount: 0,
-                iconFrameID: "focus",
+                iconFrameID: "leaf_orbit",
                 streakIconID: "flame",
-                cardStyleID: "clean",
+                cardStyleID: "quiet_sky",
                 sharedPlans: yuiSharedPlans(now: now),
                 sharedActivities: yuiSharedActivities(now: now),
                 isFavorite: false,
                 updatedAt: calendar.date(byAdding: .hour, value: -3, to: now) ?? now,
+                defaultVisibilityPresetID: defaultVisibilityPresetID,
                 now: now
             )
         ]
@@ -289,6 +367,7 @@ enum SeedCoordinator {
         sharedActivities: [FriendSharedActivitySnapshot],
         isFavorite: Bool,
         updatedAt: Date,
+        defaultVisibilityPresetID: UUID?,
         now: Date
     ) -> Friend {
         let friend = Friend(
@@ -300,6 +379,7 @@ enum SeedCoordinator {
             avatarSystemImage: icon,
             now: now
         )
+        friend.visibilityPresetID = defaultVisibilityPresetID
         friend.userRecordID = userRecordID
         friend.profileIconFrameID = iconFrameID
         friend.profileStreakIconID = streakIconID
@@ -347,6 +427,9 @@ enum SeedCoordinator {
         existing.streakCount = debugFriend.streakCount
         existing.sharedPlansJSON = debugFriend.sharedPlansJSON
         existing.sharedActivitiesJSON = debugFriend.sharedActivitiesJSON
+        if existing.visibilityPresetID == nil {
+            existing.visibilityPresetID = debugFriend.visibilityPresetID
+        }
         existing.isFavorite = debugFriend.isFavorite
         existing.updatedAt = debugFriend.updatedAt
     }
@@ -502,14 +585,22 @@ enum SeedCoordinator {
         if primary.profileBadgeID == "starter", duplicate.profileBadgeID != "starter" {
             primary.profileBadgeID = duplicate.profileBadgeID
         }
-        if primary.profileIconFrameID == "halo", duplicate.profileIconFrameID != "halo" {
+        let defaultFrameIDs = Set(["clear_air", "halo"])
+        let defaultCardIDs = Set(["quiet_sky", "clean"])
+        if defaultFrameIDs.contains(primary.profileIconFrameID), !defaultFrameIDs.contains(duplicate.profileIconFrameID) {
             primary.profileIconFrameID = duplicate.profileIconFrameID
         }
         if primary.profileStreakIconID == "flame", duplicate.profileStreakIconID != "flame" {
             primary.profileStreakIconID = duplicate.profileStreakIconID
         }
-        if primary.profileCardStyleID == "clean", duplicate.profileCardStyleID != "clean" {
+        if defaultCardIDs.contains(primary.profileCardStyleID), !defaultCardIDs.contains(duplicate.profileCardStyleID) {
             primary.profileCardStyleID = duplicate.profileCardStyleID
+        }
+        for key in duplicate.equippedUnlockItemKeys where !primary.equippedUnlockItemKeys.contains(key) {
+            primary.equippedUnlockItemKeys.append(key)
+        }
+        for key in duplicate.seenUnlockItemKeys where !primary.seenUnlockItemKeys.contains(key) {
+            primary.seenUnlockItemKeys.append(key)
         }
         if primary.themeName == "default", duplicate.themeName != "default" {
             primary.themeName = duplicate.themeName
@@ -532,5 +623,14 @@ enum SeedCoordinator {
 
     private static func newer(primary: UserSettings, duplicate: UserSettings) -> UserSettings {
         duplicate.updatedAt > primary.updatedAt ? duplicate : primary
+    }
+
+    private static func saveChanges(_ context: ModelContext, action: String) {
+        do {
+            try context.save()
+        } catch {
+            NSLog("Liminalog: failed to save \(action): \(String(describing: error))")
+            context.rollback()
+        }
     }
 }

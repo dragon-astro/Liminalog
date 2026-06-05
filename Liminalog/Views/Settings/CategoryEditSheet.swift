@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 
 struct CategoryEditSheet: View {
     @Environment(\.dismiss) private var dismiss
@@ -11,6 +12,13 @@ struct CategoryEditSheet: View {
     @State private var icon: String = "circle.fill"
     @State private var dailyCardIntent: DailyCardCategoryIntent = .neutral
     @State private var isDailyCardSleepCategory = false
+    @State private var defaultAudienceFriendSetIDs: [UUID] = []
+    @State private var defaultAudienceIncludedFriendIDs: [UUID] = []
+    @State private var defaultAudienceExcludedFriendIDs: [UUID] = []
+    @State private var showingAudiencePicker = false
+    @State private var saveError: String?
+    @Query(sort: \FriendSet.sortOrder) private var friendSets: [FriendSet]
+    @Query(sort: \Friend.displayName) private var friends: [Friend]
 
     private let icons = ["book.closed.fill", "briefcase.fill", "sparkles", "cup.and.saucer.fill", "tram.fill", "moon.fill", "fork.knife", "figure.run", "gamecontroller.fill", "music.note", "heart.fill", "paintpalette.fill"]
 
@@ -57,6 +65,24 @@ struct CategoryEditSheet: View {
                 }
 
                 Section {
+                    Button {
+                        showingAudiencePicker = true
+                    } label: {
+                        AudienceSummaryRow(
+                            title: "新規チャプター/予定の公開相手",
+                            count: resolvedAudienceCount,
+                            systemImage: "person.2.fill",
+                            tint: color
+                        )
+                    }
+                    .buttonStyle(.plain)
+                } header: {
+                    Text("デフォルト公開相手")
+                } footer: {
+                    Text("通常は新しく作るものにだけコピーされます。必要な時だけ、公開相手の編集画面から過去の予定にも反映できます。")
+                }
+
+                Section {
                     HStack {
                         Spacer()
                         VStack(spacing: 8) {
@@ -67,9 +93,9 @@ struct CategoryEditSheet: View {
                                     Image(systemName: icon)
                                         .foregroundStyle(.white)
                                 }
-                            Text(name.isEmpty ? "カテゴリ名" : name)
+                            Text(trimmedName.isEmpty ? "カテゴリ名" : trimmedName)
                                 .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(LiminalTheme.secondaryText)
                         }
                         Spacer()
                     }
@@ -87,7 +113,7 @@ struct CategoryEditSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("保存") { save() }
                         .fontWeight(.semibold)
-                        .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+                        .disabled(trimmedName.isEmpty)
                 }
             }
             .onAppear {
@@ -97,32 +123,85 @@ struct CategoryEditSheet: View {
                     icon = cat.icon ?? "circle.fill"
                     dailyCardIntent = cat.dailyCardIntent
                     isDailyCardSleepCategory = cat.isDailyCardSleepCategory
+                    defaultAudienceFriendSetIDs = cat.defaultAudienceFriendSetIDs
+                    defaultAudienceIncludedFriendIDs = cat.defaultAudienceIncludedFriendIDs
+                    defaultAudienceExcludedFriendIDs = cat.defaultAudienceExcludedFriendIDs
                 }
+            }
+            .sheet(isPresented: $showingAudiencePicker) {
+                CategoryAudiencePickerSheet(
+                    category: category,
+                    friendSetIDs: $defaultAudienceFriendSetIDs,
+                    includedFriendIDs: $defaultAudienceIncludedFriendIDs,
+                    excludedFriendIDs: $defaultAudienceExcludedFriendIDs
+                )
+            }
+            .alert("保存できませんでした", isPresented: saveErrorPresented) {
+                Button("OK") {
+                    saveError = nil
+                }
+            } message: {
+                Text(saveError ?? "")
+            }
+        }
+    }
+
+    private var resolvedAudienceCount: Int {
+        AudienceResolver.resolve(
+            friendSetIDs: defaultAudienceFriendSetIDs,
+            includedFriendIDs: defaultAudienceIncludedFriendIDs,
+            excludedFriendIDs: defaultAudienceExcludedFriendIDs,
+            friendSets: friendSets,
+            friends: friends
+        ).count
+    }
+
+    private var trimmedName: String {
+        name.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var saveErrorPresented: Binding<Bool> {
+        Binding {
+            saveError != nil
+        } set: { isPresented in
+            if !isPresented {
+                saveError = nil
             }
         }
     }
 
     private func save() {
-        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        let trimmed = trimmedName
         guard !trimmed.isEmpty else { return }
 
+        let didSave: Bool
         if let cat = category {
-            store.updateCategory(
+            didSave = store.updateCategory(
                 cat,
                 name: trimmed,
                 colorHex: color.hexString,
                 icon: icon,
                 dailyCardIntent: dailyCardIntent,
-                isDailyCardSleepCategory: isDailyCardSleepCategory
+                isDailyCardSleepCategory: isDailyCardSleepCategory,
+                defaultAudienceFriendSetIDs: defaultAudienceFriendSetIDs,
+                defaultAudienceIncludedFriendIDs: defaultAudienceIncludedFriendIDs,
+                defaultAudienceExcludedFriendIDs: defaultAudienceExcludedFriendIDs
             )
         } else {
-            store.addCategory(
+            didSave = store.addCategory(
                 name: trimmed,
                 colorHex: color.hexString,
                 icon: icon,
                 dailyCardIntent: dailyCardIntent,
-                isDailyCardSleepCategory: isDailyCardSleepCategory
+                isDailyCardSleepCategory: isDailyCardSleepCategory,
+                defaultAudienceFriendSetIDs: defaultAudienceFriendSetIDs,
+                defaultAudienceIncludedFriendIDs: defaultAudienceIncludedFriendIDs,
+                defaultAudienceExcludedFriendIDs: defaultAudienceExcludedFriendIDs
             )
+        }
+        guard didSave else {
+            saveError = "カテゴリの変更を保存できませんでした。時間をおいてもう一度試してください。"
+            return
         }
         dismiss()
     }

@@ -50,14 +50,19 @@ extension PreviewSupport {
         }
 
         let seedInterval = expandedInterval(month, leadingDays: 1, trailingDays: 1, calendar: calendar) ?? month
-        let seedPlans = planStore.plannedBlocks(from: seedInterval.start, to: seedInterval.end)
+        guard let seedPlans = planStore.plannedBlocksIfAvailable(from: seedInterval.start, to: seedInterval.end),
+              let allCategories = categoryStore.allCategoriesIfAvailable()
+        else {
+            NSLog("Liminalog: skipped preview plan seed because existing data could not be fetched")
+            return didBootstrapCategories
+        }
         let hasCurrentSeedVersion = UserDefaults.standard.integer(forKey: previewPlanSeedVersionKey) >= currentPreviewPlanSeedVersion
 
         if hasCurrentSeedVersion && monthHasCompleteShowcasePlans(seedPlans, in: seedInterval, calendar: calendar) {
             return didBootstrapCategories
         }
 
-        let categories = categoryLookupByName(categoryStore.allCategories())
+        let categories = categoryLookupByName(allCategories)
 
         for plan in seedPlans {
             modelContext.delete(plan)
@@ -110,7 +115,13 @@ extension PreviewSupport {
         let seedInterval = expandedInterval(month, leadingDays: 1, trailingDays: 1, calendar: calendar) ?? month
 
         let chapterDescriptor = FetchDescriptor<Chapter>()
-        let existingChapters = (try? modelContext.fetch(chapterDescriptor)) ?? []
+        let existingChapters: [Chapter]
+        do {
+            existingChapters = try modelContext.fetch(chapterDescriptor)
+        } catch {
+            NSLog("Liminalog: skipped dev chapter seed because existing chapters could not be fetched: \(String(describing: error))")
+            return didBootstrapCategories
+        }
         let hasCurrentSeedVersion = UserDefaults.standard.integer(
             forKey: devSampleChapterSeedVersionKey
         ) >= currentDevSampleChapterSeedVersion
@@ -127,7 +138,11 @@ extension PreviewSupport {
             _ = save(modelContext)
         }
 
-        let categoriesByName = categoryLookupByName(categoryStore.allCategories())
+        guard let allCategories = categoryStore.allCategoriesIfAvailable() else {
+            NSLog("Liminalog: skipped dev chapter seed because categories could not be fetched")
+            return didBootstrapCategories
+        }
+        let categoriesByName = categoryLookupByName(allCategories)
 
         insertDevSleepChapters(in: seedInterval, now: now, calendar: calendar, categories: categoriesByName, into: modelContext)
         insertDevDaytimeChapters(in: seedInterval, now: now, calendar: calendar, categories: categoriesByName, into: modelContext)
@@ -354,7 +369,7 @@ extension PreviewSupport {
     ) {
         let importantPlans = [
             DemoImportantPlan(categoryName: "趣味", title: "連休プロジェクト", startDayOffset: -2, endDayOffsetExclusive: 2, note: "月をまたぐ重要予定の表示確認"),
-            DemoImportantPlan(categoryName: "休憩", title: "憲法記念日", startDayOffset: 2, endDayOffsetExclusive: 3, note: "時間未指定の重要予定"),
+            DemoImportantPlan(categoryName: "休憩", title: "憲法記念日", startDayOffset: 2, endDayOffsetExclusive: 3, note: "終日の重要予定"),
             DemoImportantPlan(categoryName: "趣味", title: "こどもの日", startDayOffset: 4, endDayOffsetExclusive: 5, note: "祝日/イベントのサンプル"),
             DemoImportantPlan(categoryName: "勉強", title: "集中制作週間", startDayOffset: 7, endDayOffsetExclusive: 12, note: "週をまたぐ横長バーのサンプル"),
             DemoImportantPlan(categoryName: "移動", title: "合宿", startDayOffset: 14, endDayOffsetExclusive: 17, note: "複数日にまたがる重要予定"),

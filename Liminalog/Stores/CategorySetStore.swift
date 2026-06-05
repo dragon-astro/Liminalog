@@ -12,32 +12,56 @@ final class CategorySetStore {
     }
 
     func categorySets() -> [CategorySet] {
+        categorySetsIfAvailable() ?? []
+    }
+
+    func categorySetsIfAvailable() -> [CategorySet]? {
         let descriptor = FetchDescriptor<CategorySet>(
             sortBy: [SortDescriptor(\.sortOrder)]
         )
-        return (try? modelContext.fetch(descriptor)) ?? []
+        do {
+            return try modelContext.fetch(descriptor)
+        } catch {
+            NSLog("Liminalog: failed to fetch category sets: \(String(describing: error))")
+            return nil
+        }
     }
 
     func slottedCategories(for set: CategorySet) -> [Category?] {
-        let indexed = Dictionary(uniqueKeysWithValues: categoryStore.allCategories().map { ($0.id, $0) })
+        slottedCategoriesIfAvailable(for: set) ?? []
+    }
+
+    func slottedCategoriesIfAvailable(for set: CategorySet) -> [Category?]? {
+        guard let categories = categoryStore.allCategoriesIfAvailable() else {
+            NSLog("Liminalog: failed to resolve category set slots because categories could not be fetched")
+            return nil
+        }
+        let indexed = Dictionary(uniqueKeysWithValues: categories.map { ($0.id, $0) })
         return set.slots.map { id in id.flatMap { indexed[$0] } }
     }
 
     func assignedCategories(for set: CategorySet) -> [Category] {
-        slottedCategories(for: set).compactMap { $0 }
+        assignedCategoriesIfAvailable(for: set) ?? []
+    }
+
+    func assignedCategoriesIfAvailable(for set: CategorySet) -> [Category]? {
+        slottedCategoriesIfAvailable(for: set)?.compactMap { $0 }
     }
 
     @discardableResult
     func addCategorySet(name: String, slots: [UUID?]) -> Bool {
-        let nextOrder = (categorySets().map(\.sortOrder).max() ?? -1) + 1
+        guard let sets = categorySetsIfAvailable() else {
+            NSLog("Liminalog: skipped category set add because category sets could not be fetched")
+            return false
+        }
+        let nextOrder = (sets.map(\.sortOrder).max() ?? -1) + 1
         let set = CategorySet(
             name: name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "セット \(nextOrder + 1)" : name,
             sortOrder: nextOrder,
             slots: slots
         )
         modelContext.insert(set)
-        try? modelContext.save()
-        return true
+        return saveChanges("category set add")
     }
 
     @discardableResult
@@ -45,20 +69,24 @@ final class CategorySetStore {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         set.name = trimmed.isEmpty ? set.name : trimmed
         set.slots = CategorySet.normalize(slots)
-        try? modelContext.save()
-        return true
+        return saveChanges("category set update")
     }
 
     @discardableResult
     func deleteCategorySet(_ set: CategorySet) -> Bool {
         modelContext.delete(set)
-        try? modelContext.save()
-        return true
+        return saveChanges("category set delete")
     }
 
     @discardableResult
     func moveCategorySets(from source: IndexSet, to destination: Int) -> Bool {
-        var sets = categorySets()
+        guard var sets = categorySetsIfAvailable() else {
+            NSLog("Liminalog: skipped category set move because category sets could not be fetched")
+            return false
+        }
+        guard !source.isEmpty, source.allSatisfy({ sets.indices.contains($0) }) else {
+            return false
+        }
         let moving = source.map { sets[$0] }
         for index in source.sorted(by: >) {
             sets.remove(at: index)
@@ -68,16 +96,26 @@ final class CategorySetStore {
         for (index, set) in sets.enumerated() {
             set.sortOrder = index
         }
-        try? modelContext.save()
-        return true
+        return saveChanges("category set move")
     }
 
     @discardableResult
     func seedDefaultCategorySetsIfNeeded() -> Bool {
-        var didChange = categoryStore.seedDefaultCategoriesIfNeeded()
-        guard categorySets().isEmpty else { return didChange }
+        let didChange = categoryStore.seedDefaultCategoriesIfNeeded()
+        guard let existingSets = categorySetsIfAvailable() else {
+            NSLog("Liminalog: skipped default category set seed because category sets could not be fetched")
+            return didChange
+        }
+        guard existingSets.isEmpty else { return didChange }
 
-        let categories = categoryStore.allCategories()
+        guard let categories = categoryStore.allCategoriesIfAvailable() else {
+            NSLog("Liminalog: skipped default category set seed because categories could not be fetched")
+            return didChange
+        }
+        guard !categories.isEmpty else {
+            NSLog("Liminalog: skipped default category set seed because no categories were available")
+            return didChange
+        }
         let byName = Dictionary(uniqueKeysWithValues: categories.map { ($0.name, $0) })
         let weekdayNames: [String?] = ["勉強", "仕事", "移動", "休憩", "睡眠", "趣味", nil, nil]
         let weekdaySlots = weekdayNames.map { name in name.flatMap { byName[$0]?.id } }
@@ -86,8 +124,17 @@ final class CategorySetStore {
 
         modelContext.insert(CategorySet(name: "平日", sortOrder: 0, slots: weekdaySlots, isDefault: true))
         modelContext.insert(CategorySet(name: "休日", sortOrder: 1, slots: holidaySlots, isDefault: true))
-        try? modelContext.save()
-        didChange = true
-        return didChange
+        return saveChanges("default category set seed") || didChange
+    }
+
+    private func saveChanges(_ action: String) -> Bool {
+        do {
+            try modelContext.save()
+            return true
+        } catch {
+            NSLog("Liminalog: failed to save \(action): \(String(describing: error))")
+            modelContext.rollback()
+            return false
+        }
     }
 }

@@ -9,72 +9,57 @@ struct DashboardView: View {
     @State private var clock = TickClock(interval: 60)
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                DashboardPeriodPicker(period: $period)
-                    .padding(.horizontal, 16)
-                    .padding(.top, 12)
-                    .padding(.bottom, 8)
+        // Today と同じ構造: 各期間ページが NavigationStack { ScrollView } を直下に持ち、
+        // 期間タブはシステムナビバー(principal)へ。ZStack のグラデ backdrop でバー裏の白を消す。
+        ZStack {
+            LiminalTheme.canvasGradient.ignoresSafeArea()
 
-                HStack(spacing: 10) {
-                    Button {
-                        isShowingPeriodPicker = true
-                    } label: {
-                        HStack(spacing: 6) {
-                            Text(period.displayRange(at: anchorDate, calendar: .japanese))
-                                .font(.subheadline.weight(.bold))
-                                .monospacedDigit()
-                            Image(systemName: "chevron.down")
-                                .font(.caption.weight(.bold))
-                        }
-                        .foregroundStyle(.primary)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .background(Capsule().fill(Color(.secondarySystemGroupedBackground)))
-                        .contentShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-
-                    Button {
-                        isShowingCustomizeSheet = true
-                    } label: {
-                        Image(systemName: "slider.horizontal.3")
-                            .font(.subheadline.weight(.bold))
-                            .foregroundStyle(.primary)
-                            .frame(width: 36, height: 36)
-                            .background(Circle().fill(Color(.secondarySystemGroupedBackground)))
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("カードを編集")
-                }
-                .padding(.bottom, 10)
-
-                TabView(selection: $period) {
-                    ForEach(DashboardPeriod.allCases) { item in
+            TabView(selection: $period) {
+                ForEach(DashboardPeriod.allCases) { item in
+                    NavigationStack {
                         DashboardPeriodContent(
                             period: item,
                             anchorDate: anchorDate,
-                            clockNow: clock.now
+                            clockNow: clock.now,
+                            onPickDate: { isShowingPeriodPicker = true }
                         )
-                        .tag(item)
+                        .background(LiminalTheme.canvasGradient)
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbar { dashboardToolbar }
                     }
+                    .tag(item)
                 }
-                .tabViewStyle(.page(indexDisplayMode: .never))
             }
-            .background(LiminalTheme.canvasGradient)
-            .toolbar(.hidden, for: .navigationBar)
-            .onAppear {
-                clock.start()
+            .tabViewStyle(.page(indexDisplayMode: .never))
+            .ignoresSafeArea()
+        }
+        .onAppear {
+            clock.start()
+        }
+        .onDisappear {
+            clock.stop()
+        }
+        .sheet(isPresented: $isShowingPeriodPicker) {
+            DashboardPeriodSelectionSheet(period: period, anchorDate: $anchorDate)
+        }
+        .sheet(isPresented: $isShowingCustomizeSheet) {
+            DashboardCustomizeSheet(period: period)
+        }
+    }
+
+    @ToolbarContentBuilder
+    private var dashboardToolbar: some ToolbarContent {
+        ToolbarItem(placement: .principal) {
+            DashboardPeriodTextTabs(period: $period)
+        }
+        ToolbarItem(placement: .topBarTrailing) {
+            Button {
+                isShowingCustomizeSheet = true
+            } label: {
+                Image(systemName: "slider.horizontal.3")
+                    .font(.title3.weight(.semibold))
             }
-            .onDisappear {
-                clock.stop()
-            }
-            .sheet(isPresented: $isShowingPeriodPicker) {
-                DashboardPeriodSelectionSheet(period: period, anchorDate: $anchorDate)
-            }
-            .sheet(isPresented: $isShowingCustomizeSheet) {
-                DashboardCustomizeSheet(period: period)
-            }
+            .accessibilityLabel("カードを編集")
         }
     }
 }
@@ -87,12 +72,14 @@ struct DashboardPeriodContent: View {
     let period: DashboardPeriod
     let anchorDate: Date
     let clockNow: Date
+    let onPickDate: () -> Void
     private let interval: DateInterval
 
-    init(period: DashboardPeriod, anchorDate: Date, clockNow: Date) {
+    init(period: DashboardPeriod, anchorDate: Date, clockNow: Date, onPickDate: @escaping () -> Void) {
         self.period = period
         self.anchorDate = anchorDate
         self.clockNow = clockNow
+        self.onPickDate = onPickDate
 
         let interval = period.dateInterval(containing: anchorDate, calendar: .japanese)
         self.interval = interval
@@ -130,7 +117,20 @@ struct DashboardPeriodContent: View {
                 }
             }
             .padding(.horizontal, 16)
-            .padding(.bottom, 28)
+            .padding(.top, 8)
+            .padding(.bottom, 96)
+        }
+        // 日付セレクタはナビバー直下に固定（スクロールしても流れない）。
+        // ScrollView 自体は NavigationStack 直下のままなのでバー橋渡しは維持。
+        .safeAreaInset(edge: .top, spacing: 0) {
+            DashboardDateChip(
+                title: period.displayRange(at: anchorDate, calendar: .japanese),
+                onTap: onPickDate
+            )
+            .padding(.horizontal, 16)
+            .padding(.top, 4)
+            .padding(.bottom, 10)
+            .background(.ultraThinMaterial)
         }
     }
 
@@ -163,8 +163,6 @@ struct DashboardPeriodContent: View {
             )
         case .scoreBreakdown:
             ScoreBreakdownCard(summary: snapshot.periodSummary)
-        case .timeOfDayTrend:
-            DashboardTimeOfDayTrendCard(summary: snapshot.timeOfDaySummary)
         case .periodDelta:
             DashboardPeriodDeltaCard(summary: snapshot.periodDeltaSummary)
         case .categoryShare:
@@ -187,7 +185,6 @@ private struct DashboardPeriodSnapshot {
     let recordedDayCount: Int
     let topCategoryStat: DashboardCategoryStat?
     let recentChapters: [Chapter]
-    let timeOfDaySummary: DashboardTimeOfDaySummary
     let periodDeltaSummary: DashboardPeriodDeltaSummary
 
     init(
@@ -228,12 +225,6 @@ private struct DashboardPeriodSnapshot {
         self.recordedDayCount = Set(chapters.map { DayBoundary.dayStart(for: $0.startTime, calendar: calendar) }).count
         self.topCategoryStat = DashboardCategoryStat.stats(from: chapters, now: clockNow).first
         self.recentChapters = Array(chapters.sorted { $0.startTime > $1.startTime }.prefix(30))
-        self.timeOfDaySummary = StatsEngine.timeOfDaySummary(
-            chapters: chapters,
-            interval: interval,
-            calendar: calendar,
-            now: clockNow
-        )
         self.periodDeltaSummary = StatsEngine.periodDeltaSummary(
             currentSummaries: summaries,
             previousSummaries: previousSummaries
@@ -241,11 +232,12 @@ private struct DashboardPeriodSnapshot {
     }
 }
 
-struct DashboardPeriodPicker: View {
+private struct DashboardPeriodTextTabs: View {
     @Binding var period: DashboardPeriod
+    @Namespace private var underlineNamespace
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 24) {
             ForEach(DashboardPeriod.allCases) { item in
                 Button {
                     withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
@@ -253,29 +245,55 @@ struct DashboardPeriodPicker: View {
                     }
                 } label: {
                     VStack(spacing: 4) {
-                        Image(systemName: item.symbolName)
-                            .font(.caption.weight(.bold))
                         Text(item.title)
-                            .font(.caption.weight(.bold))
-                    }
-                    .foregroundStyle(period == item ? Color.primary : Color.secondary)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 50)
-                    .background {
-                        if period == item {
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .fill(Color(.secondarySystemGroupedBackground))
+                            .font(.headline.weight(period == item ? .bold : .semibold))
+                            .foregroundStyle(period == item ? LiminalTheme.text : LiminalTheme.secondaryText.opacity(0.68))
+                            .lineLimit(1)
+
+                        ZStack {
+                            Capsule()
+                                .fill(Color.clear)
+                                .frame(width: 22, height: 3)
+                            if period == item {
+                                Capsule()
+                                    .fill(LiminalTheme.accent)
+                                    .matchedGeometryEffect(id: "dashboard-period-underline", in: underlineNamespace)
+                                    .frame(width: 22, height: 3)
+                            }
                         }
                     }
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(item.title)
+                .accessibilityAddTraits(period == item ? .isSelected : [])
             }
         }
-        .padding(4)
-        .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color(.tertiarySystemGroupedBackground))
-        )
+        .frame(maxWidth: 240)
+    }
+}
+
+private struct DashboardDateChip: View {
+    let title: String
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 6) {
+                Text(title)
+                    .font(.subheadline.weight(.bold))
+                    .monospacedDigit()
+                Image(systemName: "chevron.down")
+                    .font(.caption.weight(.bold))
+            }
+            .foregroundStyle(LiminalTheme.text)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(Capsule().fill(LiminalTheme.surface))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity, alignment: .center)
     }
 }
 

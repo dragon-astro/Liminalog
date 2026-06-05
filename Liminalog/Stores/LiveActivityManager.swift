@@ -59,9 +59,7 @@ final class LiveActivityManager {
                 pushType: nil
             )
         } catch {
-            #if DEBUG
-            print("Live Activity request failed: \(error)")
-            #endif
+            NSLog("Liminalog: Live Activity request failed: \(String(describing: error))")
         }
     }
 

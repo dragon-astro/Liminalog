@@ -29,85 +29,84 @@ struct HomeView: View {
     @Environment(ChapterStore.self) private var store
     @Environment(\.modelContext) private var modelContext
     @State private var selectedPage: TodayPage = HomeView.defaultInitialTodayPage
-    @State private var scrolledPage: TodayPage? = HomeView.defaultInitialTodayPage
     @State private var editingChapter: Chapter? = nil
     @State private var showingAddSheet = false
     @State private var addSheetStart = Date()
     @State private var clock = TickClock(interval: 60)
     @State private var tomorrowHasActionableGap = false
-    @State private var acceptsScrolledPageUpdates = false
+    @State private var didApplyInitialPage = false
 
     var body: some View {
-        NavigationStack {
-            ScrollView(.horizontal) {
-                // 表示中のページだけ生成・@Query購読させる。データ変更時の save カスケードで
-                // 昨日/明日の重いページまで再描画されるのを防ぐ（表示中ページのみ再描画）。
-                LazyHStack(spacing: 0) {
-                    ForEach(scrollPages) { page in
+        // 各ページをプロフィールと同じ NavigationStack { ScrollView } 構造にする。
+        // TabView(.page) を safe area 外まで広げてページがバー裏まで届くようにし、
+        // コンテンツの safe area は各 NavigationStack が再適用する（上端停止は維持）。
+        // これでガラスのバーが白いシステム地ではなく暖色グラデ/コンテンツをぼかす。
+        ZStack {
+            // 画面全体（上下バー裏含む）にグラデを敷く。ガラスのバーが白ではなく
+            // この暖色グラデをぼかすようにして、下端の白を消す。
+            LiminalTheme.canvasGradient.ignoresSafeArea()
+
+            TabView(selection: todayPageSelection) {
+                ForEach(scrollPages) { page in
+                    NavigationStack {
                         dayPage(page)
-                            .containerRelativeFrame(.horizontal)
-                            .id(page)
+                            .background(LiminalTheme.canvasGradient)
+                            .navigationBarTitleDisplayMode(.inline)
+                            .toolbar { toolbarContent(for: page) }
                     }
-                }
-                .scrollTargetLayout()
-            }
-            .scrollTargetBehavior(.paging)
-            .scrollPosition(id: $scrolledPage, anchor: .center)
-            .defaultScrollAnchor(.center)
-            .scrollIndicators(.hidden)
-            .onChange(of: scrolledPage) { _, newValue in
-                guard acceptsScrolledPageUpdates else { return }
-                if let newValue, newValue != selectedPage {
-                    selectedPage = newValue
+                    .tag(page)
                 }
             }
-            .onChange(of: selectedPage) { _, newValue in
-                if scrolledPage != newValue {
-                    scrolledPage = newValue
+            .tabViewStyle(.page(indexDisplayMode: .never))
+            .ignoresSafeArea()
+        }
+        .onChange(of: selectedPage) { _, _ in
+            refreshTomorrowCoverage()
+        }
+        .sheet(item: $editingChapter) { chapter in
+            ChapterEditSheet(chapter: chapter)
+        }
+        .sheet(isPresented: $showingAddSheet) {
+            ChapterCreateSheet(initialDate: addSheetStart)
+        }
+        .onAppear {
+            clock.start()
+            applyInitialPage()
+            store.seedDefaultCategorySetsIfNeeded()
+            store.syncLiveActivityWithActiveChapter()
+            refreshTomorrowCoverage()
+        }
+        .onDisappear {
+            clock.stop()
+        }
+    }
+
+    @ToolbarContentBuilder
+    private func toolbarContent(for page: TodayPage) -> some ToolbarContent {
+        if page == .today {
+            ToolbarItem(placement: .topBarLeading) {
+                Button {
+                    addSheetStart = defaultAddStart
+                    showingAddSheet = true
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.title3.weight(.semibold))
                 }
-                refreshTomorrowCoverage()
+                .accessibilityLabel("記録を追加")
             }
-            .background(LiminalTheme.canvasGradient)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                if selectedPage == .today {
-                    ToolbarItem(placement: .topBarLeading) {
-                        Button {
-                            addSheetStart = defaultAddStart
-                            showingAddSheet = true
-                        } label: {
-                            Image(systemName: "plus")
-                        }
-                    }
-                }
-                ToolbarItem(placement: .principal) {
-                    TodayPageTextTabs(
-                        selection: $selectedPage,
-                        showsTomorrowIndicator: tomorrowHasActionableGap
-                    )
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    NavigationLink(destination: CategorySettingsView()) {
-                        Image(systemName: "slider.horizontal.3")
-                    }
-                }
+        }
+        ToolbarItem(placement: .principal) {
+            TodayPageTextTabs(
+                selection: todayPageSelection,
+                showsTomorrowIndicator: tomorrowHasActionableGap
+            )
+        }
+        ToolbarItem(placement: .topBarTrailing) {
+            NavigationLink(destination: CategorySettingsView()) {
+                Image(systemName: "slider.horizontal.3")
+                    .font(.title3.weight(.semibold))
             }
-            .sheet(item: $editingChapter) { chapter in
-                ChapterEditSheet(chapter: chapter)
-            }
-            .sheet(isPresented: $showingAddSheet) {
-                ChapterCreateSheet(initialDate: addSheetStart)
-            }
-            .onAppear {
-                clock.start()
-                applyInitialPage()
-                store.seedDefaultCategorySetsIfNeeded()
-                store.syncLiveActivityWithActiveChapter()
-                refreshTomorrowCoverage()
-            }
-            .onDisappear {
-                clock.stop()
-            }
+            .accessibilityLabel("カテゴリ設定")
         }
     }
 
@@ -118,7 +117,6 @@ struct HomeView: View {
             YesterdayReviewPage(date: yesterdayDate) {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.86)) {
                     selectedPage = .tomorrow
-                    scrolledPage = .tomorrow
                 }
             }
                 .id(dayID(for: yesterdayDate))
@@ -169,28 +167,24 @@ struct HomeView: View {
         Self.defaultInitialTodayPage
     }
 
+    private var todayPageSelection: Binding<TodayPage> {
+        Binding(
+            get: { selectedPage },
+            set: { newValue in
+                selectedPage = newValue
+            }
+        )
+    }
+
     private var scrollPages: [TodayPage] {
         TodayPage.allCases
     }
 
     private func applyInitialPage() {
-        let initialPage = debugInitialTodayPage
-        acceptsScrolledPageUpdates = false
-        selectedPage = initialPage
-        scrolledPage = initialPage
+        guard !didApplyInitialPage else { return }
+        didApplyInitialPage = true
 
-        Task { @MainActor in
-            await Task.yield()
-            selectedPage = initialPage
-            scrolledPage = initialPage
-            await Task.yield()
-            selectedPage = initialPage
-            scrolledPage = initialPage
-            try? await Task.sleep(nanoseconds: 50_000_000)
-            selectedPage = initialPage
-            scrolledPage = initialPage
-            acceptsScrolledPageUpdates = true
-        }
+        selectedPage = debugInitialTodayPage
     }
 
     private static var defaultInitialTodayPage: TodayPage {
@@ -225,12 +219,12 @@ private struct TodayPageTextTabs: View {
                         ZStack(alignment: .topTrailing) {
                             Text(page.title)
                                 .font(.headline.weight(selection == page ? .bold : .semibold))
-                                .foregroundStyle(selection == page ? Color.primary : Color.secondary.opacity(0.68))
+                                .foregroundStyle(selection == page ? LiminalTheme.text : LiminalTheme.secondaryText.opacity(0.68))
                                 .lineLimit(1)
 
                             if page == .tomorrow, showsTomorrowIndicator {
                                 Circle()
-                                    .fill(Color.orange)
+                                    .fill(LiminalTheme.reward)
                                     .frame(width: 6, height: 6)
                                     .offset(x: 8, y: -1)
                                     .accessibilityHidden(true)
@@ -243,7 +237,7 @@ private struct TodayPageTextTabs: View {
                                 .frame(width: 22, height: 3)
                             if selection == page {
                                 Capsule()
-                                    .fill(Color.accentColor)
+                                    .fill(LiminalTheme.accent)
                                     .matchedGeometryEffect(id: "today-page-underline", in: underlineNamespace)
                                     .frame(width: 22, height: 3)
                             }
@@ -261,6 +255,8 @@ private struct TodayPageTextTabs: View {
 }
 
 private struct TodayRecordPage: View {
+    @Environment(ChapterStore.self) private var store
+
     let date: Date
     @Binding var editingChapter: Chapter?
 
@@ -270,12 +266,13 @@ private struct TodayRecordPage: View {
                 CurrentChapterCard()
                 // CategoryGrid 内のチェブロンで折りたたみを行う。
                 CategoryGrid()
-                Divider()
                 TimelineView(
                     date: date,
                     title: "",
-                    editingChapter: $editingChapter
+                    editingChapter: $editingChapter,
+                    splitCards: true
                 )
+                .id("\(date.timeIntervalSince1970)-\(store.contentRevision)")
             }
             .padding(.horizontal, 16)
             .padding(.top, 12)
@@ -466,7 +463,7 @@ private struct YesterdayScoreCard: View {
 
                         Text(date.japaneseMonthDayWeekday)
                             .font(.caption.weight(.bold))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(LiminalTheme.secondaryText)
                             .lineLimit(1)
                     }
 
@@ -477,7 +474,7 @@ private struct YesterdayScoreCard: View {
 
                     Text(heroSubtitle)
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(LiminalTheme.secondaryText)
                         .lineLimit(2)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -493,7 +490,7 @@ private struct YesterdayScoreCard: View {
         .padding(18)
         .background {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
+                .fill(LiminalTheme.surface)
                 .overlay(alignment: .bottom) {
                     DecorativeAccentStrip(color: scoreColor)
                         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
@@ -503,7 +500,7 @@ private struct YesterdayScoreCard: View {
                         .font(.caption.weight(.bold))
                         .foregroundStyle(scoreColor)
                         .frame(width: 24, height: 24)
-                        .background(.ultraThinMaterial, in: Circle())
+                        .liminalGlassFill(in: Circle())
                         .padding(16)
                 }
         }
@@ -540,7 +537,7 @@ private struct ReviewScoreRing: View {
     var body: some View {
         ZStack {
             Circle()
-                .stroke(Color(.tertiarySystemGroupedBackground), lineWidth: 10)
+                .stroke(LiminalTheme.elevated, lineWidth: 10)
 
             Circle()
                 .trim(from: 0, to: hasScore ? min(max(score / 100, 0), 1) : 0)
@@ -552,7 +549,7 @@ private struct ReviewScoreRing: View {
                     .font(.system(size: 30, weight: .black, design: .rounded).monospacedDigit())
                 Text("pt")
                     .font(.caption2.weight(.bold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(LiminalTheme.secondaryText)
             }
         }
         .frame(width: 92, height: 92)
@@ -571,7 +568,7 @@ private struct YesterdayChapterRibbon: View {
                 let width = proxy.size.width
                 ZStack(alignment: .leading) {
                     RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .fill(Color(.tertiarySystemGroupedBackground))
+                        .fill(LiminalTheme.elevated)
 
                     ForEach(chapters) { chapter in
                         if let segment = segment(for: chapter, width: width) {
@@ -595,7 +592,7 @@ private struct YesterdayChapterRibbon: View {
                 Text("24")
             }
             .font(.caption2.monospacedDigit().weight(.semibold))
-            .foregroundStyle(.tertiary)
+            .foregroundStyle(LiminalTheme.tertiaryText)
             .accessibilityHidden(true)
         }
         .accessibilityLabel("昨日の24時間リズム")

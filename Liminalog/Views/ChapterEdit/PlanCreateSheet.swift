@@ -6,6 +6,8 @@ struct PlanCreateSheet: View {
     @Environment(ChapterStore.self) private var store
     @Query(sort: \Category.sortOrder) private var categories: [Category]
     @Query(sort: \CategorySet.sortOrder) private var categorySets: [CategorySet]
+    @Query(sort: \FriendSet.sortOrder) private var friendSets: [FriendSet]
+    @Query(sort: \Friend.displayName) private var friends: [Friend]
 
     private let editingPlan: PlanBlock?
 
@@ -19,6 +21,13 @@ struct PlanCreateSheet: View {
     @State private var note = ""
     @State private var isPublic = true
     @State private var showingCategoryPicker = false
+    @State private var showingAudiencePicker = false
+    @State private var audienceFriendIDs: [UUID] = []
+    @State private var audienceSource: AudienceSource = .categoryDefaultSnapshot
+    @State private var didInitializeAudience = false
+    @State private var saveError: String?
+    @State private var errorTitle = "保存できませんでした"
+    @State private var showDeleteConfirm = false
 
     init(initialDate: Date = Date(), startsAsAllDay: Bool = false) {
         editingPlan = nil
@@ -45,6 +54,9 @@ struct PlanCreateSheet: View {
         _selectedCategory = State(initialValue: plan.category)
         _note = State(initialValue: plan.note ?? "")
         _isPublic = State(initialValue: plan.isPublic)
+        _audienceFriendIDs = State(initialValue: plan.audienceFriendIDs)
+        _audienceSource = State(initialValue: plan.audienceSource)
+        _didInitializeAudience = State(initialValue: plan.hasAudienceSnapshot)
     }
 
     var body: some View {
@@ -57,6 +69,9 @@ struct PlanCreateSheet: View {
                     timeCard
                     noteCard
                     visibilityCard
+                    if editingPlan != nil {
+                        deleteCard
+                    }
                 }
                 .padding(16)
                 .padding(.bottom, 30)
@@ -78,6 +93,17 @@ struct PlanCreateSheet: View {
                 if selectedCategory == nil {
                     selectedCategory = categories.first
                 }
+                if editingPlan == nil, selectedCategory == nil {
+                    isPublic = false
+                }
+                if !didInitializeAudience {
+                    resetAudienceToCategoryDefault()
+                    didInitializeAudience = true
+                }
+            }
+            .onChange(of: selectedCategory?.id) { _, _ in
+                guard didInitializeAudience, audienceSource == .categoryDefaultSnapshot else { return }
+                resetAudienceToCategoryDefault()
             }
             .onChange(of: startTime) { _, newValue in
                 guard isAllDay else { return }
@@ -93,6 +119,24 @@ struct PlanCreateSheet: View {
                     selectedCategory: $selectedCategory
                 )
             }
+            .sheet(isPresented: $showingAudiencePicker) {
+                AudienceSnapshotPickerSheet(audienceFriendIDs: $audienceFriendIDs)
+            }
+            .alert(errorTitle, isPresented: saveErrorPresented) {
+                Button("OK") {
+                    saveError = nil
+                }
+            } message: {
+                Text(saveError ?? "")
+            }
+            .confirmationDialog("予定を削除しますか？", isPresented: $showDeleteConfirm, titleVisibility: .visible) {
+                Button("削除", role: .destructive) {
+                    deletePlan()
+                }
+                Button("キャンセル", role: .cancel) {}
+            } message: {
+                Text("この予定は元に戻せません。")
+            }
         }
     }
 
@@ -105,12 +149,12 @@ struct PlanCreateSheet: View {
                 VStack(alignment: .leading, spacing: 7) {
                     Text(previewTitle)
                         .font(.title3.weight(.bold))
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(LiminalTheme.text)
                         .lineLimit(2)
 
                     Text(previewTimeText)
                         .font(.subheadline.monospacedDigit().weight(.semibold))
-                        .foregroundStyle(tint)
+                        .foregroundStyle(LiminalTheme.text)
                         .lineLimit(2)
                         .minimumScaleFactor(0.78)
                 }
@@ -120,21 +164,21 @@ struct PlanCreateSheet: View {
                     .font(.caption.weight(.bold))
                     .foregroundStyle(tint)
                     .frame(width: 26, height: 26)
-                    .background(.ultraThinMaterial, in: Circle())
+                    .liminalGlassFill(in: Circle())
             }
 
             HStack(spacing: 8) {
-                PlanPreviewBadge(text: isAllDay ? "時間未指定" : "時間指定", systemImage: isAllDay ? "sun.max.fill" : "clock.fill", tint: tint)
-                PlanPreviewBadge(text: isPublic ? "共有" : "非公開", systemImage: isPublic ? "eye.fill" : "eye.slash.fill", tint: isPublic ? Color.green : Color.secondary)
+                PlanPreviewBadge(text: isAllDay ? "終日" : "時間指定", systemImage: isAllDay ? "sun.max.fill" : "clock.fill", tint: tint)
+                PlanPreviewBadge(text: isPublic ? "共有" : "非公開", systemImage: isPublic ? "eye.fill" : "eye.slash.fill", tint: isPublic ? LiminalTheme.accent : LiminalTheme.secondaryText)
                 if isImportant {
-                    PlanPreviewBadge(text: "重要", systemImage: "star.fill", tint: Color.yellow)
+                    PlanPreviewBadge(text: "重要", systemImage: "star.fill", tint: LiminalTheme.reward)
                 }
             }
         }
         .padding(18)
         .background {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
+                .fill(LiminalTheme.surface)
                 .overlay(alignment: .bottom) {
                     DecorativeAccentStrip(color: tint)
                         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
@@ -154,8 +198,16 @@ struct PlanCreateSheet: View {
                     .font(.headline)
                     .padding(.horizontal, 12)
                     .frame(minHeight: 46)
-                    .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .background(LiminalTheme.elevated, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                     .disabled(isScheduleLocked)
+
+                if !isScheduleLocked && title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    PlanEditorStatusLabel(
+                        text: "予定名を入力してください。",
+                        systemImage: "text.cursor",
+                        tint: .secondary
+                    )
+                }
             }
         }
     }
@@ -174,17 +226,17 @@ struct PlanCreateSheet: View {
                         VStack(alignment: .leading, spacing: 3) {
                             Text(selectedCategory?.name ?? "カテゴリを選択")
                                 .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(.primary)
+                                .foregroundStyle(LiminalTheme.text)
                             Text(selectedCategorySetName)
                                 .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(LiminalTheme.secondaryText)
                         }
 
                         Spacer()
 
                         Image(systemName: "chevron.right")
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(.tertiary)
+                            .foregroundStyle(LiminalTheme.tertiaryText)
                     }
                     .padding(12)
                     .background(selectedTint.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
@@ -206,7 +258,7 @@ struct PlanCreateSheet: View {
                 .tint(selectedTint)
 
                 Toggle(isOn: $isAllDay) {
-                    Label("時間未指定", systemImage: "sun.max.fill")
+                    Label("終日", systemImage: "sun.max.fill")
                 }
                 .tint(selectedTint)
                 .disabled(isScheduleLocked)
@@ -214,18 +266,26 @@ struct PlanCreateSheet: View {
                 VStack(spacing: 10) {
                     if !isAllDay {
                         DatePicker("開始", selection: $startTime, displayedComponents: [.date, .hourAndMinute])
-                            .disabled(isScheduleLocked)
+                            .foregroundStyle(LiminalTheme.text)
+                            .tint(LiminalTheme.text)
+                            .allowsHitTesting(!isScheduleLocked)
                         DatePicker("終了", selection: $endTime, in: startTime..., displayedComponents: [.date, .hourAndMinute])
-                            .disabled(isScheduleLocked)
+                            .foregroundStyle(LiminalTheme.text)
+                            .tint(LiminalTheme.text)
+                            .allowsHitTesting(!isScheduleLocked)
                     } else {
                         DatePicker("開始日", selection: $startTime, displayedComponents: [.date])
-                            .disabled(isScheduleLocked)
+                            .foregroundStyle(LiminalTheme.text)
+                            .tint(LiminalTheme.text)
+                            .allowsHitTesting(!isScheduleLocked)
                         DatePicker("終了日", selection: $allDayEndDate, displayedComponents: [.date])
-                            .disabled(isScheduleLocked)
+                            .foregroundStyle(LiminalTheme.text)
+                            .tint(LiminalTheme.text)
+                            .allowsHitTesting(!isScheduleLocked)
                     }
                 }
                 .padding(12)
-                .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .background(LiminalTheme.elevated, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
 
                 validationStatus
             }
@@ -239,17 +299,65 @@ struct PlanCreateSheet: View {
                 TextField("メモを追加...", text: $note, axis: .vertical)
                     .lineLimit(3...6)
                     .padding(12)
-                    .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .background(LiminalTheme.elevated, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             }
         }
     }
 
     private var visibilityCard: some View {
         PlanEditorCard(tint: selectedTint) {
-            Toggle(isOn: $isPublic) {
-                PlanEditorSectionHeader(title: isPublic ? "友達に見せる" : "自分だけ", systemImage: isPublic ? "eye.fill" : "eye.slash.fill", tint: isPublic ? Color.green : Color.secondary)
+            VStack(alignment: .leading, spacing: 12) {
+                Toggle(isOn: $isPublic) {
+                    PlanEditorSectionHeader(title: isPublic ? "友達に見せる" : "自分だけ", systemImage: isPublic ? "eye.fill" : "eye.slash.fill", tint: isPublic ? LiminalTheme.accent : LiminalTheme.secondaryText)
+                }
+                .tint(selectedTint)
+
+                if isPublic {
+                    Button {
+                        showingAudiencePicker = true
+                        audienceSource = .custom
+                    } label: {
+                        AudienceSummaryRow(
+                            title: "公開相手",
+                            count: audienceFriendIDs.count,
+                            systemImage: "person.2.fill",
+                            tint: selectedTint
+                        )
+                        .padding(12)
+                        .background(LiminalTheme.elevated, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        resetAudienceToCategoryDefault()
+                    } label: {
+                        Label("カテゴリ既定値に戻す", systemImage: "arrow.counterclockwise")
+                            .font(.caption.weight(.semibold))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(LiminalTheme.secondaryText)
+                }
             }
-            .tint(selectedTint)
+        }
+    }
+
+    private var deleteCard: some View {
+        PlanEditorCard(tint: isScheduleLocked ? LiminalTheme.secondaryText : Color.red) {
+            if isScheduleLocked {
+                PlanEditorStatusLabel(
+                    text: "今日以前の時間指定の予定は削除できません。",
+                    systemImage: "lock.fill",
+                    tint: LiminalTheme.secondaryText
+                )
+            } else {
+                Button(role: .destructive) {
+                    showDeleteConfirm = true
+                } label: {
+                    Label("予定を削除", systemImage: "trash.fill")
+                        .font(.subheadline.weight(.semibold))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
         }
     }
 
@@ -257,7 +365,7 @@ struct PlanCreateSheet: View {
     private var validationStatus: some View {
         if isScheduleLocked {
             PlanEditorStatusLabel(
-                text: "今日以前の時間つき予定は、重要表示・メモ・公開設定のみ編集できます。",
+                text: "今日以前の時間指定の予定は、重要表示・メモ・公開設定のみ編集できます。",
                 systemImage: "lock.fill",
                 tint: .secondary
             )
@@ -285,7 +393,7 @@ struct PlanCreateSheet: View {
     }
 
     private var selectedTint: Color {
-        selectedCategory?.displayColor ?? Color.accentColor
+        selectedCategory?.displayColor ?? LiminalTheme.accent
     }
 
     private var previewTitle: String {
@@ -345,7 +453,17 @@ struct PlanCreateSheet: View {
         store.canCreatePlan(startTime: startTime, isAllDay: isAllDay)
     }
 
+    private func resetAudienceToCategoryDefault() {
+        audienceFriendIDs = AudienceResolver.categoryDefaultAudience(
+            for: selectedCategory,
+            friendSets: friendSets,
+            friends: friends
+        )
+        audienceSource = .categoryDefaultSnapshot
+    }
+
     private func save() {
+        errorTitle = "保存できませんでした"
         let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let calendar = Calendar.current
         let resolvedStart: Date
@@ -370,7 +488,10 @@ struct PlanCreateSheet: View {
                 isAllDay: isAllDay,
                 isImportant: isImportant,
                 note: note,
-                isPublic: isPublic
+                isPublic: isPublic,
+                audienceFriendIDs: audienceFriendIDs,
+                audienceSource: audienceSource,
+                hasAudienceSnapshot: shouldSaveAudienceSnapshot
             )
         } else {
             didSave = store.addPlanBlock(
@@ -381,16 +502,49 @@ struct PlanCreateSheet: View {
                 isAllDay: isAllDay,
                 isImportant: isImportant,
                 note: note,
-                isPublic: isPublic
+                isPublic: isPublic,
+                audienceFriendIDs: audienceFriendIDs,
+                audienceSource: audienceSource,
+                hasAudienceSnapshot: shouldSaveAudienceSnapshot
             )
         }
         if didSave {
             dismiss()
+        } else {
+            saveError = "予定を保存できませんでした。時間をおいてもう一度試してください。"
+        }
+    }
+
+    private func deletePlan() {
+        guard let editingPlan else { return }
+        errorTitle = "削除できませんでした"
+        guard store.deletePlanBlock(editingPlan) else {
+            saveError = "予定を削除できませんでした。時間をおいてもう一度試してください。"
+            return
+        }
+        dismiss()
+    }
+
+    private var shouldSaveAudienceSnapshot: Bool {
+        guard isPublic else { return false }
+        if audienceSource == .custom {
+            return true
+        }
+        return !audienceFriendIDs.isEmpty
+    }
+
+    private var saveErrorPresented: Binding<Bool> {
+        Binding {
+            saveError != nil
+        } set: { isPresented in
+            if !isPresented {
+                saveError = nil
+            }
         }
     }
 }
 
-private struct PlanEditorCard<Content: View>: View {
+struct PlanEditorCard<Content: View>: View {
     let tint: Color
     let content: Content
 
@@ -402,7 +556,7 @@ private struct PlanEditorCard<Content: View>: View {
     var body: some View {
         content
             .padding(16)
-            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color(.secondarySystemGroupedBackground)))
+            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(LiminalTheme.surface))
             .overlay(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .stroke(tint.opacity(0.1), lineWidth: 1)
@@ -410,7 +564,7 @@ private struct PlanEditorCard<Content: View>: View {
     }
 }
 
-private struct PlanEditorSectionHeader: View {
+struct PlanEditorSectionHeader: View {
     let title: String
     let systemImage: String
     let tint: Color
@@ -428,7 +582,7 @@ private struct PlanEditorSectionHeader: View {
     }
 }
 
-private struct PlanPreviewBadge: View {
+struct PlanPreviewBadge: View {
     let text: String
     let systemImage: String
     let tint: Color
@@ -448,7 +602,7 @@ private struct PlanPreviewBadge: View {
     }
 }
 
-private struct PlanEditorStatusLabel: View {
+struct PlanEditorStatusLabel: View {
     let text: String
     let systemImage: String
     let tint: Color
@@ -461,7 +615,7 @@ private struct PlanEditorStatusLabel: View {
     }
 }
 
-private struct PlanCategoryPickerSheet: View {
+struct PlanCategoryPickerSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     let categorySets: [CategorySet]
@@ -562,7 +716,7 @@ private struct PlanCategoryPickerSheet: View {
                             .frame(height: 34)
                             .background(
                                 Capsule()
-                                    .fill(selectedSetID == set.id ? Color.accentColor : Color(.secondarySystemGroupedBackground))
+                                    .fill(selectedSetID == set.id ? LiminalTheme.accent : LiminalTheme.surface)
                             )
                     }
                     .buttonStyle(.plain)
@@ -591,19 +745,19 @@ private struct PlanCategoryPickerSheet: View {
     }
 }
 
-private struct CategoryPreviewIcon: View {
+struct CategoryPreviewIcon: View {
     let category: Category?
     var size: CGFloat = 38
 
     var body: some View {
         ZStack {
             Circle()
-                .fill((category?.displayColor ?? Color(.systemGray3)).opacity(0.16))
+                .fill((category?.displayColor ?? LiminalTheme.secondaryText).opacity(0.16))
                 .frame(width: size, height: size)
 
             Image(systemName: category?.icon ?? "circle.dashed")
                 .font(.system(size: max(15, size * 0.42), weight: .semibold))
-                .foregroundStyle(category?.displayColor ?? .secondary)
+                .foregroundStyle(category?.displayColor ?? LiminalTheme.secondaryText)
         }
     }
 }
@@ -622,20 +776,20 @@ private struct CategoryGridPickCell: View {
 
                 Image(systemName: category?.icon ?? "plus")
                     .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(category?.displayColor ?? Color(.tertiaryLabel))
+                    .foregroundStyle(category?.displayColor ?? LiminalTheme.tertiaryText)
                     .frame(width: 42, height: 42)
 
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.system(size: 15, weight: .bold))
-                        .foregroundStyle(.white, category?.displayColor ?? Color.accentColor)
+                        .foregroundStyle(.white, category?.displayColor ?? LiminalTheme.accent)
                         .offset(x: 4, y: -4)
                 }
             }
 
             Text(category?.name ?? "空き")
                 .font(.caption2.weight(category == nil ? .regular : .semibold))
-                .foregroundStyle(category == nil ? .tertiary : .primary)
+                .foregroundStyle(category == nil ? LiminalTheme.tertiaryText : LiminalTheme.text)
                 .lineLimit(1)
                 .minimumScaleFactor(0.72)
         }
@@ -655,21 +809,21 @@ private struct CategoryGridPickCell: View {
     }
 
     private var fillColor: Color {
-        category?.displayColor.opacity(isSelected ? 0.24 : 0.16) ?? Color(.tertiarySystemGroupedBackground)
+        category?.displayColor.opacity(isSelected ? 0.24 : 0.16) ?? LiminalTheme.elevated
     }
 
     private var backgroundColor: Color {
         if let category {
             return category.displayColor.opacity(isSelected ? 0.13 : 0.07)
         }
-        return Color(.tertiarySystemGroupedBackground).opacity(0.55)
+        return LiminalTheme.elevated.opacity(0.55)
     }
 
     private var borderColor: Color {
         if let category {
             return category.displayColor.opacity(isSelected ? 0.72 : 0.18)
         }
-        return Color(.separator).opacity(0.32)
+        return LiminalTheme.divider.opacity(0.64)
     }
 
     private var accessibilityText: String {

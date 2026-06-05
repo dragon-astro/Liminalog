@@ -32,7 +32,7 @@ struct DashboardHeroCard: View {
 
                         Text(period.displayRange(at: anchorDate, calendar: .japanese))
                             .font(.caption.weight(.bold))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(LiminalTheme.secondaryText)
                             .lineLimit(1)
                     }
 
@@ -43,7 +43,7 @@ struct DashboardHeroCard: View {
 
                     Text(heroSubtitle)
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(LiminalTheme.secondaryText)
                         .lineLimit(2)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -56,7 +56,7 @@ struct DashboardHeroCard: View {
                     .accessibilityHidden(true)
             } else {
                 DashboardMiniSparkline(summaries: scoreSummaries, color: scoreColor)
-                    .frame(height: 42)
+                    .frame(height: 56)
             }
 
             HStack(spacing: 10) {
@@ -65,7 +65,7 @@ struct DashboardHeroCard: View {
                     value: formatDashboardDuration(totalDuration),
                     countUpValue: totalDuration,
                     countUpFormatter: formatDashboardDuration,
-                    tint: Color.accentColor
+                    tint: LiminalTheme.accent
                 )
                 DashboardHeroPill(
                     title: "記録日",
@@ -74,13 +74,13 @@ struct DashboardHeroCard: View {
                     countUpFormatter: { "\(Int($0.rounded()))日" },
                     tint: Color(hex: "#27AE60")
                 )
-                DashboardHeroPill(title: "主役", value: topCategory?.name ?? "-", tint: topCategory?.color ?? Color.secondary)
+                DashboardHeroPill(title: "主役", value: topCategory?.name ?? "-", tint: topCategory?.color ?? LiminalTheme.secondaryText)
             }
         }
         .padding(18)
         .background {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
+                .fill(LiminalTheme.surface)
                 .overlay(alignment: .bottom) {
                     DecorativeAccentStrip(color: scoreColor)
                         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
@@ -90,7 +90,7 @@ struct DashboardHeroCard: View {
                         .font(.caption.weight(.bold))
                         .foregroundStyle(scoreColor)
                         .frame(width: 24, height: 24)
-                        .background(.ultraThinMaterial, in: Circle())
+                        .liminalGlassFill(in: Circle())
                         .padding(16)
                 }
         }
@@ -119,7 +119,7 @@ struct DashboardScoreRing: View {
     var body: some View {
         ZStack {
             Circle()
-                .stroke(Color(.tertiarySystemGroupedBackground), lineWidth: 12)
+                .stroke(LiminalTheme.elevated, lineWidth: 12)
 
             Circle()
                 .trim(from: 0, to: hasScore ? min(max(score / 100, 0), 1) : 0)
@@ -137,7 +137,7 @@ struct DashboardScoreRing: View {
                     .font(.system(size: 34, weight: .black, design: .rounded).monospacedDigit())
                 Text("pt")
                     .font(.caption.weight(.bold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(LiminalTheme.secondaryText)
             }
         }
         .frame(width: 112, height: 112)
@@ -151,30 +151,12 @@ struct DashboardMiniSparkline: View {
     let summaries: [ScoreSummary]
     let color: Color
 
-    private var plottedScores: [Double] {
-        summaries.map { $0.plannedDuration > 0 ? $0.totalScore : 0 }
+    private var scoredSummaries: [ScoreSummary] {
+        summaries.filter { $0.plannedDuration > 0 }
     }
 
     var body: some View {
-        GeometryReader { proxy in
-            let values = plottedScores
-            let step = values.count > 1 ? proxy.size.width / CGFloat(values.count - 1) : proxy.size.width
-            ZStack(alignment: .bottomLeading) {
-                HStack(alignment: .bottom, spacing: max(2, min(7, step * 0.16))) {
-                    ForEach(Array(values.enumerated()), id: \.offset) { _, value in
-                        Capsule()
-                            .fill(value > 0 ? color.opacity(0.82) : Color(.tertiarySystemGroupedBackground))
-                            .frame(maxWidth: .infinity)
-                            .frame(height: max(5, proxy.size.height * CGFloat(value / 100)))
-                    }
-                }
-
-                Rectangle()
-                    .fill(Color(.separator).opacity(0.16))
-                    .frame(height: 1)
-                    .offset(y: -proxy.size.height * 0.6)
-            }
-        }
+        ScoreTrendBarChart(summaries: scoredSummaries, colorOverride: color)
         .accessibilityHidden(true)
     }
 }
@@ -190,7 +172,7 @@ struct DashboardHeroPill: View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
                 .font(.caption2.weight(.bold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(LiminalTheme.secondaryText)
             Text(value)
                 .dashboardCountUpIfNeeded(value: countUpValue, formatter: countUpFormatter)
                 .font(.caption.weight(.bold))
@@ -217,7 +199,7 @@ struct DashboardMetricRow: View {
                 countUpValue: totalDuration,
                 countUpFormatter: formatDashboardDuration,
                 systemImage: "clock.fill",
-                tint: Color.accentColor
+                tint: LiminalTheme.accent
             )
             DashboardMetricTile(
                 title: "件数",
@@ -263,14 +245,14 @@ struct DashboardMetricTile: View {
                     .minimumScaleFactor(0.62)
                 Text(title)
                     .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(LiminalTheme.secondaryText)
             }
         }
         .padding(10)
         .frame(maxWidth: .infinity, minHeight: 88, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
+                .fill(LiminalTheme.surface)
         )
     }
 }
@@ -280,7 +262,7 @@ struct ScoreBreakdownCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            DashboardSectionHeader(title: "スコア内訳", systemImage: "target", tint: Color.accentColor)
+            DashboardSectionHeader(title: "スコア内訳", systemImage: "target", tint: LiminalTheme.accent)
 
             if !summary.hasScore {
                 EmptyStatText(text: "予定と実績がそろうと内訳が見えます")
@@ -320,11 +302,6 @@ struct ScoreBreakdownCard: View {
                         )
                     }
 
-                    Text(summary.scoreFormulaText)
-                        .font(.caption2.weight(.semibold).monospacedDigit())
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.82)
                 }
             }
         }
@@ -338,17 +315,17 @@ struct DashboardScoreFactorRow: View {
     let weight: Double
     let color: Color
 
+    private var achievedPt: Int { Int((score * weight).rounded()) }
+    private var maxPt: Int { Int((weight * 100).rounded()) }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
             HStack(spacing: 8) {
                 DashboardContributionLegend(title: title, color: color)
-                Text("配点 \(Int((weight * 100).rounded()))%")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.secondary)
                 Spacer()
-                Text("\(Int(score.rounded()))%")
-                    .dashboardCountUp(value: score) {
-                        "\(Int($0.rounded()))%"
+                Text("\(achievedPt) / \(maxPt) pt")
+                    .dashboardCountUp(value: Double(achievedPt)) {
+                        "\(Int($0.rounded())) / \(maxPt) pt"
                     }
                     .font(.caption.weight(.bold).monospacedDigit())
                     .foregroundStyle(color)
@@ -356,7 +333,7 @@ struct DashboardScoreFactorRow: View {
 
             GeometryReader { proxy in
                 Capsule()
-                    .fill(Color(.tertiarySystemGroupedBackground))
+                    .fill(LiminalTheme.elevated)
                     .overlay(alignment: .leading) {
                         Capsule()
                             .fill(color)
@@ -379,7 +356,7 @@ struct DashboardContributionLegend: View {
                 .frame(width: 7, height: 7)
             Text(title)
                 .font(.caption2.weight(.semibold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(LiminalTheme.secondaryText)
         }
     }
 }
@@ -405,7 +382,7 @@ struct DashboardProgressRow: View {
 
             GeometryReader { proxy in
                 Capsule()
-                    .fill(Color(.tertiarySystemGroupedBackground))
+                    .fill(LiminalTheme.elevated)
                     .overlay(alignment: .leading) {
                         Capsule()
                             .fill(color)
@@ -427,7 +404,7 @@ struct DashboardSmallValue: View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
                 .font(.caption2.weight(.semibold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(LiminalTheme.secondaryText)
             Text(value)
                 .dashboardCountUpIfNeeded(value: countUpValue, formatter: countUpFormatter)
                 .font(.caption.weight(.bold).monospacedDigit())
@@ -568,7 +545,7 @@ struct DashboardStackedCategoryBar: View {
                 }
                 if rows.isEmpty {
                     RoundedRectangle(cornerRadius: 3, style: .continuous)
-                        .fill(Color(.tertiarySystemGroupedBackground))
+                        .fill(LiminalTheme.elevated)
                 }
             }
         }
@@ -615,13 +592,13 @@ struct DashboardCategoryRow: View {
                             "\(Int($0.rounded()))%"
                         }
                         .font(.caption2.monospacedDigit())
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(LiminalTheme.secondaryText)
                 }
             }
 
             GeometryReader { proxy in
                 Capsule()
-                    .fill(Color(.tertiarySystemGroupedBackground))
+                    .fill(LiminalTheme.elevated)
                     .overlay(alignment: .leading) {
                         Capsule()
                             .fill(stat.color)
@@ -662,7 +639,7 @@ struct HourRhythmCard: View {
                     HStack(alignment: .bottom, spacing: 3) {
                         ForEach(hourlyStats) { stat in
                             Capsule()
-                                .fill(stat.category?.displayColor ?? Color(.tertiarySystemGroupedBackground))
+                                .fill(stat.category?.displayColor ?? LiminalTheme.elevated)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: max(7, 48 * stat.duration / maxDuration))
                                 .opacity(stat.duration > 0 ? 1 : 0.5)
@@ -682,7 +659,7 @@ struct HourRhythmCard: View {
                         Text("24")
                     }
                     .font(.caption2.monospacedDigit())
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(LiminalTheme.secondaryText)
                 }
             }
         }
@@ -694,19 +671,20 @@ struct ScoreTrendCard: View {
     let period: DashboardPeriod
     let summaries: [ScoreSummary]
 
-    private var displaySummaries: [ScoreSummary] {
+    private var scoredDisplaySummaries: [ScoreSummary] {
+        let scored = summaries.filter { $0.plannedDuration > 0 }
         switch period {
         case .year:
-            let sampleStep = max(Int(ceil(Double(summaries.count) / 24.0)), 1)
+            let sampleStep = max(Int(ceil(Double(scored.count) / 24.0)), 1)
             var sampledSummaries: [ScoreSummary] = []
             var index = 0
-            while index < summaries.count {
-                sampledSummaries.append(summaries[index])
+            while index < scored.count {
+                sampledSummaries.append(scored[index])
                 index += sampleStep
             }
             return sampledSummaries
         default:
-            return summaries
+            return scored
         }
     }
 
@@ -714,31 +692,95 @@ struct ScoreTrendCard: View {
         VStack(alignment: .leading, spacing: 14) {
             DashboardSectionHeader(title: "スコアの流れ", systemImage: "chart.bar.xaxis", tint: Color(hex: "#F2994A"))
 
-            if summaries.allSatisfy({ $0.plannedDuration <= 0 }) {
+            if scoredDisplaySummaries.isEmpty {
                 EmptyStatText(text: "予定がある日のスコア推移が表示されます")
             } else {
-                HStack(alignment: .bottom, spacing: 5) {
-                    ForEach(displaySummaries, id: \.date) { summary in
-                        let hasScore = summary.plannedDuration > 0
-                        Capsule()
-                            .fill(DashboardScorePalette.color(for: summary.totalScore, hasScore: hasScore))
-                            .frame(maxWidth: .infinity)
-                            .frame(height: hasScore ? max(8, CGFloat(summary.totalScore / 100) * 86) : 8)
-                            .opacity(hasScore ? 0.92 : 0.42)
-                    }
-                }
-                .frame(height: 90, alignment: .bottom)
+                ScoreTrendBarChart(summaries: scoredDisplaySummaries)
+                    .frame(height: 96)
 
                 HStack {
-                    Text(displaySummaries.first?.date.japaneseMonthDay ?? "")
+                    Text(scoredDisplaySummaries.first?.date.japaneseMonthDay ?? "")
                     Spacer()
-                    Text(displaySummaries.last?.date.japaneseMonthDay ?? "")
+                    Text(scoredDisplaySummaries.last?.date.japaneseMonthDay ?? "")
                 }
                 .font(.caption2.weight(.semibold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(LiminalTheme.secondaryText)
             }
         }
         .dashboardCard()
+    }
+}
+
+private struct ScoreTrendBarChart: View {
+    let summaries: [ScoreSummary]
+    var colorOverride: Color? = nil
+
+    var body: some View {
+        GeometryReader { proxy in
+            let guideScores = guideScores
+            let bars = barFrames(in: proxy.size)
+            ZStack {
+                ForEach(Array(guideScores.enumerated()), id: \.offset) { index, score in
+                    let y = yPosition(for: score, in: proxy.size)
+                    Rectangle()
+                        .fill(index == 1 ? LiminalTheme.divider.opacity(0.34) : LiminalTheme.divider.opacity(0.48))
+                        .frame(height: index == 1 ? 0.8 : 1)
+                        .position(x: proxy.size.width / 2, y: y)
+                }
+
+                ForEach(Array(bars.enumerated()), id: \.offset) { index, frame in
+                    let summary = summaries[index]
+                    Capsule()
+                        .fill(colorOverride ?? DashboardScorePalette.color(for: summary.totalScore, hasScore: true))
+                        .frame(width: frame.width, height: frame.height)
+                        .position(x: frame.midX, y: frame.midY)
+                }
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("スコアの流れ")
+    }
+
+    private var guideScores: [Double] {
+        let scores = summaries.map(\.totalScore)
+        guard let minScore = scores.min(), let maxScore = scores.max() else { return [] }
+        let midScore = (minScore + maxScore) / 2
+        return [maxScore, midScore, minScore]
+    }
+
+    private var barWidth: CGFloat {
+        8
+    }
+
+    private var barDensity: CGFloat {
+        0.56
+    }
+
+    private func barFrames(in size: CGSize) -> [CGRect] {
+        guard !summaries.isEmpty else { return [] }
+        let width = min(barWidth, max(size.width / CGFloat(max(summaries.count, 1)) * barDensity, 3))
+        let horizontalInset: CGFloat = summaries.count == 1 ? size.width / 2 : max(width / 2, 6)
+        let topInset: CGFloat = 8
+        let bottomInset: CGFloat = 10
+        let usableWidth = max(size.width - horizontalInset * 2, 1)
+        let usableHeight = max(size.height - topInset - bottomInset, 1)
+        let denominator = max(CGFloat(summaries.count - 1), 1)
+
+        return summaries.enumerated().map { index, summary in
+            let normalizedScore = min(max(summary.totalScore / 100, 0), 1)
+            let x = horizontalInset + usableWidth * CGFloat(index) / denominator
+            let height = max(6, usableHeight * CGFloat(normalizedScore))
+            let y = topInset + usableHeight - height / 2
+            return CGRect(x: x - width / 2, y: y - height / 2, width: width, height: height)
+        }
+    }
+
+    private func yPosition(for score: Double, in size: CGSize) -> CGFloat {
+        let topInset: CGFloat = 8
+        let bottomInset: CGFloat = 10
+        let usableHeight = max(size.height - topInset - bottomInset, 1)
+        let normalizedScore = min(max(score / 100, 0), 1)
+        return topInset + usableHeight * CGFloat(1 - normalizedScore)
     }
 }
 
@@ -757,9 +799,9 @@ struct RecentTrendCard: View {
                         HStack(spacing: 10) {
                             Image(systemName: chapter.category?.icon ?? "circle.fill")
                                 .font(.caption.weight(.bold))
-                                .foregroundStyle(chapter.category?.displayColor ?? Color.secondary)
+                                .foregroundStyle(chapter.category?.displayColor ?? LiminalTheme.secondaryText)
                                 .frame(width: 28, height: 28)
-                                .background((chapter.category?.displayColor ?? Color.secondary).opacity(0.12), in: Circle())
+                                .background((chapter.category?.displayColor ?? LiminalTheme.secondaryText).opacity(0.12), in: Circle())
 
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(chapter.category?.name ?? "未分類")
@@ -767,7 +809,7 @@ struct RecentTrendCard: View {
                                     .lineLimit(1)
                                 Text(chapter.startTime.japaneseShortDateTime)
                                     .font(.caption2)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(LiminalTheme.secondaryText)
                             }
 
                             Spacer()
@@ -775,7 +817,7 @@ struct RecentTrendCard: View {
                             Text(formatDashboardDuration(chapter.durationLive))
                                 .dashboardCountUp(value: chapter.durationLive, formatter: formatDashboardDuration)
                                 .font(.caption.weight(.bold).monospacedDigit())
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(LiminalTheme.secondaryText)
                         }
                     }
                 }
@@ -811,7 +853,7 @@ struct EmptyStatText: View {
     var body: some View {
         Text(text)
             .font(.subheadline)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(LiminalTheme.secondaryText)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.vertical, 4)
     }
@@ -823,7 +865,7 @@ extension View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(Color(.secondarySystemGroupedBackground))
+                    .fill(LiminalTheme.surface)
             )
     }
 }

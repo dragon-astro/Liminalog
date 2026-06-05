@@ -48,20 +48,6 @@ enum StatsEngine {
         }
     }
 
-    static func timeOfDaySummary(
-        chapters: [Chapter],
-        interval: DateInterval,
-        calendar: Calendar,
-        now: Date
-    ) -> DashboardTimeOfDaySummary {
-        DashboardTimeOfDaySummary.make(
-            chapters: chapters,
-            interval: interval,
-            calendar: calendar,
-            now: now
-        )
-    }
-
     static func periodDeltaSummary(
         currentSummaries: [ScoreSummary],
         previousSummaries: [ScoreSummary]

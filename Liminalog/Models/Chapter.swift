@@ -14,6 +14,9 @@ final class Chapter {
     var locationName: String?
     var isPublic: Bool = true
     var visibilityScope: VisibilityScope = VisibilityScope.all
+    var audienceFriendIDs: [UUID] = []
+    var audienceSourceRawValue: String = AudienceSource.categoryDefaultSnapshot.rawValue
+    var hasAudienceSnapshot: Bool = false
     var createdAt: Date = Date()
     var updatedAt: Date = Date()
 
@@ -42,8 +45,16 @@ final class Chapter {
         self.locationName = nil
         self.isPublic = true
         self.visibilityScope = .all
+        self.audienceFriendIDs = []
+        self.audienceSourceRawValue = AudienceSource.categoryDefaultSnapshot.rawValue
+        self.hasAudienceSnapshot = false
         self.createdAt = Date()
         self.updatedAt = Date()
+    }
+
+    var audienceSource: AudienceSource {
+        get { AudienceSource(rawValue: audienceSourceRawValue) ?? .categoryDefaultSnapshot }
+        set { audienceSourceRawValue = newValue.rawValue }
     }
 }
 

@@ -49,7 +49,7 @@ struct DailyCardSnapshotStoreTests {
         #expect(updated.personaKind == .planMatched)
         #expect(updated.title == "有言実行の人")
         #expect(updated.recordedDuration == 90 * 60)
-        #expect(updated.facts.map(\.title) == ["切替"])
+        #expect(updated.facts.map(\.title) == ["一致率"])
         #expect(updated.categories.first?.name == "制作")
     }
 
@@ -92,11 +92,11 @@ struct DailyCardSnapshotStoreTests {
             symbol: "sparkles",
             facts: [
                 DailyCardFact(
-                    id: "switches",
-                    title: "切替",
-                    value: "3",
-                    suffix: "回",
-                    systemImage: "rectangle.2.swap"
+                    id: "match-rate",
+                    title: "一致率",
+                    value: "75",
+                    suffix: "%",
+                    systemImage: "checkmark.seal.fill"
                 )
             ]
         )

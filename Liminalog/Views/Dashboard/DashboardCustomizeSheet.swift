@@ -10,6 +10,7 @@ struct DashboardCustomizeSheet: View {
 
     @State private var orderedKeys: [DashboardCardKey] = []
     @State private var hiddenKeys: Set<DashboardCardKey> = []
+    @State private var saveError: String?
 
     private var availableKeys: [DashboardCardKey] {
         DashboardCardKey.defaultOrder(for: period)
@@ -17,6 +18,10 @@ struct DashboardCustomizeSheet: View {
 
     private var visibleCount: Int {
         orderedKeys.filter { $0 == .hero || !hiddenKeys.contains($0) }.count
+    }
+
+    private var hasCustomLayout: Bool {
+        orderedKeys != availableKeys || hiddenKeys.contains { availableKeys.contains($0) }
     }
 
     var body: some View {
@@ -36,6 +41,8 @@ struct DashboardCustomizeSheet: View {
                         .accessibilityHint(key == .hero ? "サマリーは常に表示されます" : "")
                     }
                     .onMove(perform: moveCards)
+                } footer: {
+                    Text("サマリーは常に表示されます。並び順は編集モードで変更できます。")
                 }
             }
             .navigationTitle("カード")
@@ -53,12 +60,21 @@ struct DashboardCustomizeSheet: View {
                     } label: {
                         Image(systemName: "arrow.counterclockwise")
                     }
+                    .disabled(!hasCustomLayout)
                     .accessibilityLabel("初期順に戻す")
+                    .accessibilityHint(hasCustomLayout ? "カードの表示と並び順を初期状態に戻します" : "現在は初期状態です")
 
                     EditButton()
                 }
             }
             .onAppear(perform: loadDraft)
+            .alert("カード設定を保存できませんでした", isPresented: saveErrorPresented) {
+                Button("OK", role: .cancel) {
+                    saveError = nil
+                }
+            } message: {
+                Text(saveError ?? "")
+            }
         }
     }
 
@@ -77,7 +93,22 @@ struct DashboardCustomizeSheet: View {
     }
 
     private func moveCards(from source: IndexSet, to destination: Int) {
-        orderedKeys.move(fromOffsets: source, toOffset: destination)
+        guard !source.isEmpty, source.allSatisfy({ orderedKeys.indices.contains($0) }) else {
+            return
+        }
+
+        var nextOrder = orderedKeys
+        let movingKeys = source.map { nextOrder[$0] }
+        for index in source.sorted(by: >) {
+            nextOrder.remove(at: index)
+        }
+
+        let adjustedDestination = destination - source.filter { $0 < destination }.count
+        let insertionIndex = min(max(adjustedDestination, 0), nextOrder.count)
+        nextOrder.insert(contentsOf: movingKeys, at: insertionIndex)
+        guard nextOrder != orderedKeys else { return }
+
+        orderedKeys = nextOrder
         persist()
     }
 
@@ -113,7 +144,10 @@ struct DashboardCustomizeSheet: View {
             .filter { nextHidden.contains($0) }
             .map(\.rawValue)
         settings.updatedAt = Date()
-        try? modelContext.save()
+        guard saveSettingsChange("dashboard layout") else {
+            loadDraft()
+            return
+        }
     }
 
     private func settings(createIfNeeded: Bool) -> UserSettings {
@@ -124,9 +158,30 @@ struct DashboardCustomizeSheet: View {
         let created = UserSettings()
         if createIfNeeded {
             modelContext.insert(created)
-            try? modelContext.save()
         }
         return created
+    }
+
+    private func saveSettingsChange(_ action: String) -> Bool {
+        do {
+            try modelContext.save()
+            return true
+        } catch {
+            NSLog("Liminalog: failed to save \(action): \(String(describing: error))")
+            modelContext.rollback()
+            saveError = "時間をおいてもう一度試してください。"
+            return false
+        }
+    }
+
+    private var saveErrorPresented: Binding<Bool> {
+        Binding {
+            saveError != nil
+        } set: { isPresented in
+            if !isPresented {
+                saveError = nil
+            }
+        }
     }
 
     private func tint(for key: DashboardCardKey) -> Color {
@@ -134,8 +189,8 @@ struct DashboardCustomizeSheet: View {
         case .hero, .scoreTrend, .periodDelta:
             return Color(hex: "#F2994A")
         case .metrics, .scoreBreakdown:
-            return Color.accentColor
-        case .timeOfDayTrend, .hourRhythm:
+            return LiminalTheme.accent
+        case .hourRhythm:
             return Color(hex: "#00A8A8")
         case .categoryShare:
             return Color(hex: "#6C5CE7")

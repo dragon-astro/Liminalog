@@ -1,3 +1,4 @@
+import Foundation
 import SwiftData
 import Testing
 @testable import Liminalog
@@ -73,5 +74,61 @@ struct CategoryMetadataTests {
         #expect(category.dailyCardIntent == .increase)
         #expect(category.dailyCardIntentRawValue == DailyCardCategoryIntent.increase.rawValue)
         #expect(category.isDailyCardSleepCategory)
+    }
+}
+
+@MainActor
+@Suite("PlanStore")
+struct PlanStoreTests {
+    @Test("未来の予定は追加、更新、削除できる")
+    func futurePlanCanBeCreatedUpdatedAndDeleted() throws {
+        let container = try TestModelContainer.make()
+        let context = container.mainContext
+        let now = try #require(Calendar.liminalogTest.date(from: DateComponents(year: 2026, month: 6, day: 4, hour: 9)))
+        let start = try #require(Calendar.liminalogTest.date(from: DateComponents(year: 2026, month: 6, day: 5, hour: 10)))
+        let end = try #require(Calendar.liminalogTest.date(from: DateComponents(year: 2026, month: 6, day: 5, hour: 11)))
+        let updatedStart = try #require(Calendar.liminalogTest.date(from: DateComponents(year: 2026, month: 6, day: 5, hour: 12)))
+        let updatedEnd = try #require(Calendar.liminalogTest.date(from: DateComponents(year: 2026, month: 6, day: 5, hour: 13)))
+        let store = PlanStore(modelContext: context, clock: MutableTestClock(now: now))
+
+        #expect(store.addPlanBlock(category: Optional<Liminalog.Category>.none, title: "作業", startTime: start, endTime: end))
+
+        let plan = try #require(store.allPlannedBlocks().first)
+        #expect(plan.title == "作業")
+        #expect(plan.isPublic == false)
+
+        #expect(store.savePlanBlock(
+            plan,
+            category: Optional<Liminalog.Category>.none,
+            title: "集中作業",
+            startTime: updatedStart,
+            endTime: updatedEnd,
+            isAllDay: false,
+            isImportant: true,
+            note: "準備",
+            isPublic: true
+        ))
+        #expect(plan.title == "集中作業")
+        #expect(plan.isImportant)
+        #expect(plan.note == "準備")
+
+        #expect(store.deletePlanBlock(plan))
+        #expect(store.allPlannedBlocks().isEmpty)
+    }
+
+    @Test("当日の時刻指定予定は削除できない")
+    func timedPlanOnTodayCannotBeDeleted() throws {
+        let container = try TestModelContainer.make()
+        let context = container.mainContext
+        let now = try #require(Calendar.liminalogTest.date(from: DateComponents(year: 2026, month: 6, day: 4, hour: 9)))
+        let start = try #require(Calendar.liminalogTest.date(from: DateComponents(year: 2026, month: 6, day: 4, hour: 10)))
+        let end = try #require(Calendar.liminalogTest.date(from: DateComponents(year: 2026, month: 6, day: 4, hour: 11)))
+        let plan = PlanBlock(category: nil, title: "今日の予定", startTime: start, endTime: end)
+        context.insert(plan)
+        try context.save()
+        let store = PlanStore(modelContext: context, clock: MutableTestClock(now: now))
+
+        #expect(!store.deletePlanBlock(plan))
+        #expect(store.allPlannedBlocks().contains { $0.id == plan.id })
     }
 }

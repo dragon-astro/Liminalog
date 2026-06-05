@@ -5,7 +5,7 @@ import SwiftUI
 @MainActor
 enum PreviewSupport {
     static let container: ModelContainer = {
-        let schema = Schema([Category.self, CategorySet.self, Chapter.self, PlanBlock.self, UnlockItem.self, VisibilityPreset.self, UserSettings.self, Friend.self, FriendCategoryMapping.self, CalendarEventCache.self])
+        let schema = Schema([Category.self, CategorySet.self, Chapter.self, PlanBlock.self, UnlockItem.self, VisibilityPreset.self, UserSettings.self, Friend.self, FriendSet.self, FriendCategoryMapping.self, CalendarEventCache.self])
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
         let container = try! ModelContainer(for: schema, configurations: [configuration])
         seed(in: container.mainContext)

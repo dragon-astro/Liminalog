@@ -12,16 +12,18 @@ struct ProfileEditSheet: View {
     @State private var streakIconID: String
     @State private var cardStyleID: String
     @State private var selectedPhoto: PhotosPickerItem?
+    @State private var photoLoadError: String?
+    @State private var saveError: String?
 
     let badges: [ProfileBadgeModel]
     let unlocks: ProfileDecorationUnlocks
-    let onSave: (ProfileDraft) -> Void
+    let onSave: (ProfileDraft) -> Bool
 
     init(
         settings: UserSettings?,
         badges: [ProfileBadgeModel],
         unlocks: ProfileDecorationUnlocks,
-        onSave: @escaping (ProfileDraft) -> Void
+        onSave: @escaping (ProfileDraft) -> Bool
     ) {
         _displayName = State(initialValue: settings?.profileDisplayName ?? "")
         _bio = State(initialValue: settings?.profileBio ?? "")
@@ -41,7 +43,7 @@ struct ProfileEditSheet: View {
                 Section {
                     HStack(spacing: 16) {
                         ProfilePhotoView(
-                            displayName: displayName.isEmpty ? "L" : displayName,
+                            displayName: previewDisplayName,
                             imageData: imageData,
                             accentColor: visualAccentColor,
                             frameStyle: ProfileIconFrameCatalog.item(for: iconFrameID),
@@ -53,9 +55,17 @@ struct ProfileEditSheet: View {
                                 Label("写真を選択", systemImage: "photo")
                             }
 
+                            if let photoLoadError {
+                                Text(photoLoadError)
+                                    .font(.caption)
+                                    .foregroundStyle(.red)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+
                             if imageData != nil {
                                 Button(role: .destructive) {
                                     imageData = nil
+                                    photoLoadError = nil
                                 } label: {
                                     Label("写真を削除", systemImage: "trash")
                                 }
@@ -108,10 +118,10 @@ struct ProfileEditSheet: View {
 
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("保存") {
-                        onSave(
+                        let didSave = onSave(
                             ProfileDraft(
-                                displayName: displayName,
-                                bio: bio,
+                                displayName: trimmedDisplayName,
+                                bio: trimmedBio,
                                 imageData: imageData,
                                 badgeID: badgeID,
                                 iconFrameID: iconFrameID,
@@ -119,22 +129,71 @@ struct ProfileEditSheet: View {
                                 cardStyleID: cardStyleID
                             )
                         )
-                        dismiss()
+                        if didSave {
+                            dismiss()
+                        } else {
+                            saveError = "時間をおいてもう一度試してください。"
+                        }
                     }
                     .fontWeight(.semibold)
                 }
             }
             .onChange(of: selectedPhoto) { _, newPhoto in
                 Task {
-                    guard let data = try? await newPhoto?.loadTransferable(type: Data.self) else { return }
-                    imageData = Self.normalizedImageData(from: data) ?? data
+                    await loadPhoto(newPhoto)
                 }
+            }
+            .alert("保存できませんでした", isPresented: saveErrorPresented) {
+                Button("OK", role: .cancel) {
+                    saveError = nil
+                }
+            } message: {
+                Text(saveError ?? "")
             }
         }
     }
 
     private var visualAccentColor: Color {
         ProfileIconFrameCatalog.item(for: iconFrameID).primaryColor
+    }
+
+    private var trimmedDisplayName: String {
+        displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var trimmedBio: String {
+        bio.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var previewDisplayName: String {
+        trimmedDisplayName.isEmpty ? "L" : trimmedDisplayName
+    }
+
+    private var saveErrorPresented: Binding<Bool> {
+        Binding {
+            saveError != nil
+        } set: { isPresented in
+            if !isPresented {
+                saveError = nil
+            }
+        }
+    }
+
+    @MainActor
+    private func loadPhoto(_ photo: PhotosPickerItem?) async {
+        photoLoadError = nil
+        guard let photo else { return }
+
+        do {
+            guard let data = try await photo.loadTransferable(type: Data.self) else {
+                photoLoadError = "写真を読み込めませんでした"
+                return
+            }
+            imageData = Self.normalizedImageData(from: data) ?? data
+        } catch {
+            NSLog("Liminalog: failed to load profile photo: \(String(describing: error))")
+            photoLoadError = "写真を読み込めませんでした"
+        }
     }
 
     private static func normalizedImageData(from data: Data) -> Data? {
@@ -190,10 +249,10 @@ private struct ProfileSelectableBadge: View {
             VStack(spacing: 7) {
                 ZStack {
                     Circle()
-                        .fill(badge.isUnlocked ? tint.opacity(0.16) : Color(.tertiarySystemGroupedBackground))
+                        .fill(badge.isUnlocked ? tint.opacity(0.16) : LiminalTheme.elevated)
                     Image(systemName: badge.isUnlocked ? badge.systemImage : "lock.fill")
                         .font(.headline.weight(.bold))
-                        .foregroundStyle(badge.isUnlocked ? tint : Color.secondary)
+                        .foregroundStyle(badge.isUnlocked ? tint : LiminalTheme.secondaryText)
                 }
                 .frame(width: 44, height: 44)
 
@@ -204,7 +263,7 @@ private struct ProfileSelectableBadge: View {
             }
             .frame(width: 74)
             .padding(.vertical, 8)
-            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .background(LiminalTheme.surface, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .stroke(isSelected ? tint : .clear, lineWidth: 2)
@@ -235,13 +294,21 @@ private struct ProfileFrameSelector: View {
                     } label: {
                         HStack(spacing: 10) {
                             ZStack {
-                                ProfileIconFrameView(style: item, accentColor: accentColor, size: 44)
+                                if item.id == ProfileDecorationUnlocks.noIconFrameID {
+                                    Image(systemName: item.systemImage)
+                                        .font(.headline.weight(.bold))
+                                        .foregroundStyle(LiminalTheme.secondaryText)
+                                        .frame(width: 44, height: 44)
+                                        .background(LiminalTheme.elevated, in: Circle())
+                                } else {
+                                    ProfileIconFrameView(style: item, accentColor: accentColor, size: 44)
+                                }
                                 if !isUnlocked {
                                     Image(systemName: "lock.fill")
                                         .font(.caption.weight(.bold))
-                                        .foregroundStyle(.secondary)
+                                        .foregroundStyle(LiminalTheme.secondaryText)
                                         .padding(5)
-                                        .background(Color(.secondarySystemGroupedBackground), in: Circle())
+                                        .background(LiminalTheme.surface, in: Circle())
                                 }
                             }
                             .frame(width: 48, height: 48)
@@ -250,7 +317,7 @@ private struct ProfileFrameSelector: View {
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
                         .padding(10)
-                        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .background(LiminalTheme.surface, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                         .overlay {
                             RoundedRectangle(cornerRadius: 8, style: .continuous)
                                 .stroke(selectedID == item.id ? item.primaryColor : .clear, lineWidth: 2)
@@ -286,9 +353,9 @@ private struct ProfileStreakIconSelector: View {
                             ZStack {
                                 Image(systemName: isUnlocked ? item.systemImage : "lock.fill")
                                     .font(.title3.weight(.bold))
-                                    .foregroundStyle(isUnlocked ? Color(hex: item.tintHex) : Color.secondary)
+                                    .foregroundStyle(isUnlocked ? Color(hex: item.tintHex) : LiminalTheme.secondaryText)
                                     .frame(width: 44, height: 44)
-                                    .background((isUnlocked ? Color(hex: item.tintHex) : Color.secondary).opacity(0.14), in: Circle())
+                                    .background((isUnlocked ? Color(hex: item.tintHex) : LiminalTheme.secondaryText).opacity(0.14), in: Circle())
                             }
                             Text(item.title)
                                 .font(.caption2.weight(.semibold))
@@ -296,7 +363,7 @@ private struct ProfileStreakIconSelector: View {
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
-                        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .background(LiminalTheme.surface, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                         .overlay {
                             RoundedRectangle(cornerRadius: 8, style: .continuous)
                                 .stroke(selectedID == item.id ? Color(hex: item.tintHex) : .clear, lineWidth: 2)
@@ -331,20 +398,20 @@ private struct ProfileCardStyleSelector: View {
                     } label: {
                         VStack(alignment: .leading, spacing: 8) {
                             HStack {
-                                Image(systemName: isUnlocked ? item.systemImage : "lock.fill")
-                                    .font(.headline.weight(.bold))
-                                    .foregroundStyle(isUnlocked ? item.markColor(accentColor: accentColor) : Color.secondary)
-                                Spacer()
+                                Text(item.title)
+                                    .font(.caption.weight(.semibold))
+                                    .lineLimit(1)
+                                Spacer(minLength: 6)
                                 if selectedID == item.id {
                                     Image(systemName: "checkmark.circle.fill")
                                         .font(.caption.weight(.bold))
                                         .foregroundStyle(item.markColor(accentColor: accentColor))
+                                } else if !isUnlocked {
+                                    Image(systemName: "lock.fill")
+                                        .font(.caption.weight(.bold))
+                                        .foregroundStyle(LiminalTheme.secondaryText)
                                 }
                             }
-
-                            Text(item.title)
-                                .font(.caption.weight(.semibold))
-                                .lineLimit(1)
 
                             ProfileCardStylePreview(style: item, accentColor: accentColor)
                         }
@@ -352,7 +419,7 @@ private struct ProfileCardStyleSelector: View {
                         .background(item.backgroundColor, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                         .overlay {
                             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .stroke(selectedID == item.id ? item.borderColor(accentColor: accentColor) : Color(.separator).opacity(0.12), lineWidth: selectedID == item.id ? 2 : 1)
+                                .stroke(selectedID == item.id ? item.borderColor(accentColor: accentColor) : LiminalTheme.divider.opacity(0.45), lineWidth: selectedID == item.id ? 2 : 1)
                         }
                     }
                     .buttonStyle(.plain)
@@ -370,20 +437,9 @@ private struct ProfileCardStylePreview: View {
     let accentColor: Color
 
     var body: some View {
-        HStack(spacing: 4) {
-            style.stripColor(accentColor: accentColor)
-                .frame(width: 28)
-            Color.clear
-                .frame(width: 8)
-            style.stripColor(accentColor: accentColor).opacity(0.45)
-                .frame(width: 42)
-            Color.clear
-            style.stripColor(accentColor: accentColor).opacity(0.65)
-                .frame(width: 24)
-        }
-        .frame(height: 5)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .clipShape(Capsule())
+        ProfileMiniCardStyleView(style: style, accentColor: accentColor)
+            .frame(height: 34)
+            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
     }
 }
 

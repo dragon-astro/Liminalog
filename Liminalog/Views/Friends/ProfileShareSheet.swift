@@ -42,7 +42,7 @@ struct ProfileShareCard: View {
 
                 Text(payload.code)
                     .font(.caption.monospaced().weight(.bold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(LiminalTheme.secondaryText)
             }
 
             InviteQRCodeView(url: payload.url)
@@ -59,7 +59,7 @@ struct ProfileShareCard: View {
                     .padding(.vertical, 13)
                     .background(
                         RoundedRectangle(cornerRadius: 14)
-                            .fill(Color.accentColor)
+                            .fill(LiminalTheme.accent)
                     )
                     .foregroundStyle(.white)
             }
@@ -68,7 +68,7 @@ struct ProfileShareCard: View {
         .padding(20)
         .background(
             RoundedRectangle(cornerRadius: 22)
-                .fill(Color(.secondarySystemGroupedBackground))
+                .fill(LiminalTheme.surface)
         )
     }
 }
@@ -90,7 +90,7 @@ private struct InviteQRCodeView: View {
                     )
             } else {
                 RoundedRectangle(cornerRadius: 18)
-                    .fill(Color(.tertiarySystemGroupedBackground))
+                    .fill(LiminalTheme.elevated)
                     .overlay {
                         Image(systemName: "qrcode")
                     }

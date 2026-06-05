@@ -33,9 +33,9 @@ final class Friend {
     var avatarSystemImage: String = "person.crop.circle.fill"
     var accentColorHex: String = "#2F80ED"
     var profileBadgeID: String = "starter"
-    var profileIconFrameID: String = "halo"
+    var profileIconFrameID: String = "clear_air"
     var profileStreakIconID: String = "flame"
-    var profileCardStyleID: String = "clean"
+    var profileCardStyleID: String = "quiet_sky"
     var statusRawValue: String = FriendStatus.pendingOutgoing.rawValue
     var isFavorite: Bool = false
     var shareURL: String?
@@ -90,9 +90,9 @@ final class Friend {
         self.avatarSystemImage = avatarSystemImage
         self.accentColorHex = accentColorHex
         self.profileBadgeID = "starter"
-        self.profileIconFrameID = "halo"
+        self.profileIconFrameID = "clear_air"
         self.profileStreakIconID = "flame"
-        self.profileCardStyleID = "clean"
+        self.profileCardStyleID = "quiet_sky"
         self.statusRawValue = status.rawValue
         self.isFavorite = false
         self.shareURL = shareURL
@@ -222,8 +222,19 @@ struct FriendSharedPlanSnapshot: Codable, Identifiable, Hashable {
         self.updatedAt = plan.updatedAt
     }
 
-    static func snapshots(from plans: [PlanBlock], visibilityPreset: VisibilityPreset? = nil) -> [FriendSharedPlanSnapshot] {
-        let policy = FriendSharingVisibilityPolicy(visibilityPreset: visibilityPreset)
+    static func snapshots(
+        from plans: [PlanBlock],
+        visibilityPreset: VisibilityPreset? = nil,
+        recipientFriendID: UUID? = nil,
+        acceptedFriendIDs: Set<UUID> = [],
+        now: Date = Date()
+    ) -> [FriendSharedPlanSnapshot] {
+        let policy = FriendSharingVisibilityPolicy(
+            visibilityPreset: visibilityPreset,
+            recipientFriendID: recipientFriendID,
+            acceptedFriendIDs: acceptedFriendIDs,
+            now: now
+        )
 
         return plans
             .compactMap { policy.snapshot(for: $0) }
@@ -313,9 +324,16 @@ struct FriendSharedActivitySnapshot: Codable, Identifiable, Hashable {
     static func snapshots(
         from chapters: [Chapter],
         now: Date = Date(),
-        visibilityPreset: VisibilityPreset? = nil
+        visibilityPreset: VisibilityPreset? = nil,
+        recipientFriendID: UUID? = nil,
+        acceptedFriendIDs: Set<UUID> = []
     ) -> [FriendSharedActivitySnapshot] {
-        let policy = FriendSharingVisibilityPolicy(visibilityPreset: visibilityPreset)
+        let policy = FriendSharingVisibilityPolicy(
+            visibilityPreset: visibilityPreset,
+            recipientFriendID: recipientFriendID,
+            acceptedFriendIDs: acceptedFriendIDs,
+            now: now
+        )
 
         return chapters
             .compactMap { policy.snapshot(for: $0, now: now) }
@@ -345,25 +363,46 @@ private struct FriendSharingVisibilityPolicy {
     private static let redactedPlanTitle = "予定あり"
     private static let redactedPlanCategoryColorHex = "#8E8E93"
 
+    private let publishMode: PublishMode
     private let publishingDisabled: Bool
     private let hideMoodAndNote: Bool
     private let hideLocation: Bool
     private let freeTimeOnly: Bool
     private let excludedCategoryIDs: Set<UUID>
+    private let recipientFriendID: UUID?
+    private let acceptedFriendIDs: Set<UUID>
+    private let now: Date
 
-    init(visibilityPreset: VisibilityPreset?) {
+    init(
+        visibilityPreset: VisibilityPreset?,
+        recipientFriendID: UUID? = nil,
+        acceptedFriendIDs: Set<UUID> = [],
+        now: Date = Date()
+    ) {
         let publishMode = visibilityPreset?.publishMode ?? .realtime
         let level = visibilityPreset?.level ?? .all
 
+        self.publishMode = publishMode
         self.publishingDisabled = publishMode == .none || level == .none
         self.hideMoodAndNote = visibilityPreset?.hideMoodAndNote ?? false
         self.hideLocation = visibilityPreset?.hideLocation ?? false
         self.freeTimeOnly = visibilityPreset?.freeTimeOnly ?? false
         self.excludedCategoryIDs = Set(visibilityPreset?.excludedCategoryIDs ?? [])
+        self.recipientFriendID = recipientFriendID
+        self.acceptedFriendIDs = acceptedFriendIDs
+        self.now = now
     }
 
     func snapshot(for plan: PlanBlock) -> FriendSharedPlanSnapshot? {
-        guard plan.isPublic, !publishingDisabled, !isExcluded(plan.category) else { return nil }
+        guard !publishingDisabled,
+              isPublishableThroughTiming(endTime: plan.endTime),
+              isVisible(
+                isPublic: plan.isPublic,
+                audienceFriendIDs: plan.audienceFriendIDs,
+                hasAudienceSnapshot: plan.hasAudienceSnapshot
+              ),
+              !isExcluded(plan.category)
+        else { return nil }
 
         var snapshot = FriendSharedPlanSnapshot(plan: plan)
         if freeTimeOnly {
@@ -377,7 +416,16 @@ private struct FriendSharingVisibilityPolicy {
     }
 
     func snapshot(for chapter: Chapter, now: Date) -> FriendSharedActivitySnapshot? {
-        guard chapter.isPublic, !publishingDisabled, !isExcluded(chapter.category) else { return nil }
+        let effectiveEndTime = max(chapter.endTime ?? now, chapter.startTime)
+        guard !publishingDisabled,
+              isPublishableThroughTiming(endTime: effectiveEndTime),
+              isVisible(
+                isPublic: chapter.isPublic,
+                audienceFriendIDs: chapter.audienceFriendIDs,
+                hasAudienceSnapshot: chapter.hasAudienceSnapshot
+              ),
+              !isExcluded(chapter.category)
+        else { return nil }
 
         var snapshot = FriendSharedActivitySnapshot(chapter: chapter, now: now)
         if hideMoodAndNote {
@@ -390,9 +438,36 @@ private struct FriendSharingVisibilityPolicy {
         return snapshot
     }
 
+    private func isPublishableThroughTiming(endTime: Date) -> Bool {
+        switch publishMode {
+        case .realtime:
+            return true
+        case .nextDay:
+            let todayStart = Calendar.japanese.startOfDay(for: now)
+            return endTime <= todayStart
+        case .none:
+            return false
+        }
+    }
+
     private func isExcluded(_ category: Category?) -> Bool {
         guard let category else { return false }
         return excludedCategoryIDs.contains(category.id)
+    }
+
+    private func isVisible(
+        isPublic: Bool,
+        audienceFriendIDs: [UUID],
+        hasAudienceSnapshot: Bool
+    ) -> Bool {
+        guard let recipientFriendID else { return isPublic }
+        return AudienceResolver.isFriendInAudience(
+            isPublic: isPublic,
+            audienceFriendIDs: audienceFriendIDs,
+            hasAudienceSnapshot: hasAudienceSnapshot,
+            friendID: recipientFriendID,
+            acceptedFriendIDs: acceptedFriendIDs
+        )
     }
 }
 

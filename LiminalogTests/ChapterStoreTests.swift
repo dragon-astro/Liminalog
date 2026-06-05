@@ -64,6 +64,30 @@ struct ChapterStoreTests {
         #expect(chapters.map { $0.category?.name } == ["勉強", "仕事", "休憩"])
     }
 
+    @Test("カテゴリ切替はTodayタイムライン更新用のrevisionを進める")
+    func categorySwitchAdvancesContentRevision() throws {
+        let calendar = Calendar.liminalogTest
+        let clock = MutableTestClock(now: try #require(calendar.date(from: DateComponents(year: 2026, month: 5, day: 28, hour: 9))))
+        let container = try TestModelContainer.make()
+        let context = container.mainContext
+        let study = Category(name: "勉強", colorHex: "#3B82F6")
+        let work = Category(name: "仕事", colorHex: "#8B5CF6")
+        context.insert(study)
+        context.insert(work)
+        let store = ChapterStore(modelContext: context, clock: clock)
+
+        let initialRevision = store.contentRevision
+        store.startChapter(category: study)
+        let startedRevision = store.contentRevision
+
+        clock.now = try #require(calendar.date(from: DateComponents(year: 2026, month: 5, day: 28, hour: 9, minute: 30)))
+        store.startChapter(category: work)
+
+        #expect(startedRevision > initialRevision)
+        #expect(store.contentRevision > startedRevision)
+        #expect(store.activeChapter?.category?.id == work.id)
+    }
+
     @Test("同じカテゴリを再タップしても新規Chapterを作らず他のactiveだけ閉じる")
     func sameCategoryRetapKeepsMatchingActiveAndClosesOthers() throws {
         let calendar = Calendar.liminalogTest
@@ -214,6 +238,63 @@ struct ChapterStoreTests {
         #expect(!environmentPreview.shouldSeedDevData)
     }
 
+    @Test("空のカテゴリ既定公開相手は明示的な空スナップショットとして保存しない")
+    func emptyDefaultAudienceDoesNotBecomeExplicitEmptySnapshot() throws {
+        let calendar = Calendar.liminalogTest
+        let clock = MutableTestClock(now: try #require(calendar.date(from: DateComponents(year: 2026, month: 5, day: 28, hour: 12))))
+        let container = try TestModelContainer.make()
+        let context = container.mainContext
+        let category = Category(name: "勉強", colorHex: "#3B82F6")
+        context.insert(category)
+        let store = ChapterStore(modelContext: context, clock: clock)
+        let start = try #require(calendar.date(from: DateComponents(year: 2026, month: 5, day: 29, hour: 9)))
+        let end = try #require(calendar.date(from: DateComponents(year: 2026, month: 5, day: 29, hour: 10)))
+
+        #expect(store.addPlanBlock(
+            category: category,
+            title: "公開予定",
+            startTime: start,
+            endTime: end,
+            isPublic: true,
+            audienceFriendIDs: nil
+        ))
+
+        let plan = try #require(try context.fetch(FetchDescriptor<PlanBlock>()).first)
+        #expect(plan.isPublic)
+        #expect(plan.audienceFriendIDs.isEmpty)
+        #expect(!plan.hasAudienceSnapshot)
+    }
+
+    @Test("公開相手を手動で空にした予定は明示的な空スナップショットとして保存する")
+    func customEmptyAudienceRemainsExplicitEmptySnapshot() throws {
+        let calendar = Calendar.liminalogTest
+        let clock = MutableTestClock(now: try #require(calendar.date(from: DateComponents(year: 2026, month: 5, day: 28, hour: 12))))
+        let container = try TestModelContainer.make()
+        let context = container.mainContext
+        let category = Category(name: "勉強", colorHex: "#3B82F6")
+        context.insert(category)
+        let store = ChapterStore(modelContext: context, clock: clock)
+        let start = try #require(calendar.date(from: DateComponents(year: 2026, month: 5, day: 29, hour: 9)))
+        let end = try #require(calendar.date(from: DateComponents(year: 2026, month: 5, day: 29, hour: 10)))
+
+        #expect(store.addPlanBlock(
+            category: category,
+            title: "誰にも見せない予定",
+            startTime: start,
+            endTime: end,
+            isPublic: true,
+            audienceFriendIDs: [],
+            audienceSource: .custom,
+            hasAudienceSnapshot: true
+        ))
+
+        let plan = try #require(try context.fetch(FetchDescriptor<PlanBlock>()).first)
+        #expect(plan.isPublic)
+        #expect(plan.audienceSource == .custom)
+        #expect(plan.audienceFriendIDs.isEmpty)
+        #expect(plan.hasAudienceSnapshot)
+    }
+
     @Test("開発用Chapter seedは月跨ぎの昨日を含め、未来と重複を作らず現在の1件だけをactiveにする")
     func devSampleChapterSeedAvoidsFutureAndOverlaps() throws {
         let versionKey = "LiminalogDevSampleChapterSeedVersion"
@@ -330,6 +411,32 @@ struct ChapterStoreTests {
         #expect(slotted[2]?.id == study.id)
         #expect(slotted[3]?.id == work.id)
         #expect(assigned.map(\.id) == [rest.id, study.id, work.id])
+    }
+
+    @Test("CategorySetの並び替えは範囲外indexを保存しない")
+    func categorySetMoveIgnoresOutOfRangeIndex() throws {
+        let container = try TestModelContainer.make()
+        let context = container.mainContext
+        let weekday = CategorySet(name: "平日", sortOrder: 0)
+        let holiday = CategorySet(name: "休日", sortOrder: 1)
+        context.insert(weekday)
+        context.insert(holiday)
+        try context.save()
+
+        let categorySetStore = CategorySetStore(
+            modelContext: context,
+            categoryStore: CategoryStore(modelContext: context)
+        )
+
+        let didMove = categorySetStore.moveCategorySets(from: IndexSet(integer: 8), to: 0)
+        let sets = categorySetStore.categorySets()
+
+        #expect(didMove == false)
+        #expect(sets.map(\.id) == [weekday.id, holiday.id])
+        #expect(sets.map(\.sortOrder) == [0, 1])
+
+        let didMoveEmptySource = categorySetStore.moveCategorySets(from: IndexSet(), to: 1)
+        #expect(didMoveEmptySource == false)
     }
 
     private func plansCoverFullDayForTest(_ plans: [PlanBlock], dayStart: Date, dayEnd: Date) -> Bool {

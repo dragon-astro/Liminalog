@@ -39,6 +39,8 @@ struct DashboardScoreAggregate {
             return "いい感じ"
         case 60..<75:
             return "合格ライン"
+        case 30..<60:
+            return "そこそこ"
         default:
             return "伸びしろあり"
         }
@@ -88,7 +90,7 @@ struct HourStat: Identifiable {
 
 enum DashboardScorePalette {
     static func color(for score: Double, hasScore: Bool) -> Color {
-        guard hasScore else { return Color.secondary }
+        guard hasScore else { return LiminalTheme.secondaryText }
         switch score {
         case 90...: return Color(hex: "#27AE60")
         case 75..<90: return Color(hex: "#2F80ED")

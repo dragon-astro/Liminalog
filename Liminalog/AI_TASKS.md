@@ -427,12 +427,12 @@ refactor: split plan store
 - [x] 装飾アイテムモデル設計（フレーム/バッジ/炎/アイコンセット/テーマ/バー/カード/月アート の8種類）<!-- 担当: Codex, 完了: 2026-06-02。`UnlockKind` を docs/09 の8分類（theme/iconFrame/nameBadge/streakIcon/cardStyle/iconSet/barStyle/monthArt）へ整理し、UnlockCatalog 26件に iconSet/monthArt を含めた。旧 appIcon/stamp/cardTemplate seed は seed 時に新キーへ移行し、unlockedAt を保持 -->
 - [x] 装着状態の永続化（`UserSettings` または専用モデルで「装着中アイテムID」を保持）<!-- 担当: Codex, 完了: 2026-06-01: UserSettings の profileBadgeID/profileIconFrameID/profileStreakIconID/profileCardStyleID を保存元とし、ProfileDecorationUnlocks で未解放IDをdefaultへ戻す -->
 - [x] 解放条件判定ロジック（累計時間/ストリーク/パターン達成）<!-- 担当: Codex, 完了: 2026-06-01: UnlockRequirementKind / UnlockMetrics を追加し、累計スコア・記録日数・累計記録時間・ストリーク・朝/深夜記録・カテゴリ種類数で解放判定できるようにした -->
-- [ ] コレクションハブ UI（種類別タブ、解放済/未解放、装着切替）<!-- 担当: Claude, 理由: SwiftUI レイアウト勝負 -->
+- [x] コレクションハブ UI（種類別タブ、解放済/未解放、装着切替）<!-- 担当: Codex, 完了: 2026-06-04。`UnlockGalleryView` を追加し、プロフィールは「次の解放」数件 + 「もっと見る」導線に整理。ハブではバッジ/フレーム/ストリーク/カード/テーマをタブ切替し、各カードに進捗バー・残り条件・装着操作を表示。iconSet/barStyle/monthArt は装着先実体が未接続のためハブ対象から一旦除外 -->
 - [x] 「次に狙う解放」セクション（達成までの近さでソート）<!-- 担当: Codex, 完了: 2026-06-01: ProfileUnlockTargetCatalog で未解放アイテムを条件別進捗順に上位3件抽出し、プロフィールに進捗カードを表示 -->
 - [x] プロフィール画像フレームの装着レンダリング<!-- 担当: Codex, 完了確認: 2026-06-01: ProfileHero/ProfilePhotoView が装着中 ProfileIconFrameStyle を受け取り、ProfileIconFrameView でプロフィール画像外周へ反映済み -->
 - [x] 名前バッジの装着レンダリング<!-- 担当: Codex, 完了確認: 2026-06-01: ProfileHero の EquippedBadgePill が装着中 ProfileBadgeModel のアイコン/名称/色を表示済み -->
 - [x] ストリーク炎バリエーションの装着レンダリング<!-- 担当: Codex, 完了確認: 2026-06-01: ProfileStatsRow が装着中 ProfileStreakIconStyle の systemImage/tintHex をストリーク統計へ反映済み -->
-- [ ] テーマカラー解放と装着（標準8色は既存、拡張色を解放対象に）<!-- 担当: Claude -->
+- [x] テーマカラー解放と装着（標準8色は既存、拡張色を解放対象に）<!-- 担当: Codex, 完了: 2026-06-04。コレクションハブのテーマタブで default + 実装済み解放テーマ（極光/暁/朧）を表示し、`ProfileDecorationUnlocks.themeIDs` による解放ゲート後に `UserSettings.themeName` へ保存 -->
 - [ ] 装着アイテムの両ビュー（自分/友達）反映<!-- 担当: Claude, 依存: Phase 3 友達機能 -->
 - [x] 既存の Phase 1 バッジ表示を装飾アイテム経済データソースに差し替え<!-- 担当: Codex, 完了: 2026-06-01: ProfileBadgeCatalog を UnlockItem / unlockedAt ベースへ接続し、未解放バッジはロック表示に統一 -->
 
@@ -485,8 +485,6 @@ refactor: split plan store
 #### 週間
 - [x] カテゴリ別トータル横棒グラフ（既存を週間期間用に調整）<!-- 担当: Codex, 完了: 2026-06-01: 既存のカテゴリ構成カードをカテゴリ別トータル表示へ寄せ、各カテゴリ行に期間内合計時間の横棒・時間・割合を表示 -->
 - [ ] 日ごとの積み上げ棒グラフ <!-- 担当: Claude -->
-- [x] 時間帯別傾向（朝/昼/夜の割合計算）<!-- 担当: Codex, 完了: 2026-06-01。`DashboardTimeOfDaySummary` で朝(5-12)/昼(12-18)/夜(18-翌5)の実績時間・割合・支配時間帯を算出。日跨ぎ/active/期間クリップをテスト済み -->
-- [x] 時間帯別傾向の表示UI <!-- 担当: Codex, 完了: 2026-06-01: 週間Dashboardに朝/昼/夜の支配時間帯・比率・時間バーを表示 -->
 - [x] 先週比差分バー（集計）<!-- 担当: Codex, 完了: 2026-06-01。`DashboardPeriodDeltaSummary` で現期間/前期間の平均スコア・実績時間・予定時間・一致時間・スコア対象日数の差分/増減率を算出。表示UIはClaudeタスクとして継続 -->
 - [x] 先週比差分バーの表示UI <!-- 担当: Codex, 完了: 2026-06-01: 週間Dashboardに平均スコア/実績/予定/一致/スコア日の前週比と中央基準バーを表示 -->
 - [ ] 友達比較 placeholder（Phase 3で本実装）<!-- 担当: Claude -->
@@ -521,7 +519,7 @@ refactor: split plan store
 ### 7.5 ストリーク UI
 
 - [ ] プロフィール画面のストリーク表示（🔥アイコン + 連続日数）<!-- 担当: Claude -->
-- [x] ストリーク途切れ時の通知（Phase 2.5）<!-- 担当: Codex, 完了: 2026-06-02。`StreakBreakNotificationPlanner` / `StreakNotificationStore` / `UserNotificationStreakScheduler` を追加し、通知が許可済みの場合だけ、前日までの60点以上ストリークがあり今日が60点未満の夜に `UNUserNotificationCenter` の警告を1件差し替える。初回許可UI/設定Toggleは別タスク -->
+- [x] ストリーク途切れ時の通知（Phase 2.5）<!-- 担当: Codex, 完了: 2026-06-02。`StreakBreakNotificationPlanner` / `StreakNotificationStore` / `UserNotificationStreakScheduler` を追加し、通知が許可済みの場合だけ、前日までの30点以上ストリークがあり今日が30点未満の夜に `UNUserNotificationCenter` の警告を1件差し替える。初回許可UI/設定Toggleは別タスク -->
 
 ### 7.6 日付またぎ・0:00固定境界
 
@@ -818,6 +816,95 @@ refactor: split plan store
 
 ---
 
+## 8.8 解放テーマ経済 / カードのテーマ追従（セマンティックトークン移行）
+
+> 解放テーマ（[docs/14-theme-skies.md](../Liminalog/Views/Profile/docs/14-theme-skies.md)）の実装中に判明した課題。
+> プラン全文: ユーザー承認済み（解放要素=装飾アイテム経済）。本節は **Codex 引き継ぎ分** を切り出したもの。
+
+### Claude が既に実装済み（巻き戻さない・2026-06-04）
+
+- [x] 解放条件の中立指標化・スケジュール再構成（`UnlockRules.swift` の `definitions`）。全26アイテムを中立指標で解放（cumulativeScore 解放は廃止）。streak重複解消（`badge.seven_streak`→`badge.seven_days` recordedDays=7）。テーマ枠を **極光aurora/暁akatsuki/朧oboro（出荷3種）＋茜akane/残照zansho/月白tsukishiro（将来枠）** に整理（翡翠/瑠璃を置換）。`UnlockRulesTests` 全7件パス。`FriendsView` の `seven_streak`→`seven_days` も追従。
+- [x] テーマ選択機構（`LiminalThemeDefinition.swift`）。極光/暁/朧のパレットを `LiminalThemeCatalog` に追加。`activeThemeID` + `resolvedDefinition(for:)` 追加。`LiminalTheme.swift` の token を **computed 化**（UIColor動的色の trait キャッシュ回避）＋ `definition(for:)` 6箇所を `resolvedDefinition(for:)` へ置換。`RootTabView` で `UserSettings.themeName`（既存フィールド流用）を監視→ body 先頭で `activeThemeID` 同期＋ `.id(themeID)` でツリー再構築（`liminalAppChrome` を keyed版に展開）。`ProfileDecorationUnlocks.themeIDs/equippedThemeID` 追加。
+- [x] テーマ切替UI（`Views/Settings/ThemePickerView.swift`）。設定に「テーマ」導線（`SettingsView`）。今は調整用に全テーマ プレビュー選択可（解放ゲートは後述ハブで）。
+- [x] 検証: 一時固定で aurora/akatsuki を起動→ **地・グラデ・アクセント・カードグラデは正しくテーマ追従**。スクショ `artifacts/theme-aurora-proof.png` / `artifacts/theme-akatsuki-cards-white.png`。
+
+### Codex に依頼したい本題: カード/文字がテーマに追従しない
+
+- [ ] **システム色 → LiminalThemeトークン 移行**（カード地・文字をテーマ固定にする）<!-- 担当: Codex, 理由: 全画面横断のトークン移行・default の light/dark リグレッション検証が要・docs/14 §6 のセマンティックトークン化 -->
+
+**問題**: グリッド/24hバー/タイムライン/ダッシュボード等のカードが `Color(.secondarySystemGroupedBackground)` 等の **iOSシステム色**で塗られており、light/dark にしか追従せず**テーマを無視**する。結果、極光/暁/朧を選んでも**カードは白いまま**（地と背景だけテーマ色になり、ちぐはぐ）。スクショ `artifacts/theme-akatsuki-cards-white.png` 参照。
+
+**ユーザーの要望（確定）**: 「デフォルト＝モード追従／指定テーマ＝モード無関係に文字色もカード色も固定。テーマごとにカード色を変えてよい（白/黒軸に縛らない）」。
+
+**規模**: 約91箇所・18ファイル（`grep -rn "secondarySystemGroupedBackground\|tertiarySystemGroupedBackground\|systemGroupedBackground" Liminalog --include=*.swift`）。主な対象: `Views/Home/*`（CategoryGrid, TimelineView, TimelineChapterCard, CurrentChapterCard, HomeView）, `Views/Dashboard/*`, `Views/Calendar/*`, `Views/Profile/*`, `Views/ChapterEdit/*`, `Views/Settings/CategorySetEditSheet`, `Views/Friends/*`。
+
+**移行マッピング（指針）**:
+- `Color(.secondarySystemGroupedBackground)`（主カード地）→ `LiminalTheme.elevated`
+- `Color(.tertiarySystemGroupedBackground)`（recessed/バーのトラック/淡い下地）→ `LiminalTheme.divider`（または `surface`、文脈で）
+- `Color(.systemGroupedBackground)`（画面グループ地）→ `LiminalTheme.canvas`
+- カード上の本文テキストで `.primary`/`.secondary`（SwiftUIセマンティック＝mode追従）のうち**テーマ固定にしたい主要テキスト**→ `LiminalTheme.text`/`secondaryText`/`tertiaryText`。全置換は膨大なので、カード見出し/本文/数値など可読性に効く所を優先。
+- 既存の `liminalSectionCard`/`liminalGlassFill`/`liminalCanvasChip` は既にトークン経由なので触らない。
+
+**制約（リグレッション禁止）**:
+- **default（追従）テーマでは現行の light/dark 見た目を維持**。`LiminalTheme` トークンは default 時に dusk/daybreak を解決する。daybreak の `surface #FFFDF9`/`elevated #FFFFFF` が現行の白カード（secondarySystemGroupedBackground 白）とほぼ一致するので置換後も白系のはず。要 light/dark 並列スクショ確認。
+- **既に動いているテーマ機構を壊さない**（`resolvedDefinition`/`activeThemeID`/`RootTabView` の `.id` 再構築/computed token/`ThemePickerView`）。
+- 暗い解放テーマ（極光/暁/朧）でシステム `.primary`（黒）だと**カード上の文字が読めない**。カード本文は `LiminalTheme.text` 等へ寄せる。
+
+**検証**: プロフィール→☰→テーマ で default(light/dark)・極光・暁・朧 を切替え、(1) default は現行と不変 (2) 各テーマでカード地・文字が追従し可読、を `xcodebuild build` ＋ シミュレータ並列スクショで確認。`-LiminalogSeedDevFriends YES -LiminalogSeedPreviewData YES -LiminalogInitialRootTab profile`。
+
+### 残りのプラン（Claude 側で継続予定・参考）
+
+- [ ] 領域2: iconSet/barStyle/monthArt の実体（CategoryGridButton/24hバー/CalendarView月ヘッダ）<!-- 担当: Claude -->
+- [~] 領域5: コレクションハブ UI（8分類タブ・解放済/未解放・装着切替、テーマタブは selectedThemeID 更新で全app即プレビュー、ProfileEditSheet から装着撤去）<!-- 進捗: 2026-06-04 Codex。`UnlockGalleryView` でバッジ/フレーム/ストリーク/カード/テーマの5分類ハブとテーマ装着を実装。残: iconSet/barStyle/monthArt の実体接続、ProfileEditSheet から装備選択を撤去するかの整理 -->
+
+### 8.9b コレクション装飾 意匠リデザイン（フレーム/カード・liminal発光×magnific級の豪華）
+
+設計: **[../Liminalog/Views/Profile/docs/16-collection-decoration-art.md](../Liminalog/Views/Profile/docs/16-collection-decoration-art.md)**（北極星「午前4時の空に金とすみれ色の光で描かれた紋章」・ランク連動T1〜T4・ベクター/画像ハイブリッド・アンチパターン・受け入れ基準）。実装は `ProfileComponents.swift`。**ID/解放スケジュール/装備中/テーマ追従を壊さない。**
+
+- [~] 代表の個別ベクター意匠（フレーム `signal`/`compass`/`tsukishiro`、カード `paper`/`graph`/`crown`）＋外周はみ出し縁取り＋グロー抑制 <!-- 進捗: 2026-06-05 Claude。残り idはアーキタイプにフォールバック中。レビュー用 `LiminalogTests/CollectionMockupRenderTests.swift`（/tmp/liminal_mockups 出力）。スクショで方向性ユーザー承認済み -->
+- [ ] 残りフレーム18種・カード17種へ個別意匠を展開（T1〜T3=ベクター・doc 16 §5 ティア表準拠。各idのモチーフ一行定義を doc 16 §10 に追記してから実装）<!-- 担当: 未定 -->
+- [ ] T4最上位の画像アート試作（フレーム最上位/カード `crown`・`tsukishiro`）→ ベクター版と比較レンダリング（doc 16 §6 仕様：透過・@3x・明暗両対応・ライセンス確認）<!-- 担当: 未定, 理由: 画像生成/手配は外部・組み込みはどちらでも可 -->
+
+---
+
+## 8.10 コードレビュー指摘の修正（2026-06-04・直近2日差分のレビュー結果）
+
+> 直近2日（未コミット差分 75ファイル）の高 effort レビューで見つかった実バグ。重要度順。
+> テーマトークン移行(§8.8)は概ねクリーン。実害は audience/公開範囲の新ロジックに集中。
+
+### 🔴 要修正（データ/共有の実害）
+
+- [ ] **チャプター編集を開いて保存するだけで公開相手が書き換わる** <!-- 担当: Codex, 理由: audience スナップショット保持・PlanCreateSheet と整合 -->
+  - `Views/ChapterEdit/ChapterEditSheet.swift:75` 付近。`onChange(of: selectedCategory?.id)` が `audienceSource == .categoryDefaultSnapshot` のとき発火し、`loadValues()`(onAppear) で復元した**保存済み audience スナップショットを現在のカテゴリ既定で上書き**。
+  - 修正: `PlanCreateSheet` の `didInitializeAudience` フラグと同じガードを入れ、初期ロード由来の category 変化では `resetAudienceToCategoryDefault()` を呼ばない。ユーザーが実際にカテゴリを変えたときだけ既定更新。
+- [ ] **公開ONだが友達未選択の予定が「誰にも見えない」** <!-- 担当: Codex, 理由: 空の既定audienceと明示的空の区別 -->
+  - `Stores/PlanStore.swift:84` / `Stores/ChapterStore.swift:322`（同一根）。カテゴリ無し＋公開ON＋友達未選択で、空の既定 audience が `hasAudienceSnapshot=true`（明示的に空）として保存され `AudienceResolver` が全友達に false → **公開したつもりが誰にも共有されず表示も出ない**。
+  - 修正: 「解決された既定 audience が空」と「ユーザーが明示的に空を選んだ」を区別。公開ONで友達未指定なら全友達可視（または明確なUI）にし、空既定で `hasAudienceSnapshot=true` にしない。
+- [ ] **旧「7日連続」バッジが新「記録7日」バッジに化けて誤付与** <!-- 担当: Claude, 理由: 自分の解放移行ミス -->
+  - `Logic/UnlockRules.swift:151`。`legacyKeyReplacements` の `badge.seven_streak → badge.seven_days` は**条件が別物**（旧 streakDays≥7 / 新 recordedDays≥7）。旧取得者が新条件未達でも既得扱い。
+  - 修正: この legacy 置換を削除（条件が違うので移行しない）。旧 `badge.seven_streak` は catalog 非対応で自然消滅。プレリリースなので救済不要。
+
+### 🟡 中（挙動の劣化・一過性で誤値）
+
+- [ ] **スコア取得が一度でも失敗するとストリークが0に潰れる** <!-- 担当: Codex, 理由: 一過性fetch失敗のgraceful degrade -->
+  - `Stores/ScoreStore.swift:38`。`streakCountIfAvailable` が1日分の fetch 失敗で nil → `streakCount()` が 0 返し。以前は失敗日を空サマリ扱いでループ終了し earlier days を保持。
+  - 修正: fetch 失敗時は当該日でループを安全終了し**それまでの連続数を返す**（旧挙動）。通知・解放進捗への波及を防ぐ。
+- [ ] **組み込みプリセットの「名前だけ」更新で名前と中身が不一致** <!-- 担当: Codex, 理由: 改名と挙動保持の整合判断 -->
+  - `Stores/SeedCoordinator.swift:190`。`consolidateBuiltInVisibilityPresets` が name/sortOrder/isBuiltIn だけ再適用し level/publishMode/hide系/excluded を再適用しない。「仲良し→詳細」等の改名で既存ユーザーは新名称に旧設定が付く。
+  - 修正: 改名が意図的なら built-in 挙動フィールドも seed 定義へ再同期する／逆に名前もユーザー編集尊重で上書きしない、のどちらかに統一。
+- [ ] **テーマ遷移中ステータスバーだけ先に色反転して低コントラスト** <!-- 担当: Codex, 理由: テーマ遷移アニメの整合 -->
+  - `Views/RootTabView.swift:49` 付近。`preferredColorScheme/toolbarColorScheme` は t=0 の生テーマで即切替、パレットは t=0.5 でクロスフェード。曙→宵/極光で最初の~0.2秒、明るい地にライト用ステータスバー文字。
+  - 修正: chrome の colorScheme も `interpolatedDefinition` と同じ閾値（progress≥0.5 で flip）で切り替える。
+
+### 🟢 低（レア/休眠/データレース）
+
+- [ ] `RootTabView` の `activeThemeID`/`transitionProgress`（`nonisolated(unsafe)`）を view body で書き UIColor 動的プロバイダがオフメインで読むデータレース→ 遷移中1フレーム破れ色。MainActor 隔離 or 値スナップショット渡しを検討。<!-- 担当: Codex -->
+- [ ] `Views/ChapterEdit/ChapterEditSheet.swift:320` `loadValues()` が onAppear なので再appearで編集中値を上書きし得る（上記#1悪化）。`.task(id:)` か初期化済みフラグへ。<!-- 担当: Codex -->
+- [ ] `Views/Home/CurrentChapterCard.swift:12` `@Query` 当日範囲を init の `Date()` で固定→日跨ぎ常駐で前日窓のまま。日付/clock で再生成されるよう `.id` 等を検討。<!-- 担当: Claude -->
+- [ ] `Models/Friend.swift:419` nextDayモードの当日チャプター抑制ゲート（未配線=休眠）。配線時に当日共有が消えないよう事前確認。<!-- 担当: Codex -->
+
+---
+
 ## 9. Phase 4 — UX向上・ソーシャル深化
 
 - [ ] ダッシュボード 2 人比較 UI（24時間バー + カード要約の新タイムライン仕様に合わせる）<!-- 担当: Claude, 理由: SwiftUI レイアウト -->
@@ -840,6 +927,19 @@ refactor: split plan store
 
 | 日付 | 担当 | 内容 |
 |---|---|---|
+| 2026-06-04 | Claude | 解放要素（装飾アイテム経済）の段階1・2を実装。①`UnlockRules.swift` の `definitions` を中立指標で再構成（cumulativeScore解放廃止・streak重複解消 badge.seven_streak→seven_days・テーマ枠を極光/暁/朧＋将来3種へ整理、翡翠/瑠璃置換）、`UnlockRulesTests` 更新（全7件パス）、`FriendsView` バッジ表示も追従。②テーマ選択機構: `LiminalThemeDefinition` に極光/暁/朧パレット追加＋`activeThemeID`/`resolvedDefinition`、`LiminalTheme` token を computed 化＋6箇所 `resolvedDefinition` 置換、`RootTabView` で `UserSettings.themeName` 監視→`activeThemeID`同期＋`.id`再構築（`liminalAppChrome`をkeyed展開）、`ProfileDecorationUnlocks.themeIDs/equippedThemeID`。③`ThemePickerView`＋設定導線。検証: `xcodebuild build` 成功、aurora/akatsuki 一時固定でテーマ全体追従を確認（地/グラデ/アクセントはOK）。**判明課題**: カードが `secondarySystemGroupedBackground` 等システム色でテーマ非追従→§8.8 として Codex へ引き継ぎ。残り段階3（装飾実体）・段階5（コレクションハブ）は Claude 継続予定。スクショ: artifacts/theme-aurora-proof.png, theme-akatsuki-cards-white.png。 |
+| 2026-06-02 | Codex | ユーザー指摘を受け、`ChapterEditSheet` を予定編集画面と同じリッチなカードUIへ刷新。従来の `Form` を `ScrollView + LiminalTheme.canvasGradient + PlanEditorCard` 構成へ置き換え、カテゴリ/時間/メモ/場所/公開設定/削除をカード化し、上部にカテゴリ色・時間範囲・記録状態・共有状態・ロック状態をまとめたプレビューカードを追加。予定編集側の `PlanEditorCard` / `PlanEditorSectionHeader` / `PlanPreviewBadge` / `PlanEditorStatusLabel` / `PlanCategoryPickerSheet` / `CategoryPreviewIcon` を共有できるよう `private` を外した。カテゴリは予定編集と同じグリッド選択を使い、チャプター既存仕様として「カテゴリを外す」導線も残した。検証: `git diff --check` 成功、`xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -destination 'generic/platform=iOS' -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功、`xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath /private/tmp/LiminalogDerivedData build` 成功。CSV書き出しは不要・スコープ外を維持。 |
+| 2026-06-02 | Codex | ユーザー指摘を受け、週間Dashboardの「先週比」差分バーに中央基準の読み取り補助を追加。表現自体は中央線を基準に左=減少/右=増加で適切だったため維持し、先週データがないケースでも中央線の意味が伝わるよう、バー上部中央へ小さな `±0` 表記を追加した。検証: `git diff --check` 成功、`xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -destination 'generic/platform=iOS' -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功。CSV書き出しは不要・スコープ外を維持。 |
+| 2026-06-02 | Codex | ユーザー指摘を受け、24時間計画/記録設計では朝昼夜の実績時間比率が有効な偏り指標になりにくいため、週間Dashboardの「時間帯別傾向」カードを廃止。24分割カードは今回は追加せず、`DashboardCardKey` の候補/週デフォルト順、Dashboard表示分岐、カスタマイズシート、`DashboardTimeOfDaySummary` 集計、関連テスト、仕様表から削除した。既存保存順に `timeOfDayTrend` が残っていても rawValue 復元に失敗して無視される。検証: `git diff --check` 成功、`xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -destination 'generic/platform=iOS' -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功。CSV書き出しは不要・スコープ外を維持。 |
+| 2026-06-02 | Codex | ユーザー指摘を受け、Todayのカテゴリ切替後にタブを切り替えないとタイムラインへ反映されない問題を修正。`ChapterStore.startChapter` が保存後にアプリ内変更通知を進めていなかったため、Widget/Live Activityやカテゴリボタンは更新されても同じToday画面内の `TimelineView` が再Queryされにくかった。`ChapterStore.contentRevision` を追加し、`markChanged()` で進めるようにした上で、`startChapter` 成功時にも `markChanged(reloadWidgets: false)` を呼ぶよう変更。Today記録ページの `TimelineView` は `date + contentRevision` を `.id(...)` に含め、カテゴリ切替直後にタイムラインだけ再生成されるようにした。回帰テストとして `ChapterStoreTests.categorySwitchAdvancesContentRevision` を追加。検証: `git diff --check` 成功、`xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -destination 'generic/platform=iOS' -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功、`xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath /private/tmp/LiminalogDerivedData build` 成功。SimulatorでToday表示まで確認しスクショ取得。`xcodebuild test ... -only-testing:LiminalogTests/ChapterStoreTests` はビルド後のSimulator実行フェーズが無出力で停止したため `killall xcodebuild` で中断し、実行通過扱いにはしていない。スクショ: `/private/tmp/liminalog-today-before-category-switch.png`。CSV書き出しは不要・スコープ外を維持。 |
+| 2026-06-02 | Codex | ユーザー指摘を受け、カレンダー月グリッドの背景付き予定ラベルをライト/ダーク両方で再調整。背景付き表示ではタイトルを白文字、開始時刻を白の弱め表示にし、淡いカテゴリ色でも消えにくいようごく薄い文字影を追加した。ダーク側は予定色が暗い背景へ沈まないよう背景ブレンド量を `0.58`、枠線 `0.92`、下線 `0.98` へ維持/強化し、ライト側は白文字に合わせて背景 `0.62`、枠線 `0.86`、下線 `0.90` へ上げて本来色寄りの鮮やかさを戻した。過去予定dim設定時だけ半透明になる仕様は維持。検証: `git diff --check` 成功、`xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath /private/tmp/LiminalogDerivedData build` 成功、Simulator iPhone 17 Proでlight/dark appearanceのカレンダーを撮影し、白文字と予定色の視認性を確認。スクショ: `/private/tmp/liminalog-daybreak-calendar-plan-white-text.png`, `/private/tmp/liminalog-dusk-calendar-plan-brighter-white-text.png`。CSV書き出しは不要・スコープ外を維持。 |
+| 2026-06-02 | Codex | ユーザー指摘を受け、カレンダー月グリッドのライトモード予定色を本来色に近づけた。`CalendarImportantPlanLabel` / `CalendarMultiDayPlanBar` のライト時だけ、予定色とsystem backgroundの不透明ブレンド量を背景 `0.28 -> 0.44`、枠線 `0.64 -> 0.78`、下線 `0.78 -> 0.90` へ引き上げ、通常予定/複数日予定とも白地に薄まりすぎない表示にした。ダーク時の値と、過去予定dim設定時だけ半透明になる仕様は維持。検証: `git diff --check` 成功、`xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -destination 'generic/platform=iOS' -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功、Simulator iPhone 17 Pro light appearanceでカレンダー月表示を撮影し、赤/紫/青/橙の予定色が本来色寄りに見えることを確認。スクショ: `/private/tmp/liminalog-daybreak-calendar-plan-original-color.png`。CSV書き出しは不要・スコープ外を維持。 |
+| 2026-06-02 | Codex | ユーザー指摘を受け、曙テーマの深め暖色アクセントをさらに黄み寄りへ調整。曙の `accent` を `#A84C55` から焼き橙/琥珀寄りの `#A8673D` へ変更し、前回の赤みを少し抑えて曙の暖色下地へより自然に馴染ませた。検証: `git diff --check` 成功、`xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -destination 'generic/platform=iOS' -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功、Simulator iPhone 17 Pro light appearanceで今日タブを撮影し、上部インジケータ/設定ボタン/下部タブ選択色が黄み寄りの深い暖色アクセントになることを確認。スクショ: `/private/tmp/liminalog-daybreak-accent-amber.png`。CSV書き出しは不要・スコープ外を維持。 |
+| 2026-06-02 | Codex | ユーザー指摘を受け、曙テーマのアプリアクセントを青緑から深めの暖色へ再調整。曙の `accent` を `#238A8F` からローズテラコッタ寄りの `#A84C55` へ変更し、暖色下地に馴染ませつつ黄色ライトっぽく見えない赤みのある操作色にした。検証: `git diff --check` 成功、`xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -destination 'generic/platform=iOS' -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功、Simulator iPhone 17 Pro light appearanceで今日タブを撮影し、上部インジケータ/設定ボタン/下部タブ選択色が深い暖色アクセントになることを確認。スクショ: `/private/tmp/liminalog-daybreak-accent-warm.png`。CSV書き出しは不要・スコープ外を維持。 |
+| 2026-06-02 | Codex | ユーザー指摘を受け、曙テーマのアプリアクセントカラーを宵のラベンダーとは別色に分離。`LiminalPalette` に `accent` を追加し、宵は従来の `#C9A7FF`、曙は暖色下地に沈まず黄色ライト化もしにくい青緑 `#238A8F` を設定。`liminalAppChrome()` で `.tint` と `.accentColor` の両方へ `LiminalTheme.accent` を流し、`Color.accentColor` 使用箇所にも曙アクセントが反映されるようにした。検証: `git diff --check` 成功、`xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -destination 'generic/platform=iOS' -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功、Simulator iPhone 17 Pro light appearanceで今日タブを撮影し、上部インジケータ/設定ボタン/下部タブ選択色が青緑アクセントになることを確認。スクショ: `/private/tmp/liminalog-daybreak-accent-teal.png`。CSV書き出しは不要・スコープ外を維持。 |
+| 2026-06-02 | Codex | ユーザー指摘を受け、Todayタイムラインの予定チャプターも実績チャプターと同じく現在時刻を含む時間範囲でハイライトするようにした。`TimelineView.makePlanEntry(_:)` で表示日内にクリップした `clippedStart <= now && now < clippedEnd` を `isActive` に渡し、既存のカード/レール/枠線/背景ハイライト処理を予定にも適用。検証: `git diff --check` 成功、`xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -destination 'generic/platform=iOS' -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功。CSV書き出しは不要・スコープ外を維持。 |
+| 2026-06-02 | Codex | ユーザー指摘を受け、Todayタイムラインのチャプターカード色を下地カード導入前の淡い塗りへ戻した。`TimelineEntryCard.backgroundColor` の予定/実績/active実績の色opacityを、強化後の `0.16 / 0.24 / 0.38` から旧値の `0.06 / 0.08 / 0.15` へ戻し、下地カード側で視認性を受ける構成にした。検証: `git diff --check` 成功、`xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath /private/tmp/LiminalogDerivedData build` 成功、Simulator iPhone 17 Pro light appearanceで今日タブを撮影し、タイムラインのチャプター色が淡く戻っていることを確認。スクショ: `/private/tmp/liminalog-today-timeline-chapter-color-restored.png`。CSV書き出しは不要・スコープ外を維持。 |
+| 2026-06-02 | Codex | ユーザー指摘を受け、今日タブのカテゴリテーブル切り替えインジケータをカード外へ戻し、インジケータ直下に区切り線を追加。インジケータが直上のカテゴリテーブルに紐づくことが分かるようにした。あわせて、Today用の分割タイムラインで24時間バーと「実績/予定」タブの間にも区切り線を追加し、上の概要バーと下のタイムライン切り替えを視覚的に分けた。検証: `xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath /private/tmp/LiminalogDerivedData build` 成功、Simulator iPhone 17 Pro light appearanceで今日タブを撮影し、インジケータ外置き・区切り線2箇所を確認。スクショ: `/private/tmp/liminalog-today-category-indicator-divider-light.png`。CSV書き出しは不要・スコープ外を維持。 |
 | 2026-06-02 | Codex | ユーザー指摘を受け、今日タブのカテゴリテーブル余白を調整。カテゴリセット横スワイプ時に隣テーブル端が現テーブルへ見えないよう、カテゴリページに小さな内側余白を追加し、カテゴリボタンの円・アイコン・縦padding・active拡大を少し縮小した。カテゴリ表の下地カード内にページインジケータを移し、ボタン群とカード端の上下左右余白が揃って見えるよう、ScrollView高さとカードpaddingを調整した。検証: `xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath /private/tmp/LiminalogDerivedData build` 成功、Simulator iPhone 17 Pro light appearanceで今日タブを撮影し、隣テーブル端が見えずインジケータがカード内に収まることを確認。スクショ: `/private/tmp/liminalog-today-category-grid-inset-light.png`。CSV書き出しは不要・スコープ外を維持。 |
 | 2026-06-02 | Codex | ユーザー指摘を受け、月カレンダー上の予定色が背景へ沈んで鮮やかさを失っていた問題を追加調整。予定色の取得元はカテゴリの表示用色 `cachedDisplayHex` を維持し、背景付き予定ラベル/複数日バーの不透明ブレンド量を light/dark ともに引き上げた。特にダークでは暗いsystem backgroundへ薄く混ぜすぎてコントラストが落ちていたため、背景・枠線・下線をより色側へ寄せ、塗り自体の鮮やかさを戻した。過去予定dim設定時だけ半透明になる仕様は維持。検証: `xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath /private/tmp/LiminalogDerivedData build` 成功、Simulator iPhone 17 Proでlight/dark appearanceのカレンダーを撮影し、予定色が背景に沈まず読めることを確認。スクショ: `/private/tmp/liminalog-daybreak-calendar-plan-vivid-fill.png`, `/private/tmp/liminalog-dusk-calendar-plan-vivid-fill.png`。CSV書き出しは不要・スコープ外を維持。 |
 | 2026-06-02 | Codex | ユーザー指摘を受け、月カレンダー上の予定色の主張を一段下げた。前回の不透明ブレンド方式は維持しつつ、背景付き予定ラベル/複数日バーの背景・枠線・下線の予定色ブレンド量を light/dark ともに下げ、カレンダーに置いた予定だけ濃く見えすぎる状態を緩和した。過去予定dim設定時だけ半透明になる仕様は維持。検証: `xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath /private/tmp/LiminalogDerivedData build` 成功、Simulator iPhone 17 Proでlight/dark appearanceのカレンダーを撮影し、予定色が前回より落ち着きつつ文字が読めることを確認。スクショ: `/private/tmp/liminalog-daybreak-calendar-plan-muted.png`, `/private/tmp/liminalog-dusk-calendar-plan-muted.png`。CSV書き出しは不要・スコープ外を維持。 |
@@ -1186,6 +1286,12 @@ refactor: split plan store
 | 2026-06-01 | Codex | Claude docs/12・13 の方針を受け、Today「昨日」ページの主役をデイリーカードMVPへ差し替え。`DailyReflectionCard` を追加し、内側=予定/外側=実績の二重24時間リング、twilight/dark-first 背景、低透明度グレイン、称号（有言実行の人/スプリンター/ザッピング/風まかせ等の決定論判定）、スコア/実績/切替、カテゴリ色チップ、明日ページへ移動する `明日はどうする？` CTA を実装。既存のカテゴリ内訳/インサイトはカード下の詳細層として維持し、単日の満足感と共有したくなる世界観を先頭で出す構成にした。大改修前の復元ポイントとして `e95e1e7 checkpoint before liminal UI overhaul` を作成し、作業ブランチ `codex/liminal-ui-overhaul` へ分岐済み。QA用に DEBUG 起動引数 `-LiminalogInitialTodayPage yesterday|today|tomorrow` を追加し、通常起動は従来どおり今日ページ。検証: `git diff --check` 成功、`xcodebuild ... build-for-testing` 成功、シミュレータで通常起動=今日、DEBUG引数起動=昨日カード表示をスクリーンショット確認。 |
 | 2026-06-01 | Codex | Claude docs/13 追記（単一固定twilight、Primary/Reward/中立、カテゴリ色=データ層、視認性保証）を実装側へ反映。まず `d0f5e94 docs: capture twilight visual identity guidance` でClaude追記を復元点として記録。`LiminalTheme` を追加し、アプリ全体を `preferredColorScheme(.dark)` + Primary紫 tint + twilight canvas に固定。`DailyReflectionCard` のローカル色定義は共通Themeへ昇格し、主要画面/シート背景もtwilight canvasへ寄せた。カテゴリ保存色は変更せず、`Category.displayColor` / `Color.cachedDisplayHex` を追加して描画時だけダーク地で見える明度へ正規化（目標コントラスト3:1）する設計にした。Todayのカテゴリボタン、24時間バー/タイムライン、カレンダー予定ラベル、統計カテゴリ表示、友達共有ステータスなど主要データ表示を正規化色へ差し替え。Claude向け注意: `Category.color` は保存/編集用の生色、`Category.displayColor` はtwilight表示用。色Pickerや保存ロジックでは raw を使うこと。検証: `git diff --check` 成功、`xcodebuild -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build-for-testing` 成功。シミュレータへinstall/launchし、通常Todayと `-LiminalogInitialTodayPage yesterday` の昨日カードをスクリーンショット確認。 |
 | 2026-06-01 | Codex | 最優先〜高優先のリリース仕上げを実施。大きな変更前の復元点として `bb4aee9 docs: capture theme and card engine followups` を作成済み。デイリーカードは `DailyPatternAnalysis` を追加し、28日履歴・履歴7日未満の逸脱OFF・σ floor 15分・|z|≥1.5・主要休息ブロック降格で「睡眠が見出しになる」問題を解消。文言は優しいコーチ口調をやめ、自虐×観察トーンへ置換。カードには `ImageRenderer` による1080×1920 PNG共有を追加。docs/14に合わせ `LiminalTheme` をdusk/daybreakのセマンティックトークンへ拡張し、`preferredColorScheme(.dark)` 固定を撤去、カテゴリ表示色の正規化もライト地では暗くする経路を追加。統計タブは単日をUIから退避し、週/月/年だけにした。友達プロフィールは自分プロフィール寄りの小ボタン・装備/スタッツ体裁に揃え、月カレンダー/日別タイムライン正準化の残り負債を解消。検証: `git diff --check` 成功、`xcodebuild -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build-for-testing` 成功、`xcodebuild ... test-without-building` でSwift Testing 32件成功。シミュレータへinstall/launchし、`-LiminalogSeedDevData -LiminalogSeedDevFriends -LiminalogInitialTodayPage yesterday` で明色/暗色の昨日カードをスクリーンショット確認。 |
+| 2026-06-02 | Codex | Todayタブ上部の現在リボンに、現在時刻を含む予定コンテキストを追加。`CurrentChapterCard` が今日の `PlanBlock` を読み、時間つき予定が現在時刻に重なる時だけリボンを拡張する。上段は「実績」、下段は薄い「予定」帯としてラベル・背景・色を分け、実績未記録でも現在予定を表示。実績カテゴリと予定カテゴリが一致する時は小さく `一致`、同時予定が複数ある時は `+N` を表示し、予定なし時は従来の高さを維持する。検証: `git diff --check` 成功、`xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -destination 'generic/platform=iOS' -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功、`xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath /private/tmp/LiminalogDerivedData build` 成功。 |
+| 2026-06-03 | Codex | Todayタブの「昨日」に遷移できない問題を修正。原因は横 `ScrollView` + `scrollPosition` と上部テキストタブの `selectedPage` を別状態で同期していたため、初期位置や表示更新のタイミングで今日ページへ戻り得たこと。`HomeView` の3ページ切替を `TabView(selection:)` に一本化し、上部タブ押下・左右スワイプ・選択状態を同じ `selectedPage` で管理する形へ戻した。初期ページ適用も一度だけにして、通常操作中に今日へ再同期されないようにした。検証: `git diff --check` 成功、`xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -destination 'generic/platform=iOS' -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功、`xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath /private/tmp/LiminalogDerivedData build` 成功。シミュレータへinstall/launchし、上部「昨日」タブのクリックで昨日カードへ遷移することをスクリーンショット確認。 |
+| 2026-06-03 | Codex | 今日タブ以外のタイムラインにも下地カードを適用。`TimelineView` のカード分離表示をデフォルトにし、カレンダー1日表示や明日ページなど予定を組む文脈でも、24時間バーを単独カード、`実績/予定` 切替とリストを別カードとして表示するようにした。友達の読み取り専用 `SharedTimelineReadOnlyView` も同じ下地構成へ寄せ、バーだけカードでリストが裸に見える状態を解消。検証: `git diff --check` 成功、`xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -destination 'generic/platform=iOS' -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功、`xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath /private/tmp/LiminalogDerivedData build` 成功。Simulatorで `-LiminalogInitialTodayPage tomorrow` 起動し、明日ページのバー/リスト両方にカード下地が入ることをスクリーンショット確認。 |
+| 2026-06-03 | Codex | ダークモードの24時間バー、タイムラインカード、カテゴリテーブルの下地が黒ではなく紫系に見える問題を修正。共通 `liminalSectionCard` がダーク時もテーマ `surface` (`#17132A`) を使っていたため、ダーク時だけ不透明な `Color.black` を敷くよう変更。ライト時は従来どおりテーマ surface を維持する。検証: `git diff --check` 成功、`xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -destination 'generic/platform=iOS' -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功、`xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath /private/tmp/LiminalogDerivedData build` 成功。Simulatorスクリーンショットでカテゴリテーブル・24時間バー・タイムラインリストの下地が黒になることを確認。 |
+| 2026-06-03 | Codex | 月カレンダーで今日を強調する枠線がカード外周セルに来た時、グリッド全体の角丸クリップで端が薄く見える問題を修正。今日セルの枠線を境界ぴったりの `stroke` から、セル内側へ収める `inset + strokeBorder` に変更し、外周でも線幅が削られないようにした。あわせて枠線を少しだけ細くし、通常の区切り線から離れすぎないよう外側寄りに調整した。検証: `git diff --check` 成功、`xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -destination 'generic/platform=iOS' -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功。 |
+| 2026-06-03 | Codex | ユーザー指摘を受け、下タブバー/上ナビゲーション背面に固い板が見え、スクロール内容がバー境界で切れる問題を調整。共通 `liminalAppChrome` で navigation/tab bar の toolbar background を hidden にし、RootTabView/Today内ページャー/統計内ページャー/対象画面のトップレベルコンテナを下 safe area へ伸ばした。Today/昨日/明日(CalendarDayView)/統計/友達の主要 `ScrollView` には `scrollClipDisabled()` と下端拡張を付け、スクロール中のコンテンツがタブバー裏へ回れるようにした。プロフィールタブは元から想定挙動だったため追加変更しない。カレンダー月表示の自前トップバーから不透明な `secondarySystemGroupedBackground` も削除。検証: `git diff --check` 成功、`xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -destination 'generic/platform=iOS' -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功、`xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath /private/tmp/LiminalogDerivedData build` 成功。SimulatorでTodayを撮影し、タブバーのガラス越しにタイムライン内容が見えることを確認。 |
 
 ---
 
@@ -1291,7 +1397,7 @@ Claude 作業中のため、Codex は読み取り中心で進捗確認。ファ�
 | 4 | 「翌日公開」の配信タイミング（深夜0時固定 / ユーザーの1日始まり時間に従う）| Phase 3 公開設定 | 🟠 中 |
 | ~~5~~ | ~~アンロックシステムの累計スコア閾値（解放スケジュール表から逆算でOK？）~~ | ~~Phase 2 アンロック~~ | ✅ 解決 (2026-06-01): 60pt/日を合格ラインとして、仕様書の1年解放ペースから26件の累計スコア閾値を逆算 |
 | ~~6~~ | ~~アンロックアイテムの失効・離脱者の扱い~~ | ~~Phase 2 アンロック~~ | ✅ 解決 (2026-06-01): 解放後は失効させず、離脱後も `unlockedAt` を保持する |
-| 7 | ストリーク途切れの猶予（1日でも60%未満で即リセット？）| Phase 2 ストリーク | 🟠 中 |
+| 7 | ストリーク途切れの猶予（1日でも30点未満で即リセット？）| Phase 2 ストリーク | 🟠 中 |
 | 8 | リアクション絵文字パレットのカスタマイズ可否 | Phase 3 リアクション | 🟢 低 |
 | 9 | ランキング同点時のタイブレーク仕様 | Phase 3 ランキング | 🟢 低 |
 | 10 | カテゴリマッピング「多対一」の UI 表現・優先順位 | Phase 3 マッピング | 🟢 低 |

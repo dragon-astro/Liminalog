@@ -1,101 +1,5 @@
 import SwiftUI
 
-struct DashboardTimeOfDayTrendCard: View {
-    let summary: DashboardTimeOfDaySummary
-
-    private var dominantText: String {
-        guard summary.totalDuration > 0, let dominant = summary.dominantSegment else {
-            return "記録待ち"
-        }
-        return "\(dominant.label)に寄っています"
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            DashboardSectionHeader(title: "時間帯別傾向", systemImage: "clock.fill", tint: Color(hex: "#00A8A8"))
-
-            if summary.totalDuration <= 0 {
-                EmptyStatText(text: "記録を始めると朝・昼・夜の比率が見えます")
-            } else {
-                HStack(spacing: 10) {
-                    Image(systemName: summary.dominantSegment?.systemImage ?? "clock.fill")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(summary.dominantSegment?.dashboardColor ?? Color.secondary)
-                        .frame(width: 28, height: 28)
-                        .background((summary.dominantSegment?.dashboardColor ?? Color.secondary).opacity(0.12), in: Circle())
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(dominantText)
-                            .font(.subheadline.weight(.bold))
-                        Text(formatDashboardDuration(summary.totalDuration))
-                            .dashboardCountUp(value: summary.totalDuration, formatter: formatDashboardDuration)
-                            .font(.caption.monospacedDigit())
-                            .foregroundStyle(.secondary)
-                    }
-
-                    Spacer(minLength: 0)
-                }
-
-                VStack(spacing: 10) {
-                    ForEach(summary.rows) { row in
-                        DashboardTimeOfDayRowView(row: row)
-                    }
-                }
-            }
-        }
-        .dashboardCard()
-    }
-}
-
-struct DashboardTimeOfDayRowView: View {
-    let row: DashboardTimeOfDayRow
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            HStack(spacing: 8) {
-                Image(systemName: row.segment.systemImage)
-                    .font(.caption2.weight(.bold))
-                    .foregroundStyle(row.segment.dashboardColor)
-                    .frame(width: 20, height: 20)
-                    .background(row.segment.dashboardColor.opacity(0.12), in: Circle())
-
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(row.segment.label)
-                        .font(.caption.weight(.bold))
-                    Text(row.segment.rangeText)
-                        .font(.caption2.monospacedDigit())
-                        .foregroundStyle(.secondary)
-                }
-
-                Spacer()
-
-                VStack(alignment: .trailing, spacing: 1) {
-                    Text(formatDashboardDuration(row.duration))
-                        .dashboardCountUp(value: row.duration, formatter: formatDashboardDuration)
-                        .font(.caption.weight(.bold).monospacedDigit())
-                    Text("\(Int((row.ratio * 100).rounded()))%")
-                        .dashboardCountUp(value: row.ratio * 100) {
-                            "\(Int($0.rounded()))%"
-                        }
-                        .font(.caption2.monospacedDigit())
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            GeometryReader { proxy in
-                Capsule()
-                    .fill(Color(.tertiarySystemGroupedBackground))
-                    .overlay(alignment: .leading) {
-                        Capsule()
-                            .fill(row.segment.dashboardColor)
-                            .frame(width: proxy.size.width * min(max(row.ratio, 0), 1))
-                    }
-            }
-            .frame(height: 8)
-        }
-    }
-}
-
 struct DashboardPeriodDeltaCard: View {
     let summary: DashboardPeriodDeltaSummary
 
@@ -113,7 +17,7 @@ struct DashboardPeriodDeltaCard: View {
                 title: "実績時間",
                 metric: summary.recordedDuration,
                 systemImage: "clock.fill",
-                tint: Color.accentColor,
+                tint: LiminalTheme.accent,
                 currentText: formatDashboardDuration(summary.recordedDuration.current),
                 deltaText: formatDashboardSignedDuration(summary.recordedDuration.delta)
             ),
@@ -201,7 +105,7 @@ struct DashboardDeltaMetricRow: View {
         if row.metric.isDecrease {
             return Color(hex: "#EB5757")
         }
-        return Color.secondary
+        return LiminalTheme.secondaryText
     }
 
     var body: some View {
@@ -233,7 +137,7 @@ struct DashboardDeltaMetricRow: View {
             }
 
             DashboardDeltaBar(metric: row.metric, tint: deltaColor)
-                .frame(height: 9)
+                .frame(height: 18)
 
             HStack {
                 Text("前週 \(formatDashboardDeltaBaseline(row.metric.previous, title: row.title))")
@@ -241,7 +145,7 @@ struct DashboardDeltaMetricRow: View {
                 Text(formatDashboardPercentChange(row.metric.percentChange))
             }
             .font(.caption2.monospacedDigit())
-            .foregroundStyle(.secondary)
+            .foregroundStyle(LiminalTheme.secondaryText)
         }
     }
 }
@@ -256,70 +160,44 @@ struct DashboardDeltaBar: View {
     }
 
     var body: some View {
-        GeometryReader { proxy in
-            let halfWidth = max(0, (proxy.size.width - 2) / 2)
-            HStack(spacing: 0) {
-                ZStack(alignment: .trailing) {
-                    Capsule()
-                        .fill(Color(.tertiarySystemGroupedBackground))
-                    if metric.isDecrease {
-                        Capsule()
-                            .fill(tint)
-                            .frame(width: halfWidth * ratio)
-                    }
-                }
-                .frame(width: halfWidth)
+        VStack(spacing: 1) {
+            Text("±0")
+                .font(.system(size: 7, weight: .semibold, design: .rounded))
+                .foregroundStyle(LiminalTheme.secondaryText.opacity(0.78))
+                .monospacedDigit()
+                .frame(maxWidth: .infinity)
 
-                Rectangle()
-                    .fill(Color(.separator).opacity(0.35))
-                    .frame(width: 2)
-
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(Color(.tertiarySystemGroupedBackground))
-                    if metric.isIncrease {
+            GeometryReader { proxy in
+                let halfWidth = max(0, (proxy.size.width - 2) / 2)
+                HStack(spacing: 0) {
+                    ZStack(alignment: .trailing) {
                         Capsule()
-                            .fill(tint)
-                            .frame(width: halfWidth * ratio)
+                            .fill(LiminalTheme.elevated)
+                        if metric.isDecrease {
+                            Capsule()
+                                .fill(tint)
+                                .frame(width: halfWidth * ratio)
+                        }
                     }
+                    .frame(width: halfWidth)
+
+                    Rectangle()
+                        .fill(LiminalTheme.divider.opacity(0.35))
+                        .frame(width: 2)
+
+                    ZStack(alignment: .leading) {
+                        Capsule()
+                            .fill(LiminalTheme.elevated)
+                        if metric.isIncrease {
+                            Capsule()
+                                .fill(tint)
+                                .frame(width: halfWidth * ratio)
+                        }
+                    }
+                    .frame(width: halfWidth)
                 }
-                .frame(width: halfWidth)
             }
-        }
-    }
-}
-
-private extension DashboardTimeOfDay {
-    var dashboardColor: Color {
-        switch self {
-        case .morning:
-            return Color(hex: "#F2C94C")
-        case .afternoon:
-            return Color(hex: "#2F80ED")
-        case .night:
-            return Color(hex: "#6C5CE7")
-        }
-    }
-
-    var systemImage: String {
-        switch self {
-        case .morning:
-            return "sunrise.fill"
-        case .afternoon:
-            return "sun.max.fill"
-        case .night:
-            return "moon.stars.fill"
-        }
-    }
-
-    var rangeText: String {
-        switch self {
-        case .morning:
-            return "5-12"
-        case .afternoon:
-            return "12-18"
-        case .night:
-            return "18-5"
+            .frame(height: 9)
         }
     }
 }

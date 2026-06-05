@@ -107,6 +107,8 @@ struct TimelineView: View {
     var allowsChapterCreation = true
     var allowsPlanCreation = true
     var focusedPlanID: UUID?
+    /// true のとき、24時間バーとタイムライン(タブ+リスト)を別々のカードに分離する。
+    var splitCards = true
     @Binding var editingChapter: Chapter?
 
     // バーの現在時刻表示は粗くてよい（1分≒1px未満）。毎秒だとタイムライン全体の
@@ -119,6 +121,7 @@ struct TimelineView: View {
     @State private var showingChapterCreate = false
     @State private var showingPlanCreate = false
     @State private var gapStartDate: Date = Date()
+    @State private var operationError: String?
 
     private var now: Date {
         clock.now
@@ -131,7 +134,8 @@ struct TimelineView: View {
         editingChapter: Binding<Chapter?>,
         allowsChapterCreation: Bool = true,
         allowsPlanCreation: Bool = true,
-        focusedPlanID: UUID? = nil
+        focusedPlanID: UUID? = nil,
+        splitCards: Bool = true
     ) {
         self.date = date
         self.title = title
@@ -139,6 +143,7 @@ struct TimelineView: View {
         self.allowsChapterCreation = allowsChapterCreation
         self.allowsPlanCreation = allowsPlanCreation
         self.focusedPlanID = focusedPlanID
+        self.splitCards = splitCards
         self._editingChapter = editingChapter
 
         let boundary = DayBoundary(date: date, calendar: .japanese)
@@ -202,16 +207,76 @@ struct TimelineView: View {
         let actual = actualEntries
         let plan = planEntries
         let selected = selectedTab == .actual ? actual : plan
-        return VStack(alignment: .leading, spacing: 12) {
-            DayOverviewBar(
-                date: date,
-                now: now,
-                planEntries: plan.filter { !$0.kind.isGap },
-                actualEntries: actual.filter { !$0.kind.isGap },
-                onEntryTap: focusEntry
-            )
-            .id(currentTimeMarkerID)
+        let bar = DayOverviewBar(
+            date: date,
+            now: now,
+            planEntries: plan.filter { !$0.kind.isGap },
+            actualEntries: actual.filter { !$0.kind.isGap },
+            onEntryTap: focusEntry
+        )
+        .id(currentTimeMarkerID)
 
+        return VStack(alignment: .leading, spacing: 12) {
+            if splitCards {
+                // 24時間バー = 単独カード。タブはカード外、記録リストだけ別カード。
+                bar.liminalSectionCard(padding: 12)
+
+                if let quickDetailEntry {
+                    TimelineQuickDetail(entry: quickDetailEntry) {
+                        self.quickDetailEntry = nil
+                    }
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+                }
+
+                timelineSectionDivider
+
+                TimelineTabInlineToggle(selectedTabRawValue: $selectedTabRawValue)
+
+                TimelineEntryList(
+                    entries: selected,
+                    highlightedEntryID: highlightedEntryID,
+                    onEntryTap: handleEntryTap,
+                    onGapTap: handleGapTap,
+                    canCreateGap: canCreateGap,
+                    onToggleVisibility: toggleVisibility,
+                    canDeleteEntry: canDeleteEntry,
+                    onDeleteEntry: deleteEntry
+                )
+                .liminalSectionCard()
+            } else {
+                bar
+                    .liminalSectionCard(cornerRadius: 12, padding: 12)
+                timelineListSection(selected: selected)
+            }
+        }
+        .onAppear {
+            clock.start()
+            focusPlanIfNeeded()
+        }
+        .onDisappear {
+            clock.stop()
+        }
+        .alert("反映できませんでした", isPresented: operationErrorPresented) {
+            Button("OK") {
+                operationError = nil
+            }
+        } message: {
+            Text(operationError ?? "")
+        }
+        .sheet(item: $editingPlan) { plan in
+            PlanCreateSheet(plan: plan)
+        }
+        .sheet(isPresented: $showingChapterCreate) {
+            ChapterCreateSheet(initialDate: gapStartDate)
+        }
+        .sheet(isPresented: $showingPlanCreate) {
+            PlanCreateSheet(initialDate: gapStartDate)
+        }
+    }
+
+    @ViewBuilder
+    private func timelineListSection(selected: [TimelineEntry]) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
             if let quickDetailEntry {
                 TimelineQuickDetail(entry: quickDetailEntry) {
                     self.quickDetailEntry = nil
@@ -234,22 +299,13 @@ struct TimelineView: View {
                 onDeleteEntry: deleteEntry
             )
         }
-        .onAppear {
-            clock.start()
-            focusPlanIfNeeded()
-        }
-        .onDisappear {
-            clock.stop()
-        }
-        .sheet(item: $editingPlan) { plan in
-            PlanCreateSheet(plan: plan)
-        }
-        .sheet(isPresented: $showingChapterCreate) {
-            ChapterCreateSheet(initialDate: gapStartDate)
-        }
-        .sheet(isPresented: $showingPlanCreate) {
-            PlanCreateSheet(initialDate: gapStartDate)
-        }
+    }
+
+    private var timelineSectionDivider: some View {
+        Rectangle()
+            .fill(LiminalTheme.divider.opacity(0.55))
+            .frame(height: 1)
+            .padding(.horizontal, 2)
     }
 
     @ViewBuilder
@@ -257,7 +313,7 @@ struct TimelineView: View {
         if !title.isEmpty {
             Text(title)
                 .font(.title2.bold())
-                .foregroundStyle(.primary)
+                .foregroundStyle(LiminalTheme.text)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.top, 2)
         }
@@ -328,14 +384,33 @@ struct TimelineView: View {
 
     private func toggleVisibility(_ entry: TimelineEntry) {
         guard let chapter = entry.chapter else { return }
-        store.setChapterVisibility(chapter, isPublic: !chapter.isPublic)
+        guard store.setChapterVisibility(chapter, isPublic: !chapter.isPublic) else {
+            operationError = "公開設定を変更できませんでした。時間をおいてもう一度試してください。"
+            return
+        }
     }
 
     private func deleteEntry(_ entry: TimelineEntry) {
         if let chapter = entry.chapter {
-            store.deleteChapter(chapter)
+            guard store.deleteChapter(chapter) else {
+                operationError = "チャプターを削除できませんでした。時間をおいてもう一度試してください。"
+                return
+            }
         } else if let plan = entry.plan {
-            store.deletePlanBlock(plan)
+            guard store.deletePlanBlock(plan) else {
+                operationError = "予定を削除できませんでした。時間をおいてもう一度試してください。"
+                return
+            }
+        }
+    }
+
+    private var operationErrorPresented: Binding<Bool> {
+        Binding {
+            operationError != nil
+        } set: { isPresented in
+            if !isPresented {
+                operationError = nil
+            }
         }
     }
 
@@ -448,9 +523,10 @@ struct SharedTimelineReadOnlyView: View {
                 HStack(spacing: 7) {
                     Image(systemName: "clock")
                         .font(.caption.weight(.bold))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(LiminalTheme.secondaryText)
                     Text(title)
                         .font(.headline)
+                        .foregroundStyle(LiminalTheme.text)
                 }
             }
 
@@ -461,6 +537,7 @@ struct SharedTimelineReadOnlyView: View {
                 actualEntries: actualEntries.filter { !$0.kind.isGap },
                 onEntryTap: focusEntry
             )
+            .liminalSectionCard(padding: 12)
 
             if let quickDetailEntry {
                 TimelineQuickDetail(entry: quickDetailEntry) {
@@ -468,6 +545,11 @@ struct SharedTimelineReadOnlyView: View {
                 }
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
+
+            Rectangle()
+                .fill(LiminalTheme.divider.opacity(0.55))
+                .frame(height: 1)
+                .padding(.horizontal, 2)
 
             TimelineTabInlineToggle(selectedTabRawValue: $selectedTabRawValue)
 
@@ -482,6 +564,7 @@ struct SharedTimelineReadOnlyView: View {
                 canDeleteEntry: { _ in false },
                 onDeleteEntry: { _ in }
             )
+            .liminalSectionCard()
         }
         .onAppear {
             clock.start()
@@ -578,6 +661,7 @@ private extension TimelineView {
         let category = plan.category
         let title = category?.name ?? plan.title
         let subtitle = category == nil || plan.title == title ? nil : plan.title
+        let isCurrentPlan = clippedStart <= now && now < clippedEnd
         return TimelineEntry(
             id: "plan:\(plan.id.uuidString)",
             kind: .plan,
@@ -591,7 +675,7 @@ private extension TimelineView {
             categoryName: title,
             categoryIconName: category?.icon ?? "calendar",
             categoryColorHex: category?.colorHex ?? "#8E8E93",
-            isActive: false,
+            isActive: isCurrentPlan,
             chapter: nil,
             plan: plan,
             metadata: TimelineEntryMetadata(
@@ -821,11 +905,6 @@ private struct DayOverviewBar: View {
             TimelineHourScale()
                 .padding(.leading, 38)
         }
-        .padding(12)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(.secondarySystemGroupedBackground))
-        )
     }
 }
 
@@ -849,10 +928,10 @@ private struct TimelineTabInlineToggle: View {
                             Text(tab.label)
                                 .font(.subheadline.weight(selectedTab == tab ? .bold : .semibold))
                         }
-                        .foregroundStyle(selectedTab == tab ? Color.primary : Color.secondary.opacity(0.76))
+                        .foregroundStyle(selectedTab == tab ? LiminalTheme.text : LiminalTheme.secondaryText.opacity(0.76))
 
                         Capsule()
-                            .fill(selectedTab == tab ? Color.accentColor : Color.clear)
+                            .fill(selectedTab == tab ? LiminalTheme.accent : Color.clear)
                             .frame(height: 2)
                     }
                     .fixedSize()
@@ -867,6 +946,15 @@ private struct TimelineTabInlineToggle: View {
         .frame(maxWidth: .infinity, alignment: .center)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("タイムライン表示")
+        .onAppear(perform: normalizeSelectedTabRawValue)
+        .onChange(of: selectedTabRawValue) { _, _ in
+            normalizeSelectedTabRawValue()
+        }
+    }
+
+    private func normalizeSelectedTabRawValue() {
+        guard TimelineTab(rawValue: selectedTabRawValue) == nil else { return }
+        selectedTabRawValue = TimelineTab.actual.rawValue
     }
 }
 
@@ -889,14 +977,14 @@ private struct TimelineBarRow: View {
         HStack(spacing: 8) {
             Text(tab.label)
                 .font(.caption2.weight(.bold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(LiminalTheme.secondaryText)
                 .frame(width: 30, alignment: .trailing)
 
             GeometryReader { proxy in
                 let width = proxy.size.width
                 ZStack(alignment: .leading) {
                     RoundedRectangle(cornerRadius: 6)
-                        .fill(Color(.tertiarySystemGroupedBackground))
+                        .fill(LiminalTheme.elevated)
 
                     ForEach(entries) { entry in
                         let segmentWidth = segmentWidth(for: entry, width: width)
@@ -914,7 +1002,7 @@ private struct TimelineBarRow: View {
 
                     if Calendar.current.isDateInToday(date) {
                         Rectangle()
-                            .fill(Color.accentColor)
+                            .fill(LiminalTheme.accent)
                             .frame(width: 2, height: 22)
                             .offset(x: xOffset(for: min(max(now, dayStart), dayEnd), width: width))
                             .allowsHitTesting(false)
@@ -979,11 +1067,11 @@ private struct TimelineHourScale: View {
                 ForEach(marks, id: \.self) { hour in
                     VStack(spacing: 3) {
                         Rectangle()
-                            .fill(Color(.separator).opacity(0.4))
+                            .fill(LiminalTheme.divider.opacity(0.7))
                             .frame(width: 1, height: 5)
                         Text("\(hour)")
                             .font(.caption2.monospacedDigit())
-                            .foregroundStyle(.tertiary)
+                            .foregroundStyle(LiminalTheme.tertiaryText)
                     }
                     .frame(width: 24)
                     .offset(x: xOffset(hour: hour, width: proxy.size.width) - 12)
@@ -1243,7 +1331,7 @@ private struct TimelineTimeRail: View {
 
                 Circle()
                     .strokeBorder(endMarkerColor, lineWidth: entry.kind.isGap ? 1.4 : 1.6)
-                    .background(Circle().fill(Color(.systemGroupedBackground)))
+                    .background(Circle().fill(LiminalTheme.canvas))
                     .frame(width: 7, height: 7)
                     .position(x: 4, y: bottomBoundaryY)
             }
@@ -1255,7 +1343,7 @@ private struct TimelineTimeRail: View {
 
     private var railColor: Color {
         if entry.kind.isGap {
-            return Color(.separator)
+            return LiminalTheme.divider
         }
         return entry.isActive || isHighlighted ? entry.color : entry.color.opacity(0.78)
     }
@@ -1286,7 +1374,7 @@ private struct TimelineTimeRail: View {
 
     private var lineColor: Color {
         if entry.kind.isGap {
-            return Color(.separator).opacity(0.34)
+            return LiminalTheme.divider.opacity(0.55)
         }
         return railColor.opacity(entry.isActive || isHighlighted ? 0.58 : 0.42)
     }
@@ -1297,14 +1385,14 @@ private struct TimelineTimeRail: View {
 
     private var startMarkerColor: Color {
         if entry.kind.isGap {
-            return Color(.separator).opacity(0.5)
+            return LiminalTheme.divider.opacity(0.72)
         }
         return railColor
     }
 
     private var endMarkerColor: Color {
         if entry.kind.isGap {
-            return Color(.separator).opacity(0.55)
+            return LiminalTheme.divider.opacity(0.76)
         }
         return railColor.opacity(0.82)
     }
@@ -1315,7 +1403,7 @@ private extension Text {
     func timelineBoundaryTimeStyle() -> some View {
         self
             .font(.caption2.monospacedDigit().weight(.semibold))
-            .foregroundStyle(.primary)
+            .foregroundStyle(LiminalTheme.text)
             .fixedSize(horizontal: true, vertical: false)
     }
 }
@@ -1335,7 +1423,7 @@ private struct TimelineEntryCard: View {
                 HStack(spacing: 7) {
                     Text(entry.title)
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(LiminalTheme.text)
                         .lineLimit(1)
 
                     if entry.metadata.plannedMatchTitle != nil {
@@ -1346,7 +1434,7 @@ private struct TimelineEntryCard: View {
 
                     Text(entry.durationText)
                         .font(.caption.monospacedDigit().weight(.semibold))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(LiminalTheme.secondaryText)
                         .lineLimit(1)
                         .fixedSize(horizontal: true, vertical: false)
                 }
@@ -1376,15 +1464,13 @@ private struct TimelineEntryCard: View {
     }
 
     private var backgroundColor: Color {
-        // チャプター本来の色を出す。薄すぎると地のテーマ色が透けて見づらいので、
-        // 文字の視認性を保てる範囲で塗りを濃くする（予定は実績よりやや淡く＝意図 vs 現実）。
         switch entry.kind {
         case .plan:
-            return entry.color.opacity(0.16)
+            return entry.color.opacity(0.06)
         case .actual:
-            return entry.color.opacity(entry.isActive ? 0.38 : 0.24)
+            return entry.color.opacity(entry.isActive ? 0.15 : 0.08)
         case .gap:
-            return Color(.tertiarySystemGroupedBackground)
+            return LiminalTheme.elevated
         }
     }
 
@@ -1392,7 +1478,7 @@ private struct TimelineEntryCard: View {
         if entry.isActive || isHighlighted {
             return entry.color
         }
-        return Color(.separator).opacity(0.18)
+        return LiminalTheme.divider.opacity(0.45)
     }
 
     @ViewBuilder
@@ -1403,14 +1489,14 @@ private struct TimelineEntryCard: View {
                 ForEach(Array(items.prefix(2).enumerated()), id: \.offset) { _, item in
                     Label(item.text, systemImage: item.icon)
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(LiminalTheme.secondaryText)
                         .lineLimit(1)
                 }
 
                 if items.count > 2 {
                     Text("+\(items.count - 2)")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(LiminalTheme.secondaryText)
                 }
             }
         }
@@ -1439,12 +1525,12 @@ private struct TimelineGapCard: View {
         HStack(spacing: 10) {
             Image(systemName: entry.categoryIconName)
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(LiminalTheme.tertiaryText)
                 .frame(width: 28)
 
             Text(entry.title)
                 .font(.subheadline.weight(.medium))
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(LiminalTheme.tertiaryText)
                 .lineLimit(1)
 
             Spacer()
@@ -1452,7 +1538,7 @@ private struct TimelineGapCard: View {
             if showsAddIcon {
                 Label("追加", systemImage: "plus.circle")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(LiminalTheme.secondaryText)
                     .labelStyle(.iconOnly)
             }
         }
@@ -1460,7 +1546,7 @@ private struct TimelineGapCard: View {
         .padding(.horizontal, 12)
         .background(
             RoundedRectangle(cornerRadius: 9)
-                .fill(Color(.tertiarySystemGroupedBackground).opacity(0.72))
+                .fill(LiminalTheme.elevated.opacity(0.72))
         )
         .accessibilityLabel(showsAddIcon ? "\(entry.title) \(entry.timeRangeText) 追加" : "\(entry.title) \(entry.timeRangeText)")
     }
@@ -1501,7 +1587,7 @@ private struct TimelineQuickDetail: View {
                     .lineLimit(1)
                 Text("\(entry.timeRangeText)  \(entry.durationText)")
                     .font(.caption2.monospacedDigit())
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(LiminalTheme.secondaryText)
                     .lineLimit(1)
             }
 
@@ -1509,14 +1595,15 @@ private struct TimelineQuickDetail: View {
 
             Button(action: onClose) {
                 Image(systemName: "xmark.circle.fill")
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(LiminalTheme.tertiaryText)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("メニューを閉じる")
         }
         .padding(10)
         .background(
             RoundedRectangle(cornerRadius: 10)
-                .fill(Color(.secondarySystemGroupedBackground))
+                .fill(LiminalTheme.surface)
         )
     }
 }

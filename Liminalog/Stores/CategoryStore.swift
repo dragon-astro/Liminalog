@@ -19,10 +19,19 @@ final class CategoryStore {
     }
 
     func allCategories() -> [Category] {
+        allCategoriesIfAvailable() ?? []
+    }
+
+    func allCategoriesIfAvailable() -> [Category]? {
         let descriptor = FetchDescriptor<Category>(
             sortBy: [SortDescriptor(\.sortOrder)]
         )
-        return (try? modelContext.fetch(descriptor)) ?? []
+        do {
+            return try modelContext.fetch(descriptor)
+        } catch {
+            NSLog("Liminalog: failed to fetch categories: \(String(describing: error))")
+            return nil
+        }
     }
 
     @discardableResult
@@ -31,9 +40,15 @@ final class CategoryStore {
         colorHex: String,
         icon: String? = nil,
         dailyCardIntent: DailyCardCategoryIntent = .neutral,
-        isDailyCardSleepCategory: Bool = false
+        isDailyCardSleepCategory: Bool = false,
+        defaultAudienceFriendSetIDs: [UUID] = [],
+        defaultAudienceIncludedFriendIDs: [UUID] = [],
+        defaultAudienceExcludedFriendIDs: [UUID] = []
     ) -> Bool {
-        let all = allCategories()
+        guard let all = allCategoriesIfAvailable() else {
+            NSLog("Liminalog: skipped category add because categories could not be fetched")
+            return false
+        }
         let nextOrder = (all.map(\.sortOrder).max() ?? -1) + 1
         let category = Category(
             name: name,
@@ -43,9 +58,11 @@ final class CategoryStore {
             dailyCardIntent: dailyCardIntent,
             isDailyCardSleepCategory: isDailyCardSleepCategory
         )
+        category.defaultAudienceFriendSetIDs = defaultAudienceFriendSetIDs
+        category.defaultAudienceIncludedFriendIDs = defaultAudienceIncludedFriendIDs
+        category.defaultAudienceExcludedFriendIDs = defaultAudienceExcludedFriendIDs
         modelContext.insert(category)
-        try? modelContext.save()
-        return true
+        return saveChanges("category add")
     }
 
     @discardableResult
@@ -55,32 +72,51 @@ final class CategoryStore {
         colorHex: String,
         icon: String? = nil,
         dailyCardIntent: DailyCardCategoryIntent = .neutral,
-        isDailyCardSleepCategory: Bool = false
+        isDailyCardSleepCategory: Bool = false,
+        defaultAudienceFriendSetIDs: [UUID]? = nil,
+        defaultAudienceIncludedFriendIDs: [UUID]? = nil,
+        defaultAudienceExcludedFriendIDs: [UUID]? = nil
     ) -> Bool {
         category.name = name
         category.colorHex = colorHex
         category.icon = icon
         category.dailyCardIntent = dailyCardIntent
         category.isDailyCardSleepCategory = isDailyCardSleepCategory
-        try? modelContext.save()
-        return true
+        if let defaultAudienceFriendSetIDs {
+            category.defaultAudienceFriendSetIDs = defaultAudienceFriendSetIDs
+        }
+        if let defaultAudienceIncludedFriendIDs {
+            category.defaultAudienceIncludedFriendIDs = defaultAudienceIncludedFriendIDs
+        }
+        if let defaultAudienceExcludedFriendIDs {
+            category.defaultAudienceExcludedFriendIDs = defaultAudienceExcludedFriendIDs
+        }
+        return saveChanges("category update")
     }
 
     @discardableResult
     func deleteCategory(_ category: Category) -> Bool {
         let descriptor = FetchDescriptor<CategorySet>()
-        let sets = (try? modelContext.fetch(descriptor)) ?? []
+        let sets: [CategorySet]
+        do {
+            sets = try modelContext.fetch(descriptor)
+        } catch {
+            NSLog("Liminalog: skipped category delete because category sets could not be fetched: \(String(describing: error))")
+            return false
+        }
         for set in sets where set.slots.contains(category.id) {
             set.slots = set.slots.map { $0 == category.id ? nil : $0 }
         }
         modelContext.delete(category)
-        try? modelContext.save()
-        return true
+        return saveChanges("category delete")
     }
 
     @discardableResult
     func seedDefaultCategoriesIfNeeded() -> Bool {
-        let all = allCategories()
+        guard let all = allCategoriesIfAvailable() else {
+            NSLog("Liminalog: skipped default category seed because categories could not be fetched")
+            return false
+        }
         let existingNames = Set(all.map(\.name))
         var didInsert = false
 
@@ -98,7 +134,17 @@ final class CategoryStore {
         }
 
         guard didInsert else { return false }
-        try? modelContext.save()
-        return true
+        return saveChanges("default category seed")
+    }
+
+    private func saveChanges(_ action: String) -> Bool {
+        do {
+            try modelContext.save()
+            return true
+        } catch {
+            NSLog("Liminalog: failed to save \(action): \(String(describing: error))")
+            modelContext.rollback()
+            return false
+        }
     }
 }

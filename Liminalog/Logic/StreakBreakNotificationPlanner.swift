@@ -10,7 +10,7 @@ struct StreakBreakNotificationPlan: Equatable {
 }
 
 enum StreakBreakNotificationPlanner {
-    static let passingScore = 60.0
+    static let passingScore = StreakRules.passingScore
 
     static func makePlan(
         now: Date,
@@ -53,7 +53,7 @@ enum StreakBreakNotificationPlanner {
         return StreakBreakNotificationPlan(
             identifier: StreakBreakNotificationPlan.identifier,
             title: "ストリークが途切れそうです",
-            body: "現在 \(currentScore) 点。\(currentStreakDays)日ストリークを守るなら、今日のスコアを60点まで戻しましょう。",
+            body: "現在 \(currentScore) 点。\(currentStreakDays)日ストリークを守るなら、今日のスコアを30点まで戻しましょう。",
             fireDate: fireDate
         )
     }

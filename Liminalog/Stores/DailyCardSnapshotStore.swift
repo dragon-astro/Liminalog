@@ -5,6 +5,12 @@ import SwiftData
 struct DailyCardSnapshotStore {
     let modelContext: ModelContext
 
+    private enum SnapshotLookup {
+        case found(DailyCardSnapshot)
+        case missing
+        case failed
+    }
+
     @discardableResult
     func upsert(
         date: Date,
@@ -17,8 +23,24 @@ struct DailyCardSnapshotStore {
     ) -> DailyCardSnapshot {
         let dayStart = DayBoundary.dayStart(for: date, calendar: calendar)
         let dayIdentifier = DailyCardSnapshot.dayIdentifier(for: dayStart, calendar: calendar)
-        let snapshot = existingSnapshot(dayIdentifier: dayIdentifier) ?? DailyCardSnapshot()
-        let isNew = snapshot.dayIdentifier.isEmpty
+        let lookup = existingSnapshot(dayIdentifier: dayIdentifier)
+        let snapshot: DailyCardSnapshot
+        let shouldInsert: Bool
+        let shouldSave: Bool
+        switch lookup {
+        case .found(let existingSnapshot):
+            snapshot = existingSnapshot
+            shouldInsert = false
+            shouldSave = true
+        case .missing:
+            snapshot = DailyCardSnapshot()
+            shouldInsert = true
+            shouldSave = true
+        case .failed:
+            snapshot = DailyCardSnapshot()
+            shouldInsert = false
+            shouldSave = false
+        }
 
         snapshot.dayStart = dayStart
         snapshot.dayIdentifier = dayIdentifier
@@ -53,11 +75,13 @@ struct DailyCardSnapshotStore {
         )
         snapshot.updatedAt = now
 
-        if isNew {
+        if shouldInsert {
             snapshot.createdAt = now
             modelContext.insert(snapshot)
         }
-        try? modelContext.save()
+        if shouldSave {
+            saveChanges("daily card snapshot")
+        }
         return snapshot
     }
 
@@ -65,7 +89,12 @@ struct DailyCardSnapshotStore {
         let descriptor = FetchDescriptor<DailyCardSnapshot>(
             sortBy: [SortDescriptor(\.dayStart, order: .reverse)]
         )
-        return (try? modelContext.fetch(descriptor)) ?? []
+        do {
+            return try modelContext.fetch(descriptor)
+        } catch {
+            NSLog("Liminalog: failed to fetch daily card snapshots: \(String(describing: error))")
+            return []
+        }
     }
 
     func titleCollection() -> [DailyCardTitleCollectionEntry] {
@@ -88,17 +117,31 @@ struct DailyCardSnapshotStore {
         }
     }
 
-    private func existingSnapshot(dayIdentifier: String) -> DailyCardSnapshot? {
+    private func existingSnapshot(dayIdentifier: String) -> SnapshotLookup {
         let descriptor = FetchDescriptor<DailyCardSnapshot>(
             predicate: #Predicate { $0.dayIdentifier == dayIdentifier },
             sortBy: [SortDescriptor(\.createdAt)]
         )
-        guard let matches = try? modelContext.fetch(descriptor),
-              let primary = matches.first
-        else { return nil }
+        let matches: [DailyCardSnapshot]
+        do {
+            matches = try modelContext.fetch(descriptor)
+        } catch {
+            NSLog("Liminalog: failed to fetch daily card snapshot \(dayIdentifier): \(String(describing: error))")
+            return .failed
+        }
+        guard let primary = matches.first else { return .missing }
         for duplicate in matches.dropFirst() {
             modelContext.delete(duplicate)
         }
-        return primary
+        return .found(primary)
+    }
+
+    private func saveChanges(_ action: String) {
+        do {
+            try modelContext.save()
+        } catch {
+            NSLog("Liminalog: failed to save \(action): \(String(describing: error))")
+            modelContext.rollback()
+        }
     }
 }

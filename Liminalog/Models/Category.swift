@@ -31,6 +31,9 @@ final class Category {
     var isDefault: Bool = false
     var dailyCardIntentRawValue: String = DailyCardCategoryIntent.neutral.rawValue
     var isDailyCardSleepCategory: Bool = false
+    var defaultAudienceFriendSetIDs: [UUID] = []
+    var defaultAudienceIncludedFriendIDs: [UUID] = []
+    var defaultAudienceExcludedFriendIDs: [UUID] = []
     var createdAt: Date = Date()
 
     @Relationship(deleteRule: .nullify, inverse: \Chapter.category)
@@ -65,6 +68,9 @@ final class Category {
         self.isDefault = isDefault
         self.dailyCardIntentRawValue = dailyCardIntent.rawValue
         self.isDailyCardSleepCategory = isDailyCardSleepCategory
+        self.defaultAudienceFriendSetIDs = []
+        self.defaultAudienceIncludedFriendIDs = []
+        self.defaultAudienceExcludedFriendIDs = []
         self.createdAt = Date()
         self.chapters = []
         self.plans = []

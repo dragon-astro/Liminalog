@@ -25,27 +25,61 @@ final class PlanStore {
     }
 
     func plannedBlocks(on date: Date) -> [PlanBlock] {
+        plannedBlocksIfAvailable(on: date) ?? []
+    }
+
+    func plannedBlocksIfAvailable(on date: Date) -> [PlanBlock]? {
         let boundary = DayBoundary(date: date)
-        return plannedBlocks(from: boundary.dayStart, to: boundary.dayEnd)
+        return plannedBlocksIfAvailable(from: boundary.dayStart, to: boundary.dayEnd)
     }
 
     func plannedBlocks(from start: Date, to end: Date) -> [PlanBlock] {
+        plannedBlocksIfAvailable(from: start, to: end) ?? []
+    }
+
+    func plannedBlocksIfAvailable(from start: Date, to end: Date) -> [PlanBlock]? {
         let descriptor = FetchDescriptor<PlanBlock>(
             predicate: #Predicate { $0.startTime < end && $0.endTime > start },
             sortBy: [SortDescriptor(\.startTime)]
         )
-        return (try? modelContext.fetch(descriptor)) ?? []
+        do {
+            return try modelContext.fetch(descriptor)
+        } catch {
+            NSLog("Liminalog: failed to fetch planned blocks: \(String(describing: error))")
+            return nil
+        }
     }
 
     func allPlannedBlocks() -> [PlanBlock] {
+        allPlannedBlocksIfAvailable() ?? []
+    }
+
+    func allPlannedBlocksIfAvailable() -> [PlanBlock]? {
         let descriptor = FetchDescriptor<PlanBlock>(
             sortBy: [SortDescriptor(\.startTime)]
         )
-        return (try? modelContext.fetch(descriptor)) ?? []
+        do {
+            return try modelContext.fetch(descriptor)
+        } catch {
+            NSLog("Liminalog: failed to fetch all planned blocks: \(String(describing: error))")
+            return nil
+        }
     }
 
     @discardableResult
-    func addPlanBlock(category: Category?, title: String, startTime: Date, endTime: Date, isAllDay: Bool = false, isImportant: Bool = false, note: String? = nil, isPublic: Bool = true) -> Bool {
+    func addPlanBlock(
+        category: Category?,
+        title: String,
+        startTime: Date,
+        endTime: Date,
+        isAllDay: Bool = false,
+        isImportant: Bool = false,
+        note: String? = nil,
+        isPublic: Bool = true,
+        audienceFriendIDs: [UUID] = [],
+        audienceSource: AudienceSource = .categoryDefaultSnapshot,
+        hasAudienceSnapshot: Bool = false
+    ) -> Bool {
         guard canCreate(startTime: startTime, isAllDay: isAllDay) else { return false }
         let plan = PlanBlock(
             category: category,
@@ -57,14 +91,29 @@ final class PlanStore {
             note: note.flatMap { $0.isEmpty ? nil : $0 },
             isPublic: isPublic
         )
+        plan.audienceFriendIDs = audienceFriendIDs
+        plan.audienceSource = audienceSource
+        plan.hasAudienceSnapshot = hasAudienceSnapshot
         plan.updatedAt = clock.now
         modelContext.insert(plan)
-        try? modelContext.save()
-        return true
+        return saveChanges("plan add")
     }
 
     @discardableResult
-    func savePlanBlock(_ plan: PlanBlock, category: Category?, title: String, startTime: Date, endTime: Date, isAllDay: Bool, isImportant: Bool, note: String?, isPublic: Bool) -> Bool {
+    func savePlanBlock(
+        _ plan: PlanBlock,
+        category: Category?,
+        title: String,
+        startTime: Date,
+        endTime: Date,
+        isAllDay: Bool,
+        isImportant: Bool,
+        note: String?,
+        isPublic: Bool,
+        audienceFriendIDs: [UUID]? = nil,
+        audienceSource: AudienceSource? = nil,
+        hasAudienceSnapshot: Bool? = nil
+    ) -> Bool {
         if isScheduleLocked(plan) {
             plan.isImportant = isImportant
         } else {
@@ -78,21 +127,39 @@ final class PlanStore {
         }
         plan.note = note.flatMap { $0.isEmpty ? nil : $0 }
         plan.isPublic = isPublic
+        if let audienceFriendIDs {
+            plan.audienceFriendIDs = audienceFriendIDs
+        }
+        if let audienceSource {
+            plan.audienceSource = audienceSource
+        }
+        if let hasAudienceSnapshot {
+            plan.hasAudienceSnapshot = hasAudienceSnapshot
+        }
         plan.updatedAt = clock.now
-        try? modelContext.save()
-        return true
+        return saveChanges("plan update")
     }
 
     @discardableResult
     func deletePlanBlock(_ plan: PlanBlock) -> Bool {
         guard !isScheduleLocked(plan) else { return false }
         modelContext.delete(plan)
-        try? modelContext.save()
-        return true
+        return saveChanges("plan delete")
     }
 
     private func normalizedTitle(_ title: String, category: Category?) -> String {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? (category?.name ?? "予定") : trimmed
+    }
+
+    private func saveChanges(_ action: String) -> Bool {
+        do {
+            try modelContext.save()
+            return true
+        } catch {
+            NSLog("Liminalog: failed to save \(action): \(String(describing: error))")
+            modelContext.rollback()
+            return false
+        }
     }
 }

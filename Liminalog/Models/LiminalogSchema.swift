@@ -13,6 +13,7 @@ enum LiminalogSchemaV1: VersionedSchema {
             VisibilityPreset.self,
             UserSettings.self,
             Friend.self,
+            FriendSet.self,
             FriendCategoryMapping.self,
             DailyCardSnapshot.self,
             CalendarEventCache.self

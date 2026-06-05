@@ -10,7 +10,12 @@ struct ProfileView: View {
     @State private var isShowingSettings = false
     @State private var isShowingEditProfile = false
     @State private var isShowingShareProfile = false
+    @State private var isShowingUnlockGallery = false
     @State private var performanceSnapshot = ProfilePerformanceSnapshot.empty
+    @State private var saveError: String?
+    #if DEBUG
+    @AppStorage("debug.unlocks.allowLockedDecorations") private var allowsLockedDecorationTesting = false
+    #endif
 
     private var settings: UserSettings? {
         settingsList.first
@@ -26,11 +31,17 @@ struct ProfileView: View {
     }
 
     private var accentColor: Color {
-        iconFrame.primaryColor
+        if iconFrame.id == ProfileDecorationUnlocks.noIconFrameID {
+            return Color(hex: settings?.profileAccentColorHex ?? "#2F80ED")
+        }
+        return iconFrame.primaryColor
     }
 
     private var decorationUnlocks: ProfileDecorationUnlocks {
-        ProfileDecorationUnlocks(unlockItems: unlockItems)
+        ProfileDecorationUnlocks(
+            unlockItems: unlockItems,
+            includesLockedCatalogItems: allowsLockedDecorationSelection
+        )
     }
 
     private var invitePayload: FriendInvitePayload {
@@ -43,7 +54,8 @@ struct ProfileView: View {
     private var badges: [ProfileBadgeModel] {
         ProfileBadgeCatalog.items(
             metrics: performanceSnapshot.unlockMetrics,
-            unlockItems: unlockItems
+            unlockItems: unlockItems,
+            includesLockedItems: allowsLockedDecorationSelection
         )
     }
 
@@ -58,6 +70,18 @@ struct ProfileView: View {
         )
     }
 
+    private var freshUnlockItems: [UnlockItem] {
+        ProfileDecorationUnlocks.freshUnlockedItems(
+            unlockItems: unlockItems,
+            settings: settings,
+            visibleThemeIDs: Set(LiminalThemeCatalog.selectableThemes.map(\.id))
+        )
+    }
+
+    private var hasFreshUnlockItems: Bool {
+        !freshUnlockItems.isEmpty
+    }
+
     private var iconFrame: ProfileIconFrameStyle {
         ProfileIconFrameCatalog.item(for: decorationUnlocks.equippedIconFrameID(settings?.profileIconFrameID))
     }
@@ -68,6 +92,14 @@ struct ProfileView: View {
 
     private var cardStyle: ProfileCardStyle {
         ProfileCardStyleCatalog.item(for: decorationUnlocks.equippedCardStyleID(settings?.profileCardStyleID))
+    }
+
+    private var allowsLockedDecorationSelection: Bool {
+        #if DEBUG
+        allowsLockedDecorationTesting
+        #else
+        false
+        #endif
     }
 
     var body: some View {
@@ -94,7 +126,11 @@ struct ProfileView: View {
                     )
 
                     if !nextUnlockTargets.isEmpty || !unlockItems.isEmpty {
-                        ProfileNextUnlockSection(targets: nextUnlockTargets)
+                        ProfileNextUnlockSection(
+                            targets: nextUnlockTargets,
+                            showsGalleryIndicator: hasFreshUnlockItems,
+                            onOpenGallery: { isShowingUnlockGallery = true }
+                        )
                     }
 
                     ProfileCollectionSection(
@@ -124,6 +160,9 @@ struct ProfileView: View {
             .navigationDestination(isPresented: $isShowingSettings) {
                 SettingsView()
             }
+            .navigationDestination(isPresented: $isShowingUnlockGallery) {
+                UnlockGalleryView(initialMetrics: performanceSnapshot.unlockMetrics)
+            }
             .sheet(isPresented: $isShowingEditProfile) {
                 ProfileEditSheet(
                     settings: settings,
@@ -135,11 +174,23 @@ struct ProfileView: View {
             .sheet(isPresented: $isShowingShareProfile) {
                 ProfileShareSheet(payload: invitePayload)
             }
+            .alert("プロフィールを保存できませんでした", isPresented: saveErrorPresented) {
+                Button("OK", role: .cancel) {
+                    saveError = nil
+                }
+            } message: {
+                Text(saveError ?? "")
+            }
             .task {
                 ensureUserSettings()
                 refreshPerformanceSnapshot()
             }
             .onChange(of: isShowingSettings) { _, isShowing in
+                if !isShowing {
+                    refreshPerformanceSnapshot()
+                }
+            }
+            .onChange(of: isShowingUnlockGallery) { _, isShowing in
                 if !isShowing {
                     refreshPerformanceSnapshot()
                 }
@@ -155,16 +206,19 @@ struct ProfileView: View {
         guard settingsList.isEmpty else { return }
         let settings = UserSettings()
         modelContext.insert(settings)
-        try? modelContext.save()
+        _ = saveSettingsChange("initial profile settings", showError: true)
     }
 
     private func refreshPerformanceSnapshot() {
-        let snapshot = ProfilePerformanceSnapshot.load(modelContext: modelContext, now: Date())
+        guard let snapshot = ProfilePerformanceSnapshot.loadIfAvailable(modelContext: modelContext, now: Date()) else {
+            NSLog("Liminalog: skipped profile unlock refresh because performance snapshot could not be loaded")
+            return
+        }
         performanceSnapshot = snapshot
         UnlockStore(modelContext: modelContext).refresh(metrics: snapshot.unlockMetrics)
     }
 
-    private func saveProfile(_ draft: ProfileDraft) {
+    private func saveProfile(_ draft: ProfileDraft) -> Bool {
         let target: UserSettings
         if let settings {
             target = settings
@@ -177,12 +231,45 @@ struct ProfileView: View {
         target.profileDisplayName = draft.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
         target.profileBio = draft.bio.trimmingCharacters(in: .whitespacesAndNewlines)
         target.profileImageData = draft.imageData
-        target.profileBadgeID = ProfileBadgeCatalog.equippedBadge(id: draft.badgeID, badges: badges).id
-        target.profileIconFrameID = decorationUnlocks.equippedIconFrameID(draft.iconFrameID)
-        target.profileStreakIconID = decorationUnlocks.equippedStreakIconID(draft.streakIconID)
-        target.profileCardStyleID = decorationUnlocks.equippedCardStyleID(draft.cardStyleID)
+        let badgeID = ProfileBadgeCatalog.equippedBadge(id: draft.badgeID, badges: badges).id
+        let iconFrameID = decorationUnlocks.equippedIconFrameID(draft.iconFrameID)
+        let streakIconID = decorationUnlocks.equippedStreakIconID(draft.streakIconID)
+        let cardStyleID = decorationUnlocks.equippedCardStyleID(draft.cardStyleID)
+        target.profileBadgeID = badgeID
+        target.profileIconFrameID = iconFrameID
+        target.profileStreakIconID = streakIconID
+        target.profileCardStyleID = cardStyleID
+        ProfileDecorationUnlocks.markEquippedItem(kind: .nameBadge, targetID: badgeID, unlockItems: unlockItems, settings: target)
+        ProfileDecorationUnlocks.markEquippedItem(kind: .iconFrame, targetID: iconFrameID, unlockItems: unlockItems, settings: target)
+        ProfileDecorationUnlocks.markEquippedItem(kind: .streakIcon, targetID: streakIconID, unlockItems: unlockItems, settings: target)
+        ProfileDecorationUnlocks.markEquippedItem(kind: .cardStyle, targetID: cardStyleID, unlockItems: unlockItems, settings: target)
         target.updatedAt = Date()
-        try? modelContext.save()
+        return saveSettingsChange("profile", showError: false)
+    }
+
+    @discardableResult
+    private func saveSettingsChange(_ action: String, showError: Bool) -> Bool {
+        do {
+            try modelContext.save()
+            return true
+        } catch {
+            NSLog("Liminalog: failed to save \(action): \(String(describing: error))")
+            modelContext.rollback()
+            if showError {
+                saveError = "時間をおいてもう一度試してください。"
+            }
+            return false
+        }
+    }
+
+    private var saveErrorPresented: Binding<Bool> {
+        Binding {
+            saveError != nil
+        } set: { isPresented in
+            if !isPresented {
+                saveError = nil
+            }
+        }
     }
 }
 

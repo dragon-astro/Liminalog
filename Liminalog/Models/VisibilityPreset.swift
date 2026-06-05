@@ -71,3 +71,22 @@ final class VisibilityPreset {
         self.updatedAt = now
     }
 }
+
+enum VisibilityPresetCustomization {
+    private static let appGroupID = "group.app.YasudaRyuga.Liminalog"
+    private static let customizedPresetIDsKey = "visibilityPresets.customizedDetailIDs"
+
+    static func isCustomized(_ presetID: UUID, defaults: UserDefaults = defaultDefaults) -> Bool {
+        Set(defaults.stringArray(forKey: customizedPresetIDsKey) ?? []).contains(presetID.uuidString)
+    }
+
+    static func markCustomized(_ presetID: UUID, defaults: UserDefaults = defaultDefaults) {
+        var ids = Set(defaults.stringArray(forKey: customizedPresetIDsKey) ?? [])
+        ids.insert(presetID.uuidString)
+        defaults.set(Array(ids).sorted(), forKey: customizedPresetIDsKey)
+    }
+
+    private static var defaultDefaults: UserDefaults {
+        UserDefaults(suiteName: appGroupID) ?? .standard
+    }
+}

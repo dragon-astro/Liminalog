@@ -12,6 +12,7 @@ struct CategorySetEditSheet: View {
     /// 編集中のスロット状態（長さ 8 で常に保持）
     @State private var slots: [UUID?] = Array(repeating: nil, count: CategorySet.slotCount)
     @State private var selectedSlotIndex: Int?
+    @State private var saveError: String?
     @Query(sort: \Category.sortOrder) private var allCategories: [Category]
 
     private var isNew: Bool { categorySet == nil }
@@ -50,6 +51,13 @@ struct CategorySetEditSheet: View {
                 }
             }
             .onAppear { loadInitialState() }
+            .alert("保存できませんでした", isPresented: saveErrorPresented) {
+                Button("OK") {
+                    saveError = nil
+                }
+            } message: {
+                Text(saveError ?? "")
+            }
         }
     }
 
@@ -63,7 +71,7 @@ struct CategorySetEditSheet: View {
             .padding(14)
             .background(
                 RoundedRectangle(cornerRadius: 14)
-                    .fill(Color(.secondarySystemGroupedBackground))
+                    .fill(LiminalTheme.surface)
             )
     }
 
@@ -72,11 +80,11 @@ struct CategorySetEditSheet: View {
             HStack {
                 Text("グリッド位置")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(LiminalTheme.secondaryText)
                 Spacer()
                 Text("\(assignedCount)/\(CategorySet.slotCount)")
                     .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(LiminalTheme.secondaryText)
             }
 
             LazyVGrid(columns: columns, spacing: 12) {
@@ -87,8 +95,15 @@ struct CategorySetEditSheet: View {
             .padding(12)
             .background(
                 RoundedRectangle(cornerRadius: 18)
-                    .fill(Color(.secondarySystemGroupedBackground))
+                    .fill(LiminalTheme.surface)
             )
+
+            if assignedCount == 0 {
+                CategorySetEditorHint(
+                    text: "カテゴリを1つ以上入れると保存できます。",
+                    systemImage: "square.grid.2x2"
+                )
+            }
         }
     }
 
@@ -96,23 +111,31 @@ struct CategorySetEditSheet: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("カテゴリ")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(LiminalTheme.secondaryText)
 
             LazyVGrid(columns: paletteColumns, spacing: 10) {
-                ForEach(allCategories) { category in
-                    CategoryPaletteItem(
-                        category: category,
-                        isAssigned: slots.contains(category.id),
-                        isReadyToAssign: selectedSlotIndex != nil
-                    ) {
-                        assignPaletteCategory(category.id)
+                if allCategories.isEmpty {
+                    CategorySetEditorHint(
+                        text: "先にカテゴリを作成すると、ここに並びます。",
+                        systemImage: "plus.circle"
+                    )
+                    .gridCellColumns(2)
+                } else {
+                    ForEach(allCategories) { category in
+                        CategoryPaletteItem(
+                            category: category,
+                            isAssigned: slots.contains(category.id),
+                            isReadyToAssign: selectedSlotIndex != nil
+                        ) {
+                            assignPaletteCategory(category.id)
+                        }
                     }
                 }
             }
             .padding(12)
             .background(
                 RoundedRectangle(cornerRadius: 18)
-                    .fill(Color(.secondarySystemGroupedBackground))
+                    .fill(LiminalTheme.surface)
             )
         }
     }
@@ -131,7 +154,7 @@ struct CategorySetEditSheet: View {
         .overlay {
             if selectedSlotIndex == index {
                 RoundedRectangle(cornerRadius: 12)
-                    .strokeBorder(Color.accentColor, lineWidth: 2.5)
+                    .strokeBorder(LiminalTheme.accent, lineWidth: 2.5)
             }
         }
         .onTapGesture {
@@ -256,12 +279,27 @@ struct CategorySetEditSheet: View {
         }
     }
 
+    private var saveErrorPresented: Binding<Bool> {
+        Binding {
+            saveError != nil
+        } set: { isPresented in
+            if !isPresented {
+                saveError = nil
+            }
+        }
+    }
+
     private func save() {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let didSave: Bool
         if let categorySet {
-            store.updateCategorySet(categorySet, name: trimmed, slots: slots)
+            didSave = store.updateCategorySet(categorySet, name: trimmed, slots: slots)
         } else {
-            store.addCategorySet(name: trimmed, slots: slots)
+            didSave = store.addCategorySet(name: trimmed, slots: slots)
+        }
+        guard didSave else {
+            saveError = "カテゴリセットを保存できませんでした。時間をおいてもう一度試してください。"
+            return
         }
         dismiss()
     }
@@ -352,13 +390,13 @@ private struct SlotCellLabel: View {
                 } else {
                     Image(systemName: "plus")
                         .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(LiminalTheme.tertiaryText)
                 }
             }
 
             Text(category?.name ?? "空き")
                 .font(.caption2)
-                .foregroundStyle(category == nil ? .tertiary : .primary)
+                .foregroundStyle(category == nil ? LiminalTheme.tertiaryText : LiminalTheme.text)
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
         }
@@ -367,19 +405,19 @@ private struct SlotCellLabel: View {
         .background(
             RoundedRectangle(cornerRadius: 12)
                 .strokeBorder(
-                    category == nil ? Color(.separator).opacity(0.45) : Color.clear,
+                    category == nil ? LiminalTheme.divider.opacity(0.65) : Color.clear,
                     style: StrokeStyle(lineWidth: 1, dash: category == nil ? [4, 4] : [])
                 )
                 .background(
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(category?.displayColor.opacity(0.08) ?? Color(.tertiarySystemGroupedBackground).opacity(0.5))
+                        .fill(category?.displayColor.opacity(0.08) ?? LiminalTheme.elevated.opacity(0.5))
                 )
         )
         .contentShape(RoundedRectangle(cornerRadius: 12))
     }
 
     private var fillColor: Color {
-        category?.displayColor.opacity(0.18) ?? Color(.tertiarySystemGroupedBackground)
+        category?.displayColor.opacity(0.18) ?? LiminalTheme.elevated
     }
 }
 
@@ -412,7 +450,7 @@ private struct CategoryPaletteItem: View {
 
                 Text(category.name)
                     .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(LiminalTheme.text)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
             }
@@ -424,6 +462,20 @@ private struct CategoryPaletteItem: View {
         .opacity(isReadyToAssign || !isAssigned ? 1 : 0.62)
         .accessibilityLabel("\(category.name)\(isAssigned ? "、割り当て済み" : "")")
         .accessibilityHint(isReadyToAssign ? "選択中のスロットに配置します。" : "最初の空きスロットに配置します。")
+    }
+}
+
+private struct CategorySetEditorHint: View {
+    let text: String
+    let systemImage: String
+
+    var body: some View {
+        Label(text, systemImage: systemImage)
+            .font(.caption)
+            .foregroundStyle(LiminalTheme.secondaryText)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 2)
+            .accessibilityLabel(text)
     }
 }
 

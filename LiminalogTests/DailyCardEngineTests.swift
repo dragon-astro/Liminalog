@@ -77,6 +77,7 @@ struct DailyCardEngineTests {
         #expect(persona.title == "有言実行の人")
         #expect(persona.message.contains("予定"))
         #expect(!persona.message.contains("趣味"))
+        #expect(persona.facts.contains { $0.id == "match-rate" && $0.value == "100" && $0.suffix == "%" })
     }
 
     @Test("コールドスタートの共有コピーに内部事情メタ文言を出さない")
@@ -137,7 +138,7 @@ struct DailyCardEngineTests {
             },
             category: category
         )
-        #expect(evening.title == "夜のザッピング")
+        #expect(evening.title == "目まぐるしい夜")
 
         let midnight = try makePersona(
             day: day,

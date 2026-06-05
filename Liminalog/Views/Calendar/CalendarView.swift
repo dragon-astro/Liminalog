@@ -4,6 +4,13 @@ import UIKit
 
 struct CalendarView: View {
     @Environment(\.modelContext) private var modelContext
+    @Query(sort: [SortDescriptor(\Category.sortOrder), SortDescriptor(\Category.createdAt)]) private var categories: [Category]
+    @Query(sort: [SortDescriptor(\Friend.displayName), SortDescriptor(\Friend.createdAt)]) private var friends: [Friend]
+
+    @AppStorage("calendar.filter.usesCustomCategories") private var usesCustomCategoryFilter = false
+    @AppStorage("calendar.filter.categoryIDs") private var storedCategoryFilterIDs = ""
+    @AppStorage("calendar.filter.overlayFriendIDs") private var storedOverlayFriendIDs = ""
+
     @State private var visibleMonth = CalendarView.currentMonthStart
     @State private var anchorMonth = CalendarView.currentMonthStart
     @State private var scrolledOffset: Int? = 0
@@ -13,6 +20,7 @@ struct CalendarView: View {
     @State private var pickerMonth = Calendar.japanese.component(.month, from: Date())
     @State private var showingCalendarSettings = false
     @State private var showingCalendarSearch = false
+    @State private var showingCalendarFilter = false
     @State private var selectedDay: CalendarDayPresentation?
     @State private var clock = TickClock(interval: 60)
 
@@ -31,21 +39,17 @@ struct CalendarView: View {
             VStack(spacing: 0) {
                 calendarTopBar
 
-                CalendarWeekdayHeader(
-                    weekdays: weekdays,
-                    weekdayColor: weekdayColor(_:)
-                )
-
                 ScrollView(.horizontal) {
                     LazyHStack(alignment: .top, spacing: 0) {
                         ForEach(monthOffsets, id: \.self) { offset in
-                            CalendarMonthGrid(
+                            CalendarMonthPage(
+                                weekdays: weekdays,
+                                weekdayColor: weekdayColor(_:),
                                 pageData: cachedPageData(for: month(forOffset: offset)),
                                 onOpenDay: { date, planID in
                                     selectedDay = CalendarDayPresentation(date: date, planID: planID)
                                 }
                             )
-                            .padding(.vertical, 8)
                             .containerRelativeFrame(.horizontal)
                             .id(offset)
                         }
@@ -56,6 +60,14 @@ struct CalendarView: View {
                 .scrollPosition(id: $scrolledOffset, anchor: .center)
                 .defaultScrollAnchor(.center)
                 .scrollIndicators(.hidden)
+                .frame(height: currentMonthPageHeight)
+                .background(LiminalTheme.divider.opacity(0.56))
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(LiminalTheme.divider.opacity(0.5), lineWidth: 1)
+                )
+                .padding(.top, 6)
                 .frame(maxHeight: .infinity, alignment: .top)
                 .onChange(of: scrolledOffset) { _, newValue in
                     handleScroll(to: newValue)
@@ -90,6 +102,18 @@ struct CalendarView: View {
             .sheet(isPresented: $showingCalendarSettings) {
                 CalendarSettingsSheet()
             }
+            .sheet(isPresented: $showingCalendarFilter) {
+                CalendarFilterSheet(
+                    categories: categories,
+                    friends: acceptedFriends,
+                    isResetEnabled: isCalendarFilterActive,
+                    isCategorySelected: { selectedCategoryIDs.contains($0.id) },
+                    onToggleCategory: toggleCategoryFilter(_:),
+                    isFriendSelected: { selectedOverlayFriendIDs.contains($0.id) },
+                    onToggleFriend: toggleOverlayFriend(_:),
+                    onReset: resetCalendarFilter
+                )
+            }
             .sheet(item: $selectedDay, onDismiss: reloadVisibleData) { target in
                 NavigationStack {
                     CalendarDayPagerSheet(initialDate: target.date, highlightedPlanID: target.planID)
@@ -98,25 +122,32 @@ struct CalendarView: View {
             }
             .onAppear {
                 clock.start()
+                pruneCalendarFilterStorage()
                 reloadVisibleData()
             }
             .onDisappear {
                 clock.stop()
             }
+            .onChange(of: categories.map(\.id)) { _, _ in
+                pruneCalendarFilterStorage()
+            }
+            .onChange(of: acceptedFriends.map(\.id)) { _, _ in
+                pruneCalendarFilterStorage()
+            }
+            .onChange(of: usesCustomCategoryFilter) { _, _ in
+                reloadVisibleData()
+            }
+            .onChange(of: storedCategoryFilterIDs) { _, _ in
+                reloadVisibleData()
+            }
+            .onChange(of: storedOverlayFriendIDs) { _, _ in
+                reloadVisibleData()
+            }
         }
     }
 
     private var calendarTopBar: some View {
-        HStack(spacing: 12) {
-            Button {
-                showingCalendarSettings = true
-            } label: {
-                Image(systemName: "gearshape")
-                    .font(.title3.weight(.semibold))
-                    .frame(width: 44, height: 44)
-            }
-            .buttonStyle(.borderless)
-
+        ZStack {
             Button {
                 prepareMonthPicker()
                 showingMonthPicker = true
@@ -128,41 +159,105 @@ struct CalendarView: View {
 
                     Image(systemName: "chevron.down")
                         .font(.caption.weight(.bold))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(LiminalTheme.secondaryText)
                 }
-                .foregroundStyle(.primary)
+                .foregroundStyle(LiminalTheme.text)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
                 .background(
                     Capsule()
-                        .fill(Color(.tertiarySystemGroupedBackground))
+                        .fill(LiminalTheme.elevated)
                 )
                 .overlay(
                     Capsule()
-                        .stroke(Color(.separator).opacity(0.34), lineWidth: 1)
+                        .stroke(LiminalTheme.divider.opacity(0.72), lineWidth: 1)
                 )
-                .frame(maxWidth: .infinity)
             }
             .buttonStyle(.plain)
             .accessibilityLabel("表示月 \(visibleMonth.japaneseYearMonth)")
 
-            Button {
-                showingCalendarSearch = true
-            } label: {
-                Image(systemName: "magnifyingglass")
-                    .font(.title3.weight(.semibold))
-                    .frame(width: 44, height: 44)
+            HStack {
+                Button {
+                    showingCalendarSettings = true
+                } label: {
+                    Image(systemName: "gearshape")
+                        .font(.title3.weight(.semibold))
+                        .frame(width: 44, height: 44)
+                }
+                .buttonStyle(.borderless)
+                .accessibilityLabel("カレンダー設定")
+
+                Spacer(minLength: 0)
+
+                HStack(spacing: 4) {
+                    Button {
+                        showingCalendarFilter = true
+                    } label: {
+                        Image(systemName: isCalendarFilterActive ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
+                            .font(.title3.weight(.semibold))
+                            .frame(width: 44, height: 44)
+                    }
+                    .buttonStyle(.borderless)
+                    .foregroundStyle(isCalendarFilterActive ? LiminalTheme.accent : LiminalTheme.accent.opacity(0.72))
+                    .accessibilityLabel("カレンダー表示フィルタ")
+
+                    Button {
+                        showingCalendarSearch = true
+                    } label: {
+                        Image(systemName: "magnifyingglass")
+                            .font(.title3.weight(.semibold))
+                            .frame(width: 44, height: 44)
+                    }
+                    .buttonStyle(.borderless)
+                    .accessibilityLabel("カレンダーを検索")
+                }
             }
-            .buttonStyle(.borderless)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 14)
-        .background(Color(.secondarySystemGroupedBackground))
     }
 
     private var calendarYearRange: ClosedRange<Int> {
         let currentYear = calendar.component(.year, from: Date())
         return (currentYear - 10)...(currentYear + 10)
+    }
+
+    private var currentMonthPageHeight: CGFloat {
+        let weekCount = cachedPageData(for: visibleMonth).dates.count / 7
+        return CalendarMonthPage.height(forWeekCount: weekCount)
+    }
+
+    private var allCategoryIDs: Set<UUID> {
+        Set(categories.map(\.id))
+    }
+
+    private var selectedCategoryIDs: Set<UUID> {
+        guard usesCustomCategoryFilter else { return allCategoryIDs }
+        return decodedUUIDSet(storedCategoryFilterIDs).intersection(allCategoryIDs)
+    }
+
+    private var acceptedFriends: [Friend] {
+        friends
+            .filter { $0.status == .accepted }
+            .sorted {
+                if $0.isFavorite != $1.isFavorite {
+                    return $0.isFavorite
+                }
+                return $0.displayName.localizedStandardCompare($1.displayName) == .orderedAscending
+            }
+    }
+
+    private var selectedOverlayFriendIDs: Set<UUID> {
+        decodedUUIDSet(storedOverlayFriendIDs).intersection(Set(acceptedFriends.map(\.id)))
+    }
+
+    private var selectedOverlayFriends: [Friend] {
+        let selectedIDs = selectedOverlayFriendIDs
+        return acceptedFriends.filter { selectedIDs.contains($0.id) }
+    }
+
+    private var isCalendarFilterActive: Bool {
+        usesCustomCategoryFilter || !selectedOverlayFriendIDs.isEmpty
     }
 
     private func prepareMonthPicker() {
@@ -184,6 +279,76 @@ struct CalendarView: View {
         let gridStart = calendar.date(byAdding: .day, value: -normalizedOffset, to: monthStart) ?? monthStart
         let weekCount = max(5, min(6, Int(ceil(Double(normalizedOffset + dayCount) / 7.0))))
         return (0..<(weekCount * 7)).compactMap { calendar.date(byAdding: .day, value: $0, to: gridStart) }
+    }
+
+    private func toggleCategoryFilter(_ category: Category) {
+        var selectedIDs = selectedCategoryIDs
+        if selectedIDs.contains(category.id) {
+            selectedIDs.remove(category.id)
+        } else {
+            selectedIDs.insert(category.id)
+        }
+
+        if selectedIDs == allCategoryIDs {
+            usesCustomCategoryFilter = false
+            storedCategoryFilterIDs = ""
+        } else {
+            usesCustomCategoryFilter = true
+            storedCategoryFilterIDs = encodedUUIDSet(selectedIDs)
+        }
+        reloadVisibleData()
+    }
+
+    private func toggleOverlayFriend(_ friend: Friend) {
+        var selectedIDs = selectedOverlayFriendIDs
+        if selectedIDs.contains(friend.id) {
+            selectedIDs.remove(friend.id)
+        } else {
+            selectedIDs.insert(friend.id)
+        }
+        storedOverlayFriendIDs = encodedUUIDSet(selectedIDs)
+        reloadVisibleData()
+    }
+
+    private func resetCalendarFilter() {
+        usesCustomCategoryFilter = false
+        storedCategoryFilterIDs = ""
+        storedOverlayFriendIDs = ""
+        reloadVisibleData()
+    }
+
+    private func pruneCalendarFilterStorage() {
+        let validCategoryIDs = allCategoryIDs
+        let storedCategoryIDs = decodedUUIDSet(storedCategoryFilterIDs)
+        let prunedCategoryIDs = storedCategoryIDs.intersection(validCategoryIDs)
+        if usesCustomCategoryFilter {
+            if !storedCategoryIDs.isEmpty && prunedCategoryIDs.isEmpty && !validCategoryIDs.isEmpty {
+                usesCustomCategoryFilter = false
+                storedCategoryFilterIDs = ""
+            } else if prunedCategoryIDs == validCategoryIDs {
+                usesCustomCategoryFilter = false
+                storedCategoryFilterIDs = ""
+            } else if prunedCategoryIDs != storedCategoryIDs {
+                storedCategoryFilterIDs = encodedUUIDSet(prunedCategoryIDs)
+            }
+        } else if !storedCategoryIDs.isEmpty {
+            storedCategoryFilterIDs = ""
+        }
+
+        let validFriendIDs = Set(acceptedFriends.map(\.id))
+        let storedFriendIDs = decodedUUIDSet(storedOverlayFriendIDs)
+        let prunedFriendIDs = storedFriendIDs.intersection(validFriendIDs)
+        if prunedFriendIDs != storedFriendIDs {
+            storedOverlayFriendIDs = encodedUUIDSet(prunedFriendIDs)
+        }
+    }
+
+    private func decodedUUIDSet(_ rawValue: String) -> Set<UUID> {
+        Set(rawValue.split(separator: ",").compactMap { UUID(uuidString: String($0)) })
+    }
+
+    private func encodedUUIDSet(_ ids: Set<UUID>) -> String {
+        ids.map(\.uuidString).sorted().joined(separator: ",")
     }
 
     // MARK: - ページング / データ取得（遅延・月単位キャッシュ）
@@ -251,7 +416,8 @@ struct CalendarView: View {
                 dates: dates,
                 visibleMonth: month,
                 importantPlansByDay: [:],
-                scoreSummariesByDay: [:]
+                scoreSummariesByDay: [:],
+                didFailToLoadRecords: false
             )
         }
 
@@ -259,7 +425,23 @@ struct CalendarView: View {
             predicate: #Predicate { $0.startTime < gridEnd && $0.endTime > gridStart },
             sortBy: [SortDescriptor(\.startTime)]
         )
-        let plansInGrid = ((try? modelContext.fetch(planDescriptor)) ?? []).sorted(by: planSort)
+        var didFailToLoadRecords = false
+        let plansInGrid: [PlanBlock]
+        do {
+            plansInGrid = try modelContext.fetch(planDescriptor).sorted(by: planSort)
+        } catch {
+            NSLog("Liminalog: failed to fetch calendar plans: \(String(describing: error))")
+            didFailToLoadRecords = true
+            plansInGrid = []
+        }
+        let categoryFilterIsActive = usesCustomCategoryFilter
+        let visibleCategoryIDs = selectedCategoryIDs
+        let visiblePlansInGrid = categoryFilterIsActive
+            ? plansInGrid.filter { plan in
+                guard let categoryID = plan.category?.id else { return false }
+                return visibleCategoryIDs.contains(categoryID)
+            }
+            : plansInGrid
 
         let lookbackStart = calendar.date(byAdding: .day, value: -14, to: gridStart) ?? gridStart
         let chapterDescriptor = FetchDescriptor<Chapter>(
@@ -270,29 +452,75 @@ struct CalendarView: View {
             predicate: #Predicate { $0.endTime == nil },
             sortBy: [SortDescriptor(\.startTime)]
         )
-        var chapters = ((try? modelContext.fetch(chapterDescriptor)) ?? [])
-            .filter { ($0.endTime ?? now) > gridStart }
-        let activeChapters = ((try? modelContext.fetch(activeDescriptor)) ?? [])
-            .filter { $0.startTime < gridEnd && ($0.endTime ?? now) > gridStart }
+        var chapters: [Chapter]
+        do {
+            chapters = try modelContext.fetch(chapterDescriptor)
+                .filter { ($0.endTime ?? now) > gridStart }
+        } catch {
+            NSLog("Liminalog: failed to fetch calendar chapters: \(String(describing: error))")
+            didFailToLoadRecords = true
+            chapters = []
+        }
+        let activeChapters: [Chapter]
+        do {
+            activeChapters = try modelContext.fetch(activeDescriptor)
+                .filter { $0.startTime < gridEnd && ($0.endTime ?? now) > gridStart }
+        } catch {
+            NSLog("Liminalog: failed to fetch active calendar chapters: \(String(describing: error))")
+            didFailToLoadRecords = true
+            activeChapters = []
+        }
         let existingIDs = Set(chapters.map(\.id))
         chapters.append(contentsOf: activeChapters.filter { !existingIDs.contains($0.id) })
-        let chaptersInGrid = chapters.sorted { $0.startTime < $1.startTime }
+        let chaptersInGrid = chapters
+            .filter { chapter in
+                guard categoryFilterIsActive else { return true }
+                guard let categoryID = chapter.category?.id else { return false }
+                return visibleCategoryIDs.contains(categoryID)
+            }
+            .sorted { $0.startTime < $1.startTime }
+
+        let friendPlansInGrid = selectedOverlayFriends.map { friend in
+            CalendarFriendPlanSource(friend: friend, plans: friend.sharedPlans)
+        }
 
         var importantPlansByDay: [Date: [CalendarDisplayPlan]] = [:]
         var scoreSummariesByDay: [Date: CalendarDisplayScore] = [:]
 
         for date in dates {
             let boundary = DayBoundary(date: date, calendar: calendar)
-            let dayPlans = plansInGrid.filter { $0.startTime < boundary.dayEnd && $0.endTime > boundary.dayStart }
+            let dayPlans = visiblePlansInGrid.filter { $0.startTime < boundary.dayEnd && $0.endTime > boundary.dayStart }
             let dayChapters = chaptersInGrid.filter {
                 $0.startTime < boundary.dayEnd && ($0.endTime ?? now) > boundary.dayStart
             }
-            // データのない日はスコアバッジも重要予定も出ないため、計算自体を省く。
-            guard !dayPlans.isEmpty || !dayChapters.isEmpty else { continue }
-            importantPlansByDay[boundary.dayStart] = dayPlans
+            let importantPlans = dayPlans
                 .filter(\.showsInCalendarAsImportant)
                 .sorted(by: planSort)
                 .map { CalendarDisplayPlan(plan: $0) }
+            let friendImportantPlans = friendPlansInGrid
+                .flatMap { source in
+                    source.plans
+                        .filter { $0.startTime < boundary.dayEnd && $0.endTime > boundary.dayStart && $0.showsInCalendarAsImportant }
+                        .sorted {
+                            if $0.startTime == $1.startTime {
+                                return $0.updatedAt < $1.updatedAt
+                            }
+                            return $0.startTime < $1.startTime
+                        }
+                        .map { CalendarDisplayPlan(friendPlan: $0, friendName: source.friend.displayName) }
+                }
+            let displayPlans = (importantPlans + friendImportantPlans).sorted {
+                if $0.startTime == $1.startTime {
+                    return $0.createdAt < $1.createdAt
+                }
+                return $0.startTime < $1.startTime
+            }
+
+            // データのない日はスコアバッジも重要予定も出ないため、計算自体を省く。
+            guard !displayPlans.isEmpty || !dayPlans.isEmpty || !dayChapters.isEmpty else { continue }
+            if !displayPlans.isEmpty {
+                importantPlansByDay[boundary.dayStart] = displayPlans
+            }
             scoreSummariesByDay[boundary.dayStart] = CalendarDisplayScore(
                 summary: ScoreCalculator.summary(
                     date: date,
@@ -308,7 +536,8 @@ struct CalendarView: View {
             dates: dates,
             visibleMonth: month,
             importantPlansByDay: importantPlansByDay,
-            scoreSummariesByDay: scoreSummariesByDay
+            scoreSummariesByDay: scoreSummariesByDay,
+            didFailToLoadRecords: didFailToLoadRecords
         )
     }
 
@@ -343,8 +572,9 @@ private struct CalendarDayPagerSheet: View {
     @State private var anchorDate: Date
     @State private var selectedOffset = 0
     @State private var pendingCreateDate: Date
-    @State private var pendingPlanStartsAsImportant = false
+    @State private var pendingPlanStartsAsAllDay = false
     @State private var showingPlanSheet = false
+    @State private var operationError: String?
 
     init(initialDate: Date, highlightedPlanID: UUID?) {
         self.initialDate = Calendar.japanese.startOfDay(for: initialDate)
@@ -381,36 +611,29 @@ private struct CalendarDayPagerSheet: View {
                 }
             }
             ToolbarItem(placement: .topBarTrailing) {
-                dayVisibilityMenu
-            }
-            ToolbarItem(placement: .topBarTrailing) {
-                Menu {
+                HStack(spacing: 14) {
+                    dayVisibilityMenu
                     Button {
-                        pendingCreateDate = Calendar.japanese.startOfDay(for: anchorDate)
-                        pendingPlanStartsAsImportant = true
-                        showingPlanSheet = true
+                        preparePlanCreation()
                     } label: {
-                        Label("重要な予定を追加", systemImage: "star")
+                        Image(systemName: "plus")
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(LiminalTheme.accent)
+                            .frame(width: 32, height: 32)
                     }
-
-                    if canCreateTimedPlansForDay {
-                        Button {
-                            pendingCreateDate = defaultPlanStart
-                            pendingPlanStartsAsImportant = false
-                            showingPlanSheet = true
-                        } label: {
-                            Label("時間つき予定を追加", systemImage: "calendar.badge.plus")
-                        }
-                    } else {
-                        Label("今日以前の時間つき予定は追加できません", systemImage: "lock.fill")
-                    }
-                } label: {
-                    Image(systemName: "plus")
+                    .accessibilityLabel("予定を追加")
                 }
             }
         }
         .sheet(isPresented: $showingPlanSheet) {
-            PlanCreateSheet(initialDate: pendingCreateDate, startsAsAllDay: pendingPlanStartsAsImportant)
+            PlanCreateSheet(initialDate: pendingCreateDate, startsAsAllDay: pendingPlanStartsAsAllDay)
+        }
+        .alert("反映できませんでした", isPresented: operationErrorPresented) {
+            Button("OK", role: .cancel) {
+                operationError = nil
+            }
+        } message: {
+            Text(operationError ?? "")
         }
     }
 
@@ -433,6 +656,16 @@ private struct CalendarDayPagerSheet: View {
         }
     }
 
+    private var operationErrorPresented: Binding<Bool> {
+        Binding {
+            operationError != nil
+        } set: { isPresented in
+            if !isPresented {
+                operationError = nil
+            }
+        }
+    }
+
     private var dayVisibilityMenu: some View {
         let visibleDayChapters = dayChapters
         let allPublic = !visibleDayChapters.isEmpty && visibleDayChapters.allSatisfy(\.isPublic)
@@ -448,14 +681,20 @@ private struct CalendarDayPagerSheet: View {
                         .font(.caption)
                 }
                 Button {
-                    store.setChaptersVisibility(visibleDayChapters, isPublic: true)
+                    guard store.setChaptersVisibility(visibleDayChapters, isPublic: true) else {
+                        operationError = "公開設定を変更できませんでした。時間をおいてもう一度試してください。"
+                        return
+                    }
                 } label: {
                     Label("すべて公開", systemImage: "eye")
                 }
                 .disabled(allPublic)
 
                 Button {
-                    store.setChaptersVisibility(visibleDayChapters, isPublic: false)
+                    guard store.setChaptersVisibility(visibleDayChapters, isPublic: false) else {
+                        operationError = "公開設定を変更できませんでした。時間をおいてもう一度試してください。"
+                        return
+                    }
                 } label: {
                     Label("すべて非公開", systemImage: "eye.slash")
                 }
@@ -467,10 +706,10 @@ private struct CalendarDayPagerSheet: View {
             }
         } label: {
             Image(systemName: allPrivate ? "eye.slash" : (isMixed ? "eye.fill" : "eye"))
-                .foregroundStyle(isMixed ? Color.accentColor : Color.primary)
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(LiminalTheme.accent)
         }
         .accessibilityLabel("この日の公開設定")
-        .disabled(visibleDayChapters.isEmpty)
     }
 
     private var dayChapters: [Chapter] {
@@ -492,6 +731,17 @@ private struct CalendarDayPagerSheet: View {
             return Date()
         }
         return Calendar.japanese.date(bySettingHour: 9, minute: 0, second: 0, of: anchorDate) ?? anchorDate
+    }
+
+    private func preparePlanCreation() {
+        if canCreateTimedPlansForDay {
+            pendingCreateDate = defaultPlanStart
+            pendingPlanStartsAsAllDay = false
+        } else {
+            pendingCreateDate = Calendar.japanese.startOfDay(for: anchorDate)
+            pendingPlanStartsAsAllDay = true
+        }
+        showingPlanSheet = true
     }
 }
 
@@ -546,6 +796,226 @@ struct CalendarSettingsSheet: View {
     }
 }
 
+struct CalendarFilterSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var selectedTab = CalendarFilterTab.categories
+
+    let categories: [Category]
+    let friends: [Friend]
+    let isResetEnabled: Bool
+    let isCategorySelected: (Category) -> Bool
+    let onToggleCategory: (Category) -> Void
+    let isFriendSelected: (Friend) -> Bool
+    let onToggleFriend: (Friend) -> Void
+    let onReset: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                Picker("表示対象", selection: $selectedTab) {
+                    ForEach(CalendarFilterTab.allCases) { tab in
+                        Label(tab.title, systemImage: tab.systemImage)
+                            .tag(tab)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, 20)
+                .padding(.top, 12)
+                .padding(.bottom, 8)
+
+                TabView(selection: $selectedTab) {
+                    CalendarCategoryFilterList(
+                        categories: categories,
+                        isResetEnabled: isResetEnabled,
+                        isCategorySelected: isCategorySelected,
+                        onToggleCategory: onToggleCategory,
+                        onReset: onReset
+                    )
+                    .tag(CalendarFilterTab.categories)
+
+                    CalendarFriendFilterList(
+                        friends: friends,
+                        isResetEnabled: isResetEnabled,
+                        isFriendSelected: isFriendSelected,
+                        onToggleFriend: onToggleFriend,
+                        onReset: onReset
+                    )
+                    .tag(CalendarFilterTab.friends)
+                }
+                .tabViewStyle(.page(indexDisplayMode: .never))
+            }
+            .navigationTitle("表示フィルタ")
+            .navigationBarTitleDisplayMode(.inline)
+            .tint(LiminalTheme.accent)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "chevron.left")
+                    }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+    }
+}
+
+private enum CalendarFilterTab: String, CaseIterable, Identifiable {
+    case categories
+    case friends
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .categories:
+            "カテゴリ"
+        case .friends:
+            "友達"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .categories:
+            "square.grid.2x2"
+        case .friends:
+            "person.2"
+        }
+    }
+}
+
+private struct CalendarCategoryFilterList: View {
+    let categories: [Category]
+    let isResetEnabled: Bool
+    let isCategorySelected: (Category) -> Bool
+    let onToggleCategory: (Category) -> Void
+    let onReset: () -> Void
+
+    var body: some View {
+        Form {
+            Section {
+                if categories.isEmpty {
+                    Text("カテゴリがありません")
+                        .foregroundStyle(LiminalTheme.secondaryText)
+                } else {
+                    ForEach(categories) { category in
+                        CalendarCategoryFilterRow(
+                            category: category,
+                            isSelected: isCategorySelected(category),
+                            onToggle: { onToggleCategory(category) }
+                        )
+                    }
+                }
+            } header: {
+                Text("カテゴリ")
+            } footer: {
+                Text("オフにしたカテゴリの予定と実績はカレンダー上で非表示になります。")
+            }
+
+            Section {
+                Button("すべて表示に戻す") {
+                    onReset()
+                }
+                .disabled(!isResetEnabled)
+            }
+        }
+    }
+}
+
+private struct CalendarFriendFilterList: View {
+    let friends: [Friend]
+    let isResetEnabled: Bool
+    let isFriendSelected: (Friend) -> Bool
+    let onToggleFriend: (Friend) -> Void
+    let onReset: () -> Void
+
+    var body: some View {
+        Form {
+            Section {
+                if friends.isEmpty {
+                    Text("選べる友達がいません")
+                        .foregroundStyle(LiminalTheme.secondaryText)
+                } else {
+                    ForEach(friends) { friend in
+                        CalendarFriendFilterRow(
+                            friend: friend,
+                            isSelected: isFriendSelected(friend),
+                            onToggle: { onToggleFriend(friend) }
+                        )
+                    }
+                }
+            } header: {
+                Text("友達")
+            } footer: {
+                Text("選んだ友達の予定を自分のカレンダーに重ねて表示します。")
+            }
+
+            Section {
+                Button("すべて表示に戻す") {
+                    onReset()
+                }
+                .disabled(!isResetEnabled)
+            }
+        }
+    }
+}
+
+private struct CalendarCategoryFilterRow: View {
+    let category: Category
+    let isSelected: Bool
+    let onToggle: () -> Void
+
+    var body: some View {
+        Toggle(isOn: Binding(
+            get: { isSelected },
+            set: { _ in onToggle() }
+        )) {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(category.displayColor.opacity(0.18))
+                    Image(systemName: category.icon ?? "circle.fill")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(category.displayColor)
+                }
+                .frame(width: 30, height: 30)
+
+                Text(category.name)
+                    .foregroundStyle(LiminalTheme.text)
+            }
+        }
+    }
+}
+
+private struct CalendarFriendFilterRow: View {
+    let friend: Friend
+    let isSelected: Bool
+    let onToggle: () -> Void
+
+    var body: some View {
+        Toggle(isOn: Binding(
+            get: { isSelected },
+            set: { _ in onToggle() }
+        )) {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(Color.cachedDisplayHex(friend.accentColorHex).opacity(0.18))
+                    Image(systemName: friend.avatarSystemImage)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Color.cachedDisplayHex(friend.accentColorHex))
+                }
+                .frame(width: 30, height: 30)
+
+                Text(friend.displayName)
+                    .foregroundStyle(LiminalTheme.text)
+            }
+        }
+    }
+}
+
 struct CalendarSettingsContent: View {
     @AppStorage("calendarTimedPlanLabelStyle") private var timedPlanLabelStyleRaw = CalendarPlanLabelStyle.background.rawValue
     @AppStorage("calendarAllDayPlanLabelStyle") private var allDayPlanLabelStyleRaw = CalendarPlanLabelStyle.background.rawValue
@@ -561,7 +1031,7 @@ struct CalendarSettingsContent: View {
                 CalendarLabelStyleSettingRow(
                     title: "時刻指定",
                     selectionRaw: $timedPlanLabelStyleRaw,
-                    fontSize: planTitleFontSize,
+                    fontSize: normalizedPlanTitleFontSize,
                     isBold: planTitleBold,
                     sampleTime: "9:30"
                 )
@@ -569,7 +1039,7 @@ struct CalendarSettingsContent: View {
                 CalendarLabelStyleSettingRow(
                     title: "終日",
                     selectionRaw: $allDayPlanLabelStyleRaw,
-                    fontSize: planTitleFontSize,
+                    fontSize: normalizedPlanTitleFontSize,
                     isBold: planTitleBold,
                     sampleTime: nil
                 )
@@ -577,14 +1047,14 @@ struct CalendarSettingsContent: View {
                 CalendarLabelStyleSettingRow(
                     title: "複数日",
                     selectionRaw: $multiDayPlanLabelStyleRaw,
-                    fontSize: planTitleFontSize,
+                    fontSize: normalizedPlanTitleFontSize,
                     isBold: planTitleBold,
                     sampleTime: nil
                 )
             }
 
             Section("フォント") {
-                CalendarFontSizeSlider(value: $planTitleFontSize)
+                CalendarFontSizeSlider(value: normalizedPlanTitleFontSizeBinding)
                 Toggle("太字", isOn: $planTitleBold)
             }
 
@@ -599,6 +1069,73 @@ struct CalendarSettingsContent: View {
         }
         .navigationTitle("表示形式")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            normalizePlanTitleFontSize()
+            normalizePlanLabelStyleRawValues()
+        }
+        .onChange(of: planTitleFontSize) { _, _ in
+            normalizePlanTitleFontSize()
+        }
+        .onChange(of: timedPlanLabelStyleRaw) { _, _ in
+            normalizePlanLabelStyleRawValues()
+        }
+        .onChange(of: allDayPlanLabelStyleRaw) { _, _ in
+            normalizePlanLabelStyleRawValues()
+        }
+        .onChange(of: multiDayPlanLabelStyleRaw) { _, _ in
+            normalizePlanLabelStyleRawValues()
+        }
+    }
+
+    private var normalizedPlanTitleFontSize: Double {
+        CalendarPlanTitleMetrics.clamped(planTitleFontSize)
+    }
+
+    private var normalizedPlanTitleFontSizeBinding: Binding<Double> {
+        Binding {
+            normalizedPlanTitleFontSize
+        } set: { newValue in
+            planTitleFontSize = CalendarPlanTitleMetrics.clamped(newValue)
+        }
+    }
+
+    private func normalizePlanTitleFontSize() {
+        let normalized = normalizedPlanTitleFontSize
+        guard planTitleFontSize != normalized else { return }
+        planTitleFontSize = normalized
+    }
+
+    private func normalizePlanLabelStyleRawValues() {
+        let defaultRawValue = CalendarPlanLabelStyle.background.rawValue
+        let normalizedTimed = CalendarPlanLabelStyle(rawValue: timedPlanLabelStyleRaw)?.rawValue ?? defaultRawValue
+        let normalizedAllDay = CalendarPlanLabelStyle(rawValue: allDayPlanLabelStyleRaw)?.rawValue ?? defaultRawValue
+        let normalizedMultiDay = CalendarPlanLabelStyle(rawValue: multiDayPlanLabelStyleRaw)?.rawValue ?? defaultRawValue
+
+        if timedPlanLabelStyleRaw != normalizedTimed {
+            timedPlanLabelStyleRaw = normalizedTimed
+        }
+        if allDayPlanLabelStyleRaw != normalizedAllDay {
+            allDayPlanLabelStyleRaw = normalizedAllDay
+        }
+        if multiDayPlanLabelStyleRaw != normalizedMultiDay {
+            multiDayPlanLabelStyleRaw = normalizedMultiDay
+        }
+    }
+}
+
+private enum CalendarPlanTitleMetrics {
+    static let defaultSize = 6.0
+    static let minSize = 5.0
+    static let maxSize = 9.0
+    static let step = 0.5
+
+    static var stepCount: Int {
+        Int(((maxSize - minSize) / step).rounded()) + 1
+    }
+
+    static func clamped(_ value: Double) -> Double {
+        guard value.isFinite else { return defaultSize }
+        return min(max(value, minSize), maxSize)
     }
 }
 
@@ -676,7 +1213,7 @@ private struct CalendarLabelStyleSelectionView: View {
                             }
 
                             Text(style.label)
-                                .foregroundStyle(.primary)
+                                .foregroundStyle(LiminalTheme.text)
 
                             Spacer(minLength: 16)
 
@@ -707,8 +1244,6 @@ private struct CalendarLabelStyleSelectionView: View {
 private struct CalendarFontSizeSlider: View {
     @Binding var value: Double
 
-    private let stepCount = 9
-
     var body: some View {
         HStack(spacing: 12) {
             Text("A")
@@ -716,15 +1251,15 @@ private struct CalendarFontSizeSlider: View {
                 .foregroundStyle(.tint)
 
             VStack(spacing: 0) {
-                Slider(value: $value, in: 5...9, step: 0.5)
+                Slider(value: $value, in: CalendarPlanTitleMetrics.minSize...CalendarPlanTitleMetrics.maxSize, step: CalendarPlanTitleMetrics.step)
 
                 HStack {
-                    ForEach(0..<stepCount, id: \.self) { index in
+                    ForEach(0..<CalendarPlanTitleMetrics.stepCount, id: \.self) { index in
                         Circle()
-                            .fill(index == selectedStepIndex ? Color.accentColor : Color.secondary.opacity(0.42))
+                            .fill(index == selectedStepIndex ? LiminalTheme.accent : LiminalTheme.secondaryText.opacity(0.42))
                             .frame(width: index == selectedStepIndex ? 5 : 3, height: index == selectedStepIndex ? 5 : 3)
 
-                        if index < stepCount - 1 {
+                        if index < CalendarPlanTitleMetrics.stepCount - 1 {
                             Spacer(minLength: 0)
                         }
                     }
@@ -741,7 +1276,9 @@ private struct CalendarFontSizeSlider: View {
     }
 
     private var selectedStepIndex: Int {
-        min(max(Int(((value - 5) / 0.5).rounded()), 0), stepCount - 1)
+        let normalized = CalendarPlanTitleMetrics.clamped(value)
+        let rawIndex = Int(((normalized - CalendarPlanTitleMetrics.minSize) / CalendarPlanTitleMetrics.step).rounded())
+        return min(max(rawIndex, 0), CalendarPlanTitleMetrics.stepCount - 1)
     }
 }
 
@@ -756,20 +1293,21 @@ private struct CalendarLabelStylePreview: View {
         HStack(spacing: 3) {
             if let timeText {
                 Text(timeText)
-                    .font(.system(size: max(4, fontSize - 1), weight: .medium, design: .rounded))
+                    .font(.system(size: max(4, displayFontSize - 1), weight: .medium, design: .rounded))
                     .foregroundStyle(timeColor)
                     .monospacedDigit()
                     .lineLimit(1)
             }
 
             Text("予定")
-                .font(.system(size: fontSize, weight: isBold ? .bold : .regular))
+                .font(.system(size: displayFontSize, weight: isBold ? .bold : .regular))
                 .foregroundStyle(titleColor)
                 .lineLimit(1)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(height: max(12, CGFloat(fontSize) + 5))
+        .frame(height: max(9, CGFloat(displayFontSize) + 3))
         .padding(.horizontal, 3)
+        .offset(y: textVerticalOffset)
         .background {
             if style == .background {
                 RoundedRectangle(cornerRadius: 4)
@@ -802,11 +1340,19 @@ private struct CalendarLabelStylePreview: View {
     }
 
     private var markerHeight: CGFloat {
-        max(4, CGFloat(fontSize) * 0.48)
+        max(2, CGFloat(displayFontSize) * 0.32)
     }
 
     private var markerBottomPadding: CGFloat {
-        max(1, CGFloat(fontSize) * 0.08)
+        max(0.5, CGFloat(displayFontSize) * 0.05)
+    }
+
+    private var textVerticalOffset: CGFloat {
+        style == .underline ? -max(0.5, CGFloat(displayFontSize) * 0.1) : 0
+    }
+
+    private var displayFontSize: Double {
+        CalendarPlanTitleMetrics.clamped(fontSize)
     }
 }
 
@@ -876,11 +1422,25 @@ private struct CalendarPlanSearchSheet: View {
                 ScrollViewReader { proxy in
                     ScrollView {
                         LazyVStack(spacing: 0) {
-                            if trimmedQuery.isEmpty {
+                            if plans.isEmpty {
+                                ContentUnavailableView(
+                                    "検索できる予定がありません",
+                                    systemImage: "calendar",
+                                    description: Text("予定を作成すると、ここから探せます")
+                                )
+                                .padding(.top, 72)
+                            } else if trimmedQuery.isEmpty {
                                 ContentUnavailableView(
                                     "予定名を入力",
                                     systemImage: "magnifyingglass",
                                     description: Text("検索欄に入力すると候補を表示します")
+                                )
+                                .padding(.top, 72)
+                            } else if filteredPlans.isEmpty {
+                                ContentUnavailableView(
+                                    "該当する予定はありません",
+                                    systemImage: "magnifyingglass",
+                                    description: Text("別の予定名で検索してください")
                                 )
                                 .padding(.top, 72)
                             } else {
@@ -921,10 +1481,10 @@ private struct CalendarPlanSearchSheet: View {
 
                 Text(searchResultText)
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(LiminalTheme.secondaryText)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
-                    .background(.bar)
+                    .background(LiminalTheme.surface)
             }
             .navigationTitle("予定を検索")
             .navigationBarTitleDisplayMode(.inline)
@@ -947,14 +1507,17 @@ private struct CalendarPlanSearchSheet: View {
     }
 
     private var searchResultText: String {
-        trimmedQuery.isEmpty ? "検索ワードを入力してください" : "検索結果: \(filteredPlans.count)件"
+        if plans.isEmpty { return "検索できる予定はありません" }
+        if trimmedQuery.isEmpty { return "予定名を入力してください" }
+        if filteredPlans.isEmpty { return "該当する予定はありません" }
+        return "\(filteredPlans.count)件見つかりました"
     }
 
     private var searchField: some View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
                 .font(.title3)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(LiminalTheme.secondaryText)
 
             TextField("予定名で検索", text: $query)
                 .textInputAutocapitalization(.never)
@@ -967,7 +1530,7 @@ private struct CalendarPlanSearchSheet: View {
                 } label: {
                     Image(systemName: "xmark.circle.fill")
                         .font(.title3)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(LiminalTheme.secondaryText)
                 }
                 .buttonStyle(.plain)
             }
@@ -976,11 +1539,11 @@ private struct CalendarPlanSearchSheet: View {
         .frame(height: 54)
         .background(
             Capsule()
-                .fill(Color(.secondarySystemGroupedBackground))
+                .fill(LiminalTheme.surface)
         )
         .overlay(
             Capsule()
-                .stroke(Color(.separator).opacity(0.45), lineWidth: 1)
+                .stroke(LiminalTheme.divider.opacity(0.72), lineWidth: 1)
         )
     }
 
@@ -1034,35 +1597,35 @@ private struct CalendarPlanSearchRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(plan.startTime.japaneseYear)
                     .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(LiminalTheme.secondaryText)
 
                 Text(monthDayText)
                     .font(.title3.weight(.bold))
-                    .foregroundStyle(isPast ? Color.secondary : Color.red)
+                    .foregroundStyle(isPast ? LiminalTheme.secondaryText : Color.red)
                     .monospacedDigit()
 
                 Text(weekdayText)
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(isPast ? Color.secondary : Color.red)
+                    .foregroundStyle(isPast ? LiminalTheme.secondaryText : Color.red)
             }
             .frame(width: 88, alignment: .leading)
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(timeText)
                     .font(.caption.weight(.medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(LiminalTheme.secondaryText)
                     .monospacedDigit()
 
                 HStack(spacing: 6) {
                     Circle()
-                        .fill(plan.category?.displayColor ?? Color.accentColor)
+                        .fill(plan.category?.displayColor ?? LiminalTheme.accent)
                         .frame(width: 6, height: 6)
 
                     Text(plan.title)
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(LiminalTheme.text)
                         .lineLimit(1)
-                        .strikethrough(isPast && strikePastPlans, color: .primary)
+                        .strikethrough(isPast && strikePastPlans, color: LiminalTheme.text)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -1070,11 +1633,11 @@ private struct CalendarPlanSearchRow: View {
             Button(action: onEdit) {
                 Image(systemName: "pencil")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(LiminalTheme.secondaryText)
                     .frame(width: 32, height: 32)
                     .background(
                         Circle()
-                            .fill(Color(.tertiarySystemGroupedBackground))
+                            .fill(LiminalTheme.elevated)
                     )
             }
             .buttonStyle(.borderless)
@@ -1106,7 +1669,7 @@ private struct CalendarPlanSearchRow: View {
 
     private var timeText: String {
         if plan.isAllDay {
-            return "時間未指定"
+            return "終日"
         }
         return "\(plan.startTime.shortTime) - \(plan.endTime.shortTime)"
     }
@@ -1132,6 +1695,66 @@ private extension PlanBlock {
     }
 }
 
+private struct CalendarMonthPage: View {
+    let weekdays: [String]
+    let weekdayColor: (String) -> Color
+    let pageData: CalendarMonthPageData
+    let onOpenDay: (Date, UUID?) -> Void
+
+    private let spacing: CGFloat = 1
+
+    var body: some View {
+        ZStack(alignment: .top) {
+            VStack(spacing: spacing) {
+                CalendarWeekdayHeader(
+                    weekdays: weekdays,
+                    weekdayColor: weekdayColor
+                )
+
+                CalendarMonthGrid(
+                    pageData: pageData,
+                    onOpenDay: onOpenDay
+                )
+            }
+
+            if pageData.didFailToLoadRecords {
+                Text("一部を読み込めませんでした")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(LiminalTheme.accent)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(
+                        Capsule()
+                            .fill(LiminalTheme.elevated.opacity(0.94))
+                    )
+                    .overlay(
+                        Capsule()
+                            .stroke(LiminalTheme.divider.opacity(0.7), lineWidth: 0.5)
+                    )
+                    .padding(.top, 30)
+            }
+        }
+        .frame(height: Self.height(forWeekCount: weekCount), alignment: .top)
+        .background(LiminalTheme.divider.opacity(0.56))
+    }
+
+    static func height(forWeekCount weekCount: Int) -> CGFloat {
+        let clampedWeekCount = max(5, min(6, weekCount))
+        let gridHeight = CGFloat(clampedWeekCount) * CalendarMonthDayCell.cellHeight(forWeekCount: clampedWeekCount)
+        let gridSpacing = CGFloat(clampedWeekCount - 1)
+        return 28 + 1 + gridHeight + gridSpacing
+    }
+
+    private var weekCount: Int {
+        pageData.dates.count / 7
+    }
+}
+
+private struct CalendarFriendPlanSource {
+    let friend: Friend
+    let plans: [FriendSharedPlanSnapshot]
+}
+
 struct CalendarWeekdayHeader: View {
     let weekdays: [String]
     let weekdayColor: (String) -> Color
@@ -1146,16 +1769,10 @@ struct CalendarWeekdayHeader: View {
                     .foregroundStyle(weekdayColor(weekday))
                     .frame(maxWidth: .infinity)
                     .frame(height: 28)
-                    .background(Color(.secondarySystemGroupedBackground))
+                    .background(LiminalTheme.surface)
             }
         }
-        .background(Color(.separator).opacity(0.32))
-        .clipShape(RoundedRectangle(cornerRadius: 10))
-        .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .stroke(Color(.separator).opacity(0.28), lineWidth: 1)
-        )
-        .padding(.top, 6)
+        .background(LiminalTheme.divider.opacity(0.56))
     }
 }
 
@@ -1213,6 +1830,18 @@ struct CalendarDisplayPlan: Identifiable, Hashable {
         )
     }
 
+    init(friendPlan plan: FriendSharedPlanSnapshot, friendName: String) {
+        self.init(
+            id: plan.id,
+            title: "\(friendName): \(plan.title)",
+            startTime: plan.startTime,
+            endTime: plan.endTime,
+            isAllDay: plan.isAllDay,
+            categoryColorHex: plan.categoryColorHex,
+            createdAt: plan.updatedAt
+        )
+    }
+
     var color: Color {
         Color.cachedDisplayHex(categoryColorHex)
     }
@@ -1237,11 +1866,10 @@ struct CalendarMonthPageData {
     let visibleMonth: Date
     let importantPlansByDay: [Date: [CalendarDisplayPlan]]
     let scoreSummariesByDay: [Date: CalendarDisplayScore]
+    let didFailToLoadRecords: Bool
 }
 
 struct CalendarMonthGrid: View {
-    @Environment(\.colorScheme) private var colorScheme
-
     let pageData: CalendarMonthPageData
     let onOpenDay: (Date, UUID?) -> Void
 
@@ -1263,11 +1891,6 @@ struct CalendarMonthGrid: View {
             }
         }
         .background(gridDividerColor)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(gridBorderColor, lineWidth: 1)
-        )
     }
 
     private var weekDates: [[Date]] {
@@ -1281,12 +1904,9 @@ struct CalendarMonthGrid: View {
     }
 
     private var gridDividerColor: Color {
-        colorScheme == .dark ? Color.white.opacity(0.14) : Color(.separator).opacity(0.32)
+        LiminalTheme.divider.opacity(0.58)
     }
 
-    private var gridBorderColor: Color {
-        colorScheme == .dark ? Color.white.opacity(0.16) : Color(.separator).opacity(0.28)
-    }
 }
 
 private struct CalendarMonthWeekRow: View {
@@ -1487,7 +2107,7 @@ private struct CalendarMonthWeekRow: View {
     }
 
     private var labelHeight: CGFloat {
-        max(11, CGFloat(planTitleFontSize) + 5)
+        max(9, CGFloat(displayPlanTitleFontSize) + 3)
     }
 
     private var planRowSpacing: CGFloat {
@@ -1496,6 +2116,10 @@ private struct CalendarMonthWeekRow: View {
 
     private var rowStride: CGFloat {
         labelHeight + planRowSpacing
+    }
+
+    private var displayPlanTitleFontSize: Double {
+        CalendarPlanTitleMetrics.clamped(planTitleFontSize)
     }
 }
 
@@ -1544,7 +2168,7 @@ struct CalendarMonthDayCell: View {
                     .frame(width: 22, height: 22)
                     .background {
                         if isToday {
-                            Circle().fill(Color.accentColor)
+                            Circle().fill(LiminalTheme.accent)
                         }
                     }
 
@@ -1567,7 +2191,7 @@ struct CalendarMonthDayCell: View {
                 if overflow > 0 {
                     Text("+\(overflow)件")
                         .font(.system(size: 6, weight: .regular))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(LiminalTheme.secondaryText)
                         .lineLimit(1)
                 }
             }
@@ -1579,11 +2203,12 @@ struct CalendarMonthDayCell: View {
         .frame(maxWidth: .infinity, minHeight: cellHeight, alignment: .topLeading)
         .background(
             Rectangle()
-                .fill(isInVisibleMonth ? Color(.secondarySystemGroupedBackground) : Color(.tertiarySystemGroupedBackground).opacity(0.5))
+                .fill(isInVisibleMonth ? LiminalTheme.surface : LiminalTheme.elevated.opacity(0.5))
         )
         .overlay(
             Rectangle()
-                .stroke(isToday ? Color.accentColor : Color.clear, lineWidth: isToday ? 2.5 : 0)
+                .inset(by: isToday ? 0.75 : 0)
+                .strokeBorder(isToday ? LiminalTheme.accent : Color.clear, lineWidth: isToday ? 2.25 : 0)
         )
         .opacity(isInVisibleMonth ? 1 : 0.48)
     }
@@ -1596,7 +2221,7 @@ struct CalendarMonthDayCell: View {
         if weekday == 7 {
             return .blue
         }
-        return .primary
+        return LiminalTheme.text
     }
 
     private var singleDayImportantPlans: [CalendarDisplayPlan] {
@@ -1632,7 +2257,7 @@ struct CalendarMonthDayCell: View {
     }
 
     private var labelHeight: CGFloat {
-        max(11, CGFloat(planTitleFontSize) + 5)
+        max(9, CGFloat(displayPlanTitleFontSize) + 3)
     }
 
     private var planRowSpacing: CGFloat {
@@ -1641,6 +2266,10 @@ struct CalendarMonthDayCell: View {
 
     private var rowStride: CGFloat {
         labelHeight + planRowSpacing
+    }
+
+    private var displayPlanTitleFontSize: Double {
+        CalendarPlanTitleMetrics.clamped(planTitleFontSize)
     }
 }
 
@@ -1660,10 +2289,6 @@ private struct CalendarScoreBadge: View {
                         style: StrokeStyle(lineWidth: 2.4, lineCap: .round)
                     )
                     .rotationEffect(.degrees(-90))
-            } else {
-                Circle()
-                    .fill(Color.secondary.opacity(0.16))
-                    .frame(width: 4, height: 4)
             }
         }
         .frame(width: 18, height: 18)
@@ -1721,10 +2346,12 @@ private struct CalendarImportantPlanLabel: View {
                     .lineLimit(1)
                     .fixedSize(horizontal: true, vertical: false)
                     .strikethrough(shouldStrikePastPlan, color: timeColor)
+                    .shadow(color: textShadowColor, radius: 0.5, x: 0, y: 0.5)
             }
 
             clippedTitle
         }
+            .offset(y: textVerticalOffset)
             .frame(maxWidth: .infinity, alignment: .leading)
             .frame(height: labelHeight)
             .padding(.horizontal, 3)
@@ -1732,7 +2359,7 @@ private struct CalendarImportantPlanLabel: View {
             .overlay(borderShape)
             .padding(.leading, continuesFromPreviousDay ? -3 : 0)
             .padding(.trailing, continuesToNextDay ? -3 : 0)
-            .opacity(isPastPlan && dimPastPlans ? 0.38 : 1)
+            .opacity(labelOpacity)
             .accessibilityLabel("\(plan.title) 重要な予定")
     }
 
@@ -1740,11 +2367,12 @@ private struct CalendarImportantPlanLabel: View {
         Color.clear
             .overlay(alignment: .leading) {
                 Text(plan.title)
-                    .font(.system(size: titleFontSize, weight: titleBold ? .bold : .regular))
+                    .font(.system(size: displayTitleFontSize, weight: titleBold ? .bold : .regular))
                     .foregroundStyle(titleColor)
                     .lineLimit(1)
                     .fixedSize(horizontal: true, vertical: false)
                     .strikethrough(shouldStrikePastPlan, color: titleColor)
+                    .shadow(color: textShadowColor, radius: 0.5, x: 0, y: 0.5)
             }
             .clipped()
     }
@@ -1788,56 +2416,89 @@ private struct CalendarImportantPlanLabel: View {
 
     private var titleColor: Color {
         if labelStyle == .background {
-            return .primary
+            return .white
         }
         return color
     }
 
     private var timeColor: Color {
         if labelStyle == .background {
-            return .secondary
+            return .white.opacity(0.76)
         }
         return color
     }
 
     private var backgroundFillColor: Color {
-        CalendarPlanColorRendering.surface(
+        if usesLightPastDimStyle {
+            return CalendarPlanColorRendering.lightPastSurface(from: color, sourceAmount: 0.82, alpha: 0.68)
+        }
+        return CalendarPlanColorRendering.surface(
             from: color,
             colorScheme: colorScheme,
-            intensity: colorScheme == .dark ? 0.48 : 0.28
+            intensity: colorScheme == .dark ? 0.72 : 0.84
         )
     }
 
     private var borderColor: Color {
-        CalendarPlanColorRendering.surface(
+        if usesLightPastDimStyle {
+            return CalendarPlanColorRendering.lightPastSurface(from: color, sourceAmount: 0.9, alpha: 0.84)
+        }
+        return CalendarPlanColorRendering.surface(
             from: color,
             colorScheme: colorScheme,
-            intensity: colorScheme == .dark ? 0.84 : 0.64
+            intensity: colorScheme == .dark ? 0.98 : 0.96
         )
     }
 
     private var markerColor: Color {
-        CalendarPlanColorRendering.surface(
+        if usesLightPastDimStyle {
+            return CalendarPlanColorRendering.lightPastSurface(from: color, sourceAmount: 0.86, alpha: 0.76)
+        }
+        return CalendarPlanColorRendering.surface(
             from: color,
             colorScheme: colorScheme,
-            intensity: colorScheme == .dark ? 0.92 : 0.78
+            intensity: colorScheme == .dark ? 1 : 0.98
         )
     }
 
+    private var textShadowColor: Color {
+        labelStyle == .background ? .black.opacity(usesLightPastDimStyle ? 0.28 : (colorScheme == .dark ? 0.24 : 0.18)) : .clear
+    }
+
+    private var labelOpacity: Double {
+        usesLightPastDimStyle ? 1 : (isPastDimmed ? 0.38 : 1)
+    }
+
+    private var isPastDimmed: Bool {
+        isPastPlan && dimPastPlans
+    }
+
+    private var usesLightPastDimStyle: Bool {
+        colorScheme != .dark && isPastDimmed
+    }
+
     private var timeFontSize: Double {
-        max(4, titleFontSize - 1)
+        max(4, displayTitleFontSize - 1)
     }
 
     private var labelHeight: CGFloat {
-        max(11, CGFloat(titleFontSize) + 5)
+        max(9, CGFloat(displayTitleFontSize) + 3)
     }
 
     private var markerHeight: CGFloat {
-        max(4, CGFloat(titleFontSize) * 0.5)
+        max(2, CGFloat(displayTitleFontSize) * 0.32)
     }
 
     private var markerBottomPadding: CGFloat {
-        max(1, CGFloat(titleFontSize) * 0.08)
+        max(0.5, CGFloat(displayTitleFontSize) * 0.05)
+    }
+
+    private var textVerticalOffset: CGFloat {
+        labelStyle == .underline ? -max(0.5, CGFloat(displayTitleFontSize) * 0.1) : 0
+    }
+
+    private var displayTitleFontSize: Double {
+        CalendarPlanTitleMetrics.clamped(titleFontSize)
     }
 
     private var isPastPlan: Bool {
@@ -1889,16 +2550,18 @@ private struct CalendarMultiDayPlanBar: View {
         Color.clear
             .overlay {
                 Text(plan.title)
-                    .font(.system(size: titleFontSize, weight: titleBold ? .bold : .regular))
+                    .font(.system(size: displayTitleFontSize, weight: titleBold ? .bold : .regular))
                     .foregroundStyle(titleColor)
                     .lineLimit(1)
                     .fixedSize(horizontal: true, vertical: false)
                     .strikethrough(isPastPlan && strikePastPlans, color: titleColor)
+                    .shadow(color: textShadowColor, radius: 0.5, x: 0, y: 0.5)
+                    .offset(y: textVerticalOffset)
             }
             .background(backgroundShape)
             .overlay(decorationOverlay)
             .clipped()
-            .opacity(isPastPlan && dimPastPlans ? 0.38 : 1)
+            .opacity(labelOpacity)
             .accessibilityLabel("\(plan.title) 複数日に跨る重要な予定")
     }
 
@@ -1940,41 +2603,74 @@ private struct CalendarMultiDayPlanBar: View {
 
     private var titleColor: Color {
         if labelStyle == .background {
-            return .primary
+            return .white
         }
         return color
     }
 
     private var backgroundFillColor: Color {
-        CalendarPlanColorRendering.surface(
+        if usesLightPastDimStyle {
+            return CalendarPlanColorRendering.lightPastSurface(from: color, sourceAmount: 0.82, alpha: 0.68)
+        }
+        return CalendarPlanColorRendering.surface(
             from: color,
             colorScheme: colorScheme,
-            intensity: colorScheme == .dark ? 0.48 : 0.28
+            intensity: colorScheme == .dark ? 0.72 : 0.84
         )
     }
 
     private var borderColor: Color {
-        CalendarPlanColorRendering.surface(
+        if usesLightPastDimStyle {
+            return CalendarPlanColorRendering.lightPastSurface(from: color, sourceAmount: 0.9, alpha: 0.84)
+        }
+        return CalendarPlanColorRendering.surface(
             from: color,
             colorScheme: colorScheme,
-            intensity: colorScheme == .dark ? 0.84 : 0.64
+            intensity: colorScheme == .dark ? 0.98 : 0.96
         )
     }
 
     private var markerColor: Color {
-        CalendarPlanColorRendering.surface(
+        if usesLightPastDimStyle {
+            return CalendarPlanColorRendering.lightPastSurface(from: color, sourceAmount: 0.86, alpha: 0.76)
+        }
+        return CalendarPlanColorRendering.surface(
             from: color,
             colorScheme: colorScheme,
-            intensity: colorScheme == .dark ? 0.92 : 0.78
+            intensity: colorScheme == .dark ? 1 : 0.98
         )
     }
 
+    private var textShadowColor: Color {
+        labelStyle == .background ? .black.opacity(usesLightPastDimStyle ? 0.28 : (colorScheme == .dark ? 0.24 : 0.18)) : .clear
+    }
+
+    private var labelOpacity: Double {
+        usesLightPastDimStyle ? 1 : (isPastDimmed ? 0.38 : 1)
+    }
+
+    private var isPastDimmed: Bool {
+        isPastPlan && dimPastPlans
+    }
+
+    private var usesLightPastDimStyle: Bool {
+        colorScheme != .dark && isPastDimmed
+    }
+
     private var markerHeight: CGFloat {
-        max(4, CGFloat(titleFontSize) * 0.5)
+        max(2, CGFloat(displayTitleFontSize) * 0.32)
     }
 
     private var markerBottomPadding: CGFloat {
-        max(1, CGFloat(titleFontSize) * 0.08)
+        max(0.5, CGFloat(displayTitleFontSize) * 0.05)
+    }
+
+    private var textVerticalOffset: CGFloat {
+        labelStyle == .underline ? -max(0.5, CGFloat(displayTitleFontSize) * 0.1) : 0
+    }
+
+    private var displayTitleFontSize: Double {
+        CalendarPlanTitleMetrics.clamped(titleFontSize)
     }
 
     private var isPastPlan: Bool {
@@ -1987,9 +2683,16 @@ private enum CalendarPlanColorRendering {
         let style: UIUserInterfaceStyle = colorScheme == .dark ? .dark : .light
         let traits = UITraitCollection(userInterfaceStyle: style)
         let source = UIColor(color).resolvedColor(with: traits)
-        let base = UIColor.systemBackground.resolvedColor(with: traits)
+        let base = LiminalThemeCatalog.resolvedDefinition(for: colorScheme).palette.surface
 
         return Color(uiColor: source.mixed(with: base, sourceAmount: intensity))
+    }
+
+    static func lightPastSurface(from color: Color, sourceAmount: CGFloat, alpha: CGFloat) -> Color {
+        let traits = UITraitCollection(userInterfaceStyle: .light)
+        let source = UIColor(color).resolvedColor(with: traits)
+        let darkened = source.mixed(with: .black, sourceAmount: sourceAmount)
+        return Color(uiColor: darkened.withAlphaComponent(min(max(alpha, 0), 1)))
     }
 }
 

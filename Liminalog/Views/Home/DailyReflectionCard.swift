@@ -93,8 +93,8 @@ struct DailyReflectionCard: View {
                 .padding(.vertical, 12)
                 .background(
                     Capsule(style: .continuous)
-                        .fill(LiminalTheme.primary.opacity(0.16))
-                        .overlay(Capsule(style: .continuous).stroke(LiminalTheme.primary.opacity(0.28), lineWidth: 1))
+                        .fill(LiminalTheme.accent.opacity(0.16))
+                        .overlay(Capsule(style: .continuous).stroke(LiminalTheme.accent.opacity(0.28), lineWidth: 1))
                 )
             }
             .buttonStyle(.plain)
@@ -131,16 +131,9 @@ struct DailyReflectionCard: View {
         }
         .overlay(
             RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .stroke(
-                    LinearGradient(
-                        colors: [LiminalTheme.primary.opacity(0.52), .white.opacity(0.08), LiminalTheme.dusk.opacity(0.28)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 1
-                )
+                .stroke(cardBorderGradient, lineWidth: colorScheme == .light ? 1.2 : 1)
         )
-        .liminalAccentLight(in: RoundedRectangle(cornerRadius: 26, style: .continuous), intensity: 0.42)
+        .liminalAccentLight(in: RoundedRectangle(cornerRadius: 26, style: .continuous), intensity: colorScheme == .light ? 0.5 : 0.42)
         .shadow(color: LiminalTheme.dusk.opacity(0.2), radius: 24, y: 14)
         .accessibilityElement(children: .contain)
         .sheet(item: $shareItem) { item in
@@ -149,12 +142,35 @@ struct DailyReflectionCard: View {
         }
     }
 
+    // 縁取り = 光を受けた金属の稜線。
+    // ダーク: 暗地で白の中間点が稜線として光る（従来通り・変更しない）。
+    // ライト: 左上＝明るいハイライト → 金の反射 → 右下＝暖かい陰、で金属のベベルを再現。
+    //         写真の手すり上端の金色リムと同じ原理。
+    private var cardBorderGradient: LinearGradient {
+        if colorScheme == .light {
+            return LinearGradient(
+                colors: [
+                    .white.opacity(0.95),
+                    LiminalTheme.reward.opacity(0.5),
+                    LiminalTheme.text.opacity(0.12)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
+        return LinearGradient(
+            colors: [LiminalTheme.accent.opacity(0.52), .white.opacity(0.08), LiminalTheme.dusk.opacity(0.28)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
     private var header: some View {
         HStack(alignment: .center) {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Liminalog")
                     .font(.caption.weight(.black))
-                    .foregroundStyle(LiminalTheme.primary)
+                    .foregroundStyle(LiminalTheme.accent)
                     .textCase(.uppercase)
                 Text(date.japaneseMonthDayWeekday)
                     .font(.subheadline.weight(.bold))
@@ -181,7 +197,7 @@ struct DailyReflectionCard: View {
             return DailyRingSegment(
                 start: start.timeIntervalSince(dayBoundary.dayStart),
                 duration: end.timeIntervalSince(start),
-                color: plan.category?.displayColor ?? LiminalTheme.primary
+                color: plan.category?.displayColor ?? LiminalTheme.accent
             )
         }
     }
@@ -194,7 +210,7 @@ struct DailyReflectionCard: View {
             return DailyRingSegment(
                 start: start.timeIntervalSince(dayBoundary.dayStart),
                 duration: end.timeIntervalSince(start),
-                color: chapter.category?.displayColor ?? LiminalTheme.primary
+                color: chapter.category?.displayColor ?? LiminalTheme.accent
             )
         }
     }
@@ -285,7 +301,7 @@ private struct DailyShareCardView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Liminalog")
                             .font(.system(size: 42, weight: .black, design: .rounded))
-                            .foregroundStyle(LiminalTheme.primary)
+                            .foregroundStyle(LiminalTheme.accent)
                         Text(date.japaneseMonthDayWeekday)
                             .font(.system(size: 32, weight: .bold, design: .rounded))
                             .foregroundStyle(LiminalTheme.secondaryText)
@@ -347,7 +363,7 @@ private struct DailyShareCardView: View {
                     Spacer()
                     Text("liminalog")
                         .font(.system(size: 28, weight: .black, design: .rounded))
-                        .foregroundStyle(LiminalTheme.primary)
+                        .foregroundStyle(LiminalTheme.accent)
                 }
             }
             .padding(.horizontal, 72)
@@ -448,14 +464,14 @@ private struct DailyTwentyFourHourRing: View {
         if colorScheme == .light {
             return [
                 LiminalTheme.dusk.opacity(0.12),
-                LiminalTheme.primary.opacity(0.06),
+                LiminalTheme.accent.opacity(0.06),
                 Color(hex: "#F8F3FF").opacity(0.08),
                 .clear
             ]
         }
 
         return [
-            LiminalTheme.primary.opacity(0.22),
+            LiminalTheme.accent.opacity(0.22),
             .clear
         ]
     }
@@ -474,6 +490,7 @@ private struct DailyTwentyFourHourRing: View {
 }
 
 private struct DailyRingCanvas: View {
+    @Environment(\.colorScheme) private var colorScheme
     let planSegments: [DailyRingSegment]
     let actualSegments: [DailyRingSegment]
     private let secondsPerDay: TimeInterval = 24 * 60 * 60
@@ -501,7 +518,14 @@ private struct DailyRingCanvas: View {
     private func drawBaseRing(context: inout GraphicsContext, center: CGPoint, radius: CGFloat, lineWidth: CGFloat) {
         var path = Path()
         path.addArc(center: center, radius: radius, startAngle: .degrees(-90), endAngle: .degrees(270), clockwise: false)
-        context.stroke(path, with: .color(.white.opacity(0.08)), style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+        context.stroke(path, with: .color(baseRingColor), style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+    }
+
+    private var baseRingColor: Color {
+        if colorScheme == .light {
+            return LiminalTheme.secondaryText.opacity(0.26)
+        }
+        return .white.opacity(0.08)
     }
 
     private func draw(

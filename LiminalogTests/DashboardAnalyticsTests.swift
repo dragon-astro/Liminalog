@@ -4,66 +4,6 @@ import Testing
 
 struct DashboardAnalyticsTests {
     @Test
-    func timeOfDaySummarySplitsChaptersAcrossMorningAfternoonAndNight() throws {
-        let calendar = Calendar.liminalogTest
-        let day = try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1)))
-        let intervalEnd = try #require(calendar.date(byAdding: .day, value: 2, to: day))
-        let category = Category(name: "記録", colorHex: "#2F80ED")
-        let early = chapter(
-            category: category,
-            start: try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1, hour: 4))),
-            end: try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1, hour: 7)))
-        )
-        let afternoon = chapter(
-            category: category,
-            start: try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1, hour: 13))),
-            end: try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1, hour: 14)))
-        )
-        let overnight = chapter(
-            category: category,
-            start: try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1, hour: 22))),
-            end: try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 2, hour: 1)))
-        )
-
-        let summary = DashboardTimeOfDaySummary.make(
-            chapters: [afternoon, overnight, early],
-            interval: DateInterval(start: day, end: intervalEnd),
-            calendar: calendar
-        )
-
-        #expect(duration(for: .morning, in: summary) == 2 * 60 * 60)
-        #expect(duration(for: .afternoon, in: summary) == 60 * 60)
-        #expect(duration(for: .night, in: summary) == 4 * 60 * 60)
-        #expect(summary.totalDuration == 7 * 60 * 60)
-        #expect(summary.dominantSegment == .night)
-        #expect(abs((row(for: .night, in: summary)?.ratio ?? 0) - (4.0 / 7.0)) < 0.0001)
-    }
-
-    @Test
-    func timeOfDaySummaryUsesNowForActiveChaptersAndClipsToInterval() throws {
-        let calendar = Calendar.liminalogTest
-        let day = try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1)))
-        let intervalEnd = try #require(calendar.date(byAdding: .day, value: 1, to: day))
-        let category = Category(name: "記録", colorHex: "#2F80ED")
-        let active = Chapter(
-            category: category,
-            startTime: try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1, hour: 10)))
-        )
-        let now = try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1, hour: 13)))
-
-        let summary = DashboardTimeOfDaySummary.make(
-            chapters: [active],
-            interval: DateInterval(start: day, end: intervalEnd),
-            calendar: calendar,
-            now: now
-        )
-
-        #expect(duration(for: .morning, in: summary) == 2 * 60 * 60)
-        #expect(duration(for: .afternoon, in: summary) == 60 * 60)
-        #expect(duration(for: .night, in: summary) == 0)
-    }
-
-    @Test
     func periodDeltaComparesAverageScoredDaysAndDurations() throws {
         let calendar = Calendar.liminalogTest
         let base = try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1)))
@@ -122,20 +62,6 @@ struct DashboardAnalyticsTests {
         #expect(delta.score.percentChange == nil)
         #expect(delta.score.isIncrease)
         #expect(!delta.score.isDecrease)
-    }
-
-    private func chapter(category: Liminalog.Category, start: Date, end: Date) -> Chapter {
-        let chapter = Chapter(category: category, startTime: start)
-        chapter.endTime = end
-        return chapter
-    }
-
-    private func row(for segment: DashboardTimeOfDay, in summary: DashboardTimeOfDaySummary) -> DashboardTimeOfDayRow? {
-        summary.rows.first { $0.segment == segment }
-    }
-
-    private func duration(for segment: DashboardTimeOfDay, in summary: DashboardTimeOfDaySummary) -> TimeInterval {
-        row(for: segment, in: summary)?.duration ?? 0
     }
 
     private func scoreSummary(

@@ -10,9 +10,11 @@ final class UserSettings {
     var profileImageData: Data?
     var profileAccentColorHex: String = "#2F80ED"
     var profileBadgeID: String = "starter"
-    var profileIconFrameID: String = "halo"
+    var profileIconFrameID: String = "clear_air"
     var profileStreakIconID: String = "flame"
-    var profileCardStyleID: String = "clean"
+    var profileCardStyleID: String = "quiet_sky"
+    var equippedUnlockItemKeys: [String] = []
+    var seenUnlockItemKeys: [String] = []
     var defaultVisibility: VisibilityScope = VisibilityScope.all
     var themeName: String = "default"
     var enabledCategorySetID: UUID?
@@ -20,6 +22,7 @@ final class UserSettings {
     var showCalendarOverlay: Bool = true
     var dashboardCardOrder: [String] = []
     var dashboardHiddenCardKeys: [String] = []
+    var didSeedInitialFriendSets: Bool = false
     var createdAt: Date = Date()
     var updatedAt: Date = Date()
 

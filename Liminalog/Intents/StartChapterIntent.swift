@@ -31,15 +31,27 @@ struct StartChapterIntent: AppIntent, LiveActivityIntent {
         }
 
         let context = ModelContext(SharedModelContainer.shared)
-        let categories = try context.fetch(FetchDescriptor<Category>())
+        let categories: [Category]
+        do {
+            categories = try context.fetch(FetchDescriptor<Category>())
+        } catch {
+            NSLog("Liminalog: failed to fetch categories in StartChapterIntent: \(String(describing: error))")
+            throw StartChapterIntentError.storeUnavailable
+        }
         guard let category = categories.first(where: { $0.id == categoryID }) else {
             throw StartChapterIntentError.categoryNotFound
         }
 
-        let activeChapters = try context.fetch(FetchDescriptor<Chapter>(
-            predicate: #Predicate { $0.endTime == nil },
-            sortBy: [SortDescriptor(\.startTime)]
-        ))
+        let activeChapters: [Chapter]
+        do {
+            activeChapters = try context.fetch(FetchDescriptor<Chapter>(
+                predicate: #Predicate { $0.endTime == nil },
+                sortBy: [SortDescriptor(\.startTime)]
+            ))
+        } catch {
+            NSLog("Liminalog: failed to fetch active chapters in StartChapterIntent: \(String(describing: error))")
+            throw StartChapterIntentError.storeUnavailable
+        }
         let result = RecordingSwitchLogic.switchToCategory(
             category,
             at: Date(),
@@ -48,7 +60,13 @@ struct StartChapterIntent: AppIntent, LiveActivityIntent {
             context.insert(chapter)
         }
 
-        try context.save()
+        do {
+            try context.save()
+        } catch {
+            NSLog("Liminalog: failed to save StartChapterIntent: \(String(describing: error))")
+            context.rollback()
+            throw StartChapterIntentError.saveFailed
+        }
         Self.cacheActiveCategoryID(result.activeChapter?.category?.id)
         WidgetCenter.shared.reloadTimelines(ofKind: "RecordingGridWidget")
 
@@ -56,15 +74,14 @@ struct StartChapterIntent: AppIntent, LiveActivityIntent {
             await updateLiveActivity(activeChapter: result.activeChapter, context: context)
         }
 
-        #if DEBUG
-        print("App LiveActivityIntent switched category: \(categoryID.uuidString)")
-        #endif
-
         return .result()
     }
 
     private static func cacheActiveCategoryID(_ id: UUID?) {
-        guard let defaults = UserDefaults(suiteName: appGroupID) else { return }
+        guard let defaults = UserDefaults(suiteName: appGroupID) else {
+            NSLog("Liminalog: skipped StartChapterIntent category cache because app group UserDefaults was unavailable")
+            return
+        }
         if let id {
             defaults.set(id.uuidString, forKey: activeCategoryCacheKey)
             defaults.set(id.uuidString, forKey: pendingCategoryCacheKey)
@@ -78,31 +95,69 @@ struct StartChapterIntent: AppIntent, LiveActivityIntent {
     @available(iOS 16.2, *)
     @MainActor
     private func updateLiveActivity(activeChapter: Chapter?, context: ModelContext) async {
-        let selectedSet = currentCategorySet(context: context)
-        let categories = assignedCategories(for: selectedSet, context: context)
+        guard let surface = recordingSurfaceIfAvailable(context: context) else {
+            NSLog("Liminalog: skipped StartChapterIntent Live Activity update because recording surface could not be loaded")
+            return
+        }
         await LiveActivityManager.shared.update(
             activeChapter: activeChapter,
-            categorySetName: selectedSet?.name ?? "カテゴリ",
-            categories: categories
+            categorySetName: surface.categorySetName,
+            categories: surface.categories
         )
     }
 
     @MainActor
-    private func currentCategorySet(context: ModelContext) -> CategorySet? {
-        let sets = (try? context.fetch(FetchDescriptor<CategorySet>(
-            sortBy: [
-                SortDescriptor(\.sortOrder),
-                SortDescriptor(\.createdAt)
-            ]
-        ))) ?? []
-        let settings = try? context.fetch(FetchDescriptor<UserSettings>(
-            predicate: #Predicate { $0.settingsKey == "default" },
-            sortBy: [SortDescriptor(\.createdAt)]
-        )).first
+    private func recordingSurfaceIfAvailable(context: ModelContext) -> (categorySetName: String, categories: [Category])? {
+        let sets: [CategorySet]
+        do {
+            sets = try context.fetch(FetchDescriptor<CategorySet>(
+                sortBy: [
+                    SortDescriptor(\.sortOrder),
+                    SortDescriptor(\.createdAt)
+                ]
+            ))
+        } catch {
+            NSLog("Liminalog: failed to fetch category sets in StartChapterIntent Live Activity update: \(String(describing: error))")
+            return nil
+        }
+
+        let settings: UserSettings?
+        do {
+            settings = try context.fetch(FetchDescriptor<UserSettings>(
+                predicate: #Predicate { $0.settingsKey == "default" },
+                sortBy: [SortDescriptor(\.createdAt)]
+            )).first
+        } catch {
+            NSLog("Liminalog: failed to fetch settings in StartChapterIntent Live Activity update: \(String(describing: error))")
+            return nil
+        }
+
         let cachedID = Self.cachedEnabledCategorySetID(validatingWith: sets)
-        return (cachedID ?? settings?.enabledCategorySetID).flatMap { id in sets.first { $0.id == id } }
+        let selectedSet = (cachedID ?? settings?.enabledCategorySetID).flatMap { id in sets.first { $0.id == id } }
             ?? sets.first { $0.isDefault }
             ?? sets.first
+
+        guard let selectedSet else {
+            return ("カテゴリ", [])
+        }
+
+        let categories: [Category]
+        do {
+            categories = try context.fetch(FetchDescriptor<Category>(
+                sortBy: [
+                    SortDescriptor(\.sortOrder),
+                    SortDescriptor(\.createdAt)
+                ]
+            ))
+        } catch {
+            NSLog("Liminalog: failed to fetch categories in StartChapterIntent Live Activity update: \(String(describing: error))")
+            return nil
+        }
+        let categoryByID = Dictionary(uniqueKeysWithValues: categories.map { ($0.id, $0) })
+        return (
+            selectedSet.name,
+            selectedSet.slots.compactMap { id in id.flatMap { categoryByID[$0] } }
+        )
     }
 
     private static func cachedEnabledCategorySetID(validatingWith sets: [CategorySet]) -> UUID? {
@@ -114,22 +169,24 @@ struct StartChapterIntent: AppIntent, LiveActivityIntent {
         }
         return id
     }
-
-    @MainActor
-    private func assignedCategories(for set: CategorySet?, context: ModelContext) -> [Category] {
-        guard let set else { return [] }
-        let categories = (try? context.fetch(FetchDescriptor<Category>(
-            sortBy: [
-                SortDescriptor(\.sortOrder),
-                SortDescriptor(\.createdAt)
-            ]
-        ))) ?? []
-        let categoryByID = Dictionary(uniqueKeysWithValues: categories.map { ($0.id, $0) })
-        return set.slots.compactMap { id in id.flatMap { categoryByID[$0] } }
-    }
 }
 
-enum StartChapterIntentError: Error {
+enum StartChapterIntentError: LocalizedError {
     case invalidCategoryID
     case categoryNotFound
+    case storeUnavailable
+    case saveFailed
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidCategoryID:
+            return "カテゴリを特定できませんでした。アプリでカテゴリを選び直してください。"
+        case .categoryNotFound:
+            return "このカテゴリは見つかりませんでした。アプリでカテゴリを確認してください。"
+        case .storeUnavailable:
+            return "記録データを読み込めませんでした。時間をおいてもう一度試してください。"
+        case .saveFailed:
+            return "記録を開始できませんでした。時間をおいてもう一度試してください。"
+        }
+    }
 }

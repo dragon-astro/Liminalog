@@ -13,6 +13,9 @@ final class PlanBlock {
     var note: String?
     var isPublic: Bool = true
     var visibilityScope: VisibilityScope = VisibilityScope.all
+    var audienceFriendIDs: [UUID] = []
+    var audienceSourceRawValue: String = AudienceSource.categoryDefaultSnapshot.rawValue
+    var hasAudienceSnapshot: Bool = false
     var sourceEventID: String?
     var createdAt: Date = Date()
     var updatedAt: Date = Date()
@@ -34,8 +37,16 @@ final class PlanBlock {
         self.note = note
         self.isPublic = isPublic
         self.visibilityScope = .all
+        self.audienceFriendIDs = []
+        self.audienceSourceRawValue = AudienceSource.categoryDefaultSnapshot.rawValue
+        self.hasAudienceSnapshot = false
         self.sourceEventID = nil
         self.createdAt = Date()
         self.updatedAt = Date()
+    }
+
+    var audienceSource: AudienceSource {
+        get { AudienceSource(rawValue: audienceSourceRawValue) ?? .categoryDefaultSnapshot }
+        set { audienceSourceRawValue = newValue.rawValue }
     }
 }

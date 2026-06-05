@@ -79,8 +79,11 @@ final class CalendarEventSyncStore {
             }
 
         var result = CalendarEventSyncResult()
-        var cacheBySourceID = consolidatedCaches(result: &result)
-        var planBySourceID = consolidatedImportedPlans(result: &result)
+        guard var cacheBySourceID = consolidatedCaches(result: &result),
+              var planBySourceID = consolidatedImportedPlans(result: &result)
+        else {
+            return CalendarEventSyncResult()
+        }
 
         for (sourceID, snapshot) in incomingSnapshots {
             if let cache = cacheBySourceID[sourceID] {
@@ -118,16 +121,35 @@ final class CalendarEventSyncStore {
         }
 
         if result.didChange {
-            try? modelContext.save()
+            guard saveChanges("calendar event sync") else {
+                return CalendarEventSyncResult()
+            }
         }
         return result
     }
 
-    private func consolidatedCaches(result: inout CalendarEventSyncResult) -> [String: CalendarEventCache] {
+    private func saveChanges(_ action: String) -> Bool {
+        do {
+            try modelContext.save()
+            return true
+        } catch {
+            NSLog("Liminalog: failed to save \(action): \(String(describing: error))")
+            modelContext.rollback()
+            return false
+        }
+    }
+
+    private func consolidatedCaches(result: inout CalendarEventSyncResult) -> [String: CalendarEventCache]? {
         let descriptor = FetchDescriptor<CalendarEventCache>(
             sortBy: [SortDescriptor(\.lastSyncedAt)]
         )
-        let caches = (try? modelContext.fetch(descriptor)) ?? []
+        let caches: [CalendarEventCache]
+        do {
+            caches = try modelContext.fetch(descriptor)
+        } catch {
+            NSLog("Liminalog: failed to fetch calendar event caches for sync: \(String(describing: error))")
+            return nil
+        }
         let groups = Dictionary(grouping: caches) { cache in
             CalendarEventSnapshot.sourceEventID(
                 eventIdentifier: cache.eventIdentifier,
@@ -147,11 +169,17 @@ final class CalendarEventSyncStore {
         return cacheBySourceID
     }
 
-    private func consolidatedImportedPlans(result: inout CalendarEventSyncResult) -> [String: PlanBlock] {
+    private func consolidatedImportedPlans(result: inout CalendarEventSyncResult) -> [String: PlanBlock]? {
         let descriptor = FetchDescriptor<PlanBlock>(
             sortBy: [SortDescriptor(\.createdAt)]
         )
-        let plans = ((try? modelContext.fetch(descriptor)) ?? []).filter { $0.sourceEventID != nil }
+        let plans: [PlanBlock]
+        do {
+            plans = try modelContext.fetch(descriptor).filter { $0.sourceEventID != nil }
+        } catch {
+            NSLog("Liminalog: failed to fetch imported calendar plans for sync: \(String(describing: error))")
+            return nil
+        }
         let groups = Dictionary(grouping: plans) { $0.sourceEventID ?? "" }
 
         var planBySourceID: [String: PlanBlock] = [:]

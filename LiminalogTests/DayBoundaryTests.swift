@@ -55,6 +55,7 @@ struct SeedCoordinatorTests {
         newer.showCalendarOverlay = true
         newer.dashboardCardOrder = ["score", "heatmap"]
         newer.dashboardHiddenCardKeys = ["recentTrend"]
+        newer.seenUnlockItemKeys = ["badge.first_record", "theme.aurora"]
         context.insert(older)
         context.insert(newer)
         try context.save()
@@ -73,6 +74,7 @@ struct SeedCoordinatorTests {
         #expect(merged.showCalendarOverlay)
         #expect(merged.dashboardCardOrder == ["score", "heatmap"])
         #expect(merged.dashboardHiddenCardKeys == ["recentTrend"])
+        #expect(merged.seenUnlockItemKeys == ["badge.first_record", "theme.aurora"])
     }
 
     @Test("VisibilityPresetのbuilt-in seedを作成しbuiltInKey重複だけを統合する")
@@ -105,14 +107,51 @@ struct SeedCoordinatorTests {
         #expect(presets.count == 5)
         let closeFriends = try #require(presets.first { $0.builtInKey == "close_friends" })
         #expect(closeFriends.id == first.id)
-        #expect(closeFriends.name == "仲良し")
+        #expect(closeFriends.name == "詳細")
         #expect(closeFriends.level == .all)
         #expect(closeFriends.publishMode == .realtime)
         #expect(!closeFriends.hidePhoto)
         #expect(!closeFriends.hideLocation)
+        #expect(closeFriends.isBuiltIn)
         #expect(presets.contains { $0.builtInKey == "acquaintances" })
         #expect(presets.contains { $0.builtInKey == "off" })
         #expect(presets.filter { $0.builtInKey == nil }.count == 2)
+    }
+
+    @Test("ユーザーが詳細変更したbuilt-in VisibilityPresetはseedで中身を戻さない")
+    func builtInVisibilityPresetSeedPreservesCustomizedDetails() throws {
+        let calendar = Calendar.liminalogTest
+        let container = try TestModelContainer.make()
+        let context = container.mainContext
+        let customized = VisibilityPreset(
+            name: "自分用の詳細",
+            level: .partial,
+            builtInKey: "close_friends",
+            isBuiltIn: true,
+            publishMode: .nextDay,
+            hideMoodAndNote: true,
+            hidePhoto: true,
+            hideLocation: true,
+            freeTimeOnly: true
+        )
+        VisibilityPresetCustomization.markCustomized(customized.id)
+        context.insert(customized)
+        try context.save()
+
+        SeedCoordinator.consolidateBuiltInVisibilityPresets(
+            in: context,
+            now: try #require(calendar.date(from: DateComponents(year: 2026, month: 5, day: 4)))
+        )
+
+        let closeFriends = try #require(
+            try context.fetch(FetchDescriptor<VisibilityPreset>()).first { $0.builtInKey == "close_friends" }
+        )
+        #expect(closeFriends.name == "詳細")
+        #expect(closeFriends.publishMode == .nextDay)
+        #expect(closeFriends.hideMoodAndNote)
+        #expect(closeFriends.hidePhoto)
+        #expect(closeFriends.hideLocation)
+        #expect(closeFriends.freeTimeOnly)
     }
 }
 
@@ -193,7 +232,6 @@ struct DashboardCardKeyTests {
         )
 
         #expect(!order.contains(.periodDelta))
-        #expect(!order.contains(.timeOfDayTrend))
         #expect(order.first == .scoreTrend)
         #expect(order.contains(.hero))
     }

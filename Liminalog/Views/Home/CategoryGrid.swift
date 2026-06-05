@@ -13,6 +13,7 @@ struct CategoryGrid: View {
     @State private var activeID: UUID? = nil
     @State private var editingSetFromEmptySlot: CategorySet? = nil
     @State private var setSyncTask: Task<Void, Never>?
+    @State private var operationError: String?
 
     private let cardPadding: CGFloat = 14
     private let gridSpacing: CGFloat = 10
@@ -37,30 +38,29 @@ struct CategoryGrid: View {
                 headerBar
 
                 if isExpanded {
-                    VStack(spacing: 10) {
-                        ScrollView(.horizontal) {
-                            // セット数は少数（数個）なので遅延生成は逆効果。HStack で全ページを
-                            // 事前生成し、スクロール中の body 評価（色のhexパース等）によるヒッチを防ぐ。
-                            HStack(spacing: 0) {
-                                ForEach(categorySets) { set in
-                                    gridPage(set: set)
-                                        .padding(pageInset)
-                                        .containerRelativeFrame(.horizontal)
-                                        .id(set.id)
-                                }
+                    ScrollView(.horizontal) {
+                        // セット数は少数（数個）なので遅延生成は逆効果。HStack で全ページを
+                        // 事前生成し、スクロール中の body 評価（色のhexパース等）によるヒッチを防ぐ。
+                        HStack(spacing: 0) {
+                            ForEach(categorySets) { set in
+                                gridPage(set: set)
+                                    .padding(pageInset)
+                                    .containerRelativeFrame(.horizontal)
+                                    .id(set.id)
                             }
-                            .scrollTargetLayout()
                         }
-                        .scrollTargetBehavior(.paging)
-                        .scrollPosition(id: $scrolledSetID, anchor: .center)
-                        .scrollIndicators(.hidden)
-                        .frame(height: tableHeight)
-
-                        if categorySets.count > 1 {
-                            pageIndicator
-                        }
+                        .scrollTargetLayout()
                     }
+                    .scrollTargetBehavior(.paging)
+                    .scrollPosition(id: $scrolledSetID, anchor: .center)
+                    .scrollIndicators(.hidden)
+                    .frame(height: tableHeight)
                     .liminalSectionCard(padding: cardPadding)
+
+                    if categorySets.count > 1 {
+                        pageIndicator
+                        sectionDivider
+                    }
                 }
             }
             .animation(.easeInOut(duration: 0.22), value: isExpanded)
@@ -83,6 +83,13 @@ struct CategoryGrid: View {
             .sheet(item: $editingSetFromEmptySlot) { set in
                 CategorySetEditSheet(categorySet: set)
             }
+            .alert("記録を開始できませんでした", isPresented: operationErrorPresented) {
+                Button("OK", role: .cancel) {
+                    operationError = nil
+                }
+            } message: {
+                Text(operationError ?? "")
+            }
         }
     }
 
@@ -93,7 +100,7 @@ struct CategoryGrid: View {
         HStack(spacing: 6) {
             Text(currentSetName)
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(LiminalTheme.secondaryText)
                 .lineLimit(1)
 
             Spacer()
@@ -103,7 +110,7 @@ struct CategoryGrid: View {
             } label: {
                 Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
                     .font(.caption.weight(.bold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(LiminalTheme.secondaryText)
                     .frame(width: 28, height: 24)
                     .contentShape(Rectangle())
             }
@@ -128,7 +135,10 @@ struct CategoryGrid: View {
                         category: category,
                         isActive: activeID == category.id
                     ) {
-                        store.startChapter(category: category, categorySet: set)
+                        guard store.startChapter(category: category, categorySet: set) else {
+                            operationError = "時間をおいてもう一度試してください。"
+                            return
+                        }
                         activeID = category.id
                     }
                 } else {
@@ -148,12 +158,29 @@ struct CategoryGrid: View {
         HStack(spacing: 7) {
             ForEach(categorySets) { set in
                 Circle()
-                    .fill(selectedSetID == set.id ? Color.primary : Color.primary.opacity(0.25))
+                    .fill(selectedSetID == set.id ? LiminalTheme.text : LiminalTheme.text.opacity(0.25))
                     .frame(width: selectedSetID == set.id ? 7 : 6, height: selectedSetID == set.id ? 7 : 6)
                     .animation(.easeInOut(duration: 0.18), value: selectedSetID)
             }
         }
         .frame(maxWidth: .infinity)
+    }
+
+    private var operationErrorPresented: Binding<Bool> {
+        Binding {
+            operationError != nil
+        } set: { isPresented in
+            if !isPresented {
+                operationError = nil
+            }
+        }
+    }
+
+    private var sectionDivider: some View {
+        Rectangle()
+            .fill(LiminalTheme.divider.opacity(0.55))
+            .frame(height: 1)
+            .padding(.horizontal, 2)
     }
 
     // MARK: - Empty state
@@ -162,12 +189,12 @@ struct CategoryGrid: View {
         VStack(spacing: 10) {
             Image(systemName: "square.grid.2x2")
                 .font(.title2)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(LiminalTheme.tertiaryText)
             Text("カテゴリセットがありません")
                 .font(.subheadline.weight(.semibold))
             Text("設定からセットを作成すると、ここに記録ボタンが並びます。")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(LiminalTheme.secondaryText)
                 .multilineTextAlignment(.center)
             NavigationLink {
                 CategorySettingsView()
@@ -176,7 +203,7 @@ struct CategoryGrid: View {
                     .font(.subheadline.weight(.semibold))
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
-                    .background(Capsule().fill(Color.accentColor.opacity(0.16)))
+                    .background(Capsule().fill(LiminalTheme.accent.opacity(0.16)))
             }
             .padding(.top, 4)
         }
@@ -184,7 +211,7 @@ struct CategoryGrid: View {
         .padding(.vertical, 28)
         .background(
             RoundedRectangle(cornerRadius: 14)
-                .fill(Color(.secondarySystemGroupedBackground))
+                .fill(LiminalTheme.surface)
         )
     }
 
@@ -199,6 +226,10 @@ struct CategoryGrid: View {
             selectedSetID = storedID
         } else if selectedSetID == nil || !categorySets.contains(where: { $0.id == selectedSetID }) {
             selectedSetID = categorySets.first?.id
+        }
+        let normalizedStoredID = selectedSetID?.uuidString ?? ""
+        if activeSetIDString != normalizedStoredID {
+            activeSetIDString = normalizedStoredID
         }
         // 復元時はスクロール位置も合わせる（ユーザー操作中は scrolledSetID を触らない）。
         if scrolledSetID != selectedSetID {
@@ -248,7 +279,7 @@ private struct EmptyGridSlot: View {
         VStack(spacing: 8) {
             Circle()
                 .strokeBorder(
-                    Color(.separator).opacity(0.45),
+                    LiminalTheme.divider.opacity(0.7),
                     style: StrokeStyle(lineWidth: 1.2, dash: [3, 3])
                 )
                 .frame(width: 42, height: 42)

@@ -36,6 +36,7 @@ struct DailyPersona {
             avoidedSpotlightKinds: avoidedSpotlightKinds
         )
         let facts = Self.makeFacts(
+            summary: summary,
             analysis: analysis,
             recordedDuration: recordedDuration,
             chapterCount: chapters.count
@@ -72,6 +73,7 @@ struct DailyPersona {
     }
 
     private static func makeFacts(
+        summary: ScoreSummary,
         analysis: DailyCardPatternDetector,
         recordedDuration: TimeInterval,
         chapterCount: Int
@@ -79,7 +81,6 @@ struct DailyPersona {
         let hasMeaningfulRestExclusion = analysis.restWasExcluded && analysis.discretionaryDuration > 0
         let durationForPrimaryFact = hasMeaningfulRestExclusion ? analysis.discretionaryDuration : recordedDuration
         let durationTitle = hasMeaningfulRestExclusion ? "裁量時間" : "記録カバー"
-        let switchCount = max(analysis.meaningfulSwitchCount, chapterCount == 0 ? 0 : 1)
 
         var facts = [
             DailyCardFact(
@@ -89,13 +90,7 @@ struct DailyPersona {
                 suffix: nil,
                 systemImage: hasMeaningfulRestExclusion ? "clock.badge.checkmark" : "clock.fill"
             ),
-            DailyCardFact(
-                id: "switches",
-                title: "切替",
-                value: "\(switchCount)",
-                suffix: "回",
-                systemImage: "rectangle.2.swap"
-            )
+            secondaryFact(summary: summary, chapterCount: chapterCount)
         ]
         if let spotlightFact = analysis.spotlightFact {
             facts.append(DailyCardFact(spotlightFact))
@@ -103,6 +98,27 @@ struct DailyPersona {
             facts.append(signalFact)
         }
         return Array(facts.prefix(3))
+    }
+
+    private static func secondaryFact(summary: ScoreSummary, chapterCount: Int) -> DailyCardFact {
+        guard summary.plannedDuration > 0 else {
+            return DailyCardFact(
+                id: "record-count",
+                title: "記録数",
+                value: "\(chapterCount)",
+                suffix: "件",
+                systemImage: "list.bullet.rectangle"
+            )
+        }
+
+        let matchRate = min(max(summary.matchedDuration / summary.plannedDuration, 0), 1)
+        return DailyCardFact(
+            id: "match-rate",
+            title: "一致率",
+            value: "\(Int((matchRate * 100).rounded()))",
+            suffix: "%",
+            systemImage: "checkmark.seal.fill"
+        )
     }
 
     private static func messageSeed(dayBoundary: DayBoundary, chapterCount: Int) -> Int {
@@ -305,7 +321,7 @@ private enum DailyCardCopyCatalog {
         DailyPersonaCopy(
             title: "有言実行の人",
             messages: [
-                "未来の自分が置いた予定に、現在の自分が珍しく出席。えらい、これは事件。",
+                "過去の自分が立てた予定どおりに、今日の自分がちゃんと動けた。えらい、これはもう事件です。",
                 "予定と実績がほぼ一致。今日のあなた、有言実行すぎて逆にちょっと怖い。"
             ],
             symbol: "checkmark.seal.fill"
@@ -327,7 +343,7 @@ private enum DailyCardCopyCatalog {
         DailyPersonaCopy(
             title: "風まかせ",
             messages: [
-                "ノープランで流れた1日。地図はなかったけど、足跡だけは妙にリアル。",
+                "ノープランで流れた1日。地図はなかったけど、ちゃんとどこかへは歩いてた。",
                 "計画ゼロ、自由は満タン。風まかせ無敵モード、本日も発動。"
             ],
             symbol: "wind"
@@ -368,7 +384,7 @@ private enum DailyCardCopyCatalog {
                 messages: [
                     "\(switchCount)回の切り替え。集中力は小分けパック、でも1日はちゃんと組み上がった。",
                     "あっちこっち\(switchCount)回。落ち着け、と数時間前のあなたが言っています。",
-                    "\(switchCount)回スイッチ。忙しそうで何より、忙しいとは言ってない。"
+                    "\(switchCount)回スイッチ。忙しそうに見えて、本当に忙しかったかはナゾ。"
                 ],
                 symbol: "sparkles"
             )
@@ -388,13 +404,13 @@ private enum DailyCardCopyCatalog {
         case (.daytime, .zapping): return "マルチタスク昼"
         case (.evening, .sprinter): return "夜型スプリンター"
         case (.evening, .marathon): return "宵っ張りの持久型"
-        case (.evening, .zapping): return "夜のザッピング"
+        case (.evening, .zapping): return "目まぐるしい夜"
         case (.midnight, .sprinter): return "丑三つの天才"
         case (.midnight, .marathon): return "不眠の修行僧"
         case (.midnight, .zapping): return "体内時計バグり気味"
         case (.unknown, .sprinter): return "今日の短距離走者"
         case (.unknown, .marathon): return "今日のマラソナー"
-        case (.unknown, .zapping): return "今日のザッピング"
+        case (.unknown, .zapping): return "目まぐるしい1日"
         }
     }
 }

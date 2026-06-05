@@ -7,6 +7,7 @@ struct FriendsView: View {
 
     @Query(sort: \Friend.createdAt) private var friends: [Friend]
     @Query(sort: \UserSettings.createdAt) private var settingsList: [UserSettings]
+    @Query(sort: \VisibilityPreset.sortOrder) private var visibilityPresets: [VisibilityPreset]
     @Query private var activeChapters: [Chapter]
 
     @State private var clock = TickClock(interval: 60)
@@ -17,6 +18,7 @@ struct FriendsView: View {
     @State private var isShowingRankingDetail = false
     @State private var inviteInitialText = ""
     @State private var selectedFriend: Friend?
+    @State private var saveError: String?
 
     init(pendingInviteURL: Binding<URL?> = .constant(nil)) {
         self._pendingInviteURL = pendingInviteURL
@@ -142,6 +144,13 @@ struct FriendsView: View {
             .onChange(of: pendingInviteURL) { _, _ in
                 handlePendingInviteURL()
             }
+            .alert("友達の変更を保存できませんでした", isPresented: saveErrorPresented) {
+                Button("OK", role: .cancel) {
+                    saveError = nil
+                }
+            } message: {
+                Text(saveError ?? "")
+            }
         }
     }
 
@@ -178,7 +187,7 @@ struct FriendsView: View {
                         .font(.headline.weight(.bold))
                     Text("リンクかQRでつながる")
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(LiminalTheme.secondaryText)
                 }
             }
 
@@ -191,7 +200,7 @@ struct FriendsView: View {
                     .padding(.vertical, 13)
                     .background(
                         RoundedRectangle(cornerRadius: 14)
-                            .fill(Color.accentColor)
+                            .fill(LiminalTheme.accent)
                     )
                     .foregroundStyle(.white)
             }
@@ -211,7 +220,7 @@ struct FriendsView: View {
         .padding(18)
         .background(
             RoundedRectangle(cornerRadius: 20)
-                .fill(Color(.secondarySystemGroupedBackground))
+                .fill(LiminalTheme.surface)
         )
     }
 
@@ -231,10 +240,10 @@ struct FriendsView: View {
                             .font(.caption2.weight(.black))
                     }
                     .font(.caption.weight(.bold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(LiminalTheme.secondaryText)
                     .padding(.horizontal, 9)
                     .padding(.vertical, 6)
-                    .background(Capsule().fill(Color(.tertiarySystemGroupedBackground)))
+                    .background(Capsule().fill(LiminalTheme.elevated))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("ランキングをもっと見る")
@@ -394,8 +403,11 @@ struct FriendsView: View {
             shareURL: payload.url.absoluteString,
             now: now
         )
+        friend.visibilityPresetID = defaultVisibilityPresetID
         modelContext.insert(friend)
-        save()
+        guard save() else {
+            return .failure("保存できませんでした")
+        }
         return .success
     }
 
@@ -404,7 +416,15 @@ struct FriendsView: View {
         friend.acceptedAt = Date()
         friend.updatedAt = Date()
         friend.lastSeenAt = Date()
+        if friend.visibilityPresetID == nil {
+            friend.visibilityPresetID = defaultVisibilityPresetID
+        }
         save()
+    }
+
+    private var defaultVisibilityPresetID: UUID? {
+        visibilityPresets.first { $0.builtInKey == "acquaintances" }?.id
+            ?? visibilityPresets.first { $0.name == "控えめ" }?.id
     }
 
     private func delete(_ friend: Friend) {
@@ -412,11 +432,16 @@ struct FriendsView: View {
         save()
     }
 
-    private func save() {
+    @discardableResult
+    private func save() -> Bool {
         do {
             try modelContext.save()
+            return true
         } catch {
             NSLog("Liminalog: failed to save Friend changes: \(String(describing: error))")
+            modelContext.rollback()
+            saveError = "時間をおいてもう一度試してください。"
+            return false
         }
     }
 
@@ -432,6 +457,16 @@ struct FriendsView: View {
         inviteInitialText = pendingInviteURL.absoluteString
         isShowingAddFriend = true
     }
+
+    private var saveErrorPresented: Binding<Bool> {
+        Binding {
+            saveError != nil
+        } set: { isPresented in
+            if !isPresented {
+                saveError = nil
+            }
+        }
+    }
 }
 
 private struct SectionTitle: View {
@@ -444,10 +479,10 @@ private struct SectionTitle: View {
                 .font(.headline.weight(.bold))
             Text("\(count)")
                 .font(.caption.weight(.bold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(LiminalTheme.secondaryText)
                 .padding(.horizontal, 7)
                 .padding(.vertical, 3)
-                .background(Capsule().fill(Color(.tertiarySystemGroupedBackground)))
+                .background(Capsule().fill(LiminalTheme.elevated))
         }
     }
 }
@@ -476,7 +511,7 @@ private struct RankingCard: View {
         .padding(11)
         .background(
             RoundedRectangle(cornerRadius: 15)
-                .fill(Color(.tertiarySystemGroupedBackground))
+                .fill(LiminalTheme.elevated)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 15)
@@ -485,7 +520,7 @@ private struct RankingCard: View {
     }
 
     private var entryBorderColor: Color {
-        entry.isMe ? entry.tint.opacity(0.38) : Color.primary.opacity(0.05)
+        entry.isMe ? entry.tint.opacity(0.38) : LiminalTheme.text.opacity(0.05)
     }
 
     private var rankBadge: some View {
@@ -508,7 +543,7 @@ private struct RankingCard: View {
             } else {
                 Text("#\(entry.rank)")
                     .font(.caption.weight(.black))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(LiminalTheme.secondaryText)
                     .padding(.vertical, 4)
             }
         }
@@ -519,9 +554,8 @@ private struct RankingCard: View {
             Text("\(Int(round(entry.score)))")
                 .font(font)
                 .monospacedDigit()
-            Text("score")
+            Text("pt")
                 .font(.caption2.weight(.bold))
-                .textCase(.uppercase)
                 .opacity(0.68)
         }
     }
@@ -574,7 +608,7 @@ private struct FriendRow: View {
                     if friend.isFavorite {
                         Image(systemName: "star.fill")
                             .font(.caption2.weight(.bold))
-                            .foregroundStyle(.yellow)
+                            .foregroundStyle(LiminalTheme.reward)
                     }
                 }
 
@@ -587,7 +621,7 @@ private struct FriendRow: View {
 
                     Text(friendMoodText)
                         .font(.caption2)
-                        .foregroundStyle(.secondary.opacity(0.74))
+                        .foregroundStyle(LiminalTheme.secondaryText.opacity(0.74))
                         .lineLimit(1)
                 }
             }
@@ -602,18 +636,18 @@ private struct FriendRow: View {
 
             Image(systemName: "chevron.right")
                 .font(.caption.weight(.black))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(LiminalTheme.secondaryText)
                 .frame(width: 28, height: 28)
-                .background(Circle().fill(Color(.tertiarySystemGroupedBackground)))
+                .background(Circle().fill(LiminalTheme.elevated))
         }
         .padding(15)
         .background(
             RoundedRectangle(cornerRadius: 17)
-                .fill(Color(.secondarySystemGroupedBackground))
+                .fill(LiminalTheme.surface)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 17)
-                .stroke(Color.primary.opacity(0.06), lineWidth: 1)
+                .stroke(LiminalTheme.text.opacity(0.06), lineWidth: 1)
         )
         .contentShape(RoundedRectangle(cornerRadius: 17))
     }
@@ -684,7 +718,7 @@ private struct FriendRequestRow: View {
                     .lineLimit(1)
                 Text(friend.inviteCode)
                     .font(.caption.monospaced().weight(.semibold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(LiminalTheme.secondaryText)
                     .lineLimit(1)
             }
 
@@ -694,23 +728,25 @@ private struct FriendRequestRow: View {
                 Image(systemName: "checkmark")
                     .font(.subheadline.weight(.bold))
                     .frame(width: 34, height: 34)
-                    .background(Circle().fill(Color.accentColor))
+                    .background(Circle().fill(LiminalTheme.accent))
                     .foregroundStyle(.white)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("\(friend.displayName)の友達申請を承認")
 
             Button(action: onDelete) {
                 Image(systemName: "xmark")
                     .font(.subheadline.weight(.bold))
                     .frame(width: 34, height: 34)
-                    .background(Circle().fill(Color(.tertiarySystemGroupedBackground)))
+                    .background(Circle().fill(LiminalTheme.elevated))
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("\(friend.displayName)の友達申請を削除")
         }
         .padding(14)
         .background(
             RoundedRectangle(cornerRadius: 17)
-                .fill(Color(.secondarySystemGroupedBackground))
+                .fill(LiminalTheme.surface)
         )
     }
 }
@@ -729,7 +765,7 @@ private struct FriendPendingRow: View {
                     .lineLimit(1)
                 Text(friend.status.label)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(LiminalTheme.secondaryText)
             }
 
             Spacer()
@@ -740,11 +776,12 @@ private struct FriendPendingRow: View {
                     .foregroundStyle(.red)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("\(friend.displayName)への申請を削除")
         }
         .padding(14)
         .background(
             RoundedRectangle(cornerRadius: 17)
-                .fill(Color(.secondarySystemGroupedBackground))
+                .fill(LiminalTheme.surface)
         )
     }
 }
@@ -790,13 +827,7 @@ private struct FriendCardBackground: View {
     let cornerRadius: CGFloat
 
     var body: some View {
-        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            .fill(cardStyle.backgroundColor)
-            .overlay(alignment: .bottom) {
-                DecorativeAccentStrip(color: cardStyle.stripColor(accentColor: accentColor))
-                    .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            }
-            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        ProfileDecoratedCardBackground(style: cardStyle, accentColor: accentColor, cornerRadius: cornerRadius)
     }
 }
 
@@ -804,7 +835,14 @@ private struct FriendDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     let friend: Friend
+    @Query(sort: \VisibilityPreset.sortOrder) private var visibilityPresets: [VisibilityPreset]
+    @Query(sort: \Category.sortOrder) private var categories: [Category]
+    @Query(sort: \FriendSet.sortOrder) private var friendSets: [FriendSet]
+    @Query(sort: \Friend.displayName) private var friends: [Friend]
     @State private var isShowingCalendar = false
+    @State private var showingBlockConfirmation = false
+    @State private var showingDeleteConfirmation = false
+    @State private var saveError: String?
 
     private var accentColor: Color {
         Color(hex: friend.accentColorHex)
@@ -831,6 +869,7 @@ private struct FriendDetailView: View {
                 FriendProfileStatsRow(friend: friend)
 
                 statusCard
+                sharingSettingsCard
                 FriendProfileCollectionSection(friend: friend, badge: badge)
                 controls
             }
@@ -856,26 +895,68 @@ private struct FriendDetailView: View {
                     }
 
                     Button(role: .destructive) {
-                        friend.status = .blocked
-                        friend.blockedAt = Date()
-                        friend.updatedAt = Date()
-                        save()
+                        showingBlockConfirmation = true
                     } label: {
                         Label("ブロック", systemImage: "hand.raised")
                     }
 
                     Button(role: .destructive) {
-                        modelContext.delete(friend)
-                        save()
-                        dismiss()
+                        showingDeleteConfirmation = true
                     } label: {
                         Label("削除", systemImage: "trash")
                     }
                 } label: {
                     Image(systemName: "ellipsis")
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(LiminalTheme.accent)
                 }
+                .accessibilityLabel("友達メニュー")
             }
         }
+        .confirmationDialog(
+            "\(friend.displayName)をブロックしますか？",
+            isPresented: $showingBlockConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("ブロック", role: .destructive) {
+                blockFriend()
+            }
+            Button("キャンセル", role: .cancel) {}
+        } message: {
+            Text("この相手との共有や表示を停止します。")
+        }
+        .confirmationDialog(
+            "\(friend.displayName)を削除しますか？",
+            isPresented: $showingDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("削除", role: .destructive) {
+                deleteFriend()
+            }
+            Button("キャンセル", role: .cancel) {}
+        } message: {
+            Text("この操作は取り消せません。")
+        }
+        .alert("友達の変更を保存できませんでした", isPresented: saveErrorPresented) {
+            Button("OK", role: .cancel) {
+                saveError = nil
+            }
+        } message: {
+            Text(saveError ?? "")
+        }
+    }
+
+    private func blockFriend() {
+        friend.status = .blocked
+        friend.blockedAt = Date()
+        friend.updatedAt = Date()
+        save()
+    }
+
+    private func deleteFriend() {
+        modelContext.delete(friend)
+        guard save() else { return }
+        dismiss()
     }
 
     private var statusCard: some View {
@@ -895,7 +976,7 @@ private struct FriendDetailView: View {
                     .font(.headline.weight(.bold))
                 Text(friend.lastSeenAt?.japaneseShortDateTime ?? "まだ記録なし")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(LiminalTheme.secondaryText)
             }
 
             Spacer()
@@ -930,11 +1011,127 @@ private struct FriendDetailView: View {
         }
     }
 
-    private func save() {
+    private var sharingSettingsCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 10) {
+                Image(systemName: "eye.fill")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(accentColor)
+                    .frame(width: 28, height: 28)
+                    .background(accentColor.opacity(0.14), in: Circle())
+                Text("公開設定")
+                    .font(.headline.weight(.bold))
+            }
+
+            if visibilityPresets.isEmpty {
+                Text("見え方プリセットはまだありません")
+                    .font(.caption)
+                    .foregroundStyle(LiminalTheme.secondaryText)
+            } else {
+                Picker("この友達への見え方", selection: visibilityPresetSelection) {
+                    ForEach(visibilityPresets) { preset in
+                        Text(preset.name).tag(Optional(preset.id))
+                    }
+                }
+                .pickerStyle(.menu)
+            }
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text("この相手に見せるもの")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(LiminalTheme.text)
+
+                if categories.isEmpty {
+                    Text("カテゴリはまだありません")
+                        .font(.caption)
+                        .foregroundStyle(LiminalTheme.secondaryText)
+                } else {
+                    ForEach(categories) { category in
+                        Toggle(isOn: categoryAudienceBinding(category)) {
+                            Label(category.name, systemImage: category.icon ?? "circle.fill")
+                                .foregroundStyle(category.displayColor)
+                        }
+                    }
+                }
+
+                Text("カテゴリ別のデフォルト公開相手と連動します。既存チャプター/予定や個別例外は変更しません。")
+                    .font(.caption)
+                    .foregroundStyle(LiminalTheme.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 18)
+                .fill(LiminalTheme.surface)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 18)
+                .stroke(accentColor.opacity(0.18), lineWidth: 1)
+        )
+    }
+
+    private var visibilityPresetSelection: Binding<UUID?> {
+        Binding {
+            friend.visibilityPresetID ?? defaultVisibilityPresetID
+        } set: { id in
+            friend.visibilityPresetID = id
+            friend.updatedAt = Date()
+            save()
+        }
+    }
+
+    private var defaultVisibilityPresetID: UUID? {
+        visibilityPresets.first { $0.builtInKey == "acquaintances" }?.id
+            ?? visibilityPresets.first { $0.name == "控えめ" }?.id
+    }
+
+    private func categoryAudienceBinding(_ category: Category) -> Binding<Bool> {
+        Binding {
+            AudienceResolver.categoryDefaultAudience(
+                for: category,
+                friendSets: friendSets,
+                friends: friends
+            ).contains(friend.id)
+        } set: { isOn in
+            if isOn {
+                category.defaultAudienceExcludedFriendIDs.removeAll { $0 == friend.id }
+                appendUniqueFriendID(friend.id, to: &category.defaultAudienceIncludedFriendIDs)
+            } else {
+                category.defaultAudienceIncludedFriendIDs.removeAll { $0 == friend.id }
+                appendUniqueFriendID(friend.id, to: &category.defaultAudienceExcludedFriendIDs)
+            }
+            save()
+        }
+    }
+
+    private func appendUniqueFriendID(_ id: UUID, to values: inout [UUID]) {
+        guard !values.contains(id) else { return }
+        values.append(id)
+    }
+
+    @discardableResult
+    private func save() -> Bool {
         do {
             try modelContext.save()
+            return true
         } catch {
             NSLog("Liminalog: failed to save Friend detail changes: \(String(describing: error))")
+            modelContext.rollback()
+            saveError = "時間をおいてもう一度試してください。"
+            return false
+        }
+    }
+
+    private var saveErrorPresented: Binding<Bool> {
+        Binding {
+            saveError != nil
+        } set: { isPresented in
+            if !isPresented {
+                saveError = nil
+            }
         }
     }
 
@@ -974,7 +1171,7 @@ private struct FriendProfileHero: View {
                     if friend.isFavorite {
                         Image(systemName: "star.fill")
                             .font(.caption.weight(.bold))
-                            .foregroundStyle(.yellow)
+                            .foregroundStyle(LiminalTheme.reward)
                     }
                 }
                 .padding(.trailing, 76)
@@ -983,7 +1180,7 @@ private struct FriendProfileHero: View {
 
                 Text(moodText)
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(LiminalTheme.secondaryText)
                     .lineLimit(2)
                     .frame(minHeight: 42, alignment: .topLeading)
             }
@@ -1021,10 +1218,10 @@ private struct FriendProfileActionButton: View {
             Image(systemName: systemImage)
                 .font(.footnote.weight(.semibold))
                 .frame(width: 30, height: 30)
-                .background(.thinMaterial, in: Circle())
+                .liminalGlassFill(in: Circle())
                 .overlay {
                     Circle()
-                        .stroke(Color.primary.opacity(0.05), lineWidth: 1)
+                        .stroke(LiminalTheme.divider.opacity(0.5), lineWidth: 1)
                 }
                 .contentShape(Circle())
         }
@@ -1092,12 +1289,14 @@ private struct FriendBadgeDisplay {
 private enum FriendBadgeDisplayCatalog {
     static func item(for id: String?) -> FriendBadgeDisplay {
         switch id {
+        case ProfileDecorationUnlocks.noNameBadgeID:
+            FriendBadgeDisplay(id: ProfileDecorationUnlocks.noNameBadgeID, title: "なし", systemImage: "minus.circle", tintHex: "#8E879F")
         case "first_record":
             FriendBadgeDisplay(id: "first_record", title: "はじめの記録", systemImage: "sparkles", tintHex: "#2F80ED")
         case "three_days":
             FriendBadgeDisplay(id: "three_days", title: "3日記録", systemImage: "calendar.badge.checkmark", tintHex: "#27AE60")
-        case "seven_streak":
-            FriendBadgeDisplay(id: "seven_streak", title: "7日連続", systemImage: "flame.fill", tintHex: "#EB5757")
+        case "seven_days":
+            FriendBadgeDisplay(id: "seven_days", title: "記録7日", systemImage: "calendar.badge.checkmark", tintHex: "#27AE60")
         case "ten_hours":
             FriendBadgeDisplay(id: "ten_hours", title: "10時間", systemImage: "clock.fill", tintHex: "#6C5CE7")
         case "morning":
@@ -1117,7 +1316,7 @@ private struct FriendScoreCard: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(.caption.weight(.bold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(LiminalTheme.secondaryText)
             Text("\(Int(round(value)))")
                 .font(.title3.weight(.black))
                 .monospacedDigit()
@@ -1136,7 +1335,7 @@ private struct FriendScoreCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color(.secondarySystemGroupedBackground))
+                .fill(LiminalTheme.surface)
         )
     }
 }
@@ -1249,18 +1448,18 @@ private struct FriendCalendarView: View {
 
                     Image(systemName: "chevron.down")
                         .font(.caption.weight(.bold))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(LiminalTheme.secondaryText)
                 }
-                .foregroundStyle(.primary)
+                .foregroundStyle(LiminalTheme.text)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
                 .background(
                     Capsule()
-                        .fill(Color(.tertiarySystemGroupedBackground))
+                        .fill(LiminalTheme.elevated)
                 )
                 .overlay(
                     Capsule()
-                        .stroke(Color(.separator).opacity(0.34), lineWidth: 1)
+                        .stroke(LiminalTheme.divider.opacity(0.72), lineWidth: 1)
                 )
                 .frame(maxWidth: .infinity)
             }
@@ -1275,10 +1474,11 @@ private struct FriendCalendarView: View {
                     .frame(width: 44, height: 44)
             }
             .buttonStyle(.borderless)
+            .accessibilityLabel("友達の予定を検索")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 14)
-        .background(Color(.secondarySystemGroupedBackground))
+        .background(LiminalTheme.surface)
     }
 
     private var calendarYearRange: ClosedRange<Int> {
@@ -1377,7 +1577,8 @@ private struct FriendCalendarView: View {
             dates: dates,
             visibleMonth: month,
             importantPlansByDay: importantPlansByDay,
-            scoreSummariesByDay: scoreSummariesByDay
+            scoreSummariesByDay: scoreSummariesByDay,
+            didFailToLoadRecords: false
         )
     }
 
@@ -1572,14 +1773,14 @@ private struct FriendSharedCalendarDayView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
-        .background(RoundedRectangle(cornerRadius: 12).fill(Color(.secondarySystemGroupedBackground)))
+        .background(RoundedRectangle(cornerRadius: 12).fill(LiminalTheme.surface))
     }
 
     private var scoreCard: some View {
         HStack {
             Label("スコア", systemImage: "gauge.with.dots.needle.67percent")
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(LiminalTheme.secondaryText)
             Spacer()
             Text(resolvedScore.map { "\(Int($0.value.rounded()))" } ?? "-")
                 .font(.system(size: 46, weight: .bold, design: .rounded))
@@ -1599,7 +1800,7 @@ private struct FriendSharedCalendarDayView: View {
                 HStack(spacing: 7) {
                     Image(systemName: "star.fill")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(.yellow)
+                        .foregroundStyle(LiminalTheme.reward)
                     Text("重要な予定")
                         .font(.headline)
                 }
@@ -1609,7 +1810,7 @@ private struct FriendSharedCalendarDayView: View {
                 }
             }
             .padding(16)
-            .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemGroupedBackground)))
+            .background(RoundedRectangle(cornerRadius: 14).fill(LiminalTheme.surface))
         }
     }
 
@@ -1714,7 +1915,7 @@ private struct FriendSharedPlanRow: View {
                     .lineLimit(1)
                 Text(timeText)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(LiminalTheme.secondaryText)
                     .monospacedDigit()
             }
         }
@@ -1723,7 +1924,7 @@ private struct FriendSharedPlanRow: View {
 
     private var timeText: String {
         if plan.isAllDay {
-            return "時間未指定"
+            return "終日"
         }
         return "\(plan.startTime.shortTime) - \(plan.endTime.shortTime)"
     }
@@ -1759,11 +1960,25 @@ private struct FriendSharedPlanSearchSheet: View {
 
                 ScrollView {
                     LazyVStack(spacing: 0) {
-                        if trimmedQuery.isEmpty {
+                        if friend.sharedPlans.isEmpty {
+                            ContentUnavailableView(
+                                "共有予定はまだありません",
+                                systemImage: "calendar",
+                                description: Text("相手が予定を共有すると、ここから探せます")
+                            )
+                            .padding(.top, 72)
+                        } else if trimmedQuery.isEmpty {
                             ContentUnavailableView(
                                 "予定名を入力",
                                 systemImage: "magnifyingglass",
                                 description: Text("検索欄に入力すると共有予定を表示します")
+                            )
+                            .padding(.top, 72)
+                        } else if filteredPlans.isEmpty {
+                            ContentUnavailableView(
+                                "該当する共有予定はありません",
+                                systemImage: "magnifyingglass",
+                                description: Text("別の予定名で検索してください")
                             )
                             .padding(.top, 72)
                         } else {
@@ -1782,12 +1997,12 @@ private struct FriendSharedPlanSearchSheet: View {
                     }
                 }
 
-                Text(trimmedQuery.isEmpty ? "検索ワードを入力してください" : "検索結果: \(filteredPlans.count)件")
+                Text(searchResultText)
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(LiminalTheme.secondaryText)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
-                    .background(.bar)
+                    .background(LiminalTheme.surface)
             }
             .navigationTitle("共有予定を検索")
             .navigationBarTitleDisplayMode(.inline)
@@ -1802,11 +2017,18 @@ private struct FriendSharedPlanSearchSheet: View {
         .presentationDetents([.large])
     }
 
+    private var searchResultText: String {
+        if friend.sharedPlans.isEmpty { return "共有予定はまだありません" }
+        if trimmedQuery.isEmpty { return "予定名を入力してください" }
+        if filteredPlans.isEmpty { return "該当する共有予定はありません" }
+        return "\(filteredPlans.count)件見つかりました"
+    }
+
     private var searchField: some View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
                 .font(.title3)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(LiminalTheme.secondaryText)
 
             TextField("予定名で検索", text: $query)
                 .textInputAutocapitalization(.never)
@@ -1819,15 +2041,15 @@ private struct FriendSharedPlanSearchSheet: View {
                 } label: {
                     Image(systemName: "xmark.circle.fill")
                         .font(.title3)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(LiminalTheme.secondaryText)
                 }
                 .buttonStyle(.plain)
             }
         }
         .padding(.horizontal, 16)
         .frame(height: 54)
-        .background(Capsule().fill(Color(.secondarySystemGroupedBackground)))
-        .overlay(Capsule().stroke(Color(.separator).opacity(0.45), lineWidth: 1))
+        .background(Capsule().fill(LiminalTheme.surface))
+        .overlay(Capsule().stroke(LiminalTheme.divider.opacity(0.72), lineWidth: 1))
     }
 }
 
@@ -1839,17 +2061,17 @@ private struct FriendSharedPlanSearchRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(plan.startTime.japaneseYear)
                     .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(LiminalTheme.secondaryText)
                 Text(plan.startTime.japaneseMonthDayShortWeekday)
                     .font(.headline.weight(.bold))
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(LiminalTheme.text)
             }
             .frame(width: 104, alignment: .leading)
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(timeText)
                     .font(.caption.weight(.medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(LiminalTheme.secondaryText)
                     .monospacedDigit()
                 HStack(spacing: 6) {
                     Circle()
@@ -1857,7 +2079,7 @@ private struct FriendSharedPlanSearchRow: View {
                         .frame(width: 6, height: 6)
                     Text(plan.title)
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(LiminalTheme.text)
                         .lineLimit(1)
                 }
             }
@@ -1868,7 +2090,7 @@ private struct FriendSharedPlanSearchRow: View {
     }
 
     private var timeText: String {
-        if plan.isAllDay { return "時間未指定" }
+        if plan.isAllDay { return "終日" }
         return "\(plan.startTime.shortTime) - \(plan.endTime.shortTime)"
     }
 }
@@ -1922,8 +2144,13 @@ private struct FriendAddSheet: View {
                 .padding(13)
                 .background(
                     RoundedRectangle(cornerRadius: 14)
-                        .fill(Color(.tertiarySystemGroupedBackground))
+                        .fill(LiminalTheme.elevated)
                 )
+
+            Text(inviteInputHint)
+                .font(.caption)
+                .foregroundStyle(LiminalTheme.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
 
             if let errorText {
                 Text(errorText)
@@ -1940,17 +2167,20 @@ private struct FriendAddSheet: View {
                     .padding(.vertical, 12)
             }
             .buttonStyle(.borderedProminent)
-            .disabled(FriendInvitePayload(text: receivedText) == nil)
+            .disabled(invitePayload == nil)
         }
         .padding(18)
         .background(
             RoundedRectangle(cornerRadius: 20)
-                .fill(Color(.secondarySystemGroupedBackground))
+                .fill(LiminalTheme.surface)
         )
+        .onChange(of: receivedText) { _, _ in
+            errorText = nil
+        }
     }
 
     private func submit() {
-        guard let payload = FriendInvitePayload(text: receivedText) else {
+        guard let payload = invitePayload else {
             errorText = "招待を読み取れません"
             return
         }
@@ -1961,6 +2191,24 @@ private struct FriendAddSheet: View {
         case .failure(let message):
             errorText = message
         }
+    }
+
+    private var trimmedReceivedText: String {
+        receivedText.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var invitePayload: FriendInvitePayload? {
+        FriendInvitePayload(text: receivedText)
+    }
+
+    private var inviteInputHint: String {
+        if trimmedReceivedText.isEmpty {
+            return "共有されたリンク、または招待コードを入力してください。"
+        }
+        if invitePayload == nil {
+            return "Liminalogの招待リンクかコードを入力してください。"
+        }
+        return "この招待を追加できます。"
     }
 }
 
@@ -1999,10 +2247,10 @@ private struct FriendRankingListSheet: View {
                         Image(systemName: "chevron.down")
                             .font(.caption.weight(.black))
                     }
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(LiminalTheme.text)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 9)
-                    .background(Capsule().fill(Color(.secondarySystemGroupedBackground)))
+                    .background(Capsule().fill(LiminalTheme.surface))
                 }
                 .buttonStyle(.plain)
 
@@ -2214,7 +2462,7 @@ private struct FriendRankingListRow: View {
                     .lineLimit(1)
                 Text(entry.isMe ? "自分" : entry.status)
                     .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(LiminalTheme.secondaryText)
                     .lineLimit(1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -2226,19 +2474,19 @@ private struct FriendRankingListRow: View {
                 Text("score")
                     .font(.caption2.weight(.bold))
                     .textCase(.uppercase)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(LiminalTheme.secondaryText)
             }
 
             Image(systemName: "chevron.right")
                 .font(.caption.weight(.black))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(LiminalTheme.secondaryText)
                 .frame(width: 12)
                 .opacity(entry.friend == nil ? 0 : 1)
         }
         .padding(13)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color(.secondarySystemGroupedBackground))
+                .fill(LiminalTheme.surface)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 16)
@@ -2247,7 +2495,7 @@ private struct FriendRankingListRow: View {
     }
 
     private var entryBorderColor: Color {
-        entry.isMe ? entry.tint.opacity(0.5) : Color.primary.opacity(0.06)
+        entry.isMe ? entry.tint.opacity(0.5) : LiminalTheme.text.opacity(0.06)
     }
 
     private var rankLabel: some View {

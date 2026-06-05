@@ -11,10 +11,17 @@ final class UnlockStore {
 
     @discardableResult
     func seedMasterItems(now: Date = Date()) -> [UnlockItem] {
-        var items = fetchItems()
+        guard var items = fetchItemsIfAvailable() else {
+            NSLog("Liminalog: skipped unlock master seed because unlock items could not be fetched")
+            return []
+        }
         var didChange = false
 
         if migrateLegacyBuiltInItems(in: &items, now: now) {
+            didChange = true
+        }
+
+        if removeRetiredBuiltInItems(in: &items) {
             didChange = true
         }
 
@@ -36,9 +43,14 @@ final class UnlockStore {
         }
 
         if didChange {
-            try? modelContext.save()
+            _ = saveChanges("unlock master items")
         }
-        return fetchItems()
+        return fetchItemsIfAvailable() ?? items.sorted {
+            if $0.sortOrder == $1.sortOrder {
+                return $0.createdAt < $1.createdAt
+            }
+            return $0.sortOrder < $1.sortOrder
+        }
     }
 
     @discardableResult
@@ -59,8 +71,7 @@ final class UnlockStore {
             item.unlockedAt = now
             item.updatedAt = now
         }
-        try? modelContext.save()
-        return newlyUnlocked
+        return saveChanges("unlock refresh") ? newlyUnlocked : []
     }
 
     func allItems() -> [UnlockItem] {
@@ -79,13 +90,34 @@ final class UnlockStore {
     }
 
     private func fetchItems() -> [UnlockItem] {
+        fetchItemsIfAvailable() ?? []
+    }
+
+    private func fetchItemsIfAvailable() -> [UnlockItem]? {
         let descriptor = FetchDescriptor<UnlockItem>(
             sortBy: [
                 SortDescriptor(\.sortOrder),
                 SortDescriptor(\.createdAt)
             ]
         )
-        return (try? modelContext.fetch(descriptor)) ?? []
+        do {
+            return try modelContext.fetch(descriptor)
+        } catch {
+            NSLog("Liminalog: failed to fetch unlock items: \(String(describing: error))")
+            return nil
+        }
+    }
+
+    @discardableResult
+    private func saveChanges(_ action: String) -> Bool {
+        do {
+            try modelContext.save()
+            return true
+        } catch {
+            NSLog("Liminalog: failed to save \(action): \(String(describing: error))")
+            modelContext.rollback()
+            return false
+        }
     }
 
     @discardableResult
@@ -148,7 +180,30 @@ final class UnlockStore {
         }
 
         if didChange {
-            items = fetchItems()
+            if let refreshedItems = fetchItemsIfAvailable() {
+                items = refreshedItems
+            } else {
+                NSLog("Liminalog: could not refresh unlock items after migration")
+            }
+        }
+        return didChange
+    }
+
+    private func removeRetiredBuiltInItems(in items: inout [UnlockItem]) -> Bool {
+        let currentKeys = Set(UnlockCatalog.items.map(\.key))
+        var didChange = false
+
+        for item in items where item.isBuiltIn && !currentKeys.contains(item.key) {
+            modelContext.delete(item)
+            didChange = true
+        }
+
+        if didChange {
+            if let refreshedItems = fetchItemsIfAvailable() {
+                items = refreshedItems
+            } else {
+                NSLog("Liminalog: could not refresh unlock items after retired decoration cleanup")
+            }
         }
         return didChange
     }

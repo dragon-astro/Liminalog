@@ -5,6 +5,8 @@ import WidgetKit
 @Observable
 @MainActor
 final class ChapterStore {
+    private(set) var contentRevision = 0
+
     private var modelContext: ModelContext
     private let clock: any LiminalogClock
     private let categoryStore: CategoryStore
@@ -42,6 +44,8 @@ final class ChapterStore {
     }
 
     private func markChanged(reloadWidgets: Bool = true) {
+        contentRevision &+= 1
+
         if reloadWidgets && ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil {
             WidgetCenter.shared.reloadAllTimelines()
         }
@@ -53,9 +57,11 @@ final class ChapterStore {
     }
 
     private func cacheActiveCategoryID(_ id: UUID?) {
-        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil,
-              let defaults = UserDefaults(suiteName: Self.appGroupID)
-        else { return }
+        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
+        guard let defaults = UserDefaults(suiteName: Self.appGroupID) else {
+            NSLog("Liminalog: skipped active category cache because app group UserDefaults was unavailable")
+            return
+        }
         if let id {
             defaults.set(id.uuidString, forKey: Self.activeCategoryCacheKey)
             defaults.set(id.uuidString, forKey: Self.pendingCategoryCacheKey)
@@ -73,12 +79,17 @@ final class ChapterStore {
         return UUID(uuidString: value)
     }
 
-    private func publishRecordingSurfaceSnapshot(categorySet: CategorySet? = nil) -> RecordingSurfaceSnapshot {
-        let snapshot = makeRecordingSurfaceSnapshot(categorySet: categorySet)
+    private func publishRecordingSurfaceSnapshot(categorySet: CategorySet? = nil) -> RecordingSurfaceSnapshot? {
+        guard let snapshot = makeRecordingSurfaceSnapshot(categorySet: categorySet) else {
+            NSLog("Liminalog: skipped recording surface snapshot because categories or category sets could not be loaded")
+            return nil
+        }
 
-        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil,
-              let defaults = UserDefaults(suiteName: Self.appGroupID)
-        else { return snapshot }
+        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return snapshot }
+        guard let defaults = UserDefaults(suiteName: Self.appGroupID) else {
+            NSLog("Liminalog: skipped recording surface snapshot cache because app group UserDefaults was unavailable")
+            return snapshot
+        }
 
         if let id = snapshot.selectedCategorySetID {
             defaults.set(id.uuidString, forKey: Self.enabledCategorySetCacheKey)
@@ -86,15 +97,19 @@ final class ChapterStore {
             defaults.removeObject(forKey: Self.enabledCategorySetCacheKey)
         }
 
-        if let data = try? JSONEncoder().encode(snapshot) {
+        do {
+            let data = try JSONEncoder().encode(snapshot)
             defaults.set(data, forKey: Self.surfaceSnapshotCacheKey)
+        } catch {
+            NSLog("Liminalog: failed to encode recording surface snapshot: \(String(describing: error))")
         }
         return snapshot
     }
 
-    private func makeRecordingSurfaceSnapshot(categorySet: CategorySet? = nil) -> RecordingSurfaceSnapshot {
+    private func makeRecordingSurfaceSnapshot(categorySet: CategorySet? = nil) -> RecordingSurfaceSnapshot? {
         let selectedSet = categorySet ?? currentCategorySet()
-        let categoryByID = Dictionary(uniqueKeysWithValues: categoryStore.allCategories().map { ($0.id, $0) })
+        guard let categories = categoryStore.allCategoriesIfAvailable() else { return nil }
+        let categoryByID = Dictionary(uniqueKeysWithValues: categories.map { ($0.id, $0) })
         let cells: [RecordingSurfaceSnapshot.Cell?] = CategorySet.normalize(selectedSet?.slots ?? [])
             .map { id in
                 guard let id, let category = categoryByID[id] else { return nil }
@@ -117,12 +132,46 @@ final class ChapterStore {
         cacheActiveCategoryID(activeChapter?.category?.id)
     }
 
+    private struct AudienceResolution {
+        let friendIDs: [UUID]
+        let didResolveSnapshot: Bool
+    }
+
+    private func defaultAudienceResolution(for category: Category?) -> AudienceResolution {
+        do {
+            let friendSets = try modelContext.fetch(FetchDescriptor<FriendSet>(
+                sortBy: [SortDescriptor(\.sortOrder)]
+            ))
+            let friends = try modelContext.fetch(FetchDescriptor<Friend>(
+                sortBy: [SortDescriptor(\.displayName)]
+            ))
+            let friendIDs = AudienceResolver.categoryDefaultAudience(
+                for: category,
+                friendSets: friendSets,
+                friends: friends
+            )
+            return AudienceResolution(friendIDs: friendIDs, didResolveSnapshot: !friendIDs.isEmpty)
+        } catch {
+            NSLog("Liminalog: failed to resolve default audience: \(String(describing: error))")
+            return AudienceResolution(friendIDs: [], didResolveSnapshot: false)
+        }
+    }
+
+    private func applyCategoryDefaultAudience(to chapter: Chapter, category: Category?) {
+        let resolution = defaultAudienceResolution(for: category)
+        chapter.audienceFriendIDs = resolution.friendIDs
+        chapter.audienceSource = .categoryDefaultSnapshot
+        chapter.hasAudienceSnapshot = resolution.didResolveSnapshot
+    }
+
     @discardableResult
-    private func saveModelContext() -> Bool {
+    private func saveModelContext(action: String = "chapter store update") -> Bool {
         do {
             try modelContext.save()
             return true
         } catch {
+            NSLog("Liminalog: failed to save \(action): \(String(describing: error))")
+            modelContext.rollback()
             return false
         }
     }
@@ -155,12 +204,22 @@ final class ChapterStore {
     }
 
     func hasChapterOverlap(startTime: Date, endTime: Date, excluding chapterID: UUID? = nil, now: Date = Date()) -> Bool {
+        chapterOverlapIfAvailable(startTime: startTime, endTime: endTime, excluding: chapterID, now: now) ?? true
+    }
+
+    private func chapterOverlapIfAvailable(startTime: Date, endTime: Date, excluding chapterID: UUID? = nil, now: Date = Date()) -> Bool? {
         guard startTime < endTime else { return false }
         let descriptor = FetchDescriptor<Chapter>(
             predicate: #Predicate { $0.startTime < endTime },
             sortBy: [SortDescriptor(\.startTime)]
         )
-        let candidates = (try? modelContext.fetch(descriptor)) ?? []
+        let candidates: [Chapter]
+        do {
+            candidates = try modelContext.fetch(descriptor)
+        } catch {
+            NSLog("Liminalog: failed to fetch chapters for overlap validation: \(String(describing: error))")
+            return nil
+        }
         return candidates.contains { chapter in
             guard chapter.id != chapterID else { return false }
             let candidateEnd = chapter.endTime ?? now
@@ -175,18 +234,27 @@ final class ChapterStore {
     }
 
     private func activeChapters() -> [Chapter] {
+        activeChaptersIfAvailable() ?? []
+    }
+
+    private func activeChaptersIfAvailable() -> [Chapter]? {
         let descriptor = FetchDescriptor<Chapter>(
             predicate: #Predicate { $0.endTime == nil },
             sortBy: [SortDescriptor(\.startTime, order: .reverse)]
         )
-        return (try? modelContext.fetch(descriptor)) ?? []
+        do {
+            return try modelContext.fetch(descriptor)
+        } catch {
+            NSLog("Liminalog: failed to fetch active chapters: \(String(describing: error))")
+            return nil
+        }
     }
 
     /// Close every active chapter before creating/stopping an active session.
     /// CloudKit or widget writes can leave multiple `endTime == nil` records; user-facing state must converge to one active chapter.
     @discardableResult
     private func closeActiveChapters(at now: Date) -> Bool {
-        let actives = activeChapters()
+        guard let actives = activeChaptersIfAvailable() else { return false }
         guard !actives.isEmpty else { return false }
 
         for active in actives {
@@ -204,25 +272,40 @@ final class ChapterStore {
     /// - **同じカテゴリの再タップ:** active に同カテゴリのものがあれば**何もしない**（継続）。
     ///   並行性で他カテゴリの active が存在していれば、それらは閉じる。
     /// - **別カテゴリへ切替:** active を `endTime = now` で終了して新規開始（カテゴリ切替では削除しない）。
-    func startChapter(category: Category, categorySet: CategorySet? = nil) {
+    @discardableResult
+    func startChapter(category: Category, categorySet: CategorySet? = nil) -> Bool {
         let now = clock.now
+        guard let activeChapters = activeChaptersIfAvailable() else { return false }
         let result = RecordingSwitchLogic.switchToCategory(
             category,
             at: now,
-            activeChapters: activeChapters()
+            activeChapters: activeChapters
         ) { chapter in
+            applyCategoryDefaultAudience(to: chapter, category: category)
             modelContext.insert(chapter)
         }
 
-        if saveModelContext() {
-            cacheActiveCategoryID(result.activeChapter?.category?.id)
-        }
+        guard saveModelContext(action: "chapter start") else { return false }
+        cacheActiveCategoryID(result.activeChapter?.category?.id)
+        markChanged(reloadWidgets: false)
         reloadRecordingGridWidget()
         updateLiveActivity(categorySet: categorySet)
+        return true
     }
 
     @discardableResult
-    func addChapter(category: Category, startTime: Date, endTime: Date, note: String? = nil, mood: String? = nil, locationName: String? = nil, isPublic: Bool = true) -> Bool {
+    func addChapter(
+        category: Category,
+        startTime: Date,
+        endTime: Date,
+        note: String? = nil,
+        mood: String? = nil,
+        locationName: String? = nil,
+        isPublic: Bool = true,
+        audienceFriendIDs: [UUID]? = nil,
+        audienceSource: AudienceSource = .categoryDefaultSnapshot,
+        hasAudienceSnapshot: Bool = true
+    ) -> Bool {
         guard canCreateChapter(startTime: startTime, endTime: endTime, now: clock.now) else { return false }
         let chapter = Chapter(category: category, startTime: startTime)
         chapter.endTime = endTime
@@ -230,28 +313,47 @@ final class ChapterStore {
         chapter.mood = mood
         chapter.locationName = locationName.flatMap { $0.isEmpty ? nil : $0 }
         chapter.isPublic = isPublic
+        let audienceResolution = audienceFriendIDs.map {
+            AudienceResolution(friendIDs: $0, didResolveSnapshot: hasAudienceSnapshot)
+        } ?? defaultAudienceResolution(for: category)
+        chapter.audienceFriendIDs = audienceResolution.friendIDs
+        chapter.audienceSource = audienceSource
+        chapter.hasAudienceSnapshot = hasAudienceSnapshot && audienceResolution.didResolveSnapshot
         chapter.updatedAt = clock.now
         modelContext.insert(chapter)
-        try? modelContext.save()
+        guard saveModelContext(action: "chapter add") else { return false }
         markChanged()
         updateLiveActivity()
         return true
     }
 
-    func endActiveChapter() {
+    @discardableResult
+    func endActiveChapter() -> Bool {
         let now = clock.now
-        guard closeActiveChapters(at: now) else { return }
-        if saveModelContext() {
-            cacheActiveCategoryID(nil)
-        }
+        guard closeActiveChapters(at: now) else { return false }
+        guard saveModelContext(action: "active chapter end") else { return false }
+        cacheActiveCategoryID(nil)
         markChanged()
         updateLiveActivity()
+        return true
     }
 
     // MARK: - Chapter edits
 
     @discardableResult
-    func saveChapter(_ chapter: Chapter, startTime: Date, endTime: Date?, category: Category?, note: String?, mood: String?, locationName: String?, isPublic: Bool) -> Bool {
+    func saveChapter(
+        _ chapter: Chapter,
+        startTime: Date,
+        endTime: Date?,
+        category: Category?,
+        note: String?,
+        mood: String?,
+        locationName: String?,
+        isPublic: Bool,
+        audienceFriendIDs: [UUID]? = nil,
+        audienceSource: AudienceSource? = nil,
+        hasAudienceSnapshot: Bool? = nil
+    ) -> Bool {
         if isChapterTimeLocked(chapter, now: clock.now) {
             // 前日以前の実績はスコア公平性のため、時間とカテゴリを固定する。
             // 振り返り用のメモ/場所/公開設定だけ後から編集可能。
@@ -259,7 +361,8 @@ final class ChapterStore {
             let validationEnd = endTime ?? clock.now
             guard startTime < validationEnd,
                   validationEnd <= clock.now,
-                  !hasChapterOverlap(startTime: startTime, endTime: validationEnd, excluding: chapter.id, now: clock.now)
+                  let hasOverlap = chapterOverlapIfAvailable(startTime: startTime, endTime: validationEnd, excluding: chapter.id, now: clock.now),
+                  !hasOverlap
             else {
                 return false
             }
@@ -271,41 +374,52 @@ final class ChapterStore {
         chapter.mood = mood
         chapter.locationName = locationName.flatMap { $0.isEmpty ? nil : $0 }
         chapter.isPublic = isPublic
-        chapter.updatedAt = clock.now
-        if saveModelContext() {
-            syncActiveCategoryCacheFromStore()
+        if let audienceFriendIDs {
+            chapter.audienceFriendIDs = audienceFriendIDs
         }
+        if let audienceSource {
+            chapter.audienceSource = audienceSource
+        }
+        if let hasAudienceSnapshot {
+            chapter.hasAudienceSnapshot = hasAudienceSnapshot
+        }
+        chapter.updatedAt = clock.now
+        guard saveModelContext(action: "chapter update") else { return false }
+        syncActiveCategoryCacheFromStore()
         markChanged()
         updateLiveActivity()
         return true
     }
 
-    func setChapterVisibility(_ chapter: Chapter, isPublic: Bool) {
+    @discardableResult
+    func setChapterVisibility(_ chapter: Chapter, isPublic: Bool) -> Bool {
         chapter.isPublic = isPublic
         chapter.updatedAt = clock.now
-        try? modelContext.save()
+        guard saveModelContext(action: "chapter visibility update") else { return false }
         markChanged()
+        return true
     }
 
     /// 複数チャプターの公開状態をまとめて変更。`isPublic == nil` のときは現状を反転する（一括トグル）。
-    func setChaptersVisibility(_ chapters: [Chapter], isPublic: Bool?) {
-        guard !chapters.isEmpty else { return }
+    @discardableResult
+    func setChaptersVisibility(_ chapters: [Chapter], isPublic: Bool?) -> Bool {
+        guard !chapters.isEmpty else { return false }
         let target = isPublic ?? !chapters.allSatisfy(\.isPublic)
         for chapter in chapters {
             chapter.isPublic = target
             chapter.updatedAt = clock.now
         }
-        try? modelContext.save()
+        guard saveModelContext(action: "chapter bulk visibility update") else { return false }
         markChanged()
+        return true
     }
 
     @discardableResult
     func deleteChapter(_ chapter: Chapter) -> Bool {
         guard !isChapterTimeLocked(chapter, now: clock.now) else { return false }
         modelContext.delete(chapter)
-        if saveModelContext() {
-            syncActiveCategoryCacheFromStore()
-        }
+        guard saveModelContext(action: "chapter delete") else { return false }
+        syncActiveCategoryCacheFromStore()
         markChanged()
         updateLiveActivity()
         return true
@@ -314,15 +428,42 @@ final class ChapterStore {
     // MARK: - Plans
 
     @discardableResult
-    func addPlanBlock(category: Category?, title: String, startTime: Date, endTime: Date, isAllDay: Bool = false, isImportant: Bool = false, note: String? = nil, isPublic: Bool = true) -> Bool {
-        guard planStore.addPlanBlock(category: category, title: title, startTime: startTime, endTime: endTime, isAllDay: isAllDay, isImportant: isImportant, note: note, isPublic: isPublic) else { return false }
+    func addPlanBlock(
+        category: Category?,
+        title: String,
+        startTime: Date,
+        endTime: Date,
+        isAllDay: Bool = false,
+        isImportant: Bool = false,
+        note: String? = nil,
+        isPublic: Bool = true,
+        audienceFriendIDs: [UUID]? = nil,
+        audienceSource: AudienceSource = .categoryDefaultSnapshot,
+        hasAudienceSnapshot: Bool = true
+    ) -> Bool {
+        let audienceResolution = audienceFriendIDs.map {
+            AudienceResolution(friendIDs: $0, didResolveSnapshot: hasAudienceSnapshot)
+        } ?? defaultAudienceResolution(for: category)
+        guard planStore.addPlanBlock(
+            category: category,
+            title: title,
+            startTime: startTime,
+            endTime: endTime,
+            isAllDay: isAllDay,
+            isImportant: isImportant,
+            note: note,
+            isPublic: isPublic,
+            audienceFriendIDs: audienceResolution.friendIDs,
+            audienceSource: audienceSource,
+            hasAudienceSnapshot: hasAudienceSnapshot && audienceResolution.didResolveSnapshot
+        ) else { return false }
         markChanged()
         return true
     }
 
     @discardableResult
-    func savePlanBlock(_ plan: PlanBlock, category: Category?, title: String, startTime: Date, endTime: Date, isAllDay: Bool, isImportant: Bool, note: String?, isPublic: Bool) -> Bool {
-        guard planStore.savePlanBlock(plan, category: category, title: title, startTime: startTime, endTime: endTime, isAllDay: isAllDay, isImportant: isImportant, note: note, isPublic: isPublic) else { return false }
+    func savePlanBlock(_ plan: PlanBlock, category: Category?, title: String, startTime: Date, endTime: Date, isAllDay: Bool, isImportant: Bool, note: String?, isPublic: Bool, audienceFriendIDs: [UUID]? = nil, audienceSource: AudienceSource? = nil, hasAudienceSnapshot: Bool? = nil) -> Bool {
+        guard planStore.savePlanBlock(plan, category: category, title: title, startTime: startTime, endTime: endTime, isAllDay: isAllDay, isImportant: isImportant, note: note, isPublic: isPublic, audienceFriendIDs: audienceFriendIDs, audienceSource: audienceSource, hasAudienceSnapshot: hasAudienceSnapshot) else { return false }
         markChanged()
         return true
     }
@@ -336,91 +477,120 @@ final class ChapterStore {
 
     // MARK: - Category management
 
+    @discardableResult
     func addCategory(
         name: String,
         colorHex: String,
         icon: String? = nil,
         dailyCardIntent: DailyCardCategoryIntent = .neutral,
-        isDailyCardSleepCategory: Bool = false
-    ) {
-        if categoryStore.addCategory(
+        isDailyCardSleepCategory: Bool = false,
+        defaultAudienceFriendSetIDs: [UUID] = [],
+        defaultAudienceIncludedFriendIDs: [UUID] = [],
+        defaultAudienceExcludedFriendIDs: [UUID] = []
+    ) -> Bool {
+        guard categoryStore.addCategory(
             name: name,
             colorHex: colorHex,
             icon: icon,
             dailyCardIntent: dailyCardIntent,
-            isDailyCardSleepCategory: isDailyCardSleepCategory
-        ) {
-            markChanged()
-        }
+            isDailyCardSleepCategory: isDailyCardSleepCategory,
+            defaultAudienceFriendSetIDs: defaultAudienceFriendSetIDs,
+            defaultAudienceIncludedFriendIDs: defaultAudienceIncludedFriendIDs,
+            defaultAudienceExcludedFriendIDs: defaultAudienceExcludedFriendIDs
+        ) else { return false }
+        markChanged()
+        return true
     }
 
+    @discardableResult
     func updateCategory(
         _ category: Category,
         name: String,
         colorHex: String,
         icon: String? = nil,
         dailyCardIntent: DailyCardCategoryIntent = .neutral,
-        isDailyCardSleepCategory: Bool = false
-    ) {
-        if categoryStore.updateCategory(
+        isDailyCardSleepCategory: Bool = false,
+        defaultAudienceFriendSetIDs: [UUID]? = nil,
+        defaultAudienceIncludedFriendIDs: [UUID]? = nil,
+        defaultAudienceExcludedFriendIDs: [UUID]? = nil
+    ) -> Bool {
+        guard categoryStore.updateCategory(
             category,
             name: name,
             colorHex: colorHex,
             icon: icon,
             dailyCardIntent: dailyCardIntent,
-            isDailyCardSleepCategory: isDailyCardSleepCategory
-        ) {
-            markChanged()
-            updateLiveActivity()
-        }
+            isDailyCardSleepCategory: isDailyCardSleepCategory,
+            defaultAudienceFriendSetIDs: defaultAudienceFriendSetIDs,
+            defaultAudienceIncludedFriendIDs: defaultAudienceIncludedFriendIDs,
+            defaultAudienceExcludedFriendIDs: defaultAudienceExcludedFriendIDs
+        ) else { return false }
+        markChanged()
+        updateLiveActivity()
+        return true
     }
 
-    func deleteCategory(_ category: Category) {
-        if categoryStore.deleteCategory(category) {
-            syncActiveCategoryCacheFromStore()
-            markChanged()
-            updateLiveActivity()
-        }
+    @discardableResult
+    func deleteCategory(_ category: Category) -> Bool {
+        guard categoryStore.deleteCategory(category) else { return false }
+        syncActiveCategoryCacheFromStore()
+        markChanged()
+        updateLiveActivity()
+        return true
     }
 
     // MARK: - Category sets
 
-    func addCategorySet(name: String, slots: [UUID?]) {
-        if categorySetStore.addCategorySet(name: name, slots: slots) {
-            markChanged()
-            updateLiveActivity()
-        }
+    @discardableResult
+    func addCategorySet(name: String, slots: [UUID?]) -> Bool {
+        guard categorySetStore.addCategorySet(name: name, slots: slots) else { return false }
+        markChanged()
+        updateLiveActivity()
+        return true
     }
 
-    func updateCategorySet(_ set: CategorySet, name: String, slots: [UUID?]) {
-        if categorySetStore.updateCategorySet(set, name: name, slots: slots) {
-            markChanged()
-            updateLiveActivity()
-        }
+    @discardableResult
+    func updateCategorySet(_ set: CategorySet, name: String, slots: [UUID?]) -> Bool {
+        guard categorySetStore.updateCategorySet(set, name: name, slots: slots) else { return false }
+        markChanged()
+        updateLiveActivity()
+        return true
     }
 
-    func deleteCategorySet(_ set: CategorySet) {
-        if categorySetStore.deleteCategorySet(set) {
-            markChanged()
-            updateLiveActivity()
-        }
+    @discardableResult
+    func deleteCategorySet(_ set: CategorySet) -> Bool {
+        guard categorySetStore.deleteCategorySet(set) else { return false }
+        markChanged()
+        updateLiveActivity()
+        return true
     }
 
-    func moveCategorySets(from source: IndexSet, to destination: Int) {
-        if categorySetStore.moveCategorySets(from: source, to: destination) {
-            markChanged()
-            updateLiveActivity()
-        }
+    @discardableResult
+    func moveCategorySets(from source: IndexSet, to destination: Int) -> Bool {
+        guard categorySetStore.moveCategorySets(from: source, to: destination) else { return false }
+        markChanged()
+        updateLiveActivity()
+        return true
     }
 
     func setEnabledCategorySetID(_ id: UUID?) {
-        let snapshot = publishRecordingSurfaceSnapshot(categorySet: categorySetStore.categorySets().first { $0.id == id })
+        guard let sets = categorySetStore.categorySetsIfAvailable(),
+              let snapshot = publishRecordingSurfaceSnapshot(categorySet: sets.first { $0.id == id })
+        else {
+            NSLog("Liminalog: skipped enabled category set update because category sets could not be loaded")
+            return
+        }
         reloadRecordingGridWidget()
         updateLiveActivity(snapshot: snapshot)
         persistEnabledCategorySetIDBestEffort(id)
     }
 
     func syncLiveActivityWithActiveChapter() {
+        updateLiveActivity()
+    }
+
+    func restoreRecordingStateAfterLaunch() {
+        syncActiveCategoryCacheFromStore()
         updateLiveActivity()
     }
 
@@ -438,14 +608,20 @@ final class ChapterStore {
                 $0.endTime != nil && $0.startTime < today
             }
         )
-        let candidates = (try? modelContext.fetch(descriptor)) ?? []
+        let candidates: [Chapter]
+        do {
+            candidates = try modelContext.fetch(descriptor)
+        } catch {
+            NSLog("Liminalog: skipped short chapter prune because chapters could not be fetched: \(String(describing: error))")
+            return
+        }
         let toDelete = candidates.filter { chapter in
             guard let end = chapter.endTime else { return false }
             return end.timeIntervalSince(chapter.startTime) < 60
         }
         guard !toDelete.isEmpty else { return }
         toDelete.forEach { modelContext.delete($0) }
-        try? modelContext.save()
+        guard saveModelContext(action: "short chapter prune") else { return }
         markChanged()
     }
 
@@ -482,7 +658,7 @@ final class ChapterStore {
     #endif
 
     private func updateLiveActivity(categorySet: CategorySet? = nil) {
-        let snapshot = publishRecordingSurfaceSnapshot(categorySet: categorySet)
+        guard let snapshot = publishRecordingSurfaceSnapshot(categorySet: categorySet) else { return }
         updateLiveActivity(snapshot: snapshot)
     }
 
@@ -491,11 +667,17 @@ final class ChapterStore {
     }
 
     private func currentCategorySet() -> CategorySet? {
-        let sets = categorySetStore.categorySets()
-        let settings = try? modelContext.fetch(FetchDescriptor<UserSettings>(
-            predicate: #Predicate { $0.settingsKey == "default" },
-            sortBy: [SortDescriptor(\.createdAt)]
-        )).first
+        guard let sets = categorySetStore.categorySetsIfAvailable() else { return nil }
+        let settings: UserSettings?
+        do {
+            settings = try modelContext.fetch(FetchDescriptor<UserSettings>(
+                predicate: #Predicate { $0.settingsKey == "default" },
+                sortBy: [SortDescriptor(\.createdAt)]
+            )).first
+        } catch {
+            NSLog("Liminalog: failed to fetch UserSettings for current category set: \(String(describing: error))")
+            settings = nil
+        }
         return cachedEnabledCategorySetID().flatMap { id in sets.first { $0.id == id } }
             ?? settings?.enabledCategorySetID.flatMap { id in sets.first { $0.id == id } }
             ?? sets.first { $0.isDefault }
@@ -509,7 +691,14 @@ final class ChapterStore {
             predicate: #Predicate { $0.settingsKey == "default" },
             sortBy: [SortDescriptor(\.createdAt)]
         )
-        let settings = (try? modelContext.fetch(descriptor).first) ?? UserSettings()
+        let settings: UserSettings
+        do {
+            settings = try modelContext.fetch(descriptor).first ?? UserSettings()
+        } catch {
+            didDisableUserSettingsPersistence = true
+            NSLog("Liminalog: skipped UserSettings.enabledCategorySetID persistence because settings could not be fetched: \(String(describing: error))")
+            return
+        }
         if settings.modelContext == nil {
             modelContext.insert(settings)
         }

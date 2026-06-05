@@ -19,6 +19,18 @@ struct ProfileUnlockTarget: Identifiable, Equatable {
         Int((progress * 100).rounded(.down))
     }
 
+    var conditionText: String {
+        requirementKind.requirementText(requiredValue: requiredValue)
+    }
+
+    var progressText: String {
+        requirementKind.progressText(
+            currentValue: currentValue,
+            requiredValue: requiredValue,
+            progress: progress
+        )
+    }
+
     var kindTitle: String {
         switch kind {
         case .theme:
@@ -57,6 +69,10 @@ struct ProfileUnlockTarget: Identifiable, Equatable {
             return "あと \(remainingValue.formatted())回 深夜記録"
         case .distinctCategoryCount:
             return "あと \(remainingValue.formatted())種類"
+        case .planMatchedDays, .chargeDays, .morningPersonaDays, .nightPersonaDays,
+             .recordingHabitDays, .personalBestDays, .returnAfterGapDays, .firstRecordDays,
+             .balancedDays, .focusedDays, .changeSignalDays:
+            return "あと \(remainingValue.formatted())回"
         }
     }
 }
