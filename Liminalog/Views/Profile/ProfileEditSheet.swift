@@ -147,7 +147,6 @@ struct ProfileEditSheet: View {
             .fullScreenCover(item: $pendingCropImage) { draft in
                 ProfilePhotoCropView(
                     image: draft.image,
-                    displayName: previewDisplayName,
                     accentColor: visualAccentColor,
                     frameStyle: ProfileIconFrameCatalog.item(for: iconFrameID)
                 ) { croppedData in
@@ -237,7 +236,6 @@ private struct ProfilePhotoCropDraft: Identifiable {
 private struct ProfilePhotoCropView: View {
     @Environment(\.dismiss) private var dismiss
     let image: UIImage
-    let displayName: String
     let accentColor: Color
     let frameStyle: ProfileIconFrameStyle
     let onUse: (Data) -> Void
@@ -252,6 +250,7 @@ private struct ProfilePhotoCropView: View {
     private let outputSide: CGFloat = 640
     private let minZoom: CGFloat = 1
     private let maxZoom: CGFloat = 4
+    private var frameDiameter: CGFloat { cropDiameter + max(16, cropDiameter * 0.16) }
 
     var body: some View {
         NavigationStack {
@@ -329,17 +328,13 @@ private struct ProfilePhotoCropView: View {
                 .frame(width: cropDiameter, height: cropDiameter)
 
             if frameStyle.id != ProfileDecorationUnlocks.noIconFrameID {
-                ProfileIconFrameView(style: frameStyle, accentColor: accentColor, size: cropDiameter + 20)
+                ProfileIconFrameView(style: frameStyle, accentColor: accentColor, size: frameDiameter)
                     .allowsHitTesting(false)
             }
         }
-        .frame(width: cropDiameter + 28, height: cropDiameter + 28)
+        .frame(width: frameDiameter, height: frameDiameter)
         .contentShape(Circle())
         .shadow(color: accentColor.opacity(0.22), radius: 18, y: 8)
-        .overlay(alignment: .bottomTrailing) {
-            ProfileBadgePreviewInitial(displayName: displayName, accentColor: accentColor)
-                .padding(10)
-        }
     }
 
     private var cropGesture: some Gesture {
@@ -442,28 +437,6 @@ private struct ProfilePhotoCropView: View {
             image.draw(in: drawRect)
         }
         return output.jpegData(compressionQuality: 0.86)
-    }
-}
-
-private struct ProfileBadgePreviewInitial: View {
-    let displayName: String
-    let accentColor: Color
-
-    var body: some View {
-        Text(initial)
-            .font(.caption.weight(.bold))
-            .foregroundStyle(.white)
-            .frame(width: 34, height: 34)
-            .background(accentColor.gradient, in: Circle())
-            .overlay {
-                Circle()
-                    .stroke(.white.opacity(0.72), lineWidth: 1.5)
-            }
-    }
-
-    private var initial: String {
-        let trimmed = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
-        return String((trimmed.isEmpty ? "L" : trimmed).prefix(1)).uppercased()
     }
 }
 
