@@ -898,6 +898,7 @@ struct ProfileIconFrameView: View {
     private var luminous: Color { style.primaryColor.liminalLuminous }
     private var width: CGFloat { max(style.lineWidth, 2) }
     private var radius: CGFloat { size / 2 }
+    private var contentScale: CGFloat { style.hasGeneratedArtwork ? 1.12 : 1.07 }
 
     /// 同系色のなかで明度だけ動かす発光リング。多色を乱立させない。
     private var ringGradient: AngularGradient {
@@ -925,10 +926,14 @@ struct ProfileIconFrameView: View {
                         .interpolation(.high)
                         .scaledToFit()
                         .frame(width: size, height: size)
+                        .scaleEffect(contentScale)
                         .allowsHitTesting(false)
                 } else {
-                    glow
-                    content
+                    ZStack {
+                        glow
+                        content
+                    }
+                    .scaleEffect(contentScale)
                 }
             }
         }
