@@ -295,15 +295,14 @@ struct UnlockGalleryView: View {
 
     @ViewBuilder
     private var streakCards: some View {
-        ForEach(ProfileStreakIconCatalog.items) { streak in
+        ForEach(ProfileStreakIconCatalog.equippableItems) { streak in
             let item = unlockItem(kind: .streakIcon, targetID: streak.id)
             let isUnlocked = unlocks.streakIconIsUnlocked(streak.id)
-            let isNone = streak.id == ProfileDecorationUnlocks.noStreakIconID
             let isDefault = streak.id == ProfileDecorationUnlocks.defaultStreakIconID
             let isEquipped = selectedStreakID == streak.id
             UnlockGalleryItemCard(
                 title: streak.title,
-                conditionText: conditionText(for: item, isNone: isNone, isDefault: isDefault),
+                conditionText: conditionText(for: item, isDefault: isDefault),
                 systemImage: streak.systemImage,
                 tint: Color(hex: streak.tintHex),
                 isUnlocked: isUnlocked,
@@ -311,13 +310,13 @@ struct UnlockGalleryView: View {
                 showsNewIndicator: showsNewIndicator(for: item, isUnlocked: isUnlocked, isEquipped: isEquipped),
                 progress: progress(
                     for: item,
-                    isDefault: isNone || isDefault,
+                    isDefault: isDefault,
                     isUnlocked: isUnlocked
                 ),
-                progressText: progressText(for: item, isNone: isNone, isDefault: isDefault, isUnlocked: isUnlocked),
+                progressText: progressText(for: item, isDefault: isDefault, isUnlocked: isUnlocked),
                 actionTitle: "装着",
-                equippedActionTitle: isNone ? "未装備" : "外す",
-                allowsEquippedAction: !isNone
+                equippedActionTitle: isDefault ? "装着中" : "標準に戻す",
+                allowsEquippedAction: !isDefault
             ) {
                 Image(systemName: isUnlocked ? streak.systemImage : "lock.fill")
                     .font(.title.weight(.bold))
@@ -327,7 +326,7 @@ struct UnlockGalleryView: View {
             } action: {
                 guard isUnlocked else { return }
                 updateSettings { settings in
-                    let nextID = isEquipped && !isNone ? ProfileDecorationUnlocks.noStreakIconID : streak.id
+                    let nextID = isEquipped && !isDefault ? ProfileDecorationUnlocks.defaultStreakIconID : streak.id
                     settings.profileStreakIconID = nextID
                     ProfileDecorationUnlocks.markEquippedItem(kind: .streakIcon, targetID: nextID, unlockItems: unlockItems, settings: settings)
                 }
@@ -456,8 +455,8 @@ struct UnlockGalleryView: View {
             )
         case .streaks:
             return (
-                ProfileStreakIconCatalog.items.filter { unlocks.streakIconIsUnlocked($0.id) }.count,
-                ProfileStreakIconCatalog.items.count
+                ProfileStreakIconCatalog.equippableItems.filter { unlocks.streakIconIsUnlocked($0.id) }.count,
+                ProfileStreakIconCatalog.equippableItems.count
             )
         case .cards:
             return (

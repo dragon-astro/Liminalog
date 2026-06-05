@@ -12,10 +12,16 @@ struct ProfileDecorationUnlocksTests {
         #expect(unlocks.iconFrameIsUnlocked("clear_air"))
         #expect(unlocks.streakIconIsUnlocked("flame"))
         #expect(unlocks.cardStyleIsUnlocked("quiet_sky"))
+        #expect(unlocks.iconFrameIsUnlocked("none"))
+        #expect(!unlocks.streakIconIsUnlocked("none"))
+        #expect(unlocks.cardStyleIsUnlocked("none"))
         #expect(unlocks.equippedBadgeID("locked_badge") == "starter")
         #expect(unlocks.equippedIconFrameID("locked_frame") == "clear_air")
+        #expect(unlocks.equippedIconFrameID("none") == "none")
+        #expect(unlocks.equippedStreakIconID("none") == "flame")
         #expect(unlocks.equippedStreakIconID("spark") == "flame")
         #expect(unlocks.equippedCardStyleID("locked_card") == "quiet_sky")
+        #expect(unlocks.equippedCardStyleID("none") == "none")
         #expect(unlocks.themeIsUnlocked("default"))
         #expect(unlocks.themeIsUnlocked("dusk"))
         #expect(unlocks.themeIsUnlocked("daybreak"))
@@ -69,32 +75,40 @@ struct ProfileDecorationUnlocksTests {
     }
 
     @Test
-    func markingEquippedItemStoresUnlockedKeyOnce() throws {
+    func markingEquippedItemStoresOnlyCurrentUnlockedKeyForEachKind() throws {
         let now = try #require(Calendar.liminalogTest.date(from: DateComponents(year: 2026, month: 6, day: 1)))
         let planner = try unlockedItem(key: "badge.planner", now: now)
+        let keeper = try unlockedItem(key: "badge.promise_keeper", now: now)
+        let cloudFrame = try unlockedItem(key: "frame.cloud_veil", now: now)
         let lockedHorizon = try lockedItem(key: "frame.horizon_wreath")
         let settings = UserSettings()
 
         ProfileDecorationUnlocks.markEquippedItem(
             kind: .nameBadge,
             targetID: "planner",
-            unlockItems: [planner, lockedHorizon],
+            unlockItems: [planner, keeper, cloudFrame, lockedHorizon],
             settings: settings
         )
         ProfileDecorationUnlocks.markEquippedItem(
             kind: .nameBadge,
-            targetID: "planner",
-            unlockItems: [planner, lockedHorizon],
+            targetID: "promise_keeper",
+            unlockItems: [planner, keeper, cloudFrame, lockedHorizon],
+            settings: settings
+        )
+        ProfileDecorationUnlocks.markEquippedItem(
+            kind: .iconFrame,
+            targetID: "cloud_veil",
+            unlockItems: [planner, keeper, cloudFrame, lockedHorizon],
             settings: settings
         )
         ProfileDecorationUnlocks.markEquippedItem(
             kind: .iconFrame,
             targetID: "horizon_wreath",
-            unlockItems: [planner, lockedHorizon],
+            unlockItems: [planner, keeper, cloudFrame, lockedHorizon],
             settings: settings
         )
 
-        #expect(settings.equippedUnlockItemKeys == ["badge.planner"])
+        #expect(settings.equippedUnlockItemKeys == ["badge.promise_keeper"])
     }
 
 }

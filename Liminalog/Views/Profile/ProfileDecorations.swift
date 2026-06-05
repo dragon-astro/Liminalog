@@ -144,6 +144,7 @@ enum ProfileStreakIconCatalog {
         ProfileStreakIconStyle(id: "sun", title: "橙の炎", systemImage: "flame.fill", tintHex: "#F2994A"),
         ProfileStreakIconStyle(id: "spark", title: "紫の炎", systemImage: "flame.fill", tintHex: "#6C5CE7")
     ]
+    static let equippableItems = items.filter { $0.id != ProfileDecorationUnlocks.noStreakIconID }
 
     static func item(for id: String?) -> ProfileStreakIconStyle {
         items.first { $0.id == id } ?? defaultItem

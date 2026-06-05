@@ -573,7 +573,7 @@ private struct ProfileStreakIconSelector: View {
                 .font(.subheadline.weight(.semibold))
 
             HStack(spacing: 10) {
-                ForEach(ProfileStreakIconCatalog.items) { item in
+                ForEach(ProfileStreakIconCatalog.equippableItems) { item in
                     let isUnlocked = unlockedIDs.contains(item.id)
                     Button {
                         guard isUnlocked else { return }

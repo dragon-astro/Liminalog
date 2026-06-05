@@ -41,7 +41,7 @@ struct ProfileDecorationUnlocks {
             in: unlockItems,
             kind: .streakIcon,
             defaultID: Self.defaultStreakIconID,
-            unequippedID: Self.noStreakIconID
+            unequippedID: nil
         )
         var cardStyleIDs = Self.unlockedTargetIDs(
             in: unlockItems,
@@ -161,14 +161,22 @@ struct ProfileDecorationUnlocks {
         unlockItems: [UnlockItem],
         settings: UserSettings
     ) {
+        let kindKeys = Set(
+            unlockItems
+                .filter { $0.kind == kind && !$0.key.isEmpty }
+                .map(\.key)
+        )
+        if !kindKeys.isEmpty {
+            settings.equippedUnlockItemKeys.removeAll { kindKeys.contains($0) }
+        }
+
         guard
             let key = unlockItems.first(where: { item in
                 item.kind == kind
                     && item.targetID == targetID
                     && item.unlockedAt != nil
                     && !item.key.isEmpty
-            })?.key,
-            !settings.equippedUnlockItemKeys.contains(key)
+            })?.key
         else { return }
 
         settings.equippedUnlockItemKeys.append(key)
