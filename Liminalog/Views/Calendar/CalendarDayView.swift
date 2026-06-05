@@ -143,7 +143,7 @@ struct CalendarDayView: View {
                     .minimumScaleFactor(0.8)
 
                 HStack(spacing: 7) {
-                    DayHeaderPill(systemImage: "star.fill", text: "重要 \(importantPlans.count)", tint: LiminalTheme.reward)
+                    DayHeaderPill(systemImage: "star.fill", text: "重要 \(importantPlans.count)", tint: CalendarSemanticColor.importantPlan)
                     DayHeaderPill(systemImage: "calendar.badge.clock", text: "予定 \(timedPlans.count)", tint: LiminalTheme.accent)
                 }
             }
@@ -182,7 +182,7 @@ struct CalendarDayView: View {
     private var planningDeadlineCard: some View {
         let coverage = planningCoverage
         let hasGap = coverage.hasActionableGap
-        let tint = hasGap ? LiminalTheme.reward : LiminalTheme.accent
+        let tint = hasGap ? CalendarSemanticColor.planGap : CalendarSemanticColor.planFilled
         let statusText = hasGap ? "空きあり" : "予定登録済み"
         let statusIcon = hasGap ? "circle.fill" : "checkmark.circle.fill"
         return HStack(spacing: 8) {
@@ -230,9 +230,9 @@ struct CalendarDayView: View {
             HStack(spacing: 8) {
                 Image(systemName: "star.fill")
                     .font(.caption.weight(.bold))
-                    .foregroundStyle(LiminalTheme.reward)
+                    .foregroundStyle(CalendarSemanticColor.importantPlan)
                     .frame(width: 24, height: 24)
-                    .background(LiminalTheme.reward.opacity(0.12), in: Circle())
+                    .background(CalendarSemanticColor.importantPlan.opacity(0.14), in: Circle())
                 Text("重要な予定")
                     .font(.headline)
                     .foregroundStyle(LiminalTheme.text)
@@ -240,7 +240,7 @@ struct CalendarDayView: View {
                 if !importantPlans.isEmpty {
                     Text("\(importantPlans.count)")
                         .font(.caption.monospacedDigit().weight(.bold))
-                        .foregroundStyle(LiminalTheme.reward)
+                        .foregroundStyle(CalendarSemanticColor.importantPlan)
                 }
             }
 
@@ -255,7 +255,7 @@ struct CalendarDayView: View {
                         Text("重要な予定を追加")
                     }
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(LiminalTheme.reward)
+                    .foregroundStyle(CalendarSemanticColor.importantPlan)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.vertical, 4)
                 }
@@ -265,7 +265,7 @@ struct CalendarDayView: View {
                     Button {
                         editingPlan = plan
                     } label: {
-                        ImportantPlanRow(plan: plan, isHighlighted: plan.id == highlightedPlanID)
+                        ImportantPlanRow(plan: plan, isHighlighted: plan.id == highlightedPlanID, tint: CalendarSemanticColor.importantPlan)
                     }
                     .buttonStyle(.plain)
                     .contextMenu {
@@ -349,7 +349,7 @@ struct CalendarDayView: View {
     }
 
     private var headerAccentColor: Color {
-        importantPlans.first?.category?.displayColor ?? scoreColor(scoreSummary)
+        importantPlans.isEmpty ? scoreColor(scoreSummary) : CalendarSemanticColor.importantPlan
     }
 
     private var headerTitle: String {
@@ -647,16 +647,17 @@ private struct DayScoreMetric: View {
 private struct ImportantPlanRow: View {
     let plan: PlanBlock
     let isHighlighted: Bool
+    let tint: Color
 
     var body: some View {
         HStack(spacing: 10) {
             RoundedRectangle(cornerRadius: 3)
-                .fill(color)
+                .fill(tint)
                 .frame(width: 5)
 
             Image(systemName: plan.category?.icon ?? "star.fill")
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(color)
+                .foregroundStyle(tint)
                 .frame(width: 24)
 
             VStack(alignment: .leading, spacing: 3) {
@@ -680,17 +681,13 @@ private struct ImportantPlanRow: View {
         .padding(10)
         .background(
             RoundedRectangle(cornerRadius: 10)
-                .fill(isHighlighted ? color.opacity(0.16) : color.opacity(0.08))
+                .fill(isHighlighted ? tint.opacity(0.18) : tint.opacity(0.09))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 10)
-                .stroke(isHighlighted ? color.opacity(0.7) : color.opacity(0.34), lineWidth: isHighlighted ? 1.5 : 1)
+                .stroke(isHighlighted ? tint.opacity(0.74) : tint.opacity(0.38), lineWidth: isHighlighted ? 1.5 : 1)
         )
         .accessibilityElement(children: .combine)
-    }
-
-    private var color: Color {
-        plan.category?.displayColor ?? LiminalTheme.accent
     }
 
     private var dateRangeText: String {
