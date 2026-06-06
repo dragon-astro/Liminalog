@@ -773,16 +773,14 @@ struct FriendsView: View {
         }
     }
 
-    private func handleBlockedCloudFriend(_ friend: Friend, direction: CloudFriendConsentDirection) {
+    private func handleBlockedCloudFriend(_ friend: Friend, direction _: CloudFriendConsentDirection) {
         friend.status = .blocked
         friend.blockedAt = Date()
         friend.shareURL = nil
         clearIncomingShareData(for: friend)
         friend.updatedAt = Date()
-        if direction == .incoming {
-            Task {
-                try? await stopCloudSharing(with: friend)
-            }
+        Task {
+            try? await stopCloudSharing(with: friend)
         }
     }
 

@@ -295,6 +295,61 @@ struct ChapterStoreTests {
         #expect(plan.hasAudienceSnapshot)
     }
 
+    @Test("空のカテゴリ既定公開相手は実績でも明示的な空スナップショットとして保存しない")
+    func emptyDefaultAudienceDoesNotBecomeExplicitEmptyChapterSnapshot() throws {
+        let calendar = Calendar.liminalogTest
+        let clock = MutableTestClock(now: try #require(calendar.date(from: DateComponents(year: 2026, month: 5, day: 28, hour: 12))))
+        let container = try TestModelContainer.make()
+        let context = container.mainContext
+        let category = Category(name: "勉強", colorHex: "#3B82F6")
+        context.insert(category)
+        let store = ChapterStore(modelContext: context, clock: clock)
+        let start = try #require(calendar.date(from: DateComponents(year: 2026, month: 5, day: 28, hour: 9)))
+        let end = try #require(calendar.date(from: DateComponents(year: 2026, month: 5, day: 28, hour: 10)))
+
+        #expect(store.addChapter(
+            category: category,
+            startTime: start,
+            endTime: end,
+            isPublic: true,
+            audienceFriendIDs: nil
+        ))
+
+        let chapter = try #require(try context.fetch(FetchDescriptor<Chapter>()).first)
+        #expect(chapter.isPublic)
+        #expect(chapter.audienceFriendIDs.isEmpty)
+        #expect(!chapter.hasAudienceSnapshot)
+    }
+
+    @Test("公開相手を手動で空にした実績は明示的な空スナップショットとして保存する")
+    func customEmptyAudienceRemainsExplicitEmptyChapterSnapshot() throws {
+        let calendar = Calendar.liminalogTest
+        let clock = MutableTestClock(now: try #require(calendar.date(from: DateComponents(year: 2026, month: 5, day: 28, hour: 12))))
+        let container = try TestModelContainer.make()
+        let context = container.mainContext
+        let category = Category(name: "勉強", colorHex: "#3B82F6")
+        context.insert(category)
+        let store = ChapterStore(modelContext: context, clock: clock)
+        let start = try #require(calendar.date(from: DateComponents(year: 2026, month: 5, day: 28, hour: 9)))
+        let end = try #require(calendar.date(from: DateComponents(year: 2026, month: 5, day: 28, hour: 10)))
+
+        #expect(store.addChapter(
+            category: category,
+            startTime: start,
+            endTime: end,
+            isPublic: true,
+            audienceFriendIDs: [],
+            audienceSource: .custom,
+            hasAudienceSnapshot: true
+        ))
+
+        let chapter = try #require(try context.fetch(FetchDescriptor<Chapter>()).first)
+        #expect(chapter.isPublic)
+        #expect(chapter.audienceSource == .custom)
+        #expect(chapter.audienceFriendIDs.isEmpty)
+        #expect(chapter.hasAudienceSnapshot)
+    }
+
     @Test("開発用Chapter seedは月跨ぎの昨日を含め、未来と重複を作らず現在の1件だけをactiveにする")
     func devSampleChapterSeedAvoidsFutureAndOverlaps() throws {
         let versionKey = "LiminalogDevSampleChapterSeedVersion"
