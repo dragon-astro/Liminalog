@@ -878,52 +878,22 @@ struct FriendsView: View {
 
     private func outgoingShareSnapshot(for friend: Friend, ownUsername: String) -> CloudFriendShareSnapshot {
         let now = clock.now
-        let preset = visibilityPreset(for: friend)
-        let canPublishScores = preset?.publishMode != PublishMode.none && preset?.level != VisibilityLevel.none
         var acceptedFriendIDs = Set(acceptedFriends.map(\.id))
         if friend.status == .accepted {
             acceptedFriendIDs.insert(friend.id)
         }
-        let visiblePlans = FriendSharedPlanSnapshot.snapshots(
-            from: planBlocks,
-            visibilityPreset: preset,
-            recipientFriendID: friend.id,
+        return CloudFriendShareSnapshotBuilder.snapshot(
+            for: friend,
+            ownUsername: ownUsername,
+            ownDisplayName: ownDisplayName,
+            visibilityPresets: visibilityPresets,
+            chapters: chapters,
+            planBlocks: planBlocks,
             acceptedFriendIDs: acceptedFriendIDs,
-            now: now
-        )
-        let visibleActivities = FriendSharedActivitySnapshot.snapshots(
-            from: chapters,
             now: now,
-            visibilityPreset: preset,
-            recipientFriendID: friend.id,
-            acceptedFriendIDs: acceptedFriendIDs
-        )
-        let visibleActiveActivity = FriendSharedActivitySnapshot.snapshots(
-            from: activeChapters,
-            now: now,
-            visibilityPreset: preset,
-            recipientFriendID: friend.id,
-            acceptedFriendIDs: acceptedFriendIDs
-        ).first
-
-        return CloudFriendShareSnapshot(
-            ownerUsername: ownUsername,
-            ownerDisplayName: ownDisplayName,
-            targetUserRecordName: friend.userRecordID,
-            currentStatusTitle: visibleActiveActivity?.title ?? "",
-            currentStatusIcon: visibleActiveActivity?.categoryIconName ?? "circle.dashed",
-            currentStatusColorHex: visibleActiveActivity?.categoryColorHex ?? "#8E8E93",
-            currentMoodText: visibleActiveActivity?.mood ?? "",
-            currentStatusStartedAt: visibleActiveActivity?.startTime,
-            todayScore: canPublishScores ? selfScore(for: .today, anchorDate: nil) : 0,
-            yesterdayScore: canPublishScores ? selfScore(for: .yesterday, anchorDate: nil) : 0,
-            weekScore: canPublishScores ? selfScore(for: .week, anchorDate: now) : 0,
-            monthScore: canPublishScores ? selfScore(for: .month, anchorDate: now) : 0,
-            yearScore: canPublishScores ? selfScore(for: .year, anchorDate: now) : 0,
-            streakCount: 0,
-            sharedPlans: visiblePlans,
-            sharedActivities: visibleActivities,
-            updatedAt: now
+            scoreProvider: { period in
+                selfScore(for: period, anchorDate: period == .today || period == .yesterday ? nil : now)
+            }
         )
     }
 
@@ -989,11 +959,6 @@ struct FriendsView: View {
             targetUsername: cloudUsername(from: friend),
             ownDisplayName: ownDisplayName
         )
-    }
-
-    private func visibilityPreset(for friend: Friend) -> VisibilityPreset? {
-        guard let id = friend.visibilityPresetID else { return nil }
-        return visibilityPresets.first { $0.id == id }
     }
 
     private func incomingShareURL(for friend: Friend) -> URL? {

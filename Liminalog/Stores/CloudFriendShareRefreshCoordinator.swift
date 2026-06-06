@@ -72,7 +72,6 @@ final class CloudFriendShareRefreshCoordinator {
                     for: friend,
                     ownUsername: ownUsername,
                     ownDisplayName: ownDisplayName,
-                    friends: acceptedFriends,
                     acceptedFriendIDs: acceptedFriendIDs,
                     visibilityPresets: visibilityPresets,
                     chapters: chapters,
@@ -101,7 +100,6 @@ final class CloudFriendShareRefreshCoordinator {
         for friend: Friend,
         ownUsername: String,
         ownDisplayName: String,
-        friends: [Friend],
         acceptedFriendIDs: Set<UUID>,
         visibilityPresets: [VisibilityPreset],
         chapters: [Chapter],
@@ -109,49 +107,18 @@ final class CloudFriendShareRefreshCoordinator {
         modelContext: ModelContext,
         now: Date
     ) -> CloudFriendShareSnapshot {
-        let preset = visibilityPreset(for: friend, in: visibilityPresets)
-        let canPublishScores = preset?.publishMode != PublishMode.none && preset?.level != VisibilityLevel.none
-        let activeChapters = chapters.filter { $0.endTime == nil }
-        let visiblePlans = FriendSharedPlanSnapshot.snapshots(
-            from: planBlocks,
-            visibilityPreset: preset,
-            recipientFriendID: friend.id,
+        CloudFriendShareSnapshotBuilder.snapshot(
+            for: friend,
+            ownUsername: ownUsername,
+            ownDisplayName: ownDisplayName,
+            visibilityPresets: visibilityPresets,
+            chapters: chapters,
+            planBlocks: planBlocks,
             acceptedFriendIDs: acceptedFriendIDs,
-            now: now
-        )
-        let visibleActivities = FriendSharedActivitySnapshot.snapshots(
-            from: chapters,
             now: now,
-            visibilityPreset: preset,
-            recipientFriendID: friend.id,
-            acceptedFriendIDs: acceptedFriendIDs
-        )
-        let visibleActiveActivity = FriendSharedActivitySnapshot.snapshots(
-            from: activeChapters,
-            now: now,
-            visibilityPreset: preset,
-            recipientFriendID: friend.id,
-            acceptedFriendIDs: acceptedFriendIDs
-        ).first
-
-        return CloudFriendShareSnapshot(
-            ownerUsername: ownUsername,
-            ownerDisplayName: ownDisplayName,
-            targetUserRecordName: friend.userRecordID,
-            currentStatusTitle: visibleActiveActivity?.title ?? "",
-            currentStatusIcon: visibleActiveActivity?.categoryIconName ?? "circle.dashed",
-            currentStatusColorHex: visibleActiveActivity?.categoryColorHex ?? "#8E8E93",
-            currentMoodText: visibleActiveActivity?.mood ?? "",
-            currentStatusStartedAt: visibleActiveActivity?.startTime,
-            todayScore: canPublishScores ? selfScore(for: .today, modelContext: modelContext, now: now) : 0,
-            yesterdayScore: canPublishScores ? selfScore(for: .yesterday, modelContext: modelContext, now: now) : 0,
-            weekScore: canPublishScores ? selfScore(for: .week, modelContext: modelContext, now: now) : 0,
-            monthScore: canPublishScores ? selfScore(for: .month, modelContext: modelContext, now: now) : 0,
-            yearScore: canPublishScores ? selfScore(for: .year, modelContext: modelContext, now: now) : 0,
-            streakCount: 0,
-            sharedPlans: visiblePlans,
-            sharedActivities: visibleActivities,
-            updatedAt: now
+            scoreProvider: { period in
+                self.selfScore(for: period, modelContext: modelContext, now: now)
+            }
         )
     }
 
@@ -178,11 +145,6 @@ final class CloudFriendShareRefreshCoordinator {
     private func dateInterval(_ component: Calendar.Component, containing date: Date) -> DateInterval {
         let boundary = DayBoundary(date: date, calendar: .japanese)
         return Calendar.japanese.dateInterval(of: component, for: date) ?? DateInterval(start: boundary.dayStart, end: boundary.dayEnd)
-    }
-
-    private func visibilityPreset(for friend: Friend, in presets: [VisibilityPreset]) -> VisibilityPreset? {
-        guard let id = friend.visibilityPresetID else { return nil }
-        return presets.first { $0.id == id }
     }
 
     private func cloudUsername(from friend: Friend) -> String {
