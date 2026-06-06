@@ -137,23 +137,39 @@ final class CloudFriendShareStore {
 
         if let existing = try? await fetchRecord(rootID, from: privateDatabase) {
             Self.apply(snapshot, to: existing)
-            let share = try await fetchShare(for: existing)
-            try await ensureShareTargets(
-                share,
-                targetUserRecordName: snapshot.targetUserRecordName
-            )
-            let saved = try await save([existing, share], to: privateDatabase, savePolicy: .changedKeys)
-            let root = try savedRecord(for: existing.recordID, in: saved)
-            let savedShare = try savedRecord(for: share.recordID, in: saved) as? CKShare
-            return CloudFriendShareUpsertResult(
-                snapshot: try Self.snapshot(from: root),
-                shareURL: savedShare?.url ?? share.url,
-                rootRecordName: root.recordID.recordName,
-                shareRecordName: savedShare?.recordID.recordName ?? share.recordID.recordName
-            )
+            do {
+                let share = try await fetchShare(for: existing)
+                try await ensureShareTargets(
+                    share,
+                    targetUserRecordName: snapshot.targetUserRecordName
+                )
+                let saved = try await save([existing, share], to: privateDatabase, savePolicy: .changedKeys)
+                let root = try savedRecord(for: existing.recordID, in: saved)
+                let savedShare = try savedRecord(for: share.recordID, in: saved) as? CKShare
+                return CloudFriendShareUpsertResult(
+                    snapshot: try Self.snapshot(from: root),
+                    shareURL: savedShare?.url ?? share.url,
+                    rootRecordName: root.recordID.recordName,
+                    shareRecordName: savedShare?.recordID.recordName ?? share.recordID.recordName
+                )
+            } catch {
+                guard CloudFriendShareUpsertRepairPolicy.shouldRecreateRootAndShare(after: error) else {
+                    throw error
+                }
+                try await delete([existing.recordID], from: privateDatabase)
+                let repairedRoot = CKRecord(recordType: RecordType.friendShareSnapshot, recordID: rootID)
+                return try await createOutgoingShare(root: repairedRoot, snapshot: snapshot)
+            }
         }
 
         let root = CKRecord(recordType: RecordType.friendShareSnapshot, recordID: rootID)
+        return try await createOutgoingShare(root: root, snapshot: snapshot)
+    }
+
+    private func createOutgoingShare(
+        root: CKRecord,
+        snapshot: CloudFriendShareSnapshot
+    ) async throws -> CloudFriendShareUpsertResult {
         Self.apply(snapshot, to: root)
         let participant = try await fetchShareParticipant(userRecordName: snapshot.targetUserRecordName)
         participant.permission = .readOnly
