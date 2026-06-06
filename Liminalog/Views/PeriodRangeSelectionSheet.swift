@@ -17,8 +17,7 @@ struct PeriodRangeSelectionSheet: View {
     @State private var pendingDate: Date
 
     private let calendar = Calendar.japanese
-    private let pastOptionCount = 18
-    private let futureOptionCount = 3
+    private let optionCenterDate: Date
 
     init(
         title: String = "期間を選択",
@@ -28,7 +27,9 @@ struct PeriodRangeSelectionSheet: View {
         self.title = title
         self.granularity = granularity
         self._anchorDate = anchorDate
-        self._pendingDate = State(initialValue: Self.periodStart(for: anchorDate.wrappedValue, granularity: granularity, calendar: .japanese))
+        let periodStart = Self.periodStart(for: anchorDate.wrappedValue, granularity: granularity, calendar: .japanese)
+        self._pendingDate = State(initialValue: periodStart)
+        self.optionCenterDate = periodStart
     }
 
     var body: some View {
@@ -61,37 +62,28 @@ struct PeriodRangeSelectionSheet: View {
             }
             .padding(.horizontal, 18)
 
-            ScrollViewReader { proxy in
-                ScrollView(.vertical, showsIndicators: false) {
-                    LazyVStack(spacing: 10) {
-                        ForEach(options) { option in
-                            Button {
-                                withAnimation(.snappy(duration: 0.2)) {
-                                    pendingDate = option.date
-                                }
-                            } label: {
-                                PeriodRangeOptionRow(
-                                    title: option.title,
-                                    isSelected: isSelected(option.date)
-                                )
-                            }
-                            .buttonStyle(.plain)
-                            .id(option.id)
-                        }
-                    }
+            ZStack {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(LiminalTheme.accent, lineWidth: 2)
+                    .frame(height: 58)
                     .padding(.horizontal, 28)
-                    .padding(.vertical, 16)
-                }
-                .frame(maxHeight: 260)
-                .onAppear {
-                    proxy.scrollTo(optionID(for: pendingDate), anchor: .center)
-                }
-                .onChange(of: pendingDate) { _, newValue in
-                    withAnimation(.snappy(duration: 0.22)) {
-                        proxy.scrollTo(optionID(for: newValue), anchor: .center)
+                    .allowsHitTesting(false)
+
+                Picker("", selection: $pendingDate) {
+                    ForEach(options) { option in
+                        Text(option.title)
+                            .font(.title3.weight(.semibold))
+                            .monospacedDigit()
+                            .foregroundStyle(LiminalTheme.text)
+                            .tag(option.date)
                     }
                 }
+                .pickerStyle(.wheel)
+                .labelsHidden()
+                .frame(height: 230)
+                .clipped()
             }
+            .padding(.horizontal, 18)
 
             Button {
                 anchorDate = pendingDate
@@ -114,13 +106,9 @@ struct PeriodRangeSelectionSheet: View {
         .presentationDragIndicator(.hidden)
     }
 
-    private var selectedPeriodStart: Date {
-        Self.periodStart(for: pendingDate, granularity: granularity, calendar: calendar)
-    }
-
     private var options: [PeriodRangeOption] {
-        (-pastOptionCount...futureOptionCount).compactMap { offset in
-            guard let date = date(byAddingOffset: offset, to: selectedPeriodStart) else { return nil }
+        (-optionWindow.past...optionWindow.future).compactMap { offset in
+            guard let date = date(byAddingOffset: offset, to: optionCenterDate) else { return nil }
             return PeriodRangeOption(
                 id: optionID(for: date),
                 date: date,
@@ -129,8 +117,17 @@ struct PeriodRangeSelectionSheet: View {
         }
     }
 
-    private func isSelected(_ date: Date) -> Bool {
-        optionID(for: date) == optionID(for: pendingDate)
+    private var optionWindow: (past: Int, future: Int) {
+        switch granularity {
+        case .day:
+            (180, 30)
+        case .week:
+            (104, 12)
+        case .month:
+            (60, 12)
+        case .year:
+            (5, 1)
+        }
     }
 
     private func optionID(for date: Date) -> String {
@@ -211,27 +208,4 @@ private struct PeriodRangeOption: Identifiable {
     let id: String
     let date: Date
     let title: String
-}
-
-private struct PeriodRangeOptionRow: View {
-    let title: String
-    let isSelected: Bool
-
-    var body: some View {
-        Text(title)
-            .font(.title3.weight(isSelected ? .bold : .semibold))
-            .monospacedDigit()
-            .foregroundStyle(isSelected ? LiminalTheme.text : LiminalTheme.secondaryText.opacity(0.62))
-            .frame(maxWidth: .infinity)
-            .frame(height: 58)
-            .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(isSelected ? LiminalTheme.surface.opacity(0.78) : Color.clear)
-            )
-            .overlay {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(isSelected ? LiminalTheme.accent : Color.clear, lineWidth: 2)
-            }
-            .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-    }
 }
