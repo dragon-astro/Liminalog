@@ -47,4 +47,41 @@ struct CloudFriendShareParticipantPolicyTests {
             participants: participants
         ))
     }
+
+    @Test
+    func keepsTargetAndOwnerParticipants() {
+        #expect(!CloudFriendShareParticipantPolicy.shouldRemoveParticipant(
+            targetUserRecordName: "_target",
+            participant: CloudFriendShareParticipantPolicy.ParticipantState(
+                userRecordName: "_target",
+                isReadOnly: true
+            )
+        ))
+        #expect(!CloudFriendShareParticipantPolicy.shouldRemoveParticipant(
+            targetUserRecordName: "_target",
+            participant: CloudFriendShareParticipantPolicy.ParticipantState(
+                userRecordName: "_owner",
+                isReadOnly: false,
+                isOwner: true
+            )
+        ))
+    }
+
+    @Test
+    func removesNonOwnerParticipantsThatAreNotTheTarget() {
+        #expect(CloudFriendShareParticipantPolicy.shouldRemoveParticipant(
+            targetUserRecordName: "_target",
+            participant: CloudFriendShareParticipantPolicy.ParticipantState(
+                userRecordName: "_other",
+                isReadOnly: true
+            )
+        ))
+        #expect(CloudFriendShareParticipantPolicy.shouldRemoveParticipant(
+            targetUserRecordName: "_target",
+            participant: CloudFriendShareParticipantPolicy.ParticipantState(
+                userRecordName: nil,
+                isReadOnly: true
+            )
+        ))
+    }
 }

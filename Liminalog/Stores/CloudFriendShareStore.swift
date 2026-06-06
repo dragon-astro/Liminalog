@@ -372,15 +372,17 @@ final class CloudFriendShareStore {
         let participantStates = share.participants.map {
             CloudFriendShareParticipantPolicy.ParticipantState(
                 userRecordName: $0.userIdentity.userRecordID?.recordName,
-                isReadOnly: $0.permission == .readOnly
+                isReadOnly: $0.permission == .readOnly,
+                isOwner: $0.role == .owner
             )
         }
 
-        if !CloudFriendShareParticipantPolicy.needsReadOnlyTargetParticipant(
+        for (participant, state) in zip(share.participants, participantStates)
+        where CloudFriendShareParticipantPolicy.shouldRemoveParticipant(
             targetUserRecordName: targetUserRecordName,
-            participants: participantStates
+            participant: state
         ) {
-            return
+            share.removeParticipant(participant)
         }
 
         if let existingTarget = share.participants.first(where: {
@@ -389,6 +391,7 @@ final class CloudFriendShareStore {
             existingTarget.permission = .readOnly
             return
         }
+
         let participant = try await fetchShareParticipant(userRecordName: targetUserRecordName)
         participant.permission = .readOnly
         share.addParticipant(participant)
