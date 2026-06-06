@@ -21,4 +21,23 @@ enum CloudFriendShareSnapshotApplier {
         friend.lastSeenAt = snapshot.updatedAt
         friend.updatedAt = Date()
     }
+
+    static func clearCachedShare(from friend: Friend) {
+        friend.currentStatusTitle = ""
+        friend.currentStatusIcon = "circle.dashed"
+        friend.currentStatusColorHex = "#8E8E93"
+        friend.currentMoodText = ""
+        friend.currentStatusStartedAt = nil
+        friend.currentStatusUpdatedAt = nil
+        friend.todayScore = 0
+        friend.yesterdayScore = 0
+        friend.weekScore = 0
+        friend.monthScore = 0
+        friend.yearScore = 0
+        friend.streakCount = 0
+        friend.setSharedPlans([])
+        friend.setSharedActivities([])
+        friend.lastSeenAt = nil
+        friend.updatedAt = Date()
+    }
 }

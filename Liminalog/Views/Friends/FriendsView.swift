@@ -892,10 +892,21 @@ struct FriendsView: View {
     }
 
     private func refreshIncomingShare(for friend: Friend, shareURL: URL) async throws {
-        let snapshot = try await cloudShareStore.acceptIncomingShare(url: shareURL)
-        await MainActor.run {
-            applyIncomingShare(snapshot, to: friend)
-            save()
+        do {
+            let snapshot = try await cloudShareStore.acceptIncomingShare(url: shareURL)
+            await MainActor.run {
+                applyIncomingShare(snapshot, to: friend)
+                save()
+            }
+        } catch {
+            guard CloudFriendShareRefreshFailurePolicy.shouldClearCachedShare(after: error) else {
+                throw error
+            }
+            await MainActor.run {
+                clearIncomingShareData(for: friend)
+                friend.shareURL = nil
+                save()
+            }
         }
     }
 
@@ -925,21 +936,7 @@ struct FriendsView: View {
     }
 
     private func clearIncomingShareData(for friend: Friend) {
-        friend.currentStatusTitle = ""
-        friend.currentStatusIcon = "circle.dashed"
-        friend.currentStatusColorHex = "#8E8E93"
-        friend.currentMoodText = ""
-        friend.currentStatusStartedAt = nil
-        friend.currentStatusUpdatedAt = nil
-        friend.todayScore = 0
-        friend.yesterdayScore = 0
-        friend.weekScore = 0
-        friend.monthScore = 0
-        friend.yearScore = 0
-        friend.streakCount = 0
-        friend.setSharedPlans([])
-        friend.setSharedActivities([])
-        friend.lastSeenAt = nil
+        CloudFriendShareSnapshotApplier.clearCachedShare(from: friend)
     }
 
     private func publishAcceptedShareIfPossible(to friend: Friend) {
@@ -1597,21 +1594,7 @@ private struct FriendDetailView: View {
     }
 
     private func clearIncomingShareData() {
-        friend.currentStatusTitle = ""
-        friend.currentStatusIcon = "circle.dashed"
-        friend.currentStatusColorHex = "#8E8E93"
-        friend.currentMoodText = ""
-        friend.currentStatusStartedAt = nil
-        friend.currentStatusUpdatedAt = nil
-        friend.todayScore = 0
-        friend.yesterdayScore = 0
-        friend.weekScore = 0
-        friend.monthScore = 0
-        friend.yearScore = 0
-        friend.streakCount = 0
-        friend.setSharedPlans([])
-        friend.setSharedActivities([])
-        friend.lastSeenAt = nil
+        CloudFriendShareSnapshotApplier.clearCachedShare(from: friend)
     }
 
     private func cloudUsername(from friend: Friend) -> String {

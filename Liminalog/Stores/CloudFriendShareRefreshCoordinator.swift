@@ -120,14 +120,28 @@ final class CloudFriendShareRefreshCoordinator {
             }
             guard !acceptedFriends.isEmpty else { return }
 
+            var didUpdateFriends = false
             for friend in acceptedFriends {
                 guard let rawShareURL = friend.shareURL,
                       let shareURL = URL(string: rawShareURL)
                 else { continue }
-                let snapshot = try await cloudShareStore.acceptIncomingShare(url: shareURL)
-                CloudFriendShareSnapshotApplier.apply(snapshot, to: friend)
+                do {
+                    let snapshot = try await cloudShareStore.acceptIncomingShare(url: shareURL)
+                    CloudFriendShareSnapshotApplier.apply(snapshot, to: friend)
+                    didUpdateFriends = true
+                } catch {
+                    if CloudFriendShareRefreshFailurePolicy.shouldClearCachedShare(after: error) {
+                        CloudFriendShareSnapshotApplier.clearCachedShare(from: friend)
+                        friend.shareURL = nil
+                        didUpdateFriends = true
+                    } else {
+                        NSLog("Liminalog: failed to refresh incoming friend share for \(friend.userRecordID) on \(reason): \(String(describing: error))")
+                    }
+                }
             }
-            try context.save()
+            if didUpdateFriends {
+                try context.save()
+            }
         } catch {
             NSLog("Liminalog: failed to refresh incoming friend shares on \(reason): \(String(describing: error))")
         }

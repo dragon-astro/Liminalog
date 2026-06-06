@@ -59,4 +59,56 @@ struct CloudFriendShareSnapshotApplierTests {
         #expect(friend.sharedActivities.map(\.title) == ["勉強"])
         #expect(friend.lastSeenAt == now)
     }
+
+    @Test
+    func clearsCachedShareWhenAccessIsLost() {
+        let now = Date(timeIntervalSince1970: 1_780_764_000)
+        let friend = Friend(displayName: "Before", handle: "@before", status: .accepted)
+        friend.currentStatusTitle = "勉強"
+        friend.currentStatusIcon = "book.fill"
+        friend.currentStatusColorHex = "#4F8BFF"
+        friend.currentMoodText = "集中"
+        friend.currentStatusStartedAt = now.addingTimeInterval(-1_800)
+        friend.currentStatusUpdatedAt = now
+        friend.todayScore = 88
+        friend.yesterdayScore = 70
+        friend.weekScore = 66
+        friend.monthScore = 55
+        friend.yearScore = 44
+        friend.streakCount = 12
+        friend.setSharedPlans([
+            FriendSharedPlanSnapshot(
+                title: "共有予定",
+                startTime: now,
+                endTime: now.addingTimeInterval(3_600)
+            )
+        ])
+        friend.setSharedActivities([
+            FriendSharedActivitySnapshot(
+                title: "勉強",
+                startTime: now.addingTimeInterval(-1_800),
+                endTime: now,
+                updatedAt: now
+            )
+        ])
+        friend.lastSeenAt = now
+
+        CloudFriendShareSnapshotApplier.clearCachedShare(from: friend)
+
+        #expect(friend.currentStatusTitle.isEmpty)
+        #expect(friend.currentStatusIcon == "circle.dashed")
+        #expect(friend.currentStatusColorHex == "#8E8E93")
+        #expect(friend.currentMoodText.isEmpty)
+        #expect(friend.currentStatusStartedAt == nil)
+        #expect(friend.currentStatusUpdatedAt == nil)
+        #expect(friend.todayScore == 0)
+        #expect(friend.yesterdayScore == 0)
+        #expect(friend.weekScore == 0)
+        #expect(friend.monthScore == 0)
+        #expect(friend.yearScore == 0)
+        #expect(friend.streakCount == 0)
+        #expect(friend.sharedPlans.isEmpty)
+        #expect(friend.sharedActivities.isEmpty)
+        #expect(friend.lastSeenAt == nil)
+    }
 }

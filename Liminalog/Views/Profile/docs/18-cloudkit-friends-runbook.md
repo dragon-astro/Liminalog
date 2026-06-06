@@ -49,7 +49,7 @@ Use two real devices with different iCloud accounts.
 12. Set visibility to selected friends and confirm only accepted selected friends receive the data.
 13. Exclude categories and confirm those plans/activities are not present in `sharedPlansJSON` or `sharedActivitiesJSON`.
 14. Change a friend's visibility preset or category audience, then confirm the recipient's `FriendShareSnapshot` updates by shared database push. Use manual refresh only as a fallback.
-15. Delete or block a friend, then confirm the outgoing `FriendShareSnapshot`/`CKShare` is revoked, own `FriendConsent` becomes `blocked`, and the other device stops sharing back after refresh or push.
+15. Delete or block a friend, then confirm the outgoing `FriendShareSnapshot`/`CKShare` is revoked, own `FriendConsent` becomes `blocked`, the other device clears stale scores/plans/active activity after refresh or push, and the other device stops sharing back.
 16. Kill and relaunch both apps, then confirm user ID, friend list, and latest accepted snapshots remain.
 17. Delete and reinstall the app on one device, sign into the same iCloud account, then confirm CloudKit profile/consent/share can be restored by opening Friends and refreshing.
 
