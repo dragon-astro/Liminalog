@@ -135,4 +135,38 @@ struct CloudFriendShareSnapshotBuilderTests {
         #expect(selectedSnapshot.sharedPlans.map(\.title) == ["限定予定"])
         #expect(otherSnapshot.sharedPlans.isEmpty)
     }
+
+    @Test
+    func missingPresetDoesNotPublishScores() {
+        let now = Date(timeIntervalSince1970: 1_780_764_000)
+        let category = Category(name: "仕事", colorHex: "#2F80ED", icon: "briefcase.fill")
+        let friend = Friend(displayName: "A", handle: "@friend", status: .accepted)
+        friend.userRecordID = "_friend"
+        friend.visibilityPresetID = UUID()
+        let plan = PlanBlock(
+            category: category,
+            title: "限定予定",
+            startTime: now,
+            endTime: now.addingTimeInterval(3_600),
+            isPublic: true
+        )
+        plan.audienceFriendIDs = [friend.id]
+        plan.hasAudienceSnapshot = true
+
+        let snapshot = CloudFriendShareSnapshotBuilder.snapshot(
+            for: friend,
+            ownUsername: "owner",
+            ownDisplayName: "Owner",
+            visibilityPresets: [],
+            chapters: [],
+            planBlocks: [plan],
+            acceptedFriendIDs: [friend.id],
+            now: now,
+            scoreProvider: { _ in 99 }
+        )
+
+        #expect(snapshot.todayScore == 0)
+        #expect(snapshot.weekScore == 0)
+        #expect(snapshot.sharedPlans.map(\.title) == ["限定予定"])
+    }
 }

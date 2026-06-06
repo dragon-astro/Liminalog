@@ -13,7 +13,7 @@ enum CloudFriendShareSnapshotBuilder {
         scoreProvider: (FriendScorePeriod) -> Double
     ) -> CloudFriendShareSnapshot {
         let preset = visibilityPreset(for: friend, in: visibilityPresets)
-        let canPublishScores = preset?.publishMode != PublishMode.none && preset?.level != VisibilityLevel.none
+        let canPublishScores = scorePublishingEnabled(for: preset)
         let activeChapters = chapters.filter { $0.endTime == nil }
         let visiblePlans = FriendSharedPlanSnapshot.snapshots(
             from: planBlocks,
@@ -61,5 +61,10 @@ enum CloudFriendShareSnapshotBuilder {
     private static func visibilityPreset(for friend: Friend, in presets: [VisibilityPreset]) -> VisibilityPreset? {
         guard let id = friend.visibilityPresetID else { return nil }
         return presets.first { $0.id == id }
+    }
+
+    private static func scorePublishingEnabled(for preset: VisibilityPreset?) -> Bool {
+        guard let preset else { return false }
+        return preset.publishMode != .none && preset.level != .none
     }
 }
