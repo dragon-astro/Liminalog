@@ -62,28 +62,8 @@ struct PeriodRangeSelectionSheet: View {
             }
             .padding(.horizontal, 18)
 
-            ZStack {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(LiminalTheme.accent, lineWidth: 2)
-                    .frame(height: 58)
-                    .padding(.horizontal, 28)
-                    .allowsHitTesting(false)
-
-                Picker("", selection: $pendingDate) {
-                    ForEach(options) { option in
-                        Text(option.title)
-                            .font(.title3.weight(.semibold))
-                            .monospacedDigit()
-                            .foregroundStyle(LiminalTheme.text)
-                            .tag(option.date)
-                    }
-                }
-                .pickerStyle(.wheel)
-                .labelsHidden()
-                .frame(height: 230)
-                .clipped()
-            }
-            .padding(.horizontal, 18)
+            pickerArea
+                .padding(.horizontal, 18)
 
             Button {
                 anchorDate = pendingDate
@@ -104,6 +84,111 @@ struct PeriodRangeSelectionSheet: View {
         .background(.ultraThinMaterial)
         .presentationDetents([.height(440)])
         .presentationDragIndicator(.hidden)
+    }
+
+    @ViewBuilder
+    private var pickerArea: some View {
+        switch granularity {
+        case .month:
+            monthPickerArea
+        case .day, .week, .year:
+            rangePickerArea
+        }
+    }
+
+    private var rangePickerArea: some View {
+        ZStack {
+            selectionFrame
+
+            Picker("", selection: $pendingDate) {
+                ForEach(options) { option in
+                    Text(option.title)
+                        .font(.title3.weight(.semibold))
+                        .monospacedDigit()
+                        .foregroundStyle(LiminalTheme.text)
+                        .tag(option.date)
+                }
+            }
+            .pickerStyle(.wheel)
+            .labelsHidden()
+            .frame(height: 230)
+            .clipped()
+        }
+    }
+
+    private var monthPickerArea: some View {
+        ZStack {
+            selectionFrame
+
+            HStack(spacing: 0) {
+                Picker("", selection: monthYearSelection) {
+                    ForEach(Array(monthYearRange), id: \.self) { year in
+                        Text(verbatim: "\(year)年")
+                            .font(.title3.weight(.semibold))
+                            .monospacedDigit()
+                            .foregroundStyle(LiminalTheme.text)
+                            .tag(year)
+                    }
+                }
+                .pickerStyle(.wheel)
+                .labelsHidden()
+                .frame(maxWidth: .infinity)
+
+                Picker("", selection: monthSelection) {
+                    ForEach(1...12, id: \.self) { month in
+                        Text("\(month)月")
+                            .font(.title3.weight(.semibold))
+                            .monospacedDigit()
+                            .foregroundStyle(LiminalTheme.text)
+                            .tag(month)
+                    }
+                }
+                .pickerStyle(.wheel)
+                .labelsHidden()
+                .frame(maxWidth: .infinity)
+            }
+            .frame(height: 230)
+            .clipped()
+        }
+    }
+
+    private var selectionFrame: some View {
+        RoundedRectangle(cornerRadius: 8, style: .continuous)
+            .stroke(LiminalTheme.accent, lineWidth: 2)
+            .frame(height: 58)
+            .padding(.horizontal, 28)
+            .allowsHitTesting(false)
+    }
+
+    private var monthYearSelection: Binding<Int> {
+        Binding(
+            get: {
+                calendar.component(.year, from: pendingDate)
+            },
+            set: { newYear in
+                updatePendingMonthDate(year: newYear, month: calendar.component(.month, from: pendingDate))
+            }
+        )
+    }
+
+    private var monthSelection: Binding<Int> {
+        Binding(
+            get: {
+                calendar.component(.month, from: pendingDate)
+            },
+            set: { newMonth in
+                updatePendingMonthDate(year: calendar.component(.year, from: pendingDate), month: newMonth)
+            }
+        )
+    }
+
+    private var monthYearRange: ClosedRange<Int> {
+        let centerYear = calendar.component(.year, from: optionCenterDate)
+        return (centerYear - 5)...(centerYear + 1)
+    }
+
+    private func updatePendingMonthDate(year: Int, month: Int) {
+        pendingDate = calendar.date(from: DateComponents(year: year, month: month, day: 1)) ?? pendingDate
     }
 
     private var options: [PeriodRangeOption] {
