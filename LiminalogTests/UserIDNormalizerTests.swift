@@ -17,9 +17,11 @@ struct UserIDNormalizerTests {
     }
 
     @Test
-    func rejectsUnsupportedCharacters() {
-        let result = UserIDNormalizer.normalize("ryu-log")
+    func acceptsNonAsciiAndSymbolUserIDsWhenMinimumLengthIsSatisfied() throws {
+        let japanese = try #require(UserIDNormalizer.normalizedValue("  りゅうログ  "))
+        let symbol = try #require(UserIDNormalizer.normalizedValue("Ryu-Log"))
 
-        #expect(result == .failure(.invalidCharacters))
+        #expect(japanese == "りゅうログ")
+        #expect(symbol == "ryu-log")
     }
 }

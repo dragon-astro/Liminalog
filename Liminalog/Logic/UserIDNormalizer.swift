@@ -3,7 +3,6 @@ import Foundation
 enum UserIDValidationError: Equatable, LocalizedError {
     case empty
     case tooShort(minimum: Int)
-    case invalidCharacters
 
     var errorDescription: String? {
         switch self {
@@ -11,16 +10,12 @@ enum UserIDValidationError: Equatable, LocalizedError {
             return "ユーザーIDを入力してください。"
         case let .tooShort(minimum):
             return "ユーザーIDは\(minimum)文字以上にしてください。"
-        case .invalidCharacters:
-            return "ユーザーIDは半角英数字、_、. だけ使えます。"
         }
     }
 }
 
 enum UserIDNormalizer {
     static let minimumLength = 3
-
-    private static let allowedCharacters = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyz0123456789_.")
 
     static func normalize(_ rawValue: String) -> Result<String, UserIDValidationError> {
         let normalized = rawValue
@@ -32,9 +27,6 @@ enum UserIDNormalizer {
         }
         guard normalized.count >= minimumLength else {
             return .failure(.tooShort(minimum: minimumLength))
-        }
-        guard normalized.unicodeScalars.allSatisfy({ allowedCharacters.contains($0) }) else {
-            return .failure(.invalidCharacters)
         }
         return .success(normalized)
     }
