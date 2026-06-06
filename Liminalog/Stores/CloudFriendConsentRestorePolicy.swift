@@ -5,7 +5,57 @@ enum CloudFriendConsentDirection: Equatable {
     case outgoing
 }
 
+struct CloudFriendConsentRestoration: Equatable {
+    let consent: CloudFriendConsent
+    let direction: CloudFriendConsentDirection
+    let status: FriendStatus
+}
+
 enum CloudFriendConsentRestorePolicy {
+    static func restorations(
+        incomingConsents: [CloudFriendConsent],
+        outgoingConsents: [CloudFriendConsent]
+    ) -> [CloudFriendConsentRestoration] {
+        var merged: [String: ConsentMerge] = [:]
+        var orderedFriendRecordNames: [String] = []
+
+        func upsert(
+            consent: CloudFriendConsent,
+            direction: CloudFriendConsentDirection
+        ) {
+            let friendRecordName = friendUserRecordName(from: consent, direction: direction)
+            if merged[friendRecordName] == nil {
+                orderedFriendRecordNames.append(friendRecordName)
+            }
+            var merge = merged[friendRecordName] ?? ConsentMerge()
+            switch direction {
+            case .incoming:
+                merge.incoming = consent
+            case .outgoing:
+                merge.outgoing = consent
+            }
+            merged[friendRecordName] = merge
+        }
+
+        for consent in outgoingConsents {
+            upsert(consent: consent, direction: .outgoing)
+        }
+        for consent in incomingConsents {
+            upsert(consent: consent, direction: .incoming)
+        }
+
+        return orderedFriendRecordNames.compactMap { friendRecordName in
+            guard let merge = merged[friendRecordName],
+                  let representative = merge.representative
+            else { return nil }
+            return CloudFriendConsentRestoration(
+                consent: representative.consent,
+                direction: representative.direction,
+                status: mergedStatus(incoming: merge.incoming, outgoing: merge.outgoing)
+            )
+        }
+    }
+
     static func friendStatus(
         consentStatus: CloudFriendConsent.Status,
         direction: CloudFriendConsentDirection
@@ -61,5 +111,40 @@ enum CloudFriendConsentRestorePolicy {
         direction: CloudFriendConsentDirection
     ) -> String? {
         direction == .incoming ? consent.shareURL : nil
+    }
+
+    private static func mergedStatus(
+        incoming: CloudFriendConsent?,
+        outgoing: CloudFriendConsent?
+    ) -> FriendStatus {
+        let statuses = [incoming?.status, outgoing?.status]
+        if statuses.contains(where: { $0 == .blocked }) {
+            return .blocked
+        }
+        if statuses.contains(where: { $0 == .accepted }) {
+            return .accepted
+        }
+        if incoming?.status == .requested, outgoing?.status == .requested {
+            return .accepted
+        }
+        if incoming?.status == .requested {
+            return .pendingIncoming
+        }
+        return .pendingOutgoing
+    }
+
+    private struct ConsentMerge {
+        var incoming: CloudFriendConsent?
+        var outgoing: CloudFriendConsent?
+
+        var representative: (consent: CloudFriendConsent, direction: CloudFriendConsentDirection)? {
+            if let incoming {
+                return (incoming, .incoming)
+            }
+            if let outgoing {
+                return (outgoing, .outgoing)
+            }
+            return nil
+        }
     }
 }

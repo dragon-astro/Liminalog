@@ -200,15 +200,15 @@ final class CloudFriendShareRefreshCoordinator {
             var didChange = false
             var shouldPublishAcceptedShares = false
 
-            for (consent, direction) in outgoingConsents.map({ ($0, CloudFriendConsentDirection.outgoing) })
-                + incomingConsents.map({ ($0, CloudFriendConsentDirection.incoming) }) {
-                let status = CloudFriendConsentRestorePolicy.friendStatus(
-                    consentStatus: consent.status,
-                    direction: direction
-                )
+            let restorations = CloudFriendConsentRestorePolicy.restorations(
+                incomingConsents: incomingConsents,
+                outgoingConsents: outgoingConsents
+            )
+            for restoration in restorations {
+                let status = restoration.status
                 let friend = upsertFriend(
-                    from: consent,
-                    direction: direction,
+                    from: restoration.consent,
+                    direction: restoration.direction,
                     status: status,
                     friends: &friends,
                     visibilityPresets: visibilityPresets,
@@ -221,7 +221,7 @@ final class CloudFriendShareRefreshCoordinator {
                     friend.shareURL = nil
                     CloudFriendShareSnapshotApplier.clearCachedShare(from: friend)
                     try? await cloudShareStore.revokeOutgoingShare(targetUserRecordName: friend.userRecordID)
-                    if direction == .incoming, !settings.cloudUsernameNormalized.isEmpty {
+                    if restoration.direction == .incoming, !settings.cloudUsernameNormalized.isEmpty {
                         _ = try? await cloudSocialStore.blockOwnConsent(
                             targetUserRecordName: friend.userRecordID,
                             ownUsername: settings.cloudUsernameNormalized,

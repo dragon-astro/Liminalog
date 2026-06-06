@@ -731,15 +731,19 @@ struct FriendsView: View {
                 let incomingConsents = try await cloudSocialStore.incomingConsents(forOwnUserRecordName: ownUserRecordName)
                 let outgoingConsents = try await cloudSocialStore.outgoingConsents(forOwnUserRecordName: ownUserRecordName)
                 await MainActor.run {
-                    for (consent, direction) in outgoingConsents.map({ ($0, CloudFriendConsentDirection.outgoing) })
-                        + incomingConsents.map({ ($0, CloudFriendConsentDirection.incoming) }) {
-                        let status = CloudFriendConsentRestorePolicy.friendStatus(
-                            consentStatus: consent.status,
-                            direction: direction
+                    let restorations = CloudFriendConsentRestorePolicy.restorations(
+                        incomingConsents: incomingConsents,
+                        outgoingConsents: outgoingConsents
+                    )
+                    for restoration in restorations {
+                        let status = restoration.status
+                        let friend = upsertCloudFriend(
+                            consent: restoration.consent,
+                            direction: restoration.direction,
+                            status: status
                         )
-                        let friend = upsertCloudFriend(consent: consent, direction: direction, status: status)
                         if status == .blocked {
-                            handleBlockedCloudFriend(friend, direction: direction)
+                            handleBlockedCloudFriend(friend, direction: restoration.direction)
                             continue
                         }
                         if status == .accepted, let shareURL = incomingShareURL(for: friend) {
