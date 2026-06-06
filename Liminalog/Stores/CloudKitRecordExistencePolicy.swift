@@ -13,6 +13,7 @@ enum CloudKitRecordExistencePolicy {
             case .accountUnavailable,
                  .invalidUserID,
                  .usernameTaken,
+                 .usernameAlreadyRegistered,
                  .ownProfileMissing,
                  .cannotRequestSelf,
                  .requestBlocked,

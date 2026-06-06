@@ -35,6 +35,7 @@ enum CloudKitSocialError: LocalizedError {
     case accountUnavailable
     case invalidUserID(UserIDValidationError)
     case usernameTaken
+    case usernameAlreadyRegistered(String)
     case profileNotFound
     case ownProfileMissing
     case cannotRequestSelf
@@ -50,6 +51,8 @@ enum CloudKitSocialError: LocalizedError {
             return error.localizedDescription
         case .usernameTaken:
             return "このユーザーIDはすでに使われています。"
+        case let .usernameAlreadyRegistered(username):
+            return "このiCloudアカウントでは @\(username) を確定済みです。ユーザーIDは変更できません。"
         case .profileNotFound:
             return "そのユーザーIDの人は見つかりませんでした。"
         case .ownProfileMissing:
@@ -69,6 +72,7 @@ enum CloudKitSocialError: LocalizedError {
 final class CloudKitSocialStore {
     private enum RecordType {
         static let profile = "PublicProfile"
+        static let profileOwnerIndex = "PublicProfileOwnerIndex"
         static let consent = "FriendConsent"
     }
 
@@ -107,23 +111,48 @@ final class CloudKitSocialStore {
         let username = try normalizedUsername(rawUsername)
         let ownerRecordName = try await currentUserRecordName()
         let now = Date()
-        let record = CKRecord(recordType: RecordType.profile, recordID: Self.profileRecordID(username: username))
-        record[Field.username] = username as CKRecordValue
-        record[Field.displayName] = publicDisplayName(displayName) as CKRecordValue
-        record[Field.ownerUserRecordName] = ownerRecordName as CKRecordValue
-        record[Field.ownerAppUserID] = appUserID.uuidString as CKRecordValue
-        record[Field.createdAt] = now as CKRecordValue
-        record[Field.updatedAt] = now as CKRecordValue
+        let ownerIndex = try await fetchRecordIfExists(Self.profileOwnerIndexRecordID(ownerUserRecordName: ownerRecordName))
+        let existingOwnerUsername = try ownerIndex.map(Self.ownerIndexUsername(from:))
+        guard CloudFriendProfileRegistrationPolicy.canRegister(
+            requestedUsername: username,
+            existingOwnerUsername: existingOwnerUsername
+        ) else {
+            throw CloudKitSocialError.usernameAlreadyRegistered(existingOwnerUsername ?? username)
+        }
+
+        let profile = CKRecord(recordType: RecordType.profile, recordID: Self.profileRecordID(username: username))
+        applyProfileFields(
+            to: profile,
+            username: username,
+            displayName: displayName,
+            appUserID: appUserID,
+            ownerRecordName: ownerRecordName,
+            now: now,
+            isNewRecord: true
+        )
+        let index = ownerIndex ?? CKRecord(
+            recordType: RecordType.profileOwnerIndex,
+            recordID: Self.profileOwnerIndexRecordID(ownerUserRecordName: ownerRecordName)
+        )
+        applyOwnerIndexFields(
+            to: index,
+            username: username,
+            ownerRecordName: ownerRecordName,
+            now: now,
+            isNewRecord: ownerIndex == nil
+        )
 
         do {
-            let saved = try await save(record, savePolicy: .ifServerRecordUnchanged)
+            let savedRecords = try await save([profile, index], savePolicy: .ifServerRecordUnchanged)
+            let saved = try savedRecord(for: profile.recordID, in: savedRecords)
             return try Self.profile(from: saved)
         } catch let error as CKError where Self.isRecordConflict(error) {
             return try await reclaimExistingProfileIfOwned(
                 username: username,
                 displayName: displayName,
                 appUserID: appUserID,
-                ownerRecordName: ownerRecordName
+                ownerRecordName: ownerRecordName,
+                existingOwnerIndex: ownerIndex
             )
         } catch {
             throw error
@@ -356,7 +385,8 @@ final class CloudKitSocialStore {
         username: String,
         displayName: String,
         appUserID: UUID,
-        ownerRecordName: String
+        ownerRecordName: String,
+        existingOwnerIndex: CKRecord?
     ) async throws -> CloudFriendProfile {
         let record = try await fetchRecord(Self.profileRecordID(username: username))
         let profile = try Self.profile(from: record)
@@ -364,10 +394,29 @@ final class CloudKitSocialStore {
             throw CloudKitSocialError.usernameTaken
         }
 
-        record[Field.displayName] = publicDisplayName(displayName) as CKRecordValue
-        record[Field.ownerAppUserID] = appUserID.uuidString as CKRecordValue
-        record[Field.updatedAt] = Date() as CKRecordValue
-        return try Self.profile(from: try await save(record, savePolicy: .changedKeys))
+        let now = Date()
+        applyProfileFields(
+            to: record,
+            username: username,
+            displayName: displayName,
+            appUserID: appUserID,
+            ownerRecordName: ownerRecordName,
+            now: now,
+            isNewRecord: false
+        )
+        let ownerIndex = existingOwnerIndex ?? CKRecord(
+            recordType: RecordType.profileOwnerIndex,
+            recordID: Self.profileOwnerIndexRecordID(ownerUserRecordName: ownerRecordName)
+        )
+        applyOwnerIndexFields(
+            to: ownerIndex,
+            username: username,
+            ownerRecordName: ownerRecordName,
+            now: now,
+            isNewRecord: existingOwnerIndex == nil
+        )
+        let savedRecords = try await save([record, ownerIndex], savePolicy: .changedKeys)
+        return try Self.profile(from: try savedRecord(for: record.recordID, in: savedRecords))
     }
 
     private func fetchConsent(ownerUserRecordName: String, targetUserRecordName: String) async throws -> CloudFriendConsent {
@@ -438,16 +487,32 @@ final class CloudKitSocialStore {
         _ record: CKRecord,
         savePolicy: CKModifyRecordsOperation.RecordSavePolicy
     ) async throws -> CKRecord {
+        let savedRecords = try await save([record], savePolicy: savePolicy)
+        return try savedRecord(for: record.recordID, in: savedRecords)
+    }
+
+    private func save(
+        _ records: [CKRecord],
+        savePolicy: CKModifyRecordsOperation.RecordSavePolicy
+    ) async throws -> [CKRecord.ID: CKRecord] {
         let result = try await publicDatabase.modifyRecords(
-            saving: [record],
+            saving: records,
             deleting: [],
             savePolicy: savePolicy,
             atomically: true
         )
-        guard let savedResult = result.saveResults[record.recordID] else {
+        var savedRecords: [CKRecord.ID: CKRecord] = [:]
+        for (recordID, recordResult) in result.saveResults {
+            savedRecords[recordID] = try recordResult.get()
+        }
+        return savedRecords
+    }
+
+    private func savedRecord(for recordID: CKRecord.ID, in records: [CKRecord.ID: CKRecord]) throws -> CKRecord {
+        guard let record = records[recordID] else {
             throw CloudKitSocialError.missingRecordField("savedRecord")
         }
-        return try savedResult.get()
+        return record
     }
 
     private func queryRecords(type: String, predicate: NSPredicate, resultsLimit: Int) async throws -> [CKRecord] {
@@ -558,6 +623,51 @@ final class CloudKitSocialStore {
 
     private static func profileRecordID(username: String) -> CKRecord.ID {
         CKRecord.ID(recordName: "profile:\(username)")
+    }
+
+    private static func profileOwnerIndexRecordID(ownerUserRecordName: String) -> CKRecord.ID {
+        CKRecord.ID(recordName: "profile-owner:\(ownerUserRecordName)")
+    }
+
+    private func applyProfileFields(
+        to record: CKRecord,
+        username: String,
+        displayName: String,
+        appUserID: UUID,
+        ownerRecordName: String,
+        now: Date,
+        isNewRecord: Bool
+    ) {
+        record[Field.username] = username as CKRecordValue
+        record[Field.displayName] = publicDisplayName(displayName) as CKRecordValue
+        record[Field.ownerUserRecordName] = ownerRecordName as CKRecordValue
+        record[Field.ownerAppUserID] = appUserID.uuidString as CKRecordValue
+        if isNewRecord {
+            record[Field.createdAt] = now as CKRecordValue
+        }
+        record[Field.updatedAt] = now as CKRecordValue
+    }
+
+    private static func ownerIndexUsername(from record: CKRecord) throws -> String {
+        guard let username = record[Field.username] as? String else {
+            throw CloudKitSocialError.missingRecordField(Field.username)
+        }
+        return username
+    }
+
+    private func applyOwnerIndexFields(
+        to record: CKRecord,
+        username: String,
+        ownerRecordName: String,
+        now: Date,
+        isNewRecord: Bool
+    ) {
+        record[Field.username] = username as CKRecordValue
+        record[Field.ownerUserRecordName] = ownerRecordName as CKRecordValue
+        if isNewRecord {
+            record[Field.createdAt] = now as CKRecordValue
+        }
+        record[Field.updatedAt] = now as CKRecordValue
     }
 
     private static func consentRecordID(ownerUserRecordName: String, targetUserRecordName: String) -> CKRecord.ID {
