@@ -115,7 +115,12 @@ final class CloudKitSocialStore {
             let saved = try await save(record, savePolicy: .ifServerRecordUnchanged)
             return try Self.profile(from: saved)
         } catch let error as CKError where Self.isRecordConflict(error) {
-            throw CloudKitSocialError.usernameTaken
+            return try await reclaimExistingProfileIfOwned(
+                username: username,
+                displayName: displayName,
+                appUserID: appUserID,
+                ownerRecordName: ownerRecordName
+            )
         } catch {
             throw error
         }
@@ -292,6 +297,24 @@ final class CloudKitSocialStore {
         record[Field.updatedAt] = now as CKRecordValue
 
         return try Self.consent(from: try await save(record, savePolicy: .changedKeys))
+    }
+
+    private func reclaimExistingProfileIfOwned(
+        username: String,
+        displayName: String,
+        appUserID: UUID,
+        ownerRecordName: String
+    ) async throws -> CloudFriendProfile {
+        let record = try await fetchRecord(Self.profileRecordID(username: username))
+        let profile = try Self.profile(from: record)
+        guard CloudFriendProfileOwnershipPolicy.canReuseProfile(profile, currentUserRecordName: ownerRecordName) else {
+            throw CloudKitSocialError.usernameTaken
+        }
+
+        record[Field.displayName] = publicDisplayName(displayName) as CKRecordValue
+        record[Field.ownerAppUserID] = appUserID.uuidString as CKRecordValue
+        record[Field.updatedAt] = Date() as CKRecordValue
+        return try Self.profile(from: try await save(record, savePolicy: .changedKeys))
     }
 
     private func fetchConsent(ownerUserRecordName: String, targetUserRecordName: String) async throws -> CloudFriendConsent {
