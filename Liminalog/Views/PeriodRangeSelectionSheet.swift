@@ -46,17 +46,7 @@ struct PeriodRangeSelectionSheet: View {
                     .foregroundStyle(LiminalTheme.text)
 
                 HStack {
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "xmark")
-                            .font(.headline.weight(.bold))
-                            .foregroundStyle(LiminalTheme.accent)
-                            .frame(width: 44, height: 44)
-                            .background(Circle().fill(LiminalTheme.elevated.opacity(0.8)))
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("閉じる")
+                    closeButton
 
                     Spacer()
                 }
@@ -66,25 +56,60 @@ struct PeriodRangeSelectionSheet: View {
             pickerArea
                 .padding(.horizontal, 18)
 
-            Button {
-                anchorDate = pendingDate
-                dismiss()
-            } label: {
-                Text("確認")
-                    .font(.headline.weight(.bold))
-                    .foregroundStyle(Color.black.opacity(0.78))
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 54)
-                    .background(Capsule(style: .continuous).fill(LiminalTheme.accent))
-            }
-            .buttonStyle(.plain)
+            confirmButton
             .padding(.horizontal, 56)
             .padding(.bottom, 28)
         }
         .frame(maxWidth: .infinity)
-        .background(.ultraThinMaterial)
         .presentationDetents([.height(440)])
         .presentationDragIndicator(.hidden)
+    }
+
+    @ViewBuilder
+    private var closeButton: some View {
+        let button = Button {
+            dismiss()
+        } label: {
+            Image(systemName: "xmark")
+                .font(.headline.weight(.bold))
+                .foregroundStyle(LiminalTheme.accent)
+                .frame(width: 44, height: 44)
+        }
+        .accessibilityLabel("閉じる")
+
+        if #available(iOS 26.0, *) {
+            button
+                .buttonStyle(.glass)
+        } else {
+            button
+                .buttonStyle(.plain)
+                .liminalGlassFill(in: Circle())
+        }
+    }
+
+    @ViewBuilder
+    private var confirmButton: some View {
+        let button = Button {
+            anchorDate = pendingDate
+            dismiss()
+        } label: {
+            Text("確認")
+                .font(.headline.weight(.bold))
+                .frame(maxWidth: .infinity)
+                .frame(height: 54)
+        }
+        .tint(LiminalTheme.accent)
+
+        if #available(iOS 26.0, *) {
+            button
+                .foregroundStyle(LiminalTheme.text)
+                .buttonStyle(.glassProminent)
+        } else {
+            button
+                .foregroundStyle(Color.black.opacity(0.78))
+                .buttonStyle(.plain)
+                .background(Capsule(style: .continuous).fill(LiminalTheme.accent))
+        }
     }
 
     @ViewBuilder
