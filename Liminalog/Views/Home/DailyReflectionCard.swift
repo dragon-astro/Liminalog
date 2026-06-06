@@ -26,6 +26,92 @@ struct DailyReflectionCard: View {
     }
 
     var body: some View {
+        DailyReflectionCardSurface(
+            date: date,
+            summary: summary,
+            planSegments: planSegments,
+            actualSegments: actualSegments,
+            persona: persona,
+            categoryRows: categoryRows,
+            onShare: {
+                shareItem = renderShareImage()
+            },
+            onPlanTomorrow: onPlanTomorrow
+        )
+        .sheet(item: $shareItem) { item in
+            DailyCardActivityView(activityItems: [item.url])
+                .presentationDetents([.medium, .large])
+        }
+    }
+
+    private var planSegments: [DailyRingSegment] {
+        plans.compactMap { plan in
+            guard !plan.isAllDay else { return nil }
+            let start = max(plan.startTime, dayBoundary.dayStart)
+            let end = min(plan.endTime, dayBoundary.dayEnd)
+            guard end > start else { return nil }
+            return DailyRingSegment(
+                start: start.timeIntervalSince(dayBoundary.dayStart),
+                duration: end.timeIntervalSince(start),
+                color: plan.category?.displayColor ?? LiminalTheme.accent
+            )
+        }
+    }
+
+    private var actualSegments: [DailyRingSegment] {
+        chapters.compactMap { chapter in
+            let start = max(chapter.startTime, dayBoundary.dayStart)
+            let end = min(chapter.endTime ?? dayBoundary.dayEnd, dayBoundary.dayEnd)
+            guard end > start else { return nil }
+            return DailyRingSegment(
+                start: start.timeIntervalSince(dayBoundary.dayStart),
+                duration: end.timeIntervalSince(start),
+                color: chapter.category?.displayColor ?? LiminalTheme.accent
+            )
+        }
+    }
+
+    @MainActor
+    private func renderShareImage() -> DailyCardShareItem? {
+        let content = DailyShareCardView(
+            date: date,
+            summary: summary,
+            planSegments: planSegments,
+            actualSegments: actualSegments,
+            persona: persona,
+            categoryRows: categoryRows
+        )
+        .environment(\.colorScheme, colorScheme)
+
+        let renderer = ImageRenderer(content: content)
+        renderer.scale = 3
+        guard let image = renderer.uiImage, let data = image.pngData() else {
+            return nil
+        }
+
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("liminalog-\(Int(date.timeIntervalSince1970))-daily-card.png")
+        do {
+            try data.write(to: url, options: [.atomic])
+            return DailyCardShareItem(url: url)
+        } catch {
+            return nil
+        }
+    }
+}
+
+private struct DailyReflectionCardSurface: View {
+    @Environment(\.colorScheme) private var colorScheme
+    let date: Date
+    let summary: ScoreSummary
+    let planSegments: [DailyRingSegment]
+    let actualSegments: [DailyRingSegment]
+    let persona: DailyPersona
+    let categoryRows: [(category: Category, duration: TimeInterval)]
+    let onShare: (() -> Void)?
+    let onPlanTomorrow: (() -> Void)?
+
+    var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             header
 
@@ -58,47 +144,9 @@ struct DailyReflectionCard: View {
                 DailyCategoryConstellation(rows: Array(categoryRows.prefix(4)))
             }
 
-            Button {
-                shareItem = renderShareImage()
-            } label: {
-                HStack(spacing: 9) {
-                    Image(systemName: "square.and.arrow.up.fill")
-                        .font(.caption.weight(.bold))
-                    Text("カードを共有")
-                        .font(.subheadline.weight(.bold))
-                    Spacer(minLength: 8)
-                    Text("9:16")
-                        .font(.caption.weight(.black).monospacedDigit())
-                }
-                .foregroundStyle(LiminalTheme.text)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 12)
-                .liminalGlassFill(in: Capsule(style: .continuous))
+            if onShare != nil || onPlanTomorrow != nil {
+                actionButtons
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("デイリーカードを画像で共有")
-
-            Button(action: onPlanTomorrow) {
-                HStack(spacing: 9) {
-                    Image(systemName: "sparkle.magnifyingglass")
-                        .font(.caption.weight(.bold))
-                    Text("明日はどうする？")
-                        .font(.subheadline.weight(.bold))
-                    Spacer(minLength: 8)
-                    Image(systemName: "arrow.right")
-                        .font(.caption.weight(.bold))
-                }
-                .foregroundStyle(LiminalTheme.text)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 12)
-                .background(
-                    Capsule(style: .continuous)
-                        .fill(LiminalTheme.accent.opacity(0.16))
-                        .overlay(Capsule(style: .continuous).stroke(LiminalTheme.accent.opacity(0.28), lineWidth: 1))
-                )
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("明日の予定へ移動")
         }
         .padding(20)
         .background {
@@ -136,16 +184,60 @@ struct DailyReflectionCard: View {
         .liminalAccentLight(in: RoundedRectangle(cornerRadius: 26, style: .continuous), intensity: colorScheme == .light ? 0.5 : 0.42)
         .shadow(color: LiminalTheme.dusk.opacity(0.2), radius: 24, y: 14)
         .accessibilityElement(children: .contain)
-        .sheet(item: $shareItem) { item in
-            DailyCardActivityView(activityItems: [item.url])
-                .presentationDetents([.medium, .large])
+    }
+
+    @ViewBuilder
+    private var actionButtons: some View {
+        if let onShare {
+            Button {
+                onShare()
+            } label: {
+                HStack(spacing: 9) {
+                    Image(systemName: "square.and.arrow.up.fill")
+                        .font(.caption.weight(.bold))
+                    Text("カードを共有")
+                        .font(.subheadline.weight(.bold))
+                    Spacer(minLength: 8)
+                    Text("9:16")
+                        .font(.caption.weight(.black).monospacedDigit())
+                }
+                .foregroundStyle(LiminalTheme.text)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+                .liminalGlassFill(in: Capsule(style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("デイリーカードを画像で共有")
+        }
+
+        if let onPlanTomorrow {
+            Button(action: onPlanTomorrow) {
+                HStack(spacing: 9) {
+                    Image(systemName: "sparkle.magnifyingglass")
+                        .font(.caption.weight(.bold))
+                    Text("明日はどうする？")
+                        .font(.subheadline.weight(.bold))
+                    Spacer(minLength: 8)
+                    Image(systemName: "arrow.right")
+                        .font(.caption.weight(.bold))
+                }
+                .foregroundStyle(LiminalTheme.text)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(LiminalTheme.accent.opacity(0.16))
+                        .overlay(Capsule(style: .continuous).stroke(LiminalTheme.accent.opacity(0.28), lineWidth: 1))
+                )
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("明日の予定へ移動")
         }
     }
 
     // 縁取り = 光を受けた金属の稜線。
     // ダーク: 暗地で白の中間点が稜線として光る（従来通り・変更しない）。
     // ライト: 左上＝明るいハイライト → 金の反射 → 右下＝暖かい陰、で金属のベベルを再現。
-    //         写真の手すり上端の金色リムと同じ原理。
     private var cardBorderGradient: LinearGradient {
         if colorScheme == .light {
             return LinearGradient(
@@ -187,61 +279,6 @@ struct DailyReflectionCard: View {
                 .accessibilityLabel(summary.plannedDuration > 0 ? "予定と実績あり" : "実績のみ")
         }
     }
-
-    private var planSegments: [DailyRingSegment] {
-        plans.compactMap { plan in
-            guard !plan.isAllDay else { return nil }
-            let start = max(plan.startTime, dayBoundary.dayStart)
-            let end = min(plan.endTime, dayBoundary.dayEnd)
-            guard end > start else { return nil }
-            return DailyRingSegment(
-                start: start.timeIntervalSince(dayBoundary.dayStart),
-                duration: end.timeIntervalSince(start),
-                color: plan.category?.displayColor ?? LiminalTheme.accent
-            )
-        }
-    }
-
-    private var actualSegments: [DailyRingSegment] {
-        chapters.compactMap { chapter in
-            let start = max(chapter.startTime, dayBoundary.dayStart)
-            let end = min(chapter.endTime ?? dayBoundary.dayEnd, dayBoundary.dayEnd)
-            guard end > start else { return nil }
-            return DailyRingSegment(
-                start: start.timeIntervalSince(dayBoundary.dayStart),
-                duration: end.timeIntervalSince(start),
-                color: chapter.category?.displayColor ?? LiminalTheme.accent
-            )
-        }
-    }
-
-    @MainActor
-    private func renderShareImage() -> DailyCardShareItem? {
-        let content = DailyShareCardView(
-            date: date,
-            summary: summary,
-            planSegments: planSegments,
-            actualSegments: actualSegments,
-            persona: persona,
-            categoryRows: Array(categoryRows.prefix(5))
-        )
-        .frame(width: 1080, height: 1920)
-
-        let renderer = ImageRenderer(content: content)
-        renderer.scale = 1
-        guard let image = renderer.uiImage, let data = image.pngData() else {
-            return nil
-        }
-
-        let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("liminalog-\(Int(date.timeIntervalSince1970))-daily-card.png")
-        do {
-            try data.write(to: url, options: [.atomic])
-            return DailyCardShareItem(url: url)
-        } catch {
-            return nil
-        }
-    }
 }
 
 private struct DailyCardShareItem: Identifiable {
@@ -260,7 +297,6 @@ private struct DailyCardActivityView: UIViewControllerRepresentable {
 }
 
 private struct DailyShareCardView: View {
-    @Environment(\.colorScheme) private var colorScheme
     let date: Date
     let summary: ScoreSummary
     let planSegments: [DailyRingSegment]
@@ -271,152 +307,21 @@ private struct DailyShareCardView: View {
     var body: some View {
         ZStack {
             LiminalTheme.canvasGradient
-                .overlay {
-                    Circle()
-                        .fill(LiminalTheme.dawn.opacity(0.18))
-                        .frame(width: 720, height: 720)
-                        .blur(radius: 110)
-                        .offset(x: 330, y: -600)
-                }
-                .overlay {
-                    if colorScheme == .light {
-                        Circle()
-                            .fill(LiminalTheme.reward.opacity(0.2))
-                            .frame(width: 520, height: 520)
-                            .blur(radius: 86)
-                            .offset(x: 270, y: -520)
-                    }
-                }
-                .overlay {
-                    Circle()
-                        .fill(LiminalTheme.dusk.opacity(0.28))
-                        .frame(width: 900, height: 900)
-                        .blur(radius: 140)
-                        .offset(x: -420, y: 610)
-                }
                 .overlay(LiminalGrainOverlay())
 
-            VStack(alignment: .leading, spacing: 58) {
-                HStack(alignment: .top) {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Liminalog")
-                            .font(.system(size: 42, weight: .black, design: .rounded))
-                            .foregroundStyle(LiminalTheme.accent)
-                        Text(date.japaneseMonthDayWeekday)
-                            .font(.system(size: 32, weight: .bold, design: .rounded))
-                            .foregroundStyle(LiminalTheme.secondaryText)
-                    }
-                    Spacer()
-                    Image(systemName: summary.plannedDuration > 0 ? "circle.dashed.inset.filled" : "circle.dashed")
-                        .font(.system(size: 26, weight: .bold))
-                        .foregroundStyle(LiminalTheme.text)
-                        .frame(width: 58, height: 58)
-                        .liminalGlassFill(in: Circle())
-                        .accessibilityLabel(summary.plannedDuration > 0 ? "予定と実績あり" : "実績のみ")
-                }
-
-                DailyTwentyFourHourRing(
-                    planSegments: planSegments,
-                    actualSegments: actualSegments,
-                    score: summary.totalScore,
-                    hasScore: summary.plannedDuration > 0,
-                    persona: persona
-                )
-                .frame(width: 760, height: 760)
-                .frame(maxWidth: .infinity)
-
-                VStack(alignment: .leading, spacing: 22) {
-                    Text(persona.title)
-                        .font(.system(size: 82, weight: .heavy, design: .rounded))
-                        .foregroundStyle(LiminalTheme.text)
-                        .minimumScaleFactor(0.55)
-                        .lineLimit(2)
-
-                    Text(persona.message)
-                        .font(.system(size: 34, weight: .semibold, design: .rounded))
-                        .foregroundStyle(LiminalTheme.secondaryText)
-                        .lineSpacing(7)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                HStack(spacing: 18) {
-                    ForEach(persona.facts) { fact in
-                        ShareMetricTile(title: fact.title, value: fact.value + (fact.suffix ?? ""))
-                    }
-                }
-
-                if !categoryRows.isEmpty {
-                    VStack(alignment: .leading, spacing: 18) {
-                        Text("昨日の色")
-                            .font(.system(size: 25, weight: .black, design: .rounded))
-                            .foregroundStyle(LiminalTheme.secondaryText)
-                        FlowLikeCategoryRow(rows: categoryRows)
-                    }
-                }
-
-                Spacer(minLength: 0)
-
-                HStack {
-                    Text("予定と実績のあいだを、記録する。")
-                        .font(.system(size: 26, weight: .bold, design: .rounded))
-                        .foregroundStyle(LiminalTheme.secondaryText)
-                    Spacer()
-                    Text("liminalog")
-                        .font(.system(size: 28, weight: .black, design: .rounded))
-                        .foregroundStyle(LiminalTheme.accent)
-                }
-            }
-            .padding(.horizontal, 72)
-            .padding(.top, 84)
-            .padding(.bottom, 72)
+            DailyReflectionCardSurface(
+                date: date,
+                summary: summary,
+                planSegments: planSegments,
+                actualSegments: actualSegments,
+                persona: persona,
+                categoryRows: categoryRows,
+                onShare: nil,
+                onPlanTomorrow: nil
+            )
+            .padding(.horizontal, 16)
         }
-    }
-}
-
-private struct ShareMetricTile: View {
-    let title: String
-    let value: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(title)
-                .font(.system(size: 22, weight: .black, design: .rounded))
-                .foregroundStyle(LiminalTheme.secondaryText)
-            Text(value)
-                .font(.system(size: 34, weight: .heavy, design: .rounded).monospacedDigit())
-                .foregroundStyle(LiminalTheme.text)
-                .lineLimit(1)
-                .minimumScaleFactor(0.58)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(22)
-        .liminalGlassFill(in: RoundedRectangle(cornerRadius: 26, style: .continuous))
-        .liminalAccentLight(in: RoundedRectangle(cornerRadius: 26, style: .continuous), intensity: 0.38)
-    }
-}
-
-private struct FlowLikeCategoryRow: View {
-    let rows: [(category: Category, duration: TimeInterval)]
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            ForEach(rows, id: \.category.id) { row in
-                HStack(spacing: 14) {
-                    Image(systemName: row.category.icon ?? "circle.fill")
-                        .font(.system(size: 21, weight: .bold))
-                    Text(row.category.name)
-                        .font(.system(size: 26, weight: .black, design: .rounded))
-                        .lineLimit(1)
-                    Spacer()
-                    Text(formatDailyDuration(row.duration))
-                        .font(.system(size: 24, weight: .black, design: .rounded).monospacedDigit())
-                }
-                .foregroundStyle(row.category.displayColor.liminalContrastingTextColor)
-                .padding(.horizontal, 20)
-                .padding(.vertical, 14)
-                .background(row.category.displayColor, in: Capsule(style: .continuous))
-            }
-        }
+        .frame(width: 360, height: 640)
     }
 }
 
