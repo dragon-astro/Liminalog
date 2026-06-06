@@ -181,6 +181,10 @@ final class UserSettings {
     var calendarSyncEnabled: Bool = false
     var showCalendarOverlay: Bool = true
     var dashboardCardOrder: [String] = []
+    var cloudUsername: String = ""
+    var cloudUsernameNormalized: String = ""
+    var cloudUserRecordName: String = ""
+    var cloudUsernameRegisteredAt: Date?
     var createdAt: Date = Date()
     var updatedAt: Date = Date()
 

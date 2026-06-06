@@ -13,6 +13,10 @@ final class UserSettings {
     var profileIconFrameID: String = "clear_air"
     var profileStreakIconID: String = "flame"
     var profileCardStyleID: String = "quiet_sky"
+    var cloudUsername: String = ""
+    var cloudUsernameNormalized: String = ""
+    var cloudUserRecordName: String = ""
+    var cloudUsernameRegisteredAt: Date?
     var equippedUnlockItemKeys: [String] = []
     var seenUnlockItemKeys: [String] = []
     var defaultVisibility: VisibilityScope = VisibilityScope.all

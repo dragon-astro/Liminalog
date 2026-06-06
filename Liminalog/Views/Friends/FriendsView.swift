@@ -19,6 +19,16 @@ struct FriendsView: View {
     @State private var inviteInitialText = ""
     @State private var selectedFriend: Friend?
     @State private var saveError: String?
+    @State private var desiredUserID = ""
+    @State private var friendSearchUserID = ""
+    @State private var cloudStatusText: String?
+    @State private var cloudErrorText: String?
+    @State private var isRegisteringCloudProfile = false
+    @State private var isSendingCloudFriendRequest = false
+    @State private var isRefreshingCloudRequests = false
+    @State private var didLoadIncomingCloudRequests = false
+
+    private let cloudSocialStore = CloudKitSocialStore()
 
     init(pendingInviteURL: Binding<URL?> = .constant(nil)) {
         self._pendingInviteURL = pendingInviteURL
@@ -87,6 +97,8 @@ struct FriendsView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
+                    cloudIdentitySection
+
                     if !pendingIncomingFriends.isEmpty {
                         requestsSection
                     }
@@ -135,7 +147,11 @@ struct FriendsView: View {
             }
             .task {
                 ensureUserSettings()
+                if desiredUserID.isEmpty {
+                    desiredUserID = settings?.cloudUsernameNormalized ?? ""
+                }
                 handlePendingInviteURL()
+                refreshCloudRequestsIfPossible()
                 clock.start()
             }
             .onDisappear {
@@ -152,6 +168,142 @@ struct FriendsView: View {
                 Text(saveError ?? "")
             }
         }
+    }
+
+    private var cloudIdentitySection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("ユーザーID")
+                        .font(.headline.weight(.bold))
+                    Text(cloudIdentityDescription)
+                        .font(.caption)
+                        .foregroundStyle(LiminalTheme.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer()
+                if isRefreshingCloudRequests {
+                    ProgressView()
+                        .controlSize(.small)
+                } else if hasCloudUsername {
+                    Button {
+                        refreshCloudRequests(force: true)
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.subheadline.weight(.bold))
+                    }
+                    .buttonStyle(.bordered)
+                    .accessibilityLabel("友達申請を更新")
+                }
+            }
+
+            if hasCloudUsername {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 8) {
+                        Text("@\(settings?.cloudUsernameNormalized ?? "")")
+                            .font(.headline.monospaced().weight(.bold))
+                            .foregroundStyle(LiminalTheme.accent)
+                        Spacer()
+                        Text("変更不可")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(LiminalTheme.secondaryText)
+                    }
+
+                    HStack(spacing: 10) {
+                        TextField("友達のユーザーID", text: $friendSearchUserID)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                            .font(.body.monospaced())
+                            .padding(12)
+                            .background(
+                                RoundedRectangle(cornerRadius: 14)
+                                    .fill(LiminalTheme.elevated)
+                            )
+
+                        Button {
+                            sendCloudFriendRequest()
+                        } label: {
+                            if isSendingCloudFriendRequest {
+                                ProgressView()
+                                    .controlSize(.small)
+                            } else {
+                                Image(systemName: "person.badge.plus")
+                                    .font(.headline.weight(.bold))
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(isSendingCloudFriendRequest || UserIDNormalizer.normalizedValue(friendSearchUserID) == nil)
+                        .accessibilityLabel("ユーザーIDで友達申請")
+                    }
+                }
+            } else {
+                VStack(alignment: .leading, spacing: 10) {
+                    TextField("3文字以上のユーザーID", text: $desiredUserID)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .font(.body.monospaced())
+                        .padding(12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14)
+                                .fill(LiminalTheme.elevated)
+                        )
+
+                    Button {
+                        registerCloudUsername()
+                    } label: {
+                        if isRegisteringCloudProfile {
+                            ProgressView()
+                                .controlSize(.small)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                        } else {
+                            Label("このIDで確定", systemImage: "checkmark.seal.fill")
+                                .font(.headline.weight(.semibold))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(isRegisteringCloudProfile || UserIDNormalizer.normalizedValue(desiredUserID) == nil)
+                }
+            }
+
+            if let cloudStatusText {
+                Text(cloudStatusText)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(LiminalTheme.secondaryText)
+            }
+
+            if let cloudErrorText {
+                Text(cloudErrorText)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.red)
+            }
+        }
+        .padding(18)
+        .background(
+            RoundedRectangle(cornerRadius: 20)
+                .fill(LiminalTheme.surface)
+        )
+        .onChange(of: desiredUserID) { _, _ in
+            cloudErrorText = nil
+            cloudStatusText = nil
+        }
+        .onChange(of: friendSearchUserID) { _, _ in
+            cloudErrorText = nil
+            cloudStatusText = nil
+        }
+    }
+
+    private var hasCloudUsername: Bool {
+        !(settings?.cloudUsernameNormalized.isEmpty ?? true)
+    }
+
+    private var cloudIdentityDescription: String {
+        if hasCloudUsername {
+            return "IDで検索して申請し、相互同意になった相手だけ公開設定に従って共有します。"
+        }
+        return "一度決めたIDは変更できません。友達はこのIDで検索できます。"
     }
 
     private var requestsSection: some View {
@@ -412,6 +564,36 @@ struct FriendsView: View {
     }
 
     private func accept(_ friend: Friend) {
+        guard !friend.userRecordID.isEmpty,
+              let ownUsername = settings?.cloudUsernameNormalized,
+              !ownUsername.isEmpty
+        else {
+            acceptLocally(friend)
+            return
+        }
+
+        let requesterUsername = cloudUsername(from: friend)
+        Task {
+            do {
+                try await cloudSocialStore.acceptFriendRequest(
+                    from: friend.userRecordID,
+                    requesterUsername: requesterUsername,
+                    ownUsername: ownUsername,
+                    ownDisplayName: ownDisplayName
+                )
+                await MainActor.run {
+                    acceptLocally(friend)
+                    cloudStatusText = "@\(requesterUsername) と友達になりました。"
+                }
+            } catch {
+                await MainActor.run {
+                    cloudErrorText = error.localizedDescription
+                }
+            }
+        }
+    }
+
+    private func acceptLocally(_ friend: Friend) {
         friend.status = .accepted
         friend.acceptedAt = Date()
         friend.updatedAt = Date()
@@ -420,6 +602,176 @@ struct FriendsView: View {
             friend.visibilityPresetID = defaultVisibilityPresetID
         }
         save()
+    }
+
+    private func registerCloudUsername() {
+        let targetSettings = settings ?? {
+            let created = UserSettings()
+            modelContext.insert(created)
+            return created
+        }()
+        let appUserID = targetSettings.id
+
+        isRegisteringCloudProfile = true
+        cloudErrorText = nil
+        cloudStatusText = nil
+
+        Task {
+            do {
+                let profile = try await cloudSocialStore.registerProfile(
+                    username: desiredUserID,
+                    displayName: ownDisplayName,
+                    appUserID: appUserID
+                )
+                await MainActor.run {
+                    targetSettings.cloudUsername = profile.username
+                    targetSettings.cloudUsernameNormalized = profile.username
+                    targetSettings.cloudUserRecordName = profile.ownerUserRecordName
+                    targetSettings.cloudUsernameRegisteredAt = Date()
+                    targetSettings.updatedAt = Date()
+                    if save() {
+                        cloudStatusText = "@\(profile.username) を確定しました。"
+                        friendSearchUserID = ""
+                    }
+                    isRegisteringCloudProfile = false
+                }
+            } catch {
+                await MainActor.run {
+                    cloudErrorText = error.localizedDescription
+                    isRegisteringCloudProfile = false
+                }
+            }
+        }
+    }
+
+    private func sendCloudFriendRequest() {
+        guard let ownUsername = settings?.cloudUsernameNormalized, !ownUsername.isEmpty else {
+            cloudErrorText = CloudKitSocialError.ownProfileMissing.localizedDescription
+            return
+        }
+
+        isSendingCloudFriendRequest = true
+        cloudErrorText = nil
+        cloudStatusText = nil
+
+        Task {
+            do {
+                let result = try await cloudSocialStore.sendFriendRequest(
+                    to: friendSearchUserID,
+                    fromOwnUsername: ownUsername,
+                    ownDisplayName: ownDisplayName
+                )
+                await MainActor.run {
+                    let friend = upsertCloudFriend(profile: result.profile, status: result.status)
+                    if save() {
+                        selectedFriend = result.status == .accepted ? friend : nil
+                        cloudStatusText = result.status == .accepted
+                            ? "@\(result.profile.username) と友達になりました。"
+                            : "@\(result.profile.username) に申請しました。"
+                        friendSearchUserID = ""
+                    }
+                    isSendingCloudFriendRequest = false
+                }
+            } catch {
+                await MainActor.run {
+                    cloudErrorText = error.localizedDescription
+                    isSendingCloudFriendRequest = false
+                }
+            }
+        }
+    }
+
+    private func refreshCloudRequestsIfPossible() {
+        guard hasCloudUsername, !didLoadIncomingCloudRequests else { return }
+        refreshCloudRequests(force: false)
+    }
+
+    private func refreshCloudRequests(force: Bool) {
+        guard let ownUserRecordName = settings?.cloudUserRecordName, !ownUserRecordName.isEmpty else { return }
+        if isRefreshingCloudRequests { return }
+        isRefreshingCloudRequests = true
+        if force {
+            cloudErrorText = nil
+            cloudStatusText = nil
+        }
+
+        Task {
+            do {
+                let requests = try await cloudSocialStore.incomingRequests(forOwnUserRecordName: ownUserRecordName)
+                await MainActor.run {
+                    for request in requests {
+                        upsertCloudFriend(consent: request, status: .pendingIncoming)
+                    }
+                    if save() {
+                        didLoadIncomingCloudRequests = true
+                        if force {
+                            cloudStatusText = requests.isEmpty ? "新しい申請はありません。" : "\(requests.count)件の申請を更新しました。"
+                        }
+                    }
+                    isRefreshingCloudRequests = false
+                }
+            } catch {
+                await MainActor.run {
+                    if force {
+                        cloudErrorText = error.localizedDescription
+                    }
+                    isRefreshingCloudRequests = false
+                }
+            }
+        }
+    }
+
+    @discardableResult
+    private func upsertCloudFriend(profile: CloudFriendProfile, status: FriendStatus) -> Friend {
+        let existing = friends.first {
+            $0.userRecordID == profile.ownerUserRecordName
+                || UserIDNormalizer.normalizedValue($0.handle.replacingOccurrences(of: "@", with: "")) == profile.username
+        }
+        let friend = existing ?? Friend(displayName: profile.displayName, handle: "@\(profile.username)", status: status)
+        if existing == nil {
+            modelContext.insert(friend)
+        }
+        friend.userRecordID = profile.ownerUserRecordName
+        friend.displayName = profile.displayName
+        friend.handle = "@\(profile.username)"
+        friend.inviteCode = profile.username.uppercased()
+        friend.status = status
+        friend.updatedAt = Date()
+        if status == .accepted {
+            friend.acceptedAt = Date()
+            friend.lastSeenAt = Date()
+        }
+        if friend.visibilityPresetID == nil {
+            friend.visibilityPresetID = defaultVisibilityPresetID
+        }
+        return friend
+    }
+
+    @discardableResult
+    private func upsertCloudFriend(consent: CloudFriendConsent, status: FriendStatus) -> Friend {
+        let existing = friends.first { $0.userRecordID == consent.ownerUserRecordName }
+        let friend = existing ?? Friend(displayName: consent.ownerDisplayName, handle: "@\(consent.ownerUsername)", status: status)
+        if existing == nil {
+            modelContext.insert(friend)
+        }
+        friend.userRecordID = consent.ownerUserRecordName
+        friend.displayName = consent.ownerDisplayName
+        friend.handle = "@\(consent.ownerUsername)"
+        friend.inviteCode = consent.ownerUsername.uppercased()
+        friend.status = status
+        friend.updatedAt = Date()
+        if friend.visibilityPresetID == nil {
+            friend.visibilityPresetID = defaultVisibilityPresetID
+        }
+        return friend
+    }
+
+    private func cloudUsername(from friend: Friend) -> String {
+        let handle = friend.handle.trimmingCharacters(in: .whitespacesAndNewlines)
+        let rawUsername = handle.hasPrefix("@") ? String(handle.dropFirst()) : handle
+        return UserIDNormalizer.normalizedValue(rawUsername)
+            ?? UserIDNormalizer.normalizedValue(friend.inviteCode)
+            ?? friend.userRecordID
     }
 
     private var defaultVisibilityPresetID: UUID? {

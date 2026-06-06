@@ -1,0 +1,378 @@
+import CloudKit
+import Foundation
+
+struct CloudFriendProfile: Equatable, Identifiable {
+    var id: String { ownerUserRecordName }
+    let username: String
+    let displayName: String
+    let ownerUserRecordName: String
+    let ownerAppUserID: String
+}
+
+struct CloudFriendConsent: Equatable {
+    enum Status: String {
+        case requested
+        case accepted
+        case blocked
+    }
+
+    let ownerUserRecordName: String
+    let targetUserRecordName: String
+    let ownerUsername: String
+    let targetUsername: String
+    let ownerDisplayName: String
+    let status: Status
+}
+
+struct CloudFriendRequestResult: Equatable {
+    let profile: CloudFriendProfile
+    let status: FriendStatus
+}
+
+enum CloudKitSocialError: LocalizedError {
+    case accountUnavailable
+    case invalidUserID(UserIDValidationError)
+    case usernameTaken
+    case profileNotFound
+    case ownProfileMissing
+    case cannotRequestSelf
+    case missingRecordField(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .accountUnavailable:
+            return "iCloudにサインインすると友達機能が使えます。"
+        case let .invalidUserID(error):
+            return error.localizedDescription
+        case .usernameTaken:
+            return "このユーザーIDはすでに使われています。"
+        case .profileNotFound:
+            return "そのユーザーIDの人は見つかりませんでした。"
+        case .ownProfileMissing:
+            return "先に自分のユーザーIDを確定してください。"
+        case .cannotRequestSelf:
+            return "自分自身は追加できません。"
+        case let .missingRecordField(field):
+            return "CloudKitレコードの\(field)が不足しています。"
+        }
+    }
+}
+
+final class CloudKitSocialStore {
+    private enum RecordType {
+        static let profile = "PublicProfile"
+        static let consent = "FriendConsent"
+    }
+
+    private enum Field {
+        static let username = "username"
+        static let displayName = "displayName"
+        static let ownerUserRecordName = "ownerUserRecordName"
+        static let ownerAppUserID = "ownerAppUserID"
+        static let targetUserRecordName = "targetUserRecordName"
+        static let targetUsername = "targetUsername"
+        static let ownerUsername = "ownerUsername"
+        static let ownerDisplayName = "ownerDisplayName"
+        static let status = "status"
+        static let createdAt = "createdAt"
+        static let updatedAt = "updatedAt"
+    }
+
+    private let container: CKContainer
+    private let publicDatabase: CKDatabase
+
+    init(container: CKContainer = CKContainer(identifier: SharedModelContainer.cloudKitContainerID)) {
+        self.container = container
+        self.publicDatabase = container.publicCloudDatabase
+    }
+
+    func currentUserRecordName() async throws -> String {
+        let status = try await container.accountStatus()
+        guard status == .available else {
+            throw CloudKitSocialError.accountUnavailable
+        }
+        return try await fetchCurrentUserRecordID().recordName
+    }
+
+    func registerProfile(username rawUsername: String, displayName: String, appUserID: UUID) async throws -> CloudFriendProfile {
+        let username = try normalizedUsername(rawUsername)
+        let ownerRecordName = try await currentUserRecordName()
+        let now = Date()
+        let record = CKRecord(recordType: RecordType.profile, recordID: Self.profileRecordID(username: username))
+        record[Field.username] = username as CKRecordValue
+        record[Field.displayName] = publicDisplayName(displayName) as CKRecordValue
+        record[Field.ownerUserRecordName] = ownerRecordName as CKRecordValue
+        record[Field.ownerAppUserID] = appUserID.uuidString as CKRecordValue
+        record[Field.createdAt] = now as CKRecordValue
+        record[Field.updatedAt] = now as CKRecordValue
+
+        do {
+            let saved = try await save(record, savePolicy: .ifServerRecordUnchanged)
+            return try Self.profile(from: saved)
+        } catch let error as CKError where Self.isRecordConflict(error) {
+            throw CloudKitSocialError.usernameTaken
+        } catch {
+            throw error
+        }
+    }
+
+    func fetchProfile(username rawUsername: String) async throws -> CloudFriendProfile {
+        let username = try normalizedUsername(rawUsername)
+        do {
+            return try Self.profile(from: try await fetchRecord(Self.profileRecordID(username: username)))
+        } catch let error as CKError where error.code == .unknownItem {
+            throw CloudKitSocialError.profileNotFound
+        }
+    }
+
+    func sendFriendRequest(to rawUsername: String, fromOwnUsername ownUsername: String, ownDisplayName: String) async throws -> CloudFriendRequestResult {
+        let target = try await fetchProfile(username: rawUsername)
+        let ownRecordName = try await currentUserRecordName()
+        let normalizedOwnUsername = try normalizedUsername(ownUsername)
+        guard target.ownerUserRecordName != ownRecordName else {
+            throw CloudKitSocialError.cannotRequestSelf
+        }
+
+        let reciprocalConsent = try? await fetchConsent(ownerUserRecordName: target.ownerUserRecordName, targetUserRecordName: ownRecordName)
+        let status: CloudFriendConsent.Status = reciprocalConsent == nil ? .requested : .accepted
+        _ = try await saveConsent(
+            ownerUserRecordName: ownRecordName,
+            targetUserRecordName: target.ownerUserRecordName,
+            ownerUsername: normalizedOwnUsername,
+            targetUsername: target.username,
+            ownerDisplayName: publicDisplayName(ownDisplayName),
+            status: status
+        )
+
+        return CloudFriendRequestResult(
+            profile: target,
+            status: status == .accepted ? .accepted : .pendingOutgoing
+        )
+    }
+
+    func acceptFriendRequest(
+        from requesterUserRecordName: String,
+        requesterUsername: String,
+        ownUsername: String,
+        ownDisplayName: String
+    ) async throws {
+        let ownRecordName = try await currentUserRecordName()
+        _ = try await saveConsent(
+            ownerUserRecordName: ownRecordName,
+            targetUserRecordName: requesterUserRecordName,
+            ownerUsername: try normalizedUsername(ownUsername),
+            targetUsername: try normalizedUsername(requesterUsername),
+            ownerDisplayName: publicDisplayName(ownDisplayName),
+            status: .accepted
+        )
+    }
+
+    func incomingRequests(forOwnUserRecordName ownUserRecordName: String) async throws -> [CloudFriendConsent] {
+        let predicate = NSPredicate(
+            format: "%K == %@ AND %K == %@",
+            Field.targetUserRecordName,
+            ownUserRecordName,
+            Field.status,
+            CloudFriendConsent.Status.requested.rawValue
+        )
+        let records = try await queryRecords(type: RecordType.consent, predicate: predicate, resultsLimit: 50)
+        return try records.map(Self.consent(from:))
+    }
+
+    private func saveConsent(
+        ownerUserRecordName: String,
+        targetUserRecordName: String,
+        ownerUsername: String,
+        targetUsername: String,
+        ownerDisplayName: String,
+        status: CloudFriendConsent.Status
+    ) async throws -> CloudFriendConsent {
+        let recordID = Self.consentRecordID(ownerUserRecordName: ownerUserRecordName, targetUserRecordName: targetUserRecordName)
+        let existing = try? await fetchRecord(recordID)
+        let now = Date()
+        let record = existing ?? CKRecord(recordType: RecordType.consent, recordID: recordID)
+        record[Field.ownerUserRecordName] = ownerUserRecordName as CKRecordValue
+        record[Field.targetUserRecordName] = targetUserRecordName as CKRecordValue
+        record[Field.ownerUsername] = ownerUsername as CKRecordValue
+        record[Field.targetUsername] = targetUsername as CKRecordValue
+        record[Field.ownerDisplayName] = ownerDisplayName as CKRecordValue
+        record[Field.status] = status.rawValue as CKRecordValue
+        if existing == nil {
+            record[Field.createdAt] = now as CKRecordValue
+        }
+        record[Field.updatedAt] = now as CKRecordValue
+
+        return try Self.consent(from: try await save(record, savePolicy: .changedKeys))
+    }
+
+    private func fetchConsent(ownerUserRecordName: String, targetUserRecordName: String) async throws -> CloudFriendConsent {
+        let recordID = Self.consentRecordID(
+            ownerUserRecordName: ownerUserRecordName,
+            targetUserRecordName: targetUserRecordName
+        )
+        return try Self.consent(from: try await fetchRecord(recordID))
+    }
+
+    private func fetchCurrentUserRecordID() async throws -> CKRecord.ID {
+        try await withCheckedThrowingContinuation { continuation in
+            container.fetchUserRecordID { recordID, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                guard let recordID else {
+                    continuation.resume(throwing: CloudKitSocialError.accountUnavailable)
+                    return
+                }
+                continuation.resume(returning: recordID)
+            }
+        }
+    }
+
+    private func fetchRecord(_ recordID: CKRecord.ID) async throws -> CKRecord {
+        try await withCheckedThrowingContinuation { continuation in
+            publicDatabase.fetch(withRecordID: recordID) { record, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                guard let record else {
+                    continuation.resume(throwing: CloudKitSocialError.profileNotFound)
+                    return
+                }
+                continuation.resume(returning: record)
+            }
+        }
+    }
+
+    private func save(
+        _ record: CKRecord,
+        savePolicy: CKModifyRecordsOperation.RecordSavePolicy
+    ) async throws -> CKRecord {
+        try await withCheckedThrowingContinuation { continuation in
+            let operation = CKModifyRecordsOperation(recordsToSave: [record], recordIDsToDelete: nil)
+            operation.savePolicy = savePolicy
+            operation.isAtomic = true
+            operation.modifyRecordsCompletionBlock = { savedRecords, _, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                guard let savedRecord = savedRecords?.first else {
+                    continuation.resume(throwing: CloudKitSocialError.missingRecordField("savedRecord"))
+                    return
+                }
+                continuation.resume(returning: savedRecord)
+            }
+            publicDatabase.add(operation)
+        }
+    }
+
+    private func queryRecords(type: String, predicate: NSPredicate, resultsLimit: Int) async throws -> [CKRecord] {
+        try await withCheckedThrowingContinuation { continuation in
+            var records: [CKRecord] = []
+            var firstError: Error?
+            let operation = CKQueryOperation(query: CKQuery(recordType: type, predicate: predicate))
+            operation.resultsLimit = resultsLimit
+            operation.recordMatchedBlock = { _, result in
+                switch result {
+                case let .success(record):
+                    records.append(record)
+                case let .failure(error):
+                    firstError = firstError ?? error
+                }
+            }
+            operation.queryResultBlock = { result in
+                switch result {
+                case .success:
+                    if let firstError {
+                        continuation.resume(throwing: firstError)
+                    } else {
+                        continuation.resume(returning: records)
+                    }
+                case let .failure(error):
+                    continuation.resume(throwing: error)
+                }
+            }
+            publicDatabase.add(operation)
+        }
+    }
+
+    private func normalizedUsername(_ rawUsername: String) throws -> String {
+        switch UserIDNormalizer.normalize(rawUsername) {
+        case let .success(username):
+            return username
+        case let .failure(error):
+            throw CloudKitSocialError.invalidUserID(error)
+        }
+    }
+
+    private func publicDisplayName(_ rawDisplayName: String) -> String {
+        let trimmed = rawDisplayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "Liminalogユーザー" : trimmed
+    }
+
+    private static func profileRecordID(username: String) -> CKRecord.ID {
+        CKRecord.ID(recordName: "profile:\(username)")
+    }
+
+    private static func consentRecordID(ownerUserRecordName: String, targetUserRecordName: String) -> CKRecord.ID {
+        CKRecord.ID(recordName: "consent:\(ownerUserRecordName):\(targetUserRecordName)")
+    }
+
+    private static func profile(from record: CKRecord) throws -> CloudFriendProfile {
+        guard let username = record[Field.username] as? String else {
+            throw CloudKitSocialError.missingRecordField(Field.username)
+        }
+        guard let displayName = record[Field.displayName] as? String else {
+            throw CloudKitSocialError.missingRecordField(Field.displayName)
+        }
+        guard let ownerUserRecordName = record[Field.ownerUserRecordName] as? String else {
+            throw CloudKitSocialError.missingRecordField(Field.ownerUserRecordName)
+        }
+        guard let ownerAppUserID = record[Field.ownerAppUserID] as? String else {
+            throw CloudKitSocialError.missingRecordField(Field.ownerAppUserID)
+        }
+        return CloudFriendProfile(
+            username: username,
+            displayName: displayName,
+            ownerUserRecordName: ownerUserRecordName,
+            ownerAppUserID: ownerAppUserID
+        )
+    }
+
+    private static func consent(from record: CKRecord) throws -> CloudFriendConsent {
+        guard let ownerUserRecordName = record[Field.ownerUserRecordName] as? String else {
+            throw CloudKitSocialError.missingRecordField(Field.ownerUserRecordName)
+        }
+        guard let targetUserRecordName = record[Field.targetUserRecordName] as? String else {
+            throw CloudKitSocialError.missingRecordField(Field.targetUserRecordName)
+        }
+        guard let ownerUsername = record[Field.ownerUsername] as? String else {
+            throw CloudKitSocialError.missingRecordField(Field.ownerUsername)
+        }
+        guard let targetUsername = record[Field.targetUsername] as? String else {
+            throw CloudKitSocialError.missingRecordField(Field.targetUsername)
+        }
+        guard let ownerDisplayName = record[Field.ownerDisplayName] as? String else {
+            throw CloudKitSocialError.missingRecordField(Field.ownerDisplayName)
+        }
+        guard let rawStatus = record[Field.status] as? String,
+              let status = CloudFriendConsent.Status(rawValue: rawStatus)
+        else {
+            throw CloudKitSocialError.missingRecordField(Field.status)
+        }
+        return CloudFriendConsent(
+            ownerUserRecordName: ownerUserRecordName,
+            targetUserRecordName: targetUserRecordName,
+            ownerUsername: ownerUsername,
+            targetUsername: targetUsername,
+            ownerDisplayName: ownerDisplayName,
+            status: status
+        )
+    }
+
+    private static func isRecordConflict(_ error: CKError) -> Bool {
+        error.code == .serverRecordChanged || error.code == .constraintViolation
+    }
+}
