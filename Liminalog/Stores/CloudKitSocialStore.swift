@@ -271,8 +271,30 @@ final class CloudKitSocialStore {
         return try records.map(Self.consent(from:))
     }
 
+    func ensureConsentSubscriptions(forOwnUserRecordName ownUserRecordName: String) async throws {
+        for scope in CloudFriendConsentSubscriptionScope.allCases {
+            try await ensureConsentSubscription(
+                forOwnUserRecordName: ownUserRecordName,
+                scope: scope
+            )
+        }
+    }
+
     func ensureIncomingConsentSubscription(forOwnUserRecordName ownUserRecordName: String) async throws {
-        let subscriptionID = "\(CloudKitFriendEventBridge.friendConsentSubscriptionPrefix)\(ownUserRecordName)"
+        try await ensureConsentSubscription(
+            forOwnUserRecordName: ownUserRecordName,
+            scope: .incomingTarget
+        )
+    }
+
+    private func ensureConsentSubscription(
+        forOwnUserRecordName ownUserRecordName: String,
+        scope: CloudFriendConsentSubscriptionScope
+    ) async throws {
+        let subscriptionID = CloudFriendConsentSubscriptionPolicy.subscriptionID(
+            forOwnUserRecordName: ownUserRecordName,
+            scope: scope
+        )
         do {
             _ = try await fetchSubscription(subscriptionID: subscriptionID)
             return
@@ -282,7 +304,7 @@ final class CloudKitSocialStore {
 
         let predicate = NSPredicate(
             format: "%K == %@",
-            Field.targetUserRecordName,
+            scope.fieldName,
             ownUserRecordName
         )
         let subscription = CKQuerySubscription(

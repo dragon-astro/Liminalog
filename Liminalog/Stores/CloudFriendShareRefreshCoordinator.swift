@@ -69,7 +69,7 @@ final class CloudFriendShareRefreshCoordinator {
             )).first else { return }
             guard !settings.cloudUserRecordName.isEmpty else { return }
 
-            try await cloudSocialStore.ensureIncomingConsentSubscription(
+            try await cloudSocialStore.ensureConsentSubscriptions(
                 forOwnUserRecordName: settings.cloudUserRecordName
             )
             try await cloudShareStore.ensureIncomingShareSubscription()

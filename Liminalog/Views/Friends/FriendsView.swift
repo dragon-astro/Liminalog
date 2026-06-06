@@ -793,7 +793,7 @@ struct FriendsView: View {
         guard subscribedFriendConsentUserRecordName != ownUserRecordName else { return }
         Task {
             do {
-                try await cloudSocialStore.ensureIncomingConsentSubscription(forOwnUserRecordName: ownUserRecordName)
+                try await cloudSocialStore.ensureConsentSubscriptions(forOwnUserRecordName: ownUserRecordName)
                 await MainActor.run {
                     subscribedFriendConsentUserRecordName = ownUserRecordName
                 }
