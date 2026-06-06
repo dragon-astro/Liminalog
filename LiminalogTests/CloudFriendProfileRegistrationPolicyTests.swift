@@ -27,6 +27,36 @@ struct CloudFriendProfileRegistrationPolicyTests {
     }
 
     @Test
+    func allowsReclaimingSameProfileWhenOwnerIndexHasMixedCase() {
+        let registered = CloudFriendProfileRegistrationPolicy.registeredUsername(
+            requestedUsername: "ryu.log",
+            ownerIndexUsername: "Ryu.Log",
+            ownedProfileUsernames: []
+        )
+
+        #expect(registered == "ryu.log")
+        #expect(CloudFriendProfileRegistrationPolicy.canRegister(
+            requestedUsername: "ryu.log",
+            registeredUsername: registered
+        ))
+    }
+
+    @Test
+    func detectsLegacyProfilesCaseInsensitively() {
+        let registered = CloudFriendProfileRegistrationPolicy.registeredUsername(
+            requestedUsername: "ryu.log",
+            ownerIndexUsername: nil,
+            ownedProfileUsernames: ["Ryu.Log"]
+        )
+
+        #expect(registered == "ryu.log")
+        #expect(CloudFriendProfileRegistrationPolicy.canRegister(
+            requestedUsername: "ryu.log",
+            registeredUsername: registered
+        ))
+    }
+
+    @Test
     func usesOwnerIndexBeforeLegacyProfiles() {
         #expect(CloudFriendProfileRegistrationPolicy.registeredUsername(
             requestedUsername: "ryu",
