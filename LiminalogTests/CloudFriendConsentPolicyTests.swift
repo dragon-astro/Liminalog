@@ -23,6 +23,26 @@ struct CloudFriendConsentPolicyTests {
     }
 
     @Test
+    func outgoingRequestKeepsExistingAcceptedConsentWithoutReciprocalConsent() throws {
+        let status = try CloudFriendConsentPolicy.statusForOutgoingRequest(
+            existingOwnStatus: .accepted,
+            reciprocalStatus: nil
+        )
+
+        #expect(status == .accepted)
+    }
+
+    @Test
+    func outgoingRequestAcceptsWhenReciprocalAcceptedConsentExists() throws {
+        let status = try CloudFriendConsentPolicy.statusForOutgoingRequest(
+            existingOwnStatus: .requested,
+            reciprocalStatus: .accepted
+        )
+
+        #expect(status == .accepted)
+    }
+
+    @Test
     func outgoingRequestDoesNotOverrideOwnBlock() {
         expectRequestBlocked {
             _ = try CloudFriendConsentPolicy.statusForOutgoingRequest(
