@@ -98,6 +98,9 @@ struct CloudFriendShareSnapshotBuilderTests {
         selectedFriend.userRecordID = "_selected"
         let otherFriend = Friend(displayName: "B", handle: "@other", status: .accepted)
         otherFriend.userRecordID = "_other"
+        let preset = VisibilityPreset(name: "詳細")
+        selectedFriend.visibilityPresetID = preset.id
+        otherFriend.visibilityPresetID = preset.id
         let plan = PlanBlock(
             category: category,
             title: "限定予定",
@@ -113,7 +116,7 @@ struct CloudFriendShareSnapshotBuilderTests {
             for: selectedFriend,
             ownUsername: "owner",
             ownDisplayName: "Owner",
-            visibilityPresets: [],
+            visibilityPresets: [preset],
             chapters: [],
             planBlocks: [plan],
             acceptedFriendIDs: acceptedFriendIDs,
@@ -124,7 +127,7 @@ struct CloudFriendShareSnapshotBuilderTests {
             for: otherFriend,
             ownUsername: "owner",
             ownDisplayName: "Owner",
-            visibilityPresets: [],
+            visibilityPresets: [preset],
             chapters: [],
             planBlocks: [plan],
             acceptedFriendIDs: acceptedFriendIDs,
@@ -137,7 +140,7 @@ struct CloudFriendShareSnapshotBuilderTests {
     }
 
     @Test
-    func missingPresetDoesNotPublishScores() {
+    func missingPresetDoesNotPublishSharedTimelineOrScores() {
         let now = Date(timeIntervalSince1970: 1_780_764_000)
         let category = Category(name: "仕事", colorHex: "#2F80ED", icon: "briefcase.fill")
         let friend = Friend(displayName: "A", handle: "@friend", status: .accepted)
@@ -167,6 +170,42 @@ struct CloudFriendShareSnapshotBuilderTests {
 
         #expect(snapshot.todayScore == 0)
         #expect(snapshot.weekScore == 0)
-        #expect(snapshot.sharedPlans.map(\.title) == ["限定予定"])
+        #expect(snapshot.currentStatusTitle.isEmpty)
+        #expect(snapshot.sharedPlans.isEmpty)
+        #expect(snapshot.sharedActivities.isEmpty)
+    }
+
+    @Test
+    func unsetPresetDoesNotPublishSharedTimelineOrScores() {
+        let now = Date(timeIntervalSince1970: 1_780_764_000)
+        let category = Category(name: "仕事", colorHex: "#2F80ED", icon: "briefcase.fill")
+        let friend = Friend(displayName: "A", handle: "@friend", status: .accepted)
+        friend.userRecordID = "_friend"
+        let plan = PlanBlock(
+            category: category,
+            title: "公開予定",
+            startTime: now,
+            endTime: now.addingTimeInterval(3_600),
+            isPublic: true
+        )
+        let chapter = Chapter(category: category, startTime: now)
+
+        let snapshot = CloudFriendShareSnapshotBuilder.snapshot(
+            for: friend,
+            ownUsername: "owner",
+            ownDisplayName: "Owner",
+            visibilityPresets: [],
+            chapters: [chapter],
+            planBlocks: [plan],
+            acceptedFriendIDs: [friend.id],
+            now: now,
+            scoreProvider: { _ in 99 }
+        )
+
+        #expect(snapshot.todayScore == 0)
+        #expect(snapshot.weekScore == 0)
+        #expect(snapshot.currentStatusTitle.isEmpty)
+        #expect(snapshot.sharedPlans.isEmpty)
+        #expect(snapshot.sharedActivities.isEmpty)
     }
 }

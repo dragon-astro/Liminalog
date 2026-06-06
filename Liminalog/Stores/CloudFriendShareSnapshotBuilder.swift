@@ -13,24 +13,24 @@ enum CloudFriendShareSnapshotBuilder {
         scoreProvider: (FriendScorePeriod) -> Double
     ) -> CloudFriendShareSnapshot {
         let preset = visibilityPreset(for: friend, in: visibilityPresets)
-        let canPublishScores = scorePublishingEnabled(for: preset)
+        let canPublish = publishingEnabled(for: preset)
         let activeChapters = chapters.filter { $0.endTime == nil }
         let visiblePlans = FriendSharedPlanSnapshot.snapshots(
-            from: planBlocks,
+            from: canPublish ? planBlocks : [],
             visibilityPreset: preset,
             recipientFriendID: friend.id,
             acceptedFriendIDs: acceptedFriendIDs,
             now: now
         )
         let visibleActivities = FriendSharedActivitySnapshot.snapshots(
-            from: chapters,
+            from: canPublish ? chapters : [],
             now: now,
             visibilityPreset: preset,
             recipientFriendID: friend.id,
             acceptedFriendIDs: acceptedFriendIDs
         )
         let visibleActiveActivity = FriendSharedActivitySnapshot.snapshots(
-            from: activeChapters,
+            from: canPublish ? activeChapters : [],
             now: now,
             visibilityPreset: preset,
             recipientFriendID: friend.id,
@@ -46,11 +46,11 @@ enum CloudFriendShareSnapshotBuilder {
             currentStatusColorHex: visibleActiveActivity?.categoryColorHex ?? "#8E8E93",
             currentMoodText: visibleActiveActivity?.mood ?? "",
             currentStatusStartedAt: visibleActiveActivity?.startTime,
-            todayScore: canPublishScores ? scoreProvider(.today) : 0,
-            yesterdayScore: canPublishScores ? scoreProvider(.yesterday) : 0,
-            weekScore: canPublishScores ? scoreProvider(.week) : 0,
-            monthScore: canPublishScores ? scoreProvider(.month) : 0,
-            yearScore: canPublishScores ? scoreProvider(.year) : 0,
+            todayScore: canPublish ? scoreProvider(.today) : 0,
+            yesterdayScore: canPublish ? scoreProvider(.yesterday) : 0,
+            weekScore: canPublish ? scoreProvider(.week) : 0,
+            monthScore: canPublish ? scoreProvider(.month) : 0,
+            yearScore: canPublish ? scoreProvider(.year) : 0,
             streakCount: 0,
             sharedPlans: visiblePlans,
             sharedActivities: visibleActivities,
@@ -63,7 +63,7 @@ enum CloudFriendShareSnapshotBuilder {
         return presets.first { $0.id == id }
     }
 
-    private static func scorePublishingEnabled(for preset: VisibilityPreset?) -> Bool {
+    private static func publishingEnabled(for preset: VisibilityPreset?) -> Bool {
         guard let preset else { return false }
         return preset.publishMode != .none && preset.level != .none
     }
