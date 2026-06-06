@@ -10,8 +10,31 @@ struct UserIDNormalizerTests {
     }
 
     @Test
+    func stripsLeadingDisplayAtMark() throws {
+        let value = try #require(UserIDNormalizer.normalizedValue("  @Ryu.Log_7  "))
+        let fullWidthValue = try #require(UserIDNormalizer.normalizedValue("  ＠Ryu.Log_7  "))
+
+        #expect(value == "ryu.log_7")
+        #expect(fullWidthValue == "ryu.log_7")
+    }
+
+    @Test
+    func keepsAtMarkInsideUserID() throws {
+        let value = try #require(UserIDNormalizer.normalizedValue("Ryu@Log"))
+
+        #expect(value == "ryu@log")
+    }
+
+    @Test
     func rejectsIDsShorterThanMinimum() {
         let result = UserIDNormalizer.normalize("ab")
+
+        #expect(result == .failure(.tooShort(minimum: UserIDNormalizer.minimumLength)))
+    }
+
+    @Test
+    func rejectsIDsShorterThanMinimumAfterStrippingDisplayAtMark() {
+        let result = UserIDNormalizer.normalize("@ab")
 
         #expect(result == .failure(.tooShort(minimum: UserIDNormalizer.minimumLength)))
     }

@@ -16,10 +16,15 @@ enum UserIDValidationError: Equatable, LocalizedError {
 
 enum UserIDNormalizer {
     static let minimumLength = 3
+    private static let displayAtMarks: Set<Character> = ["@", "＠"]
 
     static func normalize(_ rawValue: String) -> Result<String, UserIDValidationError> {
-        let normalized = rawValue
+        let trimmed = rawValue
             .trimmingCharacters(in: .whitespacesAndNewlines)
+        let withoutDisplayPrefix = trimmed.first.map(displayAtMarks.contains) == true
+            ? String(trimmed.dropFirst())
+            : trimmed
+        let normalized = withoutDisplayPrefix
             .lowercased()
 
         guard !normalized.isEmpty else {
