@@ -5,7 +5,8 @@ enum CloudFriendShareRefreshFailurePolicy {
     static func shouldClearCachedShare(after error: Error) -> Bool {
         switch error {
         case CloudFriendShareError.missingRootRecord,
-             CloudFriendShareError.invalidSnapshotPayload:
+             CloudFriendShareError.invalidSnapshotPayload,
+             CloudFriendShareError.snapshotTargetMismatch:
             return true
         default:
             break

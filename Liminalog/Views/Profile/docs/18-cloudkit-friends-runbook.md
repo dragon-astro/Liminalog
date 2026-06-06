@@ -44,7 +44,7 @@ Use two real devices with different iCloud accounts.
 7. Account B receives the request after CloudKit push or manual refresh.
 8. Account B accepts.
 9. Account A receives the accepted consent after CloudKit push or manual refresh.
-10. Both sides receive the other's shared snapshot.
+10. Both sides receive the other's shared snapshot, and each `FriendShareSnapshot.targetUserRecordName` matches the recipient account's CloudKit user record name.
 11. Set visibility to none and confirm scores, plans, active activity, and mood do not leak.
 12. Set visibility to selected friends and confirm only accepted selected friends receive the data.
 13. Exclude categories and confirm those plans/activities are not present in `sharedPlansJSON` or `sharedActivitiesJSON`.

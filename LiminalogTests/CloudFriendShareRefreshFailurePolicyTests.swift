@@ -15,6 +15,11 @@ struct CloudFriendShareRefreshFailurePolicyTests {
     }
 
     @Test
+    func clearsCacheWhenSnapshotTargetsAnotherUser() {
+        #expect(CloudFriendShareRefreshFailurePolicy.shouldClearCachedShare(after: CloudFriendShareError.snapshotTargetMismatch))
+    }
+
+    @Test
     func clearsCacheWhenCloudKitRecordDisappears() {
         let error = CKError(.unknownItem)
 

@@ -71,6 +71,7 @@ enum CloudFriendShareError: LocalizedError {
     case missingShareURL
     case missingRootRecord
     case invalidSnapshotPayload
+    case snapshotTargetMismatch
     case saveResultMissing(String)
 
     var errorDescription: String? {
@@ -83,6 +84,8 @@ enum CloudFriendShareError: LocalizedError {
             return "共有データの本体を取得できませんでした。"
         case .invalidSnapshotPayload:
             return "友達共有データの読み取りに失敗しました。"
+        case .snapshotTargetMismatch:
+            return "この友達共有データは自分宛てではありません。"
         case let .saveResultMissing(recordName):
             return "CloudKitへの保存結果を確認できませんでした: \(recordName)"
         }
@@ -171,24 +174,29 @@ final class CloudFriendShareStore {
 
     func acceptIncomingShare(url: URL) async throws -> CloudFriendShareSnapshot {
         try await requireAccount()
+        let currentUserRecordName = try await fetchCurrentUserRecordID().recordName
         let metadata = try await fetchShareMetadata(url: url)
         if metadata.participantStatus == .pending {
             _ = try await accept(metadata: metadata)
         }
         if let rootRecord = metadata.rootRecord {
-            return try Self.snapshot(from: rootRecord)
+            return try Self.validatedSnapshot(from: rootRecord, currentUserRecordName: currentUserRecordName)
         }
         guard let rootRecordID = metadata.hierarchicalRootRecordID else {
             throw CloudFriendShareError.missingRootRecord
         }
         let record = try await fetchRecord(rootRecordID, from: sharedDatabase)
-        return try Self.snapshot(from: record)
+        return try Self.validatedSnapshot(from: record, currentUserRecordName: currentUserRecordName)
     }
 
     func fetchAcceptedIncomingShare(rootRecordName: String) async throws -> CloudFriendShareSnapshot {
         try await requireAccount()
+        let currentUserRecordName = try await fetchCurrentUserRecordID().recordName
         let recordID = CKRecord.ID(recordName: rootRecordName)
-        return try Self.snapshot(from: try await fetchRecord(recordID, from: sharedDatabase))
+        return try Self.validatedSnapshot(
+            from: try await fetchRecord(recordID, from: sharedDatabase),
+            currentUserRecordName: currentUserRecordName
+        )
     }
 
     func ensureIncomingShareSubscription() async throws {
@@ -458,6 +466,14 @@ final class CloudFriendShareStore {
             sharedActivities: try decode([FriendSharedActivitySnapshot].self, from: activitiesJSON),
             updatedAt: updatedAt
         )
+    }
+
+    private static func validatedSnapshot(from record: CKRecord, currentUserRecordName: String) throws -> CloudFriendShareSnapshot {
+        let snapshot = try snapshot(from: record)
+        guard CloudFriendShareRecipientPolicy.canApplySnapshot(snapshot, currentUserRecordName: currentUserRecordName) else {
+            throw CloudFriendShareError.snapshotTargetMismatch
+        }
+        return snapshot
     }
 
     private static func encode<Value: Encodable>(_ value: Value) -> String {
