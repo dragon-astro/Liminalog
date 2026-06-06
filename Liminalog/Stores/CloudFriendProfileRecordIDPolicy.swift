@@ -2,6 +2,8 @@ import CryptoKit
 import Foundation
 
 enum CloudFriendProfileRecordIDPolicy {
+    private static let legacyAllowedCharacters = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyz0123456789_.")
+
     static func recordName(username: String) -> String {
         "profile:v2:\(sha256Hex(username))"
     }
@@ -12,8 +14,14 @@ enum CloudFriendProfileRecordIDPolicy {
 
     static func lookupRecordNames(username: String) -> [String] {
         let current = recordName(username: username)
-        let legacy = legacyRecordName(username: username)
-        return current == legacy ? [current] : [current, legacy]
+        guard canUseLegacyRecordName(username: username) else {
+            return [current]
+        }
+        return [current, legacyRecordName(username: username)]
+    }
+
+    static func canUseLegacyRecordName(username: String) -> Bool {
+        username.unicodeScalars.allSatisfy { legacyAllowedCharacters.contains($0) }
     }
 
     private static func sha256Hex(_ value: String) -> String {

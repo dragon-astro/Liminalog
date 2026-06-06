@@ -13,12 +13,22 @@ struct CloudFriendProfileRecordIDPolicyTests {
     }
 
     @Test
-    func profileLookupIncludesCurrentAndLegacyRecordNames() {
-        let names = CloudFriendProfileRecordIDPolicy.lookupRecordNames(username: "ryu-log")
+    func profileLookupIncludesLegacyRecordNameForLegacySafeUsernames() {
+        let names = CloudFriendProfileRecordIDPolicy.lookupRecordNames(username: "ryu.log_7")
 
         #expect(names.count == 2)
-        #expect(names[0] == CloudFriendProfileRecordIDPolicy.recordName(username: "ryu-log"))
-        #expect(names[1] == "profile:ryu-log")
+        #expect(names[0] == CloudFriendProfileRecordIDPolicy.recordName(username: "ryu.log_7"))
+        #expect(names[1] == "profile:ryu.log_7")
+    }
+
+    @Test
+    func profileLookupSkipsLegacyRecordNameForNewFlexibleUsernames() {
+        #expect(CloudFriendProfileRecordIDPolicy.lookupRecordNames(username: "ryu-log") == [
+            CloudFriendProfileRecordIDPolicy.recordName(username: "ryu-log")
+        ])
+        #expect(CloudFriendProfileRecordIDPolicy.lookupRecordNames(username: "りゅうログ") == [
+            CloudFriendProfileRecordIDPolicy.recordName(username: "りゅうログ")
+        ])
     }
 
     @Test
