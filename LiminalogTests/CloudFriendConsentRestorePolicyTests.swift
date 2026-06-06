@@ -110,7 +110,8 @@ struct CloudFriendConsentRestorePolicyTests {
         #expect(restoration.status == .accepted)
         #expect(CloudFriendConsentRestorePolicy.incomingShareURL(
             from: restoration.consent,
-            direction: restoration.direction
+            direction: restoration.direction,
+            restoredStatus: restoration.status
         ) == "https://example.com/friend-share")
     }
 
@@ -139,6 +140,50 @@ struct CloudFriendConsentRestorePolicyTests {
         ).first)
 
         #expect(restoration.status == .accepted)
+    }
+
+    @Test
+    func oneSidedIncomingAcceptedConsentDoesNotRestoreAsAcceptedOrImportShareURL() throws {
+        let incoming = makeConsent(
+            ownerUserRecordName: "_friend",
+            targetUserRecordName: "_me",
+            ownerUsername: "friend",
+            targetUsername: "me",
+            ownerDisplayName: "Friend",
+            shareURL: "https://example.com/stale-share",
+            status: .accepted
+        )
+
+        let restoration = try #require(CloudFriendConsentRestorePolicy.restorations(
+            incomingConsents: [incoming],
+            outgoingConsents: []
+        ).first)
+
+        #expect(restoration.status == .pendingIncoming)
+        #expect(CloudFriendConsentRestorePolicy.incomingShareURL(
+            from: restoration.consent,
+            direction: restoration.direction,
+            restoredStatus: restoration.status
+        ) == nil)
+    }
+
+    @Test
+    func oneSidedOutgoingAcceptedConsentDoesNotRestoreAsAccepted() throws {
+        let outgoing = makeConsent(
+            ownerUserRecordName: "_me",
+            targetUserRecordName: "_friend",
+            ownerUsername: "me",
+            targetUsername: "friend",
+            ownerDisplayName: "Me",
+            status: .accepted
+        )
+
+        let restoration = try #require(CloudFriendConsentRestorePolicy.restorations(
+            incomingConsents: [],
+            outgoingConsents: [outgoing]
+        ).first)
+
+        #expect(restoration.status == .pendingOutgoing)
     }
 
     @Test

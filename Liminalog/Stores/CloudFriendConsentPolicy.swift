@@ -8,13 +8,19 @@ enum CloudFriendConsentPolicy {
         if existingOwnStatus == .blocked || reciprocalStatus == .blocked {
             throw CloudKitSocialError.requestBlocked
         }
-        if existingOwnStatus == .accepted || reciprocalStatus == .accepted {
+        if existingOwnStatus == .accepted,
+           reciprocalStatus == .requested || reciprocalStatus == .accepted {
             return .accepted
         }
-        guard reciprocalStatus != nil else {
-            return .requested
+        if existingOwnStatus == .requested,
+           reciprocalStatus == .requested || reciprocalStatus == .accepted {
+            return .accepted
         }
-        return .accepted
+        if existingOwnStatus == nil,
+           reciprocalStatus == .requested || reciprocalStatus == .accepted {
+            return .accepted
+        }
+        return .requested
     }
 
     static func validateAcceptingRequest(

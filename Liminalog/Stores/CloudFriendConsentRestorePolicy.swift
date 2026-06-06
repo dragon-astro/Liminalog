@@ -110,7 +110,16 @@ enum CloudFriendConsentRestorePolicy {
         from consent: CloudFriendConsent,
         direction: CloudFriendConsentDirection
     ) -> String? {
-        direction == .incoming ? consent.shareURL : nil
+        direction == .incoming && consent.status == .accepted ? consent.shareURL : nil
+    }
+
+    static func incomingShareURL(
+        from consent: CloudFriendConsent,
+        direction: CloudFriendConsentDirection,
+        restoredStatus: FriendStatus
+    ) -> String? {
+        guard restoredStatus == .accepted else { return nil }
+        return incomingShareURL(from: consent, direction: direction)
     }
 
     private static func mergedStatus(
@@ -121,13 +130,24 @@ enum CloudFriendConsentRestorePolicy {
         if statuses.contains(where: { $0 == .blocked }) {
             return .blocked
         }
-        if statuses.contains(where: { $0 == .accepted }) {
+        if incoming?.status == .accepted,
+           outgoing?.status == .requested || outgoing?.status == .accepted {
+            return .accepted
+        }
+        if outgoing?.status == .accepted,
+           incoming?.status == .requested || incoming?.status == .accepted {
             return .accepted
         }
         if incoming?.status == .requested, outgoing?.status == .requested {
             return .accepted
         }
         if incoming?.status == .requested {
+            return .pendingIncoming
+        }
+        if outgoing?.status == .requested {
+            return .pendingOutgoing
+        }
+        if incoming?.status == .accepted {
             return .pendingIncoming
         }
         return .pendingOutgoing

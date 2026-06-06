@@ -403,7 +403,7 @@ final class CloudKitSocialStore {
         record[Field.ownerDisplayName] = ownerDisplayName as CKRecordValue
         if let shareURL {
             record[Field.shareURL] = shareURL as CKRecordValue
-        } else if clearsShareURL {
+        } else if clearsShareURL || status != .accepted {
             record[Field.shareURL] = nil
         }
         record[Field.status] = status.rawValue as CKRecordValue

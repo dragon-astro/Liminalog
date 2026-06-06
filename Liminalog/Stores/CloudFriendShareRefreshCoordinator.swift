@@ -330,7 +330,11 @@ final class CloudFriendShareRefreshCoordinator {
         }
         friend.handle = "@\(friendUsername)"
         friend.inviteCode = friendUsername.uppercased()
-        friend.shareURL = CloudFriendConsentRestorePolicy.incomingShareURL(from: consent, direction: direction) ?? friend.shareURL
+        friend.shareURL = CloudFriendConsentRestorePolicy.incomingShareURL(
+            from: consent,
+            direction: direction,
+            restoredStatus: status
+        ) ?? friend.shareURL
         friend.status = status
         friend.updatedAt = Date()
         if status == .accepted {

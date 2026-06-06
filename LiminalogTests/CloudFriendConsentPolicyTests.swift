@@ -23,10 +23,20 @@ struct CloudFriendConsentPolicyTests {
     }
 
     @Test
-    func outgoingRequestKeepsExistingAcceptedConsentWithoutReciprocalConsent() throws {
+    func outgoingRequestDowngradesOneSidedAcceptedConsentWithoutReciprocalConsent() throws {
         let status = try CloudFriendConsentPolicy.statusForOutgoingRequest(
             existingOwnStatus: .accepted,
             reciprocalStatus: nil
+        )
+
+        #expect(status == .requested)
+    }
+
+    @Test
+    func outgoingRequestKeepsExistingAcceptedConsentWithReciprocalRequest() throws {
+        let status = try CloudFriendConsentPolicy.statusForOutgoingRequest(
+            existingOwnStatus: .accepted,
+            reciprocalStatus: .requested
         )
 
         #expect(status == .accepted)
