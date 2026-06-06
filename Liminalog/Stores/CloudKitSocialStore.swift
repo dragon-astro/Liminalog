@@ -190,6 +190,24 @@ final class CloudKitSocialStore {
         )
     }
 
+    func blockOwnConsent(
+        targetUserRecordName: String,
+        ownUsername: String,
+        targetUsername: String,
+        ownDisplayName: String
+    ) async throws -> CloudFriendConsent {
+        try await saveConsent(
+            ownerUserRecordName: try await currentUserRecordName(),
+            targetUserRecordName: targetUserRecordName,
+            ownerUsername: try normalizedUsername(ownUsername),
+            targetUsername: normalizedUsernameIfPossible(targetUsername) ?? "unknown",
+            ownerDisplayName: publicDisplayName(ownDisplayName),
+            shareURL: nil,
+            status: .blocked,
+            clearsShareURL: true
+        )
+    }
+
     func incomingRequests(forOwnUserRecordName ownUserRecordName: String) async throws -> [CloudFriendConsent] {
         try await incomingConsents(forOwnUserRecordName: ownUserRecordName)
             .filter { $0.status == .requested }
@@ -238,7 +256,8 @@ final class CloudKitSocialStore {
         targetUsername: String,
         ownerDisplayName: String,
         shareURL: String?,
-        status: CloudFriendConsent.Status
+        status: CloudFriendConsent.Status,
+        clearsShareURL: Bool = false
     ) async throws -> CloudFriendConsent {
         let recordID = Self.consentRecordID(ownerUserRecordName: ownerUserRecordName, targetUserRecordName: targetUserRecordName)
         let existing = try? await fetchRecord(recordID)
@@ -251,6 +270,8 @@ final class CloudKitSocialStore {
         record[Field.ownerDisplayName] = ownerDisplayName as CKRecordValue
         if let shareURL {
             record[Field.shareURL] = shareURL as CKRecordValue
+        } else if clearsShareURL {
+            record[Field.shareURL] = nil
         }
         record[Field.status] = status.rawValue as CKRecordValue
         if existing == nil {
@@ -386,6 +407,10 @@ final class CloudKitSocialStore {
         case let .failure(error):
             throw CloudKitSocialError.invalidUserID(error)
         }
+    }
+
+    private func normalizedUsernameIfPossible(_ rawUsername: String) -> String? {
+        try? normalizedUsername(rawUsername)
     }
 
     private func publicDisplayName(_ rawDisplayName: String) -> String {

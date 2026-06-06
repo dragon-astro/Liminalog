@@ -191,6 +191,22 @@ final class CloudFriendShareStore {
         return try Self.snapshot(from: try await fetchRecord(recordID, from: sharedDatabase))
     }
 
+    func revokeOutgoingShare(targetUserRecordName: String) async throws {
+        try await requireAccount()
+        let ownerUserRecordName = try await fetchCurrentUserRecordID().recordName
+        let rootID = Self.rootRecordID(
+            ownerUserRecordName: ownerUserRecordName,
+            targetUserRecordName: targetUserRecordName
+        )
+        guard let root = try? await fetchRecord(rootID, from: privateDatabase) else { return }
+
+        var recordIDs = [root.recordID]
+        if let shareRecordID = root.share?.recordID {
+            recordIDs.append(shareRecordID)
+        }
+        try await delete(recordIDs, from: privateDatabase)
+    }
+
     private func requireAccount() async throws {
         let status = try await container.accountStatus()
         guard status == .available else {
@@ -308,6 +324,16 @@ final class CloudFriendShareStore {
             saved[recordID] = try recordResult.get()
         }
         return saved
+    }
+
+    private func delete(_ recordIDs: [CKRecord.ID], from database: CKDatabase) async throws {
+        guard !recordIDs.isEmpty else { return }
+        _ = try await database.modifyRecords(
+            saving: [],
+            deleting: recordIDs,
+            savePolicy: .changedKeys,
+            atomically: true
+        )
     }
 
     private func savedRecord(for recordID: CKRecord.ID, in records: [CKRecord.ID: CKRecord]) throws -> CKRecord {

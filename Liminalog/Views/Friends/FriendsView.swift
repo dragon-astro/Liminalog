@@ -126,7 +126,10 @@ struct FriendsView: View {
             .background(LiminalTheme.canvasGradient)
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(item: $selectedFriend) { friend in
-                FriendDetailView(friend: friend)
+                FriendDetailView(
+                    friend: friend,
+                    onSharingSettingsChanged: { publishAcceptedShareIfPossible(to: $0) }
+                )
             }
             .sheet(isPresented: $isShowingAddFriend, onDismiss: {
                 inviteInitialText = ""
@@ -722,6 +725,10 @@ struct FriendsView: View {
                 let requests = try await cloudSocialStore.incomingConsents(forOwnUserRecordName: ownUserRecordName)
                 await MainActor.run {
                     for request in requests {
+                        if request.status == .blocked {
+                            handleBlockedCloudConsent(request)
+                            continue
+                        }
                         let status: FriendStatus = request.status == .accepted ? .accepted : .pendingIncoming
                         let friend = upsertCloudFriend(consent: request, status: status)
                         if request.status == .accepted, let shareURL = incomingShareURL(for: friend) {
@@ -747,6 +754,18 @@ struct FriendsView: View {
                     isRefreshingCloudRequests = false
                 }
             }
+        }
+    }
+
+    private func handleBlockedCloudConsent(_ consent: CloudFriendConsent) {
+        guard let friend = friends.first(where: { $0.userRecordID == consent.ownerUserRecordName }) else { return }
+        friend.status = .blocked
+        friend.blockedAt = Date()
+        friend.shareURL = nil
+        clearIncomingShareData(for: friend)
+        friend.updatedAt = Date()
+        Task {
+            try? await stopCloudSharing(with: friend)
         }
     }
 
@@ -929,6 +948,49 @@ struct FriendsView: View {
         friend.updatedAt = Date()
     }
 
+    private func clearIncomingShareData(for friend: Friend) {
+        friend.currentStatusTitle = ""
+        friend.currentStatusIcon = "circle.dashed"
+        friend.currentStatusColorHex = "#8E8E93"
+        friend.currentMoodText = ""
+        friend.currentStatusStartedAt = nil
+        friend.currentStatusUpdatedAt = nil
+        friend.todayScore = 0
+        friend.yesterdayScore = 0
+        friend.weekScore = 0
+        friend.monthScore = 0
+        friend.yearScore = 0
+        friend.streakCount = 0
+        friend.setSharedPlans([])
+        friend.setSharedActivities([])
+        friend.lastSeenAt = nil
+    }
+
+    private func publishAcceptedShareIfPossible(to friend: Friend) {
+        guard friend.status == .accepted, !friend.userRecordID.isEmpty else { return }
+        Task {
+            do {
+                _ = try await publishOutgoingShare(to: friend, consentStatus: .accepted)
+            } catch {
+                await MainActor.run {
+                    cloudErrorText = "公開設定の反映に失敗しました: \(error.localizedDescription)"
+                }
+            }
+        }
+    }
+
+    private func stopCloudSharing(with friend: Friend) async throws {
+        guard !friend.userRecordID.isEmpty else { return }
+        try await cloudShareStore.revokeOutgoingShare(targetUserRecordName: friend.userRecordID)
+        guard let ownUsername = settings?.cloudUsernameNormalized, !ownUsername.isEmpty else { return }
+        _ = try await cloudSocialStore.blockOwnConsent(
+            targetUserRecordName: friend.userRecordID,
+            ownUsername: ownUsername,
+            targetUsername: cloudUsername(from: friend),
+            ownDisplayName: ownDisplayName
+        )
+    }
+
     private func visibilityPreset(for friend: Friend) -> VisibilityPreset? {
         guard let id = friend.visibilityPresetID else { return nil }
         return visibilityPresets.first { $0.id == id }
@@ -953,8 +1015,24 @@ struct FriendsView: View {
     }
 
     private func delete(_ friend: Friend) {
-        modelContext.delete(friend)
-        save()
+        guard !friend.userRecordID.isEmpty else {
+            modelContext.delete(friend)
+            save()
+            return
+        }
+        Task {
+            do {
+                try await stopCloudSharing(with: friend)
+                await MainActor.run {
+                    modelContext.delete(friend)
+                    save()
+                }
+            } catch {
+                await MainActor.run {
+                    cloudErrorText = "友達共有の停止に失敗しました: \(error.localizedDescription)"
+                }
+            }
+        }
     }
 
     @discardableResult
@@ -1360,14 +1438,28 @@ private struct FriendDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     let friend: Friend
+    let onSharingSettingsChanged: (Friend) -> Void
     @Query(sort: \VisibilityPreset.sortOrder) private var visibilityPresets: [VisibilityPreset]
     @Query(sort: \Category.sortOrder) private var categories: [Category]
     @Query(sort: \FriendSet.sortOrder) private var friendSets: [FriendSet]
     @Query(sort: \Friend.displayName) private var friends: [Friend]
+    @Query(sort: \UserSettings.createdAt) private var settingsList: [UserSettings]
     @State private var isShowingCalendar = false
     @State private var showingBlockConfirmation = false
     @State private var showingDeleteConfirmation = false
     @State private var saveError: String?
+
+    private let cloudSocialStore = CloudKitSocialStore()
+    private let cloudShareStore = CloudFriendShareStore()
+
+    private var settings: UserSettings? {
+        settingsList.first
+    }
+
+    private var ownDisplayName: String {
+        let name = settings?.profileDisplayName.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return name.isEmpty ? "Liminalogユーザー" : name
+    }
 
     private var accentColor: Color {
         Color(hex: friend.accentColorHex)
@@ -1472,16 +1564,91 @@ private struct FriendDetailView: View {
     }
 
     private func blockFriend() {
-        friend.status = .blocked
-        friend.blockedAt = Date()
-        friend.updatedAt = Date()
-        save()
+        guard !friend.userRecordID.isEmpty else {
+            friend.status = .blocked
+            friend.blockedAt = Date()
+            friend.updatedAt = Date()
+            save()
+            return
+        }
+        Task {
+            do {
+                try await stopCloudSharing(with: friend)
+                await MainActor.run {
+                    friend.status = .blocked
+                    friend.blockedAt = Date()
+                    friend.shareURL = nil
+                    clearIncomingShareData()
+                    friend.updatedAt = Date()
+                    save()
+                }
+            } catch {
+                await MainActor.run {
+                    saveError = "友達共有の停止に失敗しました: \(error.localizedDescription)"
+                }
+            }
+        }
     }
 
     private func deleteFriend() {
-        modelContext.delete(friend)
-        guard save() else { return }
-        dismiss()
+        guard !friend.userRecordID.isEmpty else {
+            modelContext.delete(friend)
+            guard save() else { return }
+            dismiss()
+            return
+        }
+        Task {
+            do {
+                try await stopCloudSharing(with: friend)
+                await MainActor.run {
+                    modelContext.delete(friend)
+                    guard save() else { return }
+                    dismiss()
+                }
+            } catch {
+                await MainActor.run {
+                    saveError = "友達共有の停止に失敗しました: \(error.localizedDescription)"
+                }
+            }
+        }
+    }
+
+    private func stopCloudSharing(with friend: Friend) async throws {
+        guard !friend.userRecordID.isEmpty else { return }
+        try await cloudShareStore.revokeOutgoingShare(targetUserRecordName: friend.userRecordID)
+        guard let ownUsername = settings?.cloudUsernameNormalized, !ownUsername.isEmpty else { return }
+        _ = try await cloudSocialStore.blockOwnConsent(
+            targetUserRecordName: friend.userRecordID,
+            ownUsername: ownUsername,
+            targetUsername: cloudUsername(from: friend),
+            ownDisplayName: ownDisplayName
+        )
+    }
+
+    private func clearIncomingShareData() {
+        friend.currentStatusTitle = ""
+        friend.currentStatusIcon = "circle.dashed"
+        friend.currentStatusColorHex = "#8E8E93"
+        friend.currentMoodText = ""
+        friend.currentStatusStartedAt = nil
+        friend.currentStatusUpdatedAt = nil
+        friend.todayScore = 0
+        friend.yesterdayScore = 0
+        friend.weekScore = 0
+        friend.monthScore = 0
+        friend.yearScore = 0
+        friend.streakCount = 0
+        friend.setSharedPlans([])
+        friend.setSharedActivities([])
+        friend.lastSeenAt = nil
+    }
+
+    private func cloudUsername(from friend: Friend) -> String {
+        let handle = friend.handle.trimmingCharacters(in: .whitespacesAndNewlines)
+        let rawUsername = handle.hasPrefix("@") ? String(handle.dropFirst()) : handle
+        return UserIDNormalizer.normalizedValue(rawUsername)
+            ?? UserIDNormalizer.normalizedValue(friend.inviteCode)
+            ?? friend.userRecordID
     }
 
     private var statusCard: some View {
@@ -1604,7 +1771,9 @@ private struct FriendDetailView: View {
         } set: { id in
             friend.visibilityPresetID = id
             friend.updatedAt = Date()
-            save()
+            if save() {
+                onSharingSettingsChanged(friend)
+            }
         }
     }
 
@@ -1628,7 +1797,9 @@ private struct FriendDetailView: View {
                 category.defaultAudienceIncludedFriendIDs.removeAll { $0 == friend.id }
                 appendUniqueFriendID(friend.id, to: &category.defaultAudienceExcludedFriendIDs)
             }
-            save()
+            if save() {
+                onSharingSettingsChanged(friend)
+            }
         }
     }
 

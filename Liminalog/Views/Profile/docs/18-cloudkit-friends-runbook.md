@@ -45,8 +45,10 @@ Use two real devices with different iCloud accounts.
 9. Set visibility to none and confirm scores, plans, active activity, and mood do not leak.
 10. Set visibility to selected friends and confirm only accepted selected friends receive the data.
 11. Exclude categories and confirm those plans/activities are not present in `sharedPlansJSON` or `sharedActivitiesJSON`.
-12. Kill and relaunch both apps, then confirm user ID, friend list, and latest accepted snapshots remain.
-13. Delete and reinstall the app on one device, sign into the same iCloud account, then confirm CloudKit profile/consent/share can be restored by opening Friends and refreshing.
+12. Change a friend's visibility preset or category audience, then confirm the recipient's `FriendShareSnapshot` updates.
+13. Delete or block a friend, then confirm the outgoing `FriendShareSnapshot`/`CKShare` is revoked, own `FriendConsent` becomes `blocked`, and the other device stops sharing back after refresh or push.
+14. Kill and relaunch both apps, then confirm user ID, friend list, and latest accepted snapshots remain.
+15. Delete and reinstall the app on one device, sign into the same iCloud account, then confirm CloudKit profile/consent/share can be restored by opening Friends and refreshing.
 
 ## Latency Notes
 
