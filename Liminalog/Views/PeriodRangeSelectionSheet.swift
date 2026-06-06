@@ -17,7 +17,7 @@ struct PeriodRangeSelectionSheet: View {
     @State private var pendingDate: Date
 
     private let calendar = Calendar.japanese
-    private let optionCenterDate: Date
+    private let latestSelectableDate: Date
 
     init(
         title: String = "期間を選択",
@@ -28,8 +28,9 @@ struct PeriodRangeSelectionSheet: View {
         self.granularity = granularity
         self._anchorDate = anchorDate
         let periodStart = Self.periodStart(for: anchorDate.wrappedValue, granularity: granularity, calendar: .japanese)
-        self._pendingDate = State(initialValue: periodStart)
-        self.optionCenterDate = periodStart
+        let latestSelectableDate = Self.periodStart(for: Date(), granularity: granularity, calendar: .japanese)
+        self._pendingDate = State(initialValue: min(periodStart, latestSelectableDate))
+        self.latestSelectableDate = latestSelectableDate
     }
 
     var body: some View {
@@ -97,67 +98,51 @@ struct PeriodRangeSelectionSheet: View {
     }
 
     private var rangePickerArea: some View {
-        ZStack {
-            selectionFrame
+        Picker("", selection: $pendingDate) {
+            ForEach(options) { option in
+                Text(option.title)
+                    .font(.title3.weight(.semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(LiminalTheme.text)
+                    .tag(option.date)
+            }
+        }
+        .pickerStyle(.wheel)
+        .labelsHidden()
+        .frame(height: 230)
+        .clipped()
+    }
 
-            Picker("", selection: $pendingDate) {
-                ForEach(options) { option in
-                    Text(option.title)
+    private var monthPickerArea: some View {
+        HStack(spacing: 0) {
+            Picker("", selection: monthYearSelection) {
+                ForEach(Array(monthYearRange), id: \.self) { year in
+                    Text(verbatim: "\(year)年")
                         .font(.title3.weight(.semibold))
                         .monospacedDigit()
                         .foregroundStyle(LiminalTheme.text)
-                        .tag(option.date)
+                        .tag(year)
                 }
             }
             .pickerStyle(.wheel)
             .labelsHidden()
-            .frame(height: 230)
-            .clipped()
-        }
-    }
+            .frame(maxWidth: .infinity)
 
-    private var monthPickerArea: some View {
-        ZStack {
-            selectionFrame
-
-            HStack(spacing: 0) {
-                Picker("", selection: monthYearSelection) {
-                    ForEach(Array(monthYearRange), id: \.self) { year in
-                        Text(verbatim: "\(year)年")
-                            .font(.title3.weight(.semibold))
-                            .monospacedDigit()
-                            .foregroundStyle(LiminalTheme.text)
-                            .tag(year)
-                    }
+            Picker("", selection: monthSelection) {
+                ForEach(Array(selectableMonths), id: \.self) { month in
+                    Text("\(month)月")
+                        .font(.title3.weight(.semibold))
+                        .monospacedDigit()
+                        .foregroundStyle(LiminalTheme.text)
+                        .tag(month)
                 }
-                .pickerStyle(.wheel)
-                .labelsHidden()
-                .frame(maxWidth: .infinity)
-
-                Picker("", selection: monthSelection) {
-                    ForEach(1...12, id: \.self) { month in
-                        Text("\(month)月")
-                            .font(.title3.weight(.semibold))
-                            .monospacedDigit()
-                            .foregroundStyle(LiminalTheme.text)
-                            .tag(month)
-                    }
-                }
-                .pickerStyle(.wheel)
-                .labelsHidden()
-                .frame(maxWidth: .infinity)
             }
-            .frame(height: 230)
-            .clipped()
+            .pickerStyle(.wheel)
+            .labelsHidden()
+            .frame(maxWidth: .infinity)
         }
-    }
-
-    private var selectionFrame: some View {
-        RoundedRectangle(cornerRadius: 8, style: .continuous)
-            .stroke(LiminalTheme.accent, lineWidth: 2)
-            .frame(height: 58)
-            .padding(.horizontal, 28)
-            .allowsHitTesting(false)
+        .frame(height: 230)
+        .clipped()
     }
 
     private var monthYearSelection: Binding<Int> {
@@ -166,7 +151,10 @@ struct PeriodRangeSelectionSheet: View {
                 calendar.component(.year, from: pendingDate)
             },
             set: { newYear in
-                updatePendingMonthDate(year: newYear, month: calendar.component(.month, from: pendingDate))
+                updatePendingMonthDate(
+                    year: newYear,
+                    month: min(calendar.component(.month, from: pendingDate), latestSelectableMonth(for: newYear))
+                )
             }
         )
     }
@@ -183,8 +171,18 @@ struct PeriodRangeSelectionSheet: View {
     }
 
     private var monthYearRange: ClosedRange<Int> {
-        let centerYear = calendar.component(.year, from: optionCenterDate)
-        return (centerYear - 5)...(centerYear + 1)
+        let latestYear = calendar.component(.year, from: latestSelectableDate)
+        return (latestYear - 5)...latestYear
+    }
+
+    private var selectableMonths: ClosedRange<Int> {
+        1...latestSelectableMonth(for: calendar.component(.year, from: pendingDate))
+    }
+
+    private func latestSelectableMonth(for year: Int) -> Int {
+        let latestYear = calendar.component(.year, from: latestSelectableDate)
+        guard year >= latestYear else { return 12 }
+        return calendar.component(.month, from: latestSelectableDate)
     }
 
     private func updatePendingMonthDate(year: Int, month: Int) {
@@ -192,8 +190,8 @@ struct PeriodRangeSelectionSheet: View {
     }
 
     private var options: [PeriodRangeOption] {
-        (-optionWindow.past...optionWindow.future).compactMap { offset in
-            guard let date = date(byAddingOffset: offset, to: optionCenterDate) else { return nil }
+        (-optionWindowPastCount...0).compactMap { offset in
+            guard let date = date(byAddingOffset: offset, to: latestSelectableDate) else { return nil }
             return PeriodRangeOption(
                 id: optionID(for: date),
                 date: date,
@@ -202,16 +200,16 @@ struct PeriodRangeSelectionSheet: View {
         }
     }
 
-    private var optionWindow: (past: Int, future: Int) {
+    private var optionWindowPastCount: Int {
         switch granularity {
         case .day:
-            (180, 30)
+            180
         case .week:
-            (104, 12)
+            104
         case .month:
-            (60, 12)
+            60
         case .year:
-            (5, 1)
+            5
         }
     }
 
@@ -255,7 +253,7 @@ struct PeriodRangeSelectionSheet: View {
         case .week:
             let interval = calendar.dateInterval(of: .weekOfYear, for: date) ?? DateInterval(start: date, duration: 7 * 24 * 60 * 60)
             let end = calendar.date(byAdding: .day, value: -1, to: interval.end) ?? interval.end
-            return "\(twoDigitMonthDay(interval.start))-\(twoDigitMonthDay(end))"
+            return weekTitle(start: interval.start, end: end)
         case .month:
             let year = calendar.component(.year, from: date)
             let month = calendar.component(.month, from: date)
@@ -269,6 +267,15 @@ struct PeriodRangeSelectionSheet: View {
         let month = calendar.component(.month, from: date)
         let day = calendar.component(.day, from: date)
         return String(format: "%02d/%02d", month, day)
+    }
+
+    private func weekTitle(start: Date, end: Date) -> String {
+        let startYear = calendar.component(.year, from: start)
+        let endYear = calendar.component(.year, from: end)
+        guard startYear == endYear else {
+            return "\(startYear)年\(twoDigitMonthDay(start))-\(endYear)年\(twoDigitMonthDay(end))"
+        }
+        return "\(startYear)年\(twoDigitMonthDay(start))-\(twoDigitMonthDay(end))"
     }
 
     private static func periodStart(
