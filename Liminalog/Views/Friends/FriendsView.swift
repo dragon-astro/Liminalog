@@ -687,7 +687,7 @@ struct FriendsView: View {
                     ownDisplayName: ownDisplayName
                 )
                 let friend = upsertCloudFriend(profile: result.profile, status: result.status)
-                friend.shareURL = result.incomingShareURL ?? friend.shareURL
+                applyIncomingShareURL(result.incomingShareURL, to: friend, status: result.status)
                 if save() {
                     selectedFriend = result.status == .accepted ? friend : nil
                     cloudStatusText = result.status == .accepted
@@ -844,7 +844,7 @@ struct FriendsView: View {
         friend.inviteCode = profile.username.uppercased()
         friend.status = status
         friend.updatedAt = Date()
-        if CloudFriendLocalStatePolicy.shouldKeepIncomingShare(status: status) {
+        if status == .accepted {
             friend.acceptedAt = Date()
             friend.lastSeenAt = Date()
         } else {
@@ -888,11 +888,12 @@ struct FriendsView: View {
         friend.inviteCode = friendUsername.uppercased()
         friend.status = status
         if status == .accepted {
-            friend.shareURL = CloudFriendConsentRestorePolicy.incomingShareURL(
+            let incomingShareURL = CloudFriendConsentRestorePolicy.incomingShareURL(
                 from: consent,
                 direction: direction,
                 restoredStatus: status
-            ) ?? friend.shareURL
+            )
+            applyIncomingShareURL(incomingShareURL, to: friend, status: status)
         } else {
             friend.shareURL = nil
             clearIncomingShareData(for: friend)
@@ -906,6 +907,15 @@ struct FriendsView: View {
             friend.visibilityPresetID = defaultVisibilityPresetID
         }
         return friend
+    }
+
+    private func applyIncomingShareURL(_ incomingShareURL: String?, to friend: Friend, status: FriendStatus) {
+        if CloudFriendLocalStatePolicy.shouldKeepIncomingShare(status: status, incomingShareURL: incomingShareURL) {
+            friend.shareURL = incomingShareURL
+        } else {
+            friend.shareURL = nil
+            clearIncomingShareData(for: friend)
+        }
     }
 
     private func publishOutgoingShare(

@@ -5,7 +5,8 @@ enum CloudFriendLocalStatePolicy {
         userRecordID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
-    static func shouldKeepIncomingShare(status: FriendStatus) -> Bool {
-        status == .accepted
+    static func shouldKeepIncomingShare(status: FriendStatus, incomingShareURL: String?) -> Bool {
+        guard status == .accepted else { return false }
+        return !(incomingShareURL?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
     }
 }

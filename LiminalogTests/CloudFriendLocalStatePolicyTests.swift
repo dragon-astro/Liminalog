@@ -15,9 +15,23 @@ struct CloudFriendLocalStatePolicyTests {
 
     @Test
     func incomingShareIsKeptOnlyAfterAcceptance() {
-        #expect(CloudFriendLocalStatePolicy.shouldKeepIncomingShare(status: .accepted))
-        #expect(!CloudFriendLocalStatePolicy.shouldKeepIncomingShare(status: .pendingIncoming))
-        #expect(!CloudFriendLocalStatePolicy.shouldKeepIncomingShare(status: .pendingOutgoing))
-        #expect(!CloudFriendLocalStatePolicy.shouldKeepIncomingShare(status: .blocked))
+        #expect(CloudFriendLocalStatePolicy.shouldKeepIncomingShare(
+            status: .accepted,
+            incomingShareURL: "https://example.com/share"
+        ))
+        #expect(!CloudFriendLocalStatePolicy.shouldKeepIncomingShare(status: .accepted, incomingShareURL: nil))
+        #expect(!CloudFriendLocalStatePolicy.shouldKeepIncomingShare(status: .accepted, incomingShareURL: "   "))
+        #expect(!CloudFriendLocalStatePolicy.shouldKeepIncomingShare(
+            status: .pendingIncoming,
+            incomingShareURL: "https://example.com/share"
+        ))
+        #expect(!CloudFriendLocalStatePolicy.shouldKeepIncomingShare(
+            status: .pendingOutgoing,
+            incomingShareURL: "https://example.com/share"
+        ))
+        #expect(!CloudFriendLocalStatePolicy.shouldKeepIncomingShare(
+            status: .blocked,
+            incomingShareURL: "https://example.com/share"
+        ))
     }
 }

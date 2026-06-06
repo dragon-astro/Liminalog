@@ -176,9 +176,7 @@ final class CloudFriendShareRefreshCoordinator {
             let acceptedCloudFriendRecordNames = CloudFriendConsentRestorePolicy.acceptedFriendUserRecordNames(
                 in: restorations
             )
-            let acceptedIncomingShareRestorations = CloudFriendIncomingShareRefreshPolicy.acceptedIncomingShareRestorations(
-                in: restorations
-            )
+            let acceptedRestorations = restorations.filter { $0.status == .accepted }
 
             let visibilityPresets = try context.fetch(FetchDescriptor<VisibilityPreset>(
                 sortBy: [SortDescriptor(\.sortOrder)]
@@ -187,7 +185,7 @@ final class CloudFriendShareRefreshCoordinator {
                 sortBy: [SortDescriptor(\.displayName)]
             ))
             var didUpdateFriends = false
-            for restoration in acceptedIncomingShareRestorations {
+            for restoration in acceptedRestorations {
                 _ = upsertFriend(
                     from: restoration.consent,
                     direction: restoration.direction,
@@ -395,11 +393,17 @@ final class CloudFriendShareRefreshCoordinator {
         friend.inviteCode = friendUsername.uppercased()
         friend.status = status
         if status == .accepted {
-            friend.shareURL = CloudFriendConsentRestorePolicy.incomingShareURL(
+            let incomingShareURL = CloudFriendConsentRestorePolicy.incomingShareURL(
                 from: consent,
                 direction: direction,
                 restoredStatus: status
-            ) ?? friend.shareURL
+            )
+            if CloudFriendLocalStatePolicy.shouldKeepIncomingShare(status: status, incomingShareURL: incomingShareURL) {
+                friend.shareURL = incomingShareURL
+            } else {
+                friend.shareURL = nil
+                CloudFriendShareSnapshotApplier.clearCachedShare(from: friend)
+            }
         } else {
             friend.shareURL = nil
             CloudFriendShareSnapshotApplier.clearCachedShare(from: friend)
