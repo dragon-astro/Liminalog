@@ -418,10 +418,36 @@ final class CloudKitSocialStore {
     }
 
     private func queryRecords(type: String, predicate: NSPredicate, resultsLimit: Int) async throws -> [CKRecord] {
+        var records: [CKRecord] = []
+        var cursor: CKQueryOperation.Cursor?
+        repeat {
+            let page = try await queryRecordPage(
+                type: type,
+                predicate: predicate,
+                cursor: cursor,
+                resultsLimit: resultsLimit
+            )
+            records.append(contentsOf: page.records)
+            cursor = page.cursor
+        } while cursor != nil
+        return records
+    }
+
+    private func queryRecordPage(
+        type: String,
+        predicate: NSPredicate,
+        cursor: CKQueryOperation.Cursor?,
+        resultsLimit: Int
+    ) async throws -> (records: [CKRecord], cursor: CKQueryOperation.Cursor?) {
         try await withCheckedThrowingContinuation { continuation in
             var records: [CKRecord] = []
             var firstError: Error?
-            let operation = CKQueryOperation(query: CKQuery(recordType: type, predicate: predicate))
+            let operation: CKQueryOperation
+            if let cursor {
+                operation = CKQueryOperation(cursor: cursor)
+            } else {
+                operation = CKQueryOperation(query: CKQuery(recordType: type, predicate: predicate))
+            }
             operation.resultsLimit = resultsLimit
             operation.recordMatchedBlock = { _, result in
                 switch result {
@@ -433,11 +459,11 @@ final class CloudKitSocialStore {
             }
             operation.queryResultBlock = { result in
                 switch result {
-                case .success:
+                case let .success(nextCursor):
                     if let firstError {
                         continuation.resume(throwing: firstError)
                     } else {
-                        continuation.resume(returning: records)
+                        continuation.resume(returning: (records, nextCursor))
                     }
                 case let .failure(error):
                     continuation.resume(throwing: error)
