@@ -78,6 +78,18 @@ final class CloudFriendShareRefreshCoordinator {
         }
     }
 
+    func handleRemoteNotificationEvent(
+        _ event: CloudKitFriendEventBridge.Event,
+        reason: String
+    ) async {
+        switch event {
+        case .friendConsent:
+            await refreshIncomingConsents(reason: reason)
+        case .friendShare:
+            await refreshAcceptedIncomingShares(reason: reason)
+        }
+    }
+
     func publishAcceptedFriendShares(reason: String) async {
         do {
             let context = modelContainer.mainContext

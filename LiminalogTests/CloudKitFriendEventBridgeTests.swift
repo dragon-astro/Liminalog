@@ -20,6 +20,16 @@ struct CloudKitFriendEventBridgeTests {
     }
 
     @Test
+    func eventsMapToNotificationNames() {
+        #expect(CloudKitFriendEventBridge.notificationName(
+            for: .friendConsent
+        ) == CloudKitFriendEventBridge.friendConsentDidChange)
+        #expect(CloudKitFriendEventBridge.notificationName(
+            for: .friendShare
+        ) == CloudKitFriendEventBridge.friendShareDidChange)
+    }
+
+    @Test
     func unrelatedOrMissingSubscriptionIDsAreIgnored() {
         #expect(CloudKitFriendEventBridge.event(forSubscriptionID: nil) == nil)
         #expect(CloudKitFriendEventBridge.event(forSubscriptionID: "") == nil)

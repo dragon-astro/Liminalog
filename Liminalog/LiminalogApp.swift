@@ -23,6 +23,12 @@ struct LiminalogApp: App {
                     guard cloudFriendShareRefreshCoordinator == nil else { return }
                     let coordinator = CloudFriendShareRefreshCoordinator(modelContainer: modelContainer)
                     cloudFriendShareRefreshCoordinator = coordinator
+                    appDelegate.cloudFriendRemoteNotificationHandler = { event in
+                        await coordinator.handleRemoteNotificationEvent(
+                            event,
+                            reason: "remote notification"
+                        )
+                    }
                     registerForRemoteNotificationsIfCloudFriendsEnabled()
                     await coordinator.ensureSubscriptionsIfPossible(reason: "app launch")
                     scheduleCloudFriendRefresh(reason: "app launch")

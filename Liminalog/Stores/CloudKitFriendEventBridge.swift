@@ -22,24 +22,43 @@ enum CloudKitFriendEventBridge {
         }
         return nil
     }
+
+    static func notificationName(for event: Event) -> Notification.Name {
+        switch event {
+        case .friendConsent:
+            return friendConsentDidChange
+        case .friendShare:
+            return friendShareDidChange
+        }
+    }
 }
 
 final class LiminalogAppDelegate: NSObject, UIApplicationDelegate {
+    var cloudFriendRemoteNotificationHandler: ((CloudKitFriendEventBridge.Event) async -> Void)?
+
     func application(
         _ application: UIApplication,
         didReceiveRemoteNotification userInfo: [AnyHashable: Any],
         fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
     ) {
         let notification = CKNotification(fromRemoteNotificationDictionary: userInfo)
-        switch CloudKitFriendEventBridge.event(forSubscriptionID: notification?.subscriptionID) {
-        case .friendConsent:
-            NotificationCenter.default.post(name: CloudKitFriendEventBridge.friendConsentDidChange, object: nil)
-            completionHandler(.newData)
-        case .friendShare:
-            NotificationCenter.default.post(name: CloudKitFriendEventBridge.friendShareDidChange, object: nil)
-            completionHandler(.newData)
-        case nil:
+        guard let event = CloudKitFriendEventBridge.event(forSubscriptionID: notification?.subscriptionID) else {
             completionHandler(.noData)
+            return
+        }
+
+        NotificationCenter.default.post(
+            name: CloudKitFriendEventBridge.notificationName(for: event),
+            object: nil
+        )
+        guard let cloudFriendRemoteNotificationHandler else {
+            completionHandler(.newData)
+            return
+        }
+
+        Task {
+            await cloudFriendRemoteNotificationHandler(event)
+            completionHandler(.newData)
         }
     }
 }
