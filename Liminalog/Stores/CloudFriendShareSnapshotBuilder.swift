@@ -10,7 +10,8 @@ enum CloudFriendShareSnapshotBuilder {
         planBlocks: [PlanBlock],
         acceptedFriendIDs: Set<UUID>,
         now: Date,
-        scoreProvider: (FriendScorePeriod) -> Double
+        scoreProvider: (FriendScorePeriod) -> Double,
+        streakProvider: () -> Int = { 0 }
     ) -> CloudFriendShareSnapshot {
         let preset = visibilityPreset(for: friend, in: visibilityPresets)
         let canPublish = publishingEnabled(for: preset)
@@ -51,7 +52,7 @@ enum CloudFriendShareSnapshotBuilder {
             weekScore: canPublish ? scoreProvider(.week) : 0,
             monthScore: canPublish ? scoreProvider(.month) : 0,
             yearScore: canPublish ? scoreProvider(.year) : 0,
-            streakCount: 0,
+            streakCount: canPublish ? streakProvider() : 0,
             sharedPlans: visiblePlans,
             sharedActivities: visibleActivities,
             updatedAt: now

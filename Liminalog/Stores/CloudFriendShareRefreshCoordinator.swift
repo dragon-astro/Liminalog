@@ -176,18 +176,41 @@ final class CloudFriendShareRefreshCoordinator {
             let acceptedCloudFriendRecordNames = CloudFriendConsentRestorePolicy.acceptedFriendUserRecordNames(
                 in: restorations
             )
+            let acceptedIncomingShareRestorations = CloudFriendIncomingShareRefreshPolicy.acceptedIncomingShareRestorations(
+                in: restorations
+            )
 
-            let friends = try context.fetch(FetchDescriptor<Friend>(
+            let visibilityPresets = try context.fetch(FetchDescriptor<VisibilityPreset>(
+                sortBy: [SortDescriptor(\.sortOrder)]
+            ))
+            var friends = try context.fetch(FetchDescriptor<Friend>(
                 sortBy: [SortDescriptor(\.displayName)]
             ))
+            var didUpdateFriends = false
+            for restoration in acceptedIncomingShareRestorations {
+                _ = upsertFriend(
+                    from: restoration.consent,
+                    direction: restoration.direction,
+                    status: restoration.status,
+                    friends: &friends,
+                    visibilityPresets: visibilityPresets,
+                    modelContext: context
+                )
+                didUpdateFriends = true
+            }
+
             let acceptedFriends = friends.filter {
                 $0.status == .accepted
                     && !$0.userRecordID.isEmpty
                     && !($0.shareURL?.isEmpty ?? true)
             }
-            guard !acceptedFriends.isEmpty else { return }
+            guard !acceptedFriends.isEmpty else {
+                if didUpdateFriends {
+                    try context.save()
+                }
+                return
+            }
 
-            var didUpdateFriends = false
             for friend in acceptedFriends {
                 guard acceptedCloudFriendRecordNames.contains(friend.userRecordID) else {
                     CloudFriendShareSnapshotApplier.clearCachedShare(from: friend)
@@ -328,6 +351,9 @@ final class CloudFriendShareRefreshCoordinator {
             now: now,
             scoreProvider: { period in
                 self.selfScore(for: period, modelContext: modelContext, now: now)
+            },
+            streakProvider: {
+                ScoreStore(modelContext: modelContext).streakCount(endingAt: now)
             }
         )
     }

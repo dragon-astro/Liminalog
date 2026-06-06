@@ -30,13 +30,15 @@ struct CloudFriendShareSnapshotBuilderTests {
             planBlocks: [plan],
             acceptedFriendIDs: [friend.id],
             now: now,
-            scoreProvider: { _ in 99 }
+            scoreProvider: { _ in 99 },
+            streakProvider: { 12 }
         )
 
         #expect(snapshot.currentStatusTitle.isEmpty)
         #expect(snapshot.currentMoodText.isEmpty)
         #expect(snapshot.todayScore == 0)
         #expect(snapshot.weekScore == 0)
+        #expect(snapshot.streakCount == 0)
         #expect(snapshot.sharedPlans.isEmpty)
         #expect(snapshot.sharedActivities.isEmpty)
     }
@@ -77,12 +79,14 @@ struct CloudFriendShareSnapshotBuilderTests {
             planBlocks: [plan],
             acceptedFriendIDs: [friend.id],
             now: now,
-            scoreProvider: { _ in 42 }
+            scoreProvider: { _ in 42 },
+            streakProvider: { 7 }
         )
 
         #expect(snapshot.currentStatusTitle == "病院")
         #expect(snapshot.currentMoodText.isEmpty)
         #expect(snapshot.todayScore == 42)
+        #expect(snapshot.streakCount == 7)
         #expect(snapshot.sharedPlans.map(\.title) == ["予定あり"])
         #expect(snapshot.sharedPlans.first?.categoryID == nil)
         #expect(snapshot.sharedActivities.first?.note == nil)

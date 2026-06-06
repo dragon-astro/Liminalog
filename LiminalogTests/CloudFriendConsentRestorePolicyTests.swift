@@ -259,6 +259,55 @@ struct CloudFriendConsentRestorePolicyTests {
         ) == ["_accepted"])
     }
 
+    @Test
+    func incomingShareRefreshTargetsOnlyMutualAcceptedIncomingShares() {
+        let acceptedIncoming = CloudFriendConsentRestoration(
+            consent: makeConsent(
+                ownerUserRecordName: "_friend",
+                targetUserRecordName: "_me",
+                ownerUsername: "friend",
+                targetUsername: "me",
+                ownerDisplayName: "Friend",
+                shareURL: "https://example.com/friend-share",
+                status: .accepted
+            ),
+            direction: .incoming,
+            status: .accepted
+        )
+        let acceptedOutgoing = CloudFriendConsentRestoration(
+            consent: makeConsent(
+                ownerUserRecordName: "_me",
+                targetUserRecordName: "_other",
+                ownerUsername: "me",
+                targetUsername: "other",
+                ownerDisplayName: "Me",
+                shareURL: "https://example.com/own-share",
+                status: .accepted
+            ),
+            direction: .outgoing,
+            status: .accepted
+        )
+        let pendingIncoming = CloudFriendConsentRestoration(
+            consent: makeConsent(
+                ownerUserRecordName: "_pending",
+                targetUserRecordName: "_me",
+                ownerUsername: "pending",
+                targetUsername: "me",
+                ownerDisplayName: "Pending",
+                shareURL: "https://example.com/pending-share",
+                status: .accepted
+            ),
+            direction: .incoming,
+            status: .pendingIncoming
+        )
+
+        let targets = CloudFriendIncomingShareRefreshPolicy.acceptedIncomingShareRestorations(
+            in: [acceptedIncoming, acceptedOutgoing, pendingIncoming]
+        )
+
+        #expect(targets == [acceptedIncoming])
+    }
+
     private func makeConsent(
         ownerUserRecordName: String = "_owner",
         targetUserRecordName: String = "_target",

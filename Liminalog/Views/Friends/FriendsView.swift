@@ -971,6 +971,9 @@ struct FriendsView: View {
             now: now,
             scoreProvider: { period in
                 selfScore(for: period, anchorDate: period == .today || period == .yesterday ? nil : now)
+            },
+            streakProvider: {
+                ScoreStore(modelContext: modelContext).streakCount(endingAt: now)
             }
         )
     }

@@ -180,3 +180,18 @@ enum CloudFriendConsentRestorePolicy {
         }
     }
 }
+
+enum CloudFriendIncomingShareRefreshPolicy {
+    static func acceptedIncomingShareRestorations(
+        in restorations: [CloudFriendConsentRestoration]
+    ) -> [CloudFriendConsentRestoration] {
+        restorations.filter { restoration in
+            guard restoration.status == .accepted else { return false }
+            return CloudFriendConsentRestorePolicy.incomingShareURL(
+                from: restoration.consent,
+                direction: restoration.direction,
+                restoredStatus: restoration.status
+            ) != nil
+        }
+    }
+}
