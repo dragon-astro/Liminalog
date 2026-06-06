@@ -25,6 +25,8 @@ enum UserIDNormalizer {
             ? String(trimmed.dropFirst())
             : trimmed
         let normalized = withoutDisplayPrefix
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .precomposedStringWithCanonicalMapping
             .lowercased()
 
         guard !normalized.isEmpty else {

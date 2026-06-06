@@ -13,9 +13,20 @@ struct UserIDNormalizerTests {
     func stripsLeadingDisplayAtMark() throws {
         let value = try #require(UserIDNormalizer.normalizedValue("  @Ryu.Log_7  "))
         let fullWidthValue = try #require(UserIDNormalizer.normalizedValue("  ＠Ryu.Log_7  "))
+        let spacedValue = try #require(UserIDNormalizer.normalizedValue("  @ Ryu.Log_7  "))
 
         #expect(value == "ryu.log_7")
         #expect(fullWidthValue == "ryu.log_7")
+        #expect(spacedValue == "ryu.log_7")
+    }
+
+    @Test
+    func normalizesCanonicalUnicodeEquivalents() throws {
+        let composed = try #require(UserIDNormalizer.normalizedValue("CaféLog"))
+        let decomposed = try #require(UserIDNormalizer.normalizedValue("Cafe\u{301}Log"))
+
+        #expect(composed == "cafélog")
+        #expect(decomposed == composed)
     }
 
     @Test
