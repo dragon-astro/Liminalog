@@ -28,6 +28,7 @@ struct CloudFriendConsent: Equatable {
 struct CloudFriendRequestResult: Equatable {
     let profile: CloudFriendProfile
     let status: FriendStatus
+    let incomingShareURL: String?
 }
 
 enum CloudKitSocialError: LocalizedError {
@@ -170,7 +171,11 @@ final class CloudKitSocialStore {
 
         return CloudFriendRequestResult(
             profile: target,
-            status: status == .accepted ? .accepted : .pendingOutgoing
+            status: status == .accepted ? .accepted : .pendingOutgoing,
+            incomingShareURL: CloudFriendReciprocalConsentPolicy.incomingShareURL(
+                outgoingStatus: status,
+                reciprocalShareURL: reciprocalConsent?.shareURL
+            )
         )
     }
 

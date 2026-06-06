@@ -686,6 +686,7 @@ struct FriendsView: View {
                     ownDisplayName: ownDisplayName
                 )
                 let friend = upsertCloudFriend(profile: result.profile, status: result.status)
+                friend.shareURL = result.incomingShareURL ?? friend.shareURL
                 if save() {
                     selectedFriend = result.status == .accepted ? friend : nil
                     cloudStatusText = result.status == .accepted
@@ -694,6 +695,9 @@ struct FriendsView: View {
                     friendSearchUserID = ""
                 }
                 if result.status == .accepted {
+                    if let shareURL = incomingShareURL(for: friend) {
+                        try await refreshIncomingShare(for: friend, shareURL: shareURL)
+                    }
                     _ = try await publishOutgoingShare(to: friend, consentStatus: .accepted)
                 }
                 await MainActor.run {
