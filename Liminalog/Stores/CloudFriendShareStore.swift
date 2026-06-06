@@ -137,14 +137,19 @@ final class CloudFriendShareStore {
 
         if let existing = try? await fetchRecord(rootID, from: privateDatabase) {
             Self.apply(snapshot, to: existing)
-            let saved = try await save([existing], to: privateDatabase, savePolicy: .changedKeys)
+            let share = try await fetchShare(for: existing)
+            try await ensureShareTargets(
+                share,
+                targetUserRecordName: snapshot.targetUserRecordName
+            )
+            let saved = try await save([existing, share], to: privateDatabase, savePolicy: .changedKeys)
             let root = try savedRecord(for: existing.recordID, in: saved)
-            let share = try await fetchShare(for: root)
+            let savedShare = try savedRecord(for: share.recordID, in: saved) as? CKShare
             return CloudFriendShareUpsertResult(
                 snapshot: try Self.snapshot(from: root),
-                shareURL: share.url,
+                shareURL: savedShare?.url ?? share.url,
                 rootRecordName: root.recordID.recordName,
-                shareRecordName: share.recordID.recordName
+                shareRecordName: savedShare?.recordID.recordName ?? share.recordID.recordName
             )
         }
 
@@ -333,6 +338,33 @@ final class CloudFriendShareStore {
             throw CloudFriendShareError.missingShareURL
         }
         return share
+    }
+
+    private func ensureShareTargets(_ share: CKShare, targetUserRecordName: String) async throws {
+        share.publicPermission = .none
+        let participantStates = share.participants.map {
+            CloudFriendShareParticipantPolicy.ParticipantState(
+                userRecordName: $0.userIdentity.userRecordID?.recordName,
+                isReadOnly: $0.permission == .readOnly
+            )
+        }
+
+        if !CloudFriendShareParticipantPolicy.needsReadOnlyTargetParticipant(
+            targetUserRecordName: targetUserRecordName,
+            participants: participantStates
+        ) {
+            return
+        }
+
+        if let existingTarget = share.participants.first(where: {
+            $0.userIdentity.userRecordID?.recordName == targetUserRecordName
+        }) {
+            existingTarget.permission = .readOnly
+            return
+        }
+        let participant = try await fetchShareParticipant(userRecordName: targetUserRecordName)
+        participant.permission = .readOnly
+        share.addParticipant(participant)
     }
 
     private func save(
