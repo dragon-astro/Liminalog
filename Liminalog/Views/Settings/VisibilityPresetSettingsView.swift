@@ -224,6 +224,7 @@ private struct VisibilityPresetEditView: View {
     private func save() {
         do {
             try modelContext.save()
+            CloudFriendShareRefreshCoordinator.requestRefresh(reason: "visibility preset changed")
         } catch {
             NSLog("Liminalog: failed to save visibility preset setting: \(String(describing: error))")
         }
@@ -238,6 +239,7 @@ private struct VisibilityPresetEditView: View {
         modelContext.delete(preset)
         do {
             try modelContext.save()
+            CloudFriendShareRefreshCoordinator.requestRefresh(reason: "visibility preset deleted")
             dismiss()
         } catch {
             saveError = "プリセットを削除できませんでした。時間をおいてもう一度試してください。"
@@ -348,6 +350,7 @@ private struct VisibilityPresetCreateSheet: View {
         modelContext.insert(preset)
         do {
             try modelContext.save()
+            CloudFriendShareRefreshCoordinator.requestRefresh(reason: "visibility preset created")
             dismiss()
         } catch {
             saveError = "プリセットを追加できませんでした。時間をおいてもう一度試してください。"

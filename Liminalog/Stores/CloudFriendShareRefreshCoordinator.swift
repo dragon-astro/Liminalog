@@ -1,0 +1,200 @@
+import Foundation
+import SwiftData
+
+@MainActor
+final class CloudFriendShareRefreshCoordinator {
+    static let refreshRequested = Notification.Name("LiminalogCloudFriendShareRefreshRequested")
+
+    private let modelContainer: ModelContainer
+    private let cloudShareStore: CloudFriendShareStore
+    private let cloudSocialStore: CloudKitSocialStore
+    private var pendingTask: Task<Void, Never>?
+
+    init(
+        modelContainer: ModelContainer,
+        cloudShareStore: CloudFriendShareStore = CloudFriendShareStore(),
+        cloudSocialStore: CloudKitSocialStore = CloudKitSocialStore()
+    ) {
+        self.modelContainer = modelContainer
+        self.cloudShareStore = cloudShareStore
+        self.cloudSocialStore = cloudSocialStore
+    }
+
+    static func requestRefresh(reason: String) {
+        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
+        NotificationCenter.default.post(
+            name: refreshRequested,
+            object: nil,
+            userInfo: ["reason": reason]
+        )
+    }
+
+    func scheduleRefresh(reason: String) {
+        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
+        pendingTask?.cancel()
+        pendingTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            guard !Task.isCancelled else { return }
+            await self?.publishAcceptedFriendShares(reason: reason)
+        }
+    }
+
+    func publishAcceptedFriendShares(reason: String) async {
+        do {
+            let context = modelContainer.mainContext
+            guard let settings = try context.fetch(FetchDescriptor<UserSettings>(
+                sortBy: [SortDescriptor(\.createdAt)]
+            )).first else { return }
+            let ownUsername = settings.cloudUsernameNormalized
+            guard !ownUsername.isEmpty else { return }
+            let ownDisplayName = publicDisplayName(settings.profileDisplayName)
+
+            let friends = try context.fetch(FetchDescriptor<Friend>(
+                sortBy: [SortDescriptor(\.displayName)]
+            ))
+            let acceptedFriends = friends.filter { $0.status == .accepted && !$0.userRecordID.isEmpty }
+            guard !acceptedFriends.isEmpty else { return }
+
+            let visibilityPresets = try context.fetch(FetchDescriptor<VisibilityPreset>(
+                sortBy: [SortDescriptor(\.sortOrder)]
+            ))
+            let chapters = try context.fetch(FetchDescriptor<Chapter>(
+                sortBy: [SortDescriptor(\.startTime)]
+            ))
+            let planBlocks = try context.fetch(FetchDescriptor<PlanBlock>(
+                sortBy: [SortDescriptor(\.startTime)]
+            ))
+            let now = Date()
+            let acceptedFriendIDs = Set(acceptedFriends.map(\.id))
+
+            for friend in acceptedFriends {
+                let snapshot = outgoingShareSnapshot(
+                    for: friend,
+                    ownUsername: ownUsername,
+                    ownDisplayName: ownDisplayName,
+                    friends: acceptedFriends,
+                    acceptedFriendIDs: acceptedFriendIDs,
+                    visibilityPresets: visibilityPresets,
+                    chapters: chapters,
+                    planBlocks: planBlocks,
+                    modelContext: context,
+                    now: now
+                )
+                let result = try await cloudShareStore.upsertOutgoingShare(snapshot: snapshot)
+                if let shareURL = result.shareURL {
+                    _ = try await cloudSocialStore.updateOwnConsentShareURL(
+                        targetUserRecordName: friend.userRecordID,
+                        ownUsername: ownUsername,
+                        targetUsername: cloudUsername(from: friend),
+                        ownDisplayName: ownDisplayName,
+                        shareURL: shareURL,
+                        status: .accepted
+                    )
+                }
+            }
+        } catch {
+            NSLog("Liminalog: failed to publish friend shares on \(reason): \(String(describing: error))")
+        }
+    }
+
+    private func outgoingShareSnapshot(
+        for friend: Friend,
+        ownUsername: String,
+        ownDisplayName: String,
+        friends: [Friend],
+        acceptedFriendIDs: Set<UUID>,
+        visibilityPresets: [VisibilityPreset],
+        chapters: [Chapter],
+        planBlocks: [PlanBlock],
+        modelContext: ModelContext,
+        now: Date
+    ) -> CloudFriendShareSnapshot {
+        let preset = visibilityPreset(for: friend, in: visibilityPresets)
+        let canPublishScores = preset?.publishMode != PublishMode.none && preset?.level != VisibilityLevel.none
+        let activeChapters = chapters.filter { $0.endTime == nil }
+        let visiblePlans = FriendSharedPlanSnapshot.snapshots(
+            from: planBlocks,
+            visibilityPreset: preset,
+            recipientFriendID: friend.id,
+            acceptedFriendIDs: acceptedFriendIDs,
+            now: now
+        )
+        let visibleActivities = FriendSharedActivitySnapshot.snapshots(
+            from: chapters,
+            now: now,
+            visibilityPreset: preset,
+            recipientFriendID: friend.id,
+            acceptedFriendIDs: acceptedFriendIDs
+        )
+        let visibleActiveActivity = FriendSharedActivitySnapshot.snapshots(
+            from: activeChapters,
+            now: now,
+            visibilityPreset: preset,
+            recipientFriendID: friend.id,
+            acceptedFriendIDs: acceptedFriendIDs
+        ).first
+
+        return CloudFriendShareSnapshot(
+            ownerUsername: ownUsername,
+            ownerDisplayName: ownDisplayName,
+            targetUserRecordName: friend.userRecordID,
+            currentStatusTitle: visibleActiveActivity?.title ?? "",
+            currentStatusIcon: visibleActiveActivity?.categoryIconName ?? "circle.dashed",
+            currentStatusColorHex: visibleActiveActivity?.categoryColorHex ?? "#8E8E93",
+            currentMoodText: visibleActiveActivity?.mood ?? "",
+            currentStatusStartedAt: visibleActiveActivity?.startTime,
+            todayScore: canPublishScores ? selfScore(for: .today, modelContext: modelContext, now: now) : 0,
+            yesterdayScore: canPublishScores ? selfScore(for: .yesterday, modelContext: modelContext, now: now) : 0,
+            weekScore: canPublishScores ? selfScore(for: .week, modelContext: modelContext, now: now) : 0,
+            monthScore: canPublishScores ? selfScore(for: .month, modelContext: modelContext, now: now) : 0,
+            yearScore: canPublishScores ? selfScore(for: .year, modelContext: modelContext, now: now) : 0,
+            streakCount: 0,
+            sharedPlans: visiblePlans,
+            sharedActivities: visibleActivities,
+            updatedAt: now
+        )
+    }
+
+    private func selfScore(for period: FriendScorePeriod, modelContext: ModelContext, now: Date) -> Double {
+        switch period {
+        case .day, .today:
+            return ScoreSnapshotLoader.summary(on: now, modelContext: modelContext, now: now).totalScore
+        case .yesterday:
+            guard let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: now) else { return 0 }
+            return ScoreSnapshotLoader.summary(on: yesterday, modelContext: modelContext, now: now).totalScore
+        case .week:
+            return averageSelfScore(in: dateInterval(.weekOfYear, containing: now), modelContext: modelContext, now: now)
+        case .month:
+            return averageSelfScore(in: dateInterval(.month, containing: now), modelContext: modelContext, now: now)
+        case .year:
+            return averageSelfScore(in: dateInterval(.year, containing: now), modelContext: modelContext, now: now)
+        }
+    }
+
+    private func averageSelfScore(in interval: DateInterval, modelContext: ModelContext, now: Date) -> Double {
+        ScoreSnapshotLoader.averageScore(in: interval, modelContext: modelContext, now: now)
+    }
+
+    private func dateInterval(_ component: Calendar.Component, containing date: Date) -> DateInterval {
+        let boundary = DayBoundary(date: date, calendar: .japanese)
+        return Calendar.japanese.dateInterval(of: component, for: date) ?? DateInterval(start: boundary.dayStart, end: boundary.dayEnd)
+    }
+
+    private func visibilityPreset(for friend: Friend, in presets: [VisibilityPreset]) -> VisibilityPreset? {
+        guard let id = friend.visibilityPresetID else { return nil }
+        return presets.first { $0.id == id }
+    }
+
+    private func cloudUsername(from friend: Friend) -> String {
+        let handle = friend.handle.trimmingCharacters(in: .whitespacesAndNewlines)
+        let rawUsername = handle.hasPrefix("@") ? String(handle.dropFirst()) : handle
+        return UserIDNormalizer.normalizedValue(rawUsername)
+            ?? UserIDNormalizer.normalizedValue(friend.inviteCode)
+            ?? friend.userRecordID
+    }
+
+    private func publicDisplayName(_ rawDisplayName: String) -> String {
+        let trimmed = rawDisplayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "Liminalogユーザー" : trimmed
+    }
+}

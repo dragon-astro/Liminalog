@@ -49,6 +49,7 @@ final class ChapterStore {
         if reloadWidgets && ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil {
             WidgetCenter.shared.reloadAllTimelines()
         }
+        CloudFriendShareRefreshCoordinator.requestRefresh(reason: "chapter store changed")
     }
 
     private func reloadRecordingGridWidget() {
