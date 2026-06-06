@@ -45,7 +45,38 @@ struct CloudFriendConsentPolicyTests {
     @Test
     func acceptingRequestDoesNotOverrideOwnBlock() {
         expectRequestBlocked {
-            try CloudFriendConsentPolicy.validateAcceptingRequest(existingOwnStatus: .blocked)
+            try CloudFriendConsentPolicy.validateAcceptingRequest(
+                existingOwnStatus: .blocked,
+                incomingRequestStatus: .requested
+            )
+        }
+    }
+
+    @Test
+    func acceptingRequestAllowsIncomingRequest() throws {
+        try CloudFriendConsentPolicy.validateAcceptingRequest(
+            existingOwnStatus: nil,
+            incomingRequestStatus: .requested
+        )
+    }
+
+    @Test
+    func acceptingRequestRequiresIncomingRequest() {
+        expectRequestNotFound {
+            try CloudFriendConsentPolicy.validateAcceptingRequest(
+                existingOwnStatus: nil,
+                incomingRequestStatus: nil
+            )
+        }
+    }
+
+    @Test
+    func acceptingRequestDoesNotAcceptIncomingBlock() {
+        expectRequestBlocked {
+            try CloudFriendConsentPolicy.validateAcceptingRequest(
+                existingOwnStatus: nil,
+                incomingRequestStatus: .blocked
+            )
         }
     }
 
@@ -57,6 +88,17 @@ struct CloudFriendConsentPolicyTests {
             return
         } catch {
             Issue.record("Expected requestBlocked error, got \(error)")
+        }
+    }
+
+    private func expectRequestNotFound(_ body: () throws -> Void) {
+        do {
+            try body()
+            Issue.record("Expected requestNotFound error")
+        } catch CloudKitSocialError.requestNotFound {
+            return
+        } catch {
+            Issue.record("Expected requestNotFound error, got \(error)")
         }
     }
 }

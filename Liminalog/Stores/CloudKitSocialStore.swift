@@ -38,6 +38,7 @@ enum CloudKitSocialError: LocalizedError {
     case ownProfileMissing
     case cannotRequestSelf
     case requestBlocked
+    case requestNotFound
     case missingRecordField(String)
 
     var errorDescription: String? {
@@ -56,6 +57,8 @@ enum CloudKitSocialError: LocalizedError {
             return "自分自身は追加できません。"
         case .requestBlocked:
             return "ブロック中の相手とは友達申請できません。"
+        case .requestNotFound:
+            return "友達申請が見つかりませんでした。"
         case let .missingRecordField(field):
             return "CloudKitレコードの\(field)が不足しています。"
         }
@@ -143,8 +146,14 @@ final class CloudKitSocialStore {
             throw CloudKitSocialError.cannotRequestSelf
         }
 
-        let existingOwnConsent = try? await fetchConsent(ownerUserRecordName: ownRecordName, targetUserRecordName: target.ownerUserRecordName)
-        let reciprocalConsent = try? await fetchConsent(ownerUserRecordName: target.ownerUserRecordName, targetUserRecordName: ownRecordName)
+        let existingOwnConsent = try await fetchConsentIfExists(
+            ownerUserRecordName: ownRecordName,
+            targetUserRecordName: target.ownerUserRecordName
+        )
+        let reciprocalConsent = try await fetchConsentIfExists(
+            ownerUserRecordName: target.ownerUserRecordName,
+            targetUserRecordName: ownRecordName
+        )
         let status = try CloudFriendConsentPolicy.statusForOutgoingRequest(
             existingOwnStatus: existingOwnConsent?.status,
             reciprocalStatus: reciprocalConsent?.status
@@ -172,11 +181,18 @@ final class CloudKitSocialStore {
         ownDisplayName: String
     ) async throws {
         let ownRecordName = try await currentUserRecordName()
-        let existingOwnConsent = try? await fetchConsent(
+        let existingOwnConsent = try await fetchConsentIfExists(
             ownerUserRecordName: ownRecordName,
             targetUserRecordName: requesterUserRecordName
         )
-        try CloudFriendConsentPolicy.validateAcceptingRequest(existingOwnStatus: existingOwnConsent?.status)
+        let incomingConsent = try await fetchConsentIfExists(
+            ownerUserRecordName: requesterUserRecordName,
+            targetUserRecordName: ownRecordName
+        )
+        try CloudFriendConsentPolicy.validateAcceptingRequest(
+            existingOwnStatus: existingOwnConsent?.status,
+            incomingRequestStatus: incomingConsent?.status
+        )
         _ = try await saveConsent(
             ownerUserRecordName: ownRecordName,
             targetUserRecordName: requesterUserRecordName,
@@ -323,6 +339,19 @@ final class CloudKitSocialStore {
             targetUserRecordName: targetUserRecordName
         )
         return try Self.consent(from: try await fetchRecord(recordID))
+    }
+
+    private func fetchConsentIfExists(ownerUserRecordName: String, targetUserRecordName: String) async throws -> CloudFriendConsent? {
+        do {
+            return try await fetchConsent(
+                ownerUserRecordName: ownerUserRecordName,
+                targetUserRecordName: targetUserRecordName
+            )
+        } catch let error as CKError where error.code == .unknownItem {
+            return nil
+        } catch CloudKitSocialError.profileNotFound {
+            return nil
+        }
     }
 
     private func fetchCurrentUserRecordID() async throws -> CKRecord.ID {

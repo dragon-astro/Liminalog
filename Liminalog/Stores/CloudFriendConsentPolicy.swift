@@ -14,9 +14,15 @@ enum CloudFriendConsentPolicy {
         return .accepted
     }
 
-    static func validateAcceptingRequest(existingOwnStatus: CloudFriendConsent.Status?) throws {
-        if existingOwnStatus == .blocked {
+    static func validateAcceptingRequest(
+        existingOwnStatus: CloudFriendConsent.Status?,
+        incomingRequestStatus: CloudFriendConsent.Status?
+    ) throws {
+        if existingOwnStatus == .blocked || incomingRequestStatus == .blocked {
             throw CloudKitSocialError.requestBlocked
+        }
+        guard incomingRequestStatus != nil else {
+            throw CloudKitSocialError.requestNotFound
         }
     }
 }
