@@ -2290,122 +2290,29 @@ private struct FriendRankingListSheet: View {
 }
 
 private struct FriendRankingPeriodPickerSheet: View {
-    @Environment(\.dismiss) private var dismiss
     let period: FriendScorePeriod
     @Binding var anchorDate: Date
-    @State private var selectedDate: Date
-    @State private var selectedYear: Int
-    @State private var selectedMonth: Int
-
-    private let calendar = Calendar.japanese
-
-    init(period: FriendScorePeriod, anchorDate: Binding<Date>) {
-        let date = anchorDate.wrappedValue
-        let calendar = Calendar.japanese
-        self.period = period
-        self._anchorDate = anchorDate
-        self._selectedDate = State(initialValue: date)
-        self._selectedYear = State(initialValue: calendar.component(.year, from: date))
-        self._selectedMonth = State(initialValue: calendar.component(.month, from: date))
-    }
 
     var body: some View {
-        NavigationStack {
-            pickerContent
-                .padding(.horizontal, 12)
-                .navigationTitle(pickerTitle)
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("キャンセル") {
-                            dismiss()
-                        }
-                    }
-
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button("完了") {
-                            applySelection()
-                            dismiss()
-                        }
-                    }
-                }
-        }
-        .presentationDetents([.height(300)])
+        PeriodRangeSelectionSheet(
+            title: "期間を選択",
+            granularity: period.rangePickerGranularity,
+            anchorDate: $anchorDate
+        )
     }
+}
 
-    @ViewBuilder
-    private var pickerContent: some View {
-        switch period {
-        case .day, .week:
-            DatePicker(
-                "",
-                selection: $selectedDate,
-                displayedComponents: .date
-            )
-            .datePickerStyle(.wheel)
-            .labelsHidden()
-        case .month:
-            HStack(spacing: 0) {
-                yearPicker
-                monthPicker
-            }
-        case .year:
-            yearPicker
-        case .today, .yesterday:
-            EmptyView()
-        }
-    }
-
-    private var yearPicker: some View {
-        Picker("年", selection: $selectedYear) {
-            ForEach(Array(yearRange), id: \.self) { year in
-                Text(verbatim: "\(year)年").tag(year)
-            }
-        }
-        .pickerStyle(.wheel)
-        .frame(maxWidth: .infinity)
-    }
-
-    private var monthPicker: some View {
-        Picker("月", selection: $selectedMonth) {
-            ForEach(1...12, id: \.self) { month in
-                Text("\(month)月").tag(month)
-            }
-        }
-        .pickerStyle(.wheel)
-        .frame(maxWidth: .infinity)
-    }
-
-    private var yearRange: ClosedRange<Int> {
-        let currentYear = calendar.component(.year, from: Date())
-        return (currentYear - 5)...(currentYear + 1)
-    }
-
-    private var pickerTitle: String {
-        switch period {
-        case .day:
-            "日付を選択"
+private extension FriendScorePeriod {
+    var rangePickerGranularity: PeriodRangeGranularity {
+        switch self {
+        case .day, .today, .yesterday:
+            .day
         case .week:
-            "週を選択"
+            .week
         case .month:
-            "年月を選択"
+            .month
         case .year:
-            "年を選択"
-        case .today, .yesterday:
-            "期間を選択"
-        }
-    }
-
-    private func applySelection() {
-        switch period {
-        case .day, .week:
-            anchorDate = selectedDate
-        case .month:
-            anchorDate = calendar.date(from: DateComponents(year: selectedYear, month: selectedMonth, day: 1)) ?? anchorDate
-        case .year:
-            anchorDate = calendar.date(from: DateComponents(year: selectedYear, month: 1, day: 1)) ?? anchorDate
-        case .today, .yesterday:
-            break
+            .year
         }
     }
 }
