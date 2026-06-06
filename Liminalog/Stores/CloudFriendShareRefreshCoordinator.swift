@@ -183,10 +183,13 @@ final class CloudFriendShareRefreshCoordinator {
             )).first else { return }
             guard !settings.cloudUserRecordName.isEmpty else { return }
 
-            let consents = try await cloudSocialStore.incomingConsents(
+            let incomingConsents = try await cloudSocialStore.incomingConsents(
                 forOwnUserRecordName: settings.cloudUserRecordName
             )
-            guard !consents.isEmpty else { return }
+            let outgoingConsents = try await cloudSocialStore.outgoingConsents(
+                forOwnUserRecordName: settings.cloudUserRecordName
+            )
+            guard !incomingConsents.isEmpty || !outgoingConsents.isEmpty else { return }
 
             let visibilityPresets = try context.fetch(FetchDescriptor<VisibilityPreset>(
                 sortBy: [SortDescriptor(\.sortOrder)]
@@ -197,19 +200,28 @@ final class CloudFriendShareRefreshCoordinator {
             var didChange = false
             var shouldPublishAcceptedShares = false
 
-            for consent in consents {
-                if consent.status == .blocked {
-                    guard let friend = friends.first(where: { $0.userRecordID == consent.ownerUserRecordName }) else {
-                        continue
-                    }
-                    friend.status = .blocked
+            for (consent, direction) in outgoingConsents.map({ ($0, CloudFriendConsentDirection.outgoing) })
+                + incomingConsents.map({ ($0, CloudFriendConsentDirection.incoming) }) {
+                let status = CloudFriendConsentRestorePolicy.friendStatus(
+                    consentStatus: consent.status,
+                    direction: direction
+                )
+                let friend = upsertFriend(
+                    from: consent,
+                    direction: direction,
+                    status: status,
+                    friends: &friends,
+                    visibilityPresets: visibilityPresets,
+                    modelContext: context
+                )
+                didChange = true
+
+                if status == .blocked {
                     friend.blockedAt = Date()
                     friend.shareURL = nil
                     CloudFriendShareSnapshotApplier.clearCachedShare(from: friend)
-                    friend.updatedAt = Date()
-                    didChange = true
                     try? await cloudShareStore.revokeOutgoingShare(targetUserRecordName: friend.userRecordID)
-                    if !settings.cloudUsernameNormalized.isEmpty {
+                    if direction == .incoming, !settings.cloudUsernameNormalized.isEmpty {
                         _ = try? await cloudSocialStore.blockOwnConsent(
                             targetUserRecordName: friend.userRecordID,
                             ownUsername: settings.cloudUsernameNormalized,
@@ -219,16 +231,6 @@ final class CloudFriendShareRefreshCoordinator {
                     }
                     continue
                 }
-
-                let status: FriendStatus = consent.status == .accepted ? .accepted : .pendingIncoming
-                let friend = upsertFriend(
-                    from: consent,
-                    status: status,
-                    friends: &friends,
-                    visibilityPresets: visibilityPresets,
-                    modelContext: context
-                )
-                didChange = true
 
                 if status == .accepted {
                     shouldPublishAcceptedShares = true
@@ -287,26 +289,40 @@ final class CloudFriendShareRefreshCoordinator {
 
     private func upsertFriend(
         from consent: CloudFriendConsent,
+        direction: CloudFriendConsentDirection,
         status: FriendStatus,
         friends: inout [Friend],
         visibilityPresets: [VisibilityPreset],
         modelContext: ModelContext
     ) -> Friend {
-        let existing = friends.first { $0.userRecordID == consent.ownerUserRecordName }
+        let friendUserRecordName = CloudFriendConsentRestorePolicy.friendUserRecordName(
+            from: consent,
+            direction: direction
+        )
+        let friendUsername = CloudFriendConsentRestorePolicy.friendUsername(
+            from: consent,
+            direction: direction
+        )
+        let existing = friends.first { $0.userRecordID == friendUserRecordName }
         let friend = existing ?? Friend(
-            displayName: consent.ownerDisplayName,
-            handle: "@\(consent.ownerUsername)",
+            displayName: CloudFriendConsentRestorePolicy.friendDisplayName(from: consent, direction: direction),
+            handle: "@\(friendUsername)",
             status: status
         )
         if existing == nil {
             modelContext.insert(friend)
             friends.append(friend)
         }
-        friend.userRecordID = consent.ownerUserRecordName
-        friend.displayName = consent.ownerDisplayName
-        friend.handle = "@\(consent.ownerUsername)"
-        friend.inviteCode = consent.ownerUsername.uppercased()
-        friend.shareURL = consent.shareURL ?? friend.shareURL
+        friend.userRecordID = friendUserRecordName
+        friend.displayName = existing == nil
+            ? CloudFriendConsentRestorePolicy.friendDisplayName(from: consent, direction: direction)
+            : friend.displayName
+        if direction == .incoming || friend.displayName.isEmpty {
+            friend.displayName = CloudFriendConsentRestorePolicy.friendDisplayName(from: consent, direction: direction)
+        }
+        friend.handle = "@\(friendUsername)"
+        friend.inviteCode = friendUsername.uppercased()
+        friend.shareURL = CloudFriendConsentRestorePolicy.incomingShareURL(from: consent, direction: direction) ?? friend.shareURL
         friend.status = status
         friend.updatedAt = Date()
         if status == .accepted {

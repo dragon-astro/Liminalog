@@ -261,6 +261,16 @@ final class CloudKitSocialStore {
         return try records.map(Self.consent(from:))
     }
 
+    func outgoingConsents(forOwnUserRecordName ownUserRecordName: String) async throws -> [CloudFriendConsent] {
+        let predicate = NSPredicate(
+            format: "%K == %@",
+            Field.ownerUserRecordName,
+            ownUserRecordName
+        )
+        let records = try await queryRecords(type: RecordType.consent, predicate: predicate, resultsLimit: 50)
+        return try records.map(Self.consent(from:))
+    }
+
     func ensureIncomingConsentSubscription(forOwnUserRecordName ownUserRecordName: String) async throws {
         let subscriptionID = "\(CloudKitFriendEventBridge.friendConsentSubscriptionPrefix)\(ownUserRecordName)"
         do {

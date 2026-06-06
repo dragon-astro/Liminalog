@@ -26,6 +26,7 @@ Private/shared database:
 
 - CloudKit container: `iCloud.app.YasudaRyuga.Liminalog`
 - `FriendConsent.targetUserRecordName` must be queryable because incoming requests and CloudKit subscriptions filter by it.
+- `FriendConsent.ownerUserRecordName` must be queryable because app reinstall/local data recovery restores outgoing requests and accepted relationships from it.
 - Deploy the development schema to production before TestFlight or App Store distribution.
 - Confirm silent push capability is active: `UIBackgroundModes` includes `remote-notification`, `aps-environment` is present in the signed app entitlements, and devices can register for remote notifications.
 - Confirm subscriptions are created for both public `FriendConsent` changes and shared database `FriendShareSnapshot` changes.
