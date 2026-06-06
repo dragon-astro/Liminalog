@@ -2,10 +2,26 @@ import CloudKit
 import UIKit
 
 enum CloudKitFriendEventBridge {
+    enum Event: Equatable {
+        case friendConsent
+        case friendShare
+    }
+
     static let friendConsentDidChange = Notification.Name("LiminalogCloudKitFriendConsentDidChange")
     static let friendShareDidChange = Notification.Name("LiminalogCloudKitFriendShareDidChange")
     static let friendConsentSubscriptionPrefix = "friend-consent:"
     static let friendShareSubscriptionID = "friend-share-updates"
+
+    static func event(forSubscriptionID subscriptionID: String?) -> Event? {
+        guard let subscriptionID else { return nil }
+        if subscriptionID.hasPrefix(friendConsentSubscriptionPrefix) {
+            return .friendConsent
+        }
+        if subscriptionID == friendShareSubscriptionID {
+            return .friendShare
+        }
+        return nil
+    }
 }
 
 final class LiminalogAppDelegate: NSObject, UIApplicationDelegate {
@@ -15,18 +31,14 @@ final class LiminalogAppDelegate: NSObject, UIApplicationDelegate {
         fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
     ) {
         let notification = CKNotification(fromRemoteNotificationDictionary: userInfo)
-        guard let subscriptionID = notification?.subscriptionID else {
-            completionHandler(.noData)
-            return
-        }
-
-        if subscriptionID.hasPrefix(CloudKitFriendEventBridge.friendConsentSubscriptionPrefix) {
+        switch CloudKitFriendEventBridge.event(forSubscriptionID: notification?.subscriptionID) {
+        case .friendConsent:
             NotificationCenter.default.post(name: CloudKitFriendEventBridge.friendConsentDidChange, object: nil)
             completionHandler(.newData)
-        } else if subscriptionID == CloudKitFriendEventBridge.friendShareSubscriptionID {
+        case .friendShare:
             NotificationCenter.default.post(name: CloudKitFriendEventBridge.friendShareDidChange, object: nil)
             completionHandler(.newData)
-        } else {
+        case nil:
             completionHandler(.noData)
         }
     }
