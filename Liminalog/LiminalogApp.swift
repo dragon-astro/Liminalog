@@ -28,6 +28,9 @@ struct LiminalogApp: App {
                 .onReceive(NotificationCenter.default.publisher(for: CloudKitFriendEventBridge.friendShareDidChange)) { _ in
                     cloudFriendShareRefreshCoordinator?.scheduleIncomingRefresh(reason: "friend share push")
                 }
+                .onReceive(NotificationCenter.default.publisher(for: CloudKitFriendEventBridge.friendConsentDidChange)) { _ in
+                    cloudFriendShareRefreshCoordinator?.scheduleConsentRefresh(reason: "friend consent push")
+                }
         }
         .modelContainer(modelContainer)
     }
