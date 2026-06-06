@@ -649,19 +649,15 @@ private struct RecordingGridView: View {
     }
 
     private var contentHorizontalPadding: CGFloat {
-        family == .systemSmall ? 10 : 14
+        family == .systemSmall ? 10 : 12
     }
 
     private var contentTopPadding: CGFloat {
-        family == .systemSmall ? 14 : 18
+        family == .systemSmall ? 8 : 10
     }
 
     private var contentBottomPadding: CGFloat {
-        family == .systemSmall ? 8 : 12
-    }
-
-    private var contentSpacing: CGFloat {
-        family == .systemSmall ? 4 : 6
+        family == .systemSmall ? 8 : 10
     }
 
     private var optimisticCategoryID: UUID? {
@@ -675,9 +671,7 @@ private struct RecordingGridView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: contentSpacing) {
-            header
-
+        VStack(alignment: .leading, spacing: 0) {
             if let message = entry.message {
                 emptyState(message)
             } else {
@@ -700,6 +694,7 @@ private struct RecordingGridView: View {
                         }
                     }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
             }
         }
         .padding(.horizontal, contentHorizontalPadding)
@@ -707,21 +702,6 @@ private struct RecordingGridView: View {
         .padding(.bottom, contentBottomPadding)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .containerBackground(.background, for: .widget)
-    }
-
-    private var header: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "square.grid.2x2")
-                .font((family == .systemSmall ? Font.caption2 : Font.caption).weight(.bold))
-                .foregroundStyle(.secondary)
-
-            Text(entry.categorySetName)
-                .font((family == .systemSmall ? Font.caption2 : Font.caption).weight(.semibold))
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-
-            Spacer(minLength: 0)
-        }
     }
 
     private func emptyState(_ message: String) -> some View {
@@ -779,11 +759,11 @@ private struct RecordingGridCell: View {
     let isCompact: Bool
 
     private var iconSize: CGFloat {
-        isCompact ? 26 : 34
+        isCompact ? 26 : 32
     }
 
     private var activeRingSize: CGFloat {
-        isCompact ? 31 : 40
+        isCompact ? 31 : 38
     }
 
     var body: some View {
@@ -811,7 +791,7 @@ private struct RecordingGridCell: View {
                 .minimumScaleFactor(0.6)
         }
         .frame(maxWidth: .infinity)
-        .frame(height: isCompact ? 48 : 62)
+        .frame(height: isCompact ? 48 : 60)
         .background(
             RoundedRectangle(cornerRadius: 10)
                 .fill(isActive ? Color.cachedHex(category.colorHex).opacity(0.12) : Color.secondary.opacity(0.08))
@@ -853,7 +833,7 @@ private struct RecordingGridEmptyCell: View {
                 .font(.system(size: isCompact ? 9 : 11))
         }
         .frame(maxWidth: .infinity)
-        .frame(height: isCompact ? 48 : 62)
+        .frame(height: isCompact ? 48 : 60)
         .background(
             RoundedRectangle(cornerRadius: 10)
                 .fill(Color.secondary.opacity(0.05))
