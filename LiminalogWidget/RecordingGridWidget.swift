@@ -580,27 +580,15 @@ struct RecordingGridEntry: TimelineEntry {
 
 struct RecordingGridProvider: TimelineProvider {
     func placeholder(in context: Context) -> RecordingGridEntry {
-        RecordingGridEntry(
-            date: Date(),
-            categorySetID: nil,
-            categorySetName: "いつものセット",
-            cells: [
-                WidgetCategory(id: UUID(), name: "勉強", colorHex: "#3478F6", icon: "book.fill"),
-                WidgetCategory(id: UUID(), name: "作業", colorHex: "#30B0C7", icon: "desktopcomputer"),
-                WidgetCategory(id: UUID(), name: "休憩", colorHex: "#34C759", icon: "cup.and.saucer.fill"),
-                WidgetCategory(id: UUID(), name: "移動", colorHex: "#FF9F0A", icon: "tram.fill"),
-                WidgetCategory(id: UUID(), name: "運動", colorHex: "#FF375F", icon: "figure.run"),
-                WidgetCategory(id: UUID(), name: "趣味", colorHex: "#BF5AF2", icon: "sparkles"),
-                nil,
-                nil
-            ],
-            activeCategoryID: nil,
-            message: nil
-        )
+        Self.previewEntry()
     }
 
     func getSnapshot(in context: Context, completion: @escaping (RecordingGridEntry) -> Void) {
-        completion(RecordingWidgetStore.entry())
+        if context.isPreview {
+            completion(Self.previewEntry())
+        } else {
+            completion(RecordingWidgetStore.entry())
+        }
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<RecordingGridEntry>) -> Void) {
@@ -608,6 +596,36 @@ struct RecordingGridProvider: TimelineProvider {
             entries: [RecordingWidgetStore.entry()],
             policy: .after(Date().addingTimeInterval(60))
         ))
+    }
+
+    private static func previewEntry() -> RecordingGridEntry {
+        RecordingGridEntry(
+            date: Date(),
+            categorySetID: nil,
+            categorySetName: "いつものセット",
+            cells: [
+                previewCategory(1, name: "勉強", colorHex: "#3478F6", icon: "book.fill"),
+                previewCategory(2, name: "作業", colorHex: "#30B0C7", icon: "desktopcomputer"),
+                previewCategory(3, name: "休憩", colorHex: "#34C759", icon: "cup.and.saucer.fill"),
+                previewCategory(4, name: "移動", colorHex: "#FF9F0A", icon: "tram.fill"),
+                previewCategory(5, name: "運動", colorHex: "#FF375F", icon: "figure.run"),
+                previewCategory(6, name: "家事", colorHex: "#FFD60A", icon: "house.fill"),
+                previewCategory(7, name: "趣味", colorHex: "#BF5AF2", icon: "sparkles"),
+                previewCategory(8, name: "睡眠", colorHex: "#5E5CE6", icon: "moon.fill")
+            ],
+            activeCategoryID: nil,
+            message: nil
+        )
+    }
+
+    private static func previewCategory(
+        _ index: Int,
+        name: String,
+        colorHex: String,
+        icon: String
+    ) -> WidgetCategory {
+        let id = UUID(uuidString: String(format: "00000000-0000-0000-0000-00000000010%d", index))!
+        return WidgetCategory(id: id, name: name, colorHex: colorHex, icon: icon)
     }
 }
 
@@ -622,7 +640,7 @@ struct RecordingGridWidget: Widget {
             RecordingGridView(entry: entry)
         }
         .configurationDisplayName("記録グリッド")
-        .description("現在のテーブルからカテゴリをタップして記録を切り替えます。")
+        .description("カテゴリをタップして記録を切り替えます。")
         .supportedFamilies([.systemSmall, .systemMedium])
     }
 }
