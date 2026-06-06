@@ -9,6 +9,8 @@ struct FriendsView: View {
     @Query(sort: \UserSettings.createdAt) private var settingsList: [UserSettings]
     @Query(sort: \VisibilityPreset.sortOrder) private var visibilityPresets: [VisibilityPreset]
     @Query private var activeChapters: [Chapter]
+    @Query(sort: \Chapter.startTime) private var chapters: [Chapter]
+    @Query(sort: \PlanBlock.startTime) private var planBlocks: [PlanBlock]
 
     @State private var clock = TickClock(interval: 60)
     @State private var rankingDetailPeriod: FriendScorePeriod = .day
@@ -29,6 +31,7 @@ struct FriendsView: View {
     @State private var didLoadIncomingCloudRequests = false
 
     private let cloudSocialStore = CloudKitSocialStore()
+    private let cloudShareStore = CloudFriendShareStore()
 
     init(pendingInviteURL: Binding<URL?> = .constant(nil)) {
         self._pendingInviteURL = pendingInviteURL
@@ -583,6 +586,12 @@ struct FriendsView: View {
                 )
                 await MainActor.run {
                     acceptLocally(friend)
+                }
+                if let shareURL = incomingShareURL(for: friend) {
+                    try await refreshIncomingShare(for: friend, shareURL: shareURL)
+                }
+                _ = try await publishOutgoingShare(to: friend, consentStatus: .accepted)
+                await MainActor.run {
                     cloudStatusText = "@\(requesterUsername) と友達になりました。"
                 }
             } catch {
@@ -661,15 +670,19 @@ struct FriendsView: View {
                     fromOwnUsername: ownUsername,
                     ownDisplayName: ownDisplayName
                 )
+                let friend = upsertCloudFriend(profile: result.profile, status: result.status)
+                if save() {
+                    selectedFriend = result.status == .accepted ? friend : nil
+                    cloudStatusText = result.status == .accepted
+                        ? "@\(result.profile.username) と友達になりました。"
+                        : "@\(result.profile.username) に申請しました。"
+                    friendSearchUserID = ""
+                }
+                _ = try await publishOutgoingShare(
+                    to: friend,
+                    consentStatus: result.status == .accepted ? .accepted : .requested
+                )
                 await MainActor.run {
-                    let friend = upsertCloudFriend(profile: result.profile, status: result.status)
-                    if save() {
-                        selectedFriend = result.status == .accepted ? friend : nil
-                        cloudStatusText = result.status == .accepted
-                            ? "@\(result.profile.username) と友達になりました。"
-                            : "@\(result.profile.username) に申請しました。"
-                        friendSearchUserID = ""
-                    }
                     isSendingCloudFriendRequest = false
                 }
             } catch {
@@ -697,10 +710,17 @@ struct FriendsView: View {
 
         Task {
             do {
-                let requests = try await cloudSocialStore.incomingRequests(forOwnUserRecordName: ownUserRecordName)
+                let requests = try await cloudSocialStore.incomingConsents(forOwnUserRecordName: ownUserRecordName)
                 await MainActor.run {
                     for request in requests {
-                        upsertCloudFriend(consent: request, status: .pendingIncoming)
+                        let status: FriendStatus = request.status == .accepted ? .accepted : .pendingIncoming
+                        let friend = upsertCloudFriend(consent: request, status: status)
+                        if request.status == .accepted, let shareURL = incomingShareURL(for: friend) {
+                            Task {
+                                try? await refreshIncomingShare(for: friend, shareURL: shareURL)
+                                _ = try? await publishOutgoingShare(to: friend, consentStatus: .accepted)
+                            }
+                        }
                     }
                     if save() {
                         didLoadIncomingCloudRequests = true
@@ -758,12 +778,131 @@ struct FriendsView: View {
         friend.displayName = consent.ownerDisplayName
         friend.handle = "@\(consent.ownerUsername)"
         friend.inviteCode = consent.ownerUsername.uppercased()
+        friend.shareURL = consent.shareURL ?? friend.shareURL
         friend.status = status
         friend.updatedAt = Date()
+        if status == .accepted {
+            friend.acceptedAt = friend.acceptedAt ?? Date()
+            friend.lastSeenAt = Date()
+        }
         if friend.visibilityPresetID == nil {
             friend.visibilityPresetID = defaultVisibilityPresetID
         }
         return friend
+    }
+
+    private func publishOutgoingShare(
+        to friend: Friend,
+        consentStatus: CloudFriendConsent.Status
+    ) async throws -> URL? {
+        guard let ownUsername = settings?.cloudUsernameNormalized, !ownUsername.isEmpty else {
+            throw CloudKitSocialError.ownProfileMissing
+        }
+        let targetUsername = cloudUsername(from: friend)
+        let snapshot = outgoingShareSnapshot(for: friend, ownUsername: ownUsername)
+        let result = try await cloudShareStore.upsertOutgoingShare(snapshot: snapshot)
+        if let shareURL = result.shareURL {
+            _ = try await cloudSocialStore.updateOwnConsentShareURL(
+                targetUserRecordName: friend.userRecordID,
+                ownUsername: ownUsername,
+                targetUsername: targetUsername,
+                ownDisplayName: ownDisplayName,
+                shareURL: shareURL,
+                status: consentStatus
+            )
+            return shareURL
+        }
+        return nil
+    }
+
+    private func refreshIncomingShare(for friend: Friend, shareURL: URL) async throws {
+        let snapshot = try await cloudShareStore.acceptIncomingShare(url: shareURL)
+        await MainActor.run {
+            applyIncomingShare(snapshot, to: friend)
+            save()
+        }
+    }
+
+    private func outgoingShareSnapshot(for friend: Friend, ownUsername: String) -> CloudFriendShareSnapshot {
+        let now = clock.now
+        let preset = visibilityPreset(for: friend)
+        let canPublishScores = preset?.publishMode != PublishMode.none && preset?.level != VisibilityLevel.none
+        var acceptedFriendIDs = Set(acceptedFriends.map(\.id))
+        if friend.status == .accepted {
+            acceptedFriendIDs.insert(friend.id)
+        }
+        let visiblePlans = FriendSharedPlanSnapshot.snapshots(
+            from: planBlocks,
+            visibilityPreset: preset,
+            recipientFriendID: friend.id,
+            acceptedFriendIDs: acceptedFriendIDs,
+            now: now
+        )
+        let visibleActivities = FriendSharedActivitySnapshot.snapshots(
+            from: chapters,
+            now: now,
+            visibilityPreset: preset,
+            recipientFriendID: friend.id,
+            acceptedFriendIDs: acceptedFriendIDs
+        )
+        let visibleActiveActivity = FriendSharedActivitySnapshot.snapshots(
+            from: activeChapters,
+            now: now,
+            visibilityPreset: preset,
+            recipientFriendID: friend.id,
+            acceptedFriendIDs: acceptedFriendIDs
+        ).first
+
+        return CloudFriendShareSnapshot(
+            ownerUsername: ownUsername,
+            ownerDisplayName: ownDisplayName,
+            targetUserRecordName: friend.userRecordID,
+            currentStatusTitle: visibleActiveActivity?.title ?? "",
+            currentStatusIcon: visibleActiveActivity?.categoryIconName ?? "circle.dashed",
+            currentStatusColorHex: visibleActiveActivity?.categoryColorHex ?? "#8E8E93",
+            currentMoodText: visibleActiveActivity?.mood ?? "",
+            currentStatusStartedAt: visibleActiveActivity?.startTime,
+            todayScore: canPublishScores ? selfScore(for: .today, anchorDate: nil) : 0,
+            yesterdayScore: canPublishScores ? selfScore(for: .yesterday, anchorDate: nil) : 0,
+            weekScore: canPublishScores ? selfScore(for: .week, anchorDate: now) : 0,
+            monthScore: canPublishScores ? selfScore(for: .month, anchorDate: now) : 0,
+            yearScore: canPublishScores ? selfScore(for: .year, anchorDate: now) : 0,
+            streakCount: 0,
+            sharedPlans: visiblePlans,
+            sharedActivities: visibleActivities,
+            updatedAt: now
+        )
+    }
+
+    private func applyIncomingShare(_ snapshot: CloudFriendShareSnapshot, to friend: Friend) {
+        friend.displayName = snapshot.ownerDisplayName
+        friend.handle = "@\(snapshot.ownerUsername)"
+        friend.currentStatusTitle = snapshot.currentStatusTitle
+        friend.currentStatusIcon = snapshot.currentStatusIcon
+        friend.currentStatusColorHex = snapshot.currentStatusColorHex
+        friend.currentMoodText = snapshot.currentMoodText
+        friend.currentStatusStartedAt = snapshot.currentStatusStartedAt
+        friend.currentStatusUpdatedAt = snapshot.updatedAt
+        friend.todayScore = snapshot.todayScore
+        friend.yesterdayScore = snapshot.yesterdayScore
+        friend.weekScore = snapshot.weekScore
+        friend.monthScore = snapshot.monthScore
+        friend.yearScore = snapshot.yearScore
+        friend.streakCount = snapshot.streakCount
+        friend.setSharedPlans(snapshot.sharedPlans)
+        friend.setSharedActivities(snapshot.sharedActivities)
+        friend.lastSeenAt = snapshot.updatedAt
+        friend.updatedAt = Date()
+    }
+
+    private func visibilityPreset(for friend: Friend) -> VisibilityPreset? {
+        guard let id = friend.visibilityPresetID else { return nil }
+        return visibilityPresets.first { $0.id == id }
+    }
+
+    private func incomingShareURL(for friend: Friend) -> URL? {
+        guard let shareURL = friend.shareURL else { return nil }
+        return URL(string: shareURL)
     }
 
     private func cloudUsername(from friend: Friend) -> String {

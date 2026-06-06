@@ -21,6 +21,7 @@ struct CloudFriendConsent: Equatable {
     let ownerUsername: String
     let targetUsername: String
     let ownerDisplayName: String
+    let shareURL: String?
     let status: Status
 }
 
@@ -73,6 +74,7 @@ final class CloudKitSocialStore {
         static let targetUsername = "targetUsername"
         static let ownerUsername = "ownerUsername"
         static let ownerDisplayName = "ownerDisplayName"
+        static let shareURL = "shareURL"
         static let status = "status"
         static let createdAt = "createdAt"
         static let updatedAt = "updatedAt"
@@ -141,6 +143,7 @@ final class CloudKitSocialStore {
             ownerUsername: normalizedOwnUsername,
             targetUsername: target.username,
             ownerDisplayName: publicDisplayName(ownDisplayName),
+            shareURL: nil,
             status: status
         )
 
@@ -163,17 +166,40 @@ final class CloudKitSocialStore {
             ownerUsername: try normalizedUsername(ownUsername),
             targetUsername: try normalizedUsername(requesterUsername),
             ownerDisplayName: publicDisplayName(ownDisplayName),
+            shareURL: nil,
             status: .accepted
         )
     }
 
+    func updateOwnConsentShareURL(
+        targetUserRecordName: String,
+        ownUsername: String,
+        targetUsername: String,
+        ownDisplayName: String,
+        shareURL: URL,
+        status: CloudFriendConsent.Status
+    ) async throws -> CloudFriendConsent {
+        try await saveConsent(
+            ownerUserRecordName: try await currentUserRecordName(),
+            targetUserRecordName: targetUserRecordName,
+            ownerUsername: try normalizedUsername(ownUsername),
+            targetUsername: try normalizedUsername(targetUsername),
+            ownerDisplayName: publicDisplayName(ownDisplayName),
+            shareURL: shareURL.absoluteString,
+            status: status
+        )
+    }
+
     func incomingRequests(forOwnUserRecordName ownUserRecordName: String) async throws -> [CloudFriendConsent] {
+        try await incomingConsents(forOwnUserRecordName: ownUserRecordName)
+            .filter { $0.status == .requested }
+    }
+
+    func incomingConsents(forOwnUserRecordName ownUserRecordName: String) async throws -> [CloudFriendConsent] {
         let predicate = NSPredicate(
-            format: "%K == %@ AND %K == %@",
+            format: "%K == %@",
             Field.targetUserRecordName,
-            ownUserRecordName,
-            Field.status,
-            CloudFriendConsent.Status.requested.rawValue
+            ownUserRecordName
         )
         let records = try await queryRecords(type: RecordType.consent, predicate: predicate, resultsLimit: 50)
         return try records.map(Self.consent(from:))
@@ -185,6 +211,7 @@ final class CloudKitSocialStore {
         ownerUsername: String,
         targetUsername: String,
         ownerDisplayName: String,
+        shareURL: String?,
         status: CloudFriendConsent.Status
     ) async throws -> CloudFriendConsent {
         let recordID = Self.consentRecordID(ownerUserRecordName: ownerUserRecordName, targetUserRecordName: targetUserRecordName)
@@ -196,6 +223,9 @@ final class CloudKitSocialStore {
         record[Field.ownerUsername] = ownerUsername as CKRecordValue
         record[Field.targetUsername] = targetUsername as CKRecordValue
         record[Field.ownerDisplayName] = ownerDisplayName as CKRecordValue
+        if let shareURL {
+            record[Field.shareURL] = shareURL as CKRecordValue
+        }
         record[Field.status] = status.rawValue as CKRecordValue
         if existing == nil {
             record[Field.createdAt] = now as CKRecordValue
@@ -249,23 +279,16 @@ final class CloudKitSocialStore {
         _ record: CKRecord,
         savePolicy: CKModifyRecordsOperation.RecordSavePolicy
     ) async throws -> CKRecord {
-        try await withCheckedThrowingContinuation { continuation in
-            let operation = CKModifyRecordsOperation(recordsToSave: [record], recordIDsToDelete: nil)
-            operation.savePolicy = savePolicy
-            operation.isAtomic = true
-            operation.modifyRecordsCompletionBlock = { savedRecords, _, error in
-                if let error {
-                    continuation.resume(throwing: error)
-                    return
-                }
-                guard let savedRecord = savedRecords?.first else {
-                    continuation.resume(throwing: CloudKitSocialError.missingRecordField("savedRecord"))
-                    return
-                }
-                continuation.resume(returning: savedRecord)
-            }
-            publicDatabase.add(operation)
+        let result = try await publicDatabase.modifyRecords(
+            saving: [record],
+            deleting: [],
+            savePolicy: savePolicy,
+            atomically: true
+        )
+        guard let savedResult = result.saveResults[record.recordID] else {
+            throw CloudKitSocialError.missingRecordField("savedRecord")
         }
+        return try savedResult.get()
     }
 
     private func queryRecords(type: String, predicate: NSPredicate, resultsLimit: Int) async throws -> [CKRecord] {
@@ -368,6 +391,7 @@ final class CloudKitSocialStore {
             ownerUsername: ownerUsername,
             targetUsername: targetUsername,
             ownerDisplayName: ownerDisplayName,
+            shareURL: record[Field.shareURL] as? String,
             status: status
         )
     }
