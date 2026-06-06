@@ -254,8 +254,17 @@ final class CloudKitSocialStore {
         shareURL: URL,
         status: CloudFriendConsent.Status
     ) async throws -> CloudFriendConsent {
-        try await saveConsent(
-            ownerUserRecordName: try await currentUserRecordName(),
+        let ownRecordName = try await currentUserRecordName()
+        let existingOwnConsent = try await fetchConsentIfExists(
+            ownerUserRecordName: ownRecordName,
+            targetUserRecordName: targetUserRecordName
+        )
+        try CloudFriendConsentPolicy.validateUpdatingShareURL(
+            existingOwnStatus: existingOwnConsent?.status,
+            updatedStatus: status
+        )
+        return try await saveConsent(
+            ownerUserRecordName: ownRecordName,
             targetUserRecordName: targetUserRecordName,
             ownerUsername: try normalizedUsername(ownUsername),
             targetUsername: try normalizedUsername(targetUsername),

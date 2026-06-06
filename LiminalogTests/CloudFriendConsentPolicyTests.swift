@@ -100,6 +100,42 @@ struct CloudFriendConsentPolicyTests {
         }
     }
 
+    @Test
+    func shareURLUpdateAllowsAcceptedConsent() throws {
+        try CloudFriendConsentPolicy.validateUpdatingShareURL(
+            existingOwnStatus: .accepted,
+            updatedStatus: .accepted
+        )
+    }
+
+    @Test
+    func shareURLUpdateCanCreateAcceptedConsentAfterRestore() throws {
+        try CloudFriendConsentPolicy.validateUpdatingShareURL(
+            existingOwnStatus: nil,
+            updatedStatus: .accepted
+        )
+    }
+
+    @Test
+    func shareURLUpdateDoesNotOverrideOwnBlock() {
+        expectRequestBlocked {
+            try CloudFriendConsentPolicy.validateUpdatingShareURL(
+                existingOwnStatus: .blocked,
+                updatedStatus: .accepted
+            )
+        }
+    }
+
+    @Test
+    func shareURLUpdateRequiresAcceptedStatus() {
+        expectRequestNotFound {
+            try CloudFriendConsentPolicy.validateUpdatingShareURL(
+                existingOwnStatus: .requested,
+                updatedStatus: .requested
+            )
+        }
+    }
+
     private func expectRequestBlocked(_ body: () throws -> Void) {
         do {
             try body()

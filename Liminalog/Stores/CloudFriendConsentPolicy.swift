@@ -28,4 +28,16 @@ enum CloudFriendConsentPolicy {
             throw CloudKitSocialError.requestNotFound
         }
     }
+
+    static func validateUpdatingShareURL(
+        existingOwnStatus: CloudFriendConsent.Status?,
+        updatedStatus: CloudFriendConsent.Status
+    ) throws {
+        if existingOwnStatus == .blocked {
+            throw CloudKitSocialError.requestBlocked
+        }
+        guard updatedStatus == .accepted else {
+            throw CloudKitSocialError.requestNotFound
+        }
+    }
 }
