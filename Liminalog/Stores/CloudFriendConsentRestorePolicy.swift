@@ -122,6 +122,18 @@ enum CloudFriendConsentRestorePolicy {
         return incomingShareURL(from: consent, direction: direction)
     }
 
+    static func acceptedFriendUserRecordNames(
+        in restorations: [CloudFriendConsentRestoration]
+    ) -> Set<String> {
+        Set(restorations.compactMap { restoration in
+            guard restoration.status == .accepted else { return nil }
+            return friendUserRecordName(
+                from: restoration.consent,
+                direction: restoration.direction
+            )
+        })
+    }
+
     private static func mergedStatus(
         incoming: CloudFriendConsent?,
         outgoing: CloudFriendConsent?

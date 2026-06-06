@@ -213,6 +213,52 @@ struct CloudFriendConsentRestorePolicyTests {
         #expect(restoration.status == .blocked)
     }
 
+    @Test
+    func acceptedFriendUserRecordNamesOnlyIncludesMutualAcceptedRestorations() {
+        let restorations = [
+            CloudFriendConsentRestoration(
+                consent: makeConsent(
+                    ownerUserRecordName: "_accepted",
+                    targetUserRecordName: "_me",
+                    ownerUsername: "accepted",
+                    targetUsername: "me",
+                    ownerDisplayName: "Accepted",
+                    status: .accepted
+                ),
+                direction: .incoming,
+                status: .accepted
+            ),
+            CloudFriendConsentRestoration(
+                consent: makeConsent(
+                    ownerUserRecordName: "_pending",
+                    targetUserRecordName: "_me",
+                    ownerUsername: "pending",
+                    targetUsername: "me",
+                    ownerDisplayName: "Pending",
+                    status: .requested
+                ),
+                direction: .incoming,
+                status: .pendingIncoming
+            ),
+            CloudFriendConsentRestoration(
+                consent: makeConsent(
+                    ownerUserRecordName: "_me",
+                    targetUserRecordName: "_blocked",
+                    ownerUsername: "me",
+                    targetUsername: "blocked",
+                    ownerDisplayName: "Me",
+                    status: .blocked
+                ),
+                direction: .outgoing,
+                status: .blocked
+            )
+        ]
+
+        #expect(CloudFriendConsentRestorePolicy.acceptedFriendUserRecordNames(
+            in: restorations
+        ) == ["_accepted"])
+    }
+
     private func makeConsent(
         ownerUserRecordName: String = "_owner",
         targetUserRecordName: String = "_target",

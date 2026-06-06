@@ -146,6 +146,25 @@ final class CloudFriendShareRefreshCoordinator {
     func refreshAcceptedIncomingShares(reason: String) async {
         do {
             let context = modelContainer.mainContext
+            guard let settings = try context.fetch(FetchDescriptor<UserSettings>(
+                sortBy: [SortDescriptor(\.createdAt)]
+            )).first else { return }
+            guard !settings.cloudUserRecordName.isEmpty else { return }
+
+            let incomingConsents = try await cloudSocialStore.incomingConsents(
+                forOwnUserRecordName: settings.cloudUserRecordName
+            )
+            let outgoingConsents = try await cloudSocialStore.outgoingConsents(
+                forOwnUserRecordName: settings.cloudUserRecordName
+            )
+            let restorations = CloudFriendConsentRestorePolicy.restorations(
+                incomingConsents: incomingConsents,
+                outgoingConsents: outgoingConsents
+            )
+            let acceptedCloudFriendRecordNames = CloudFriendConsentRestorePolicy.acceptedFriendUserRecordNames(
+                in: restorations
+            )
+
             let friends = try context.fetch(FetchDescriptor<Friend>(
                 sortBy: [SortDescriptor(\.displayName)]
             ))
@@ -158,6 +177,12 @@ final class CloudFriendShareRefreshCoordinator {
 
             var didUpdateFriends = false
             for friend in acceptedFriends {
+                guard acceptedCloudFriendRecordNames.contains(friend.userRecordID) else {
+                    CloudFriendShareSnapshotApplier.clearCachedShare(from: friend)
+                    friend.shareURL = nil
+                    didUpdateFriends = true
+                    continue
+                }
                 guard let rawShareURL = friend.shareURL,
                       let shareURL = URL(string: rawShareURL)
                 else { continue }
@@ -330,12 +355,17 @@ final class CloudFriendShareRefreshCoordinator {
         }
         friend.handle = "@\(friendUsername)"
         friend.inviteCode = friendUsername.uppercased()
-        friend.shareURL = CloudFriendConsentRestorePolicy.incomingShareURL(
-            from: consent,
-            direction: direction,
-            restoredStatus: status
-        ) ?? friend.shareURL
         friend.status = status
+        if status == .accepted {
+            friend.shareURL = CloudFriendConsentRestorePolicy.incomingShareURL(
+                from: consent,
+                direction: direction,
+                restoredStatus: status
+            ) ?? friend.shareURL
+        } else {
+            friend.shareURL = nil
+            CloudFriendShareSnapshotApplier.clearCachedShare(from: friend)
+        }
         friend.updatedAt = Date()
         if status == .accepted {
             friend.acceptedAt = friend.acceptedAt ?? Date()
