@@ -136,11 +136,12 @@ final class CloudFriendShareStore {
             Self.apply(snapshot, to: existing)
             let saved = try await save([existing], to: privateDatabase, savePolicy: .changedKeys)
             let root = try savedRecord(for: existing.recordID, in: saved)
+            let share = try await fetchShare(for: root)
             return CloudFriendShareUpsertResult(
                 snapshot: try Self.snapshot(from: root),
-                shareURL: nil,
+                shareURL: share.url,
                 rootRecordName: root.recordID.recordName,
-                shareRecordName: nil
+                shareRecordName: share.recordID.recordName
             )
         }
 
@@ -276,6 +277,19 @@ final class CloudFriendShareStore {
             throw CloudFriendShareError.missingRootRecord
         }
         return try result.get()
+    }
+
+    private func fetchShare(for rootRecord: CKRecord) async throws -> CKShare {
+        guard let shareRecordID = rootRecord.share?.recordID else {
+            throw CloudFriendShareError.missingShareURL
+        }
+        guard let share = try await fetchRecord(shareRecordID, from: privateDatabase) as? CKShare else {
+            throw CloudFriendShareError.missingShareURL
+        }
+        guard share.url != nil else {
+            throw CloudFriendShareError.missingShareURL
+        }
+        return share
     }
 
     private func save(
