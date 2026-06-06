@@ -693,10 +693,9 @@ struct FriendsView: View {
                         : "@\(result.profile.username) に申請しました。"
                     friendSearchUserID = ""
                 }
-                _ = try await publishOutgoingShare(
-                    to: friend,
-                    consentStatus: result.status == .accepted ? .accepted : .requested
-                )
+                if result.status == .accepted {
+                    _ = try await publishOutgoingShare(to: friend, consentStatus: .accepted)
+                }
                 await MainActor.run {
                     isSendingCloudFriendRequest = false
                 }
@@ -869,6 +868,9 @@ struct FriendsView: View {
         to friend: Friend,
         consentStatus: CloudFriendConsent.Status
     ) async throws -> URL? {
+        guard CloudFriendSharePublishPolicy.shouldPublishOutgoingShare(consentStatus: consentStatus) else {
+            return nil
+        }
         guard let ownUsername = settings?.cloudUsernameNormalized, !ownUsername.isEmpty else {
             throw CloudKitSocialError.ownProfileMissing
         }
