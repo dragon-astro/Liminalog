@@ -579,11 +579,12 @@ struct FriendsView: View {
     }
 
     private func accept(_ friend: Friend) {
-        guard !friend.userRecordID.isEmpty,
-              let ownUsername = settings?.cloudUsernameNormalized,
-              !ownUsername.isEmpty
-        else {
+        guard !CloudFriendLocalStatePolicy.canAcceptWithoutCloudConsent(userRecordID: friend.userRecordID) else {
             acceptLocally(friend)
+            return
+        }
+        guard let ownUsername = settings?.cloudUsernameNormalized, !ownUsername.isEmpty else {
+            cloudErrorText = CloudKitSocialError.ownProfileMissing.localizedDescription
             return
         }
 
@@ -843,9 +844,12 @@ struct FriendsView: View {
         friend.inviteCode = profile.username.uppercased()
         friend.status = status
         friend.updatedAt = Date()
-        if status == .accepted {
+        if CloudFriendLocalStatePolicy.shouldKeepIncomingShare(status: status) {
             friend.acceptedAt = Date()
             friend.lastSeenAt = Date()
+        } else {
+            friend.shareURL = nil
+            clearIncomingShareData(for: friend)
         }
         if friend.visibilityPresetID == nil {
             friend.visibilityPresetID = defaultVisibilityPresetID
@@ -1726,11 +1730,12 @@ private struct FriendDetailView: View {
     }
 
     private func acceptFriend() {
-        guard !friend.userRecordID.isEmpty,
-              let ownUsername = settings?.cloudUsernameNormalized,
-              !ownUsername.isEmpty
-        else {
+        guard !CloudFriendLocalStatePolicy.canAcceptWithoutCloudConsent(userRecordID: friend.userRecordID) else {
             acceptFriendLocally()
+            return
+        }
+        guard let ownUsername = settings?.cloudUsernameNormalized, !ownUsername.isEmpty else {
+            saveError = CloudKitSocialError.ownProfileMissing.localizedDescription
             return
         }
 
