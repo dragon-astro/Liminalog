@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import Foundation
+import UIKit
 
 @main
 struct LiminalogApp: App {
@@ -19,7 +20,10 @@ struct LiminalogApp: App {
             RootTabView()
                 .task {
                     guard cloudFriendShareRefreshCoordinator == nil else { return }
-                    cloudFriendShareRefreshCoordinator = CloudFriendShareRefreshCoordinator(modelContainer: modelContainer)
+                    let coordinator = CloudFriendShareRefreshCoordinator(modelContainer: modelContainer)
+                    cloudFriendShareRefreshCoordinator = coordinator
+                    registerForRemoteNotificationsIfCloudFriendsEnabled()
+                    await coordinator.ensureSubscriptionsIfPossible(reason: "app launch")
                 }
                 .onReceive(NotificationCenter.default.publisher(for: CloudFriendShareRefreshCoordinator.refreshRequested)) { notification in
                     let reason = notification.userInfo?["reason"] as? String ?? "unknown"
@@ -33,5 +37,18 @@ struct LiminalogApp: App {
                 }
         }
         .modelContainer(modelContainer)
+    }
+
+    private func registerForRemoteNotificationsIfCloudFriendsEnabled() {
+        do {
+            let context = modelContainer.mainContext
+            guard let settings = try context.fetch(FetchDescriptor<UserSettings>(
+                sortBy: [SortDescriptor(\.createdAt)]
+            )).first else { return }
+            guard !settings.cloudUsernameNormalized.isEmpty else { return }
+            UIApplication.shared.registerForRemoteNotifications()
+        } catch {
+            NSLog("Liminalog: failed to check CloudKit friend push registration state: \(String(describing: error))")
+        }
     }
 }

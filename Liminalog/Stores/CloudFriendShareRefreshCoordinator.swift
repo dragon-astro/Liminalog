@@ -61,6 +61,23 @@ final class CloudFriendShareRefreshCoordinator {
         }
     }
 
+    func ensureSubscriptionsIfPossible(reason: String) async {
+        do {
+            let context = modelContainer.mainContext
+            guard let settings = try context.fetch(FetchDescriptor<UserSettings>(
+                sortBy: [SortDescriptor(\.createdAt)]
+            )).first else { return }
+            guard !settings.cloudUserRecordName.isEmpty else { return }
+
+            try await cloudSocialStore.ensureIncomingConsentSubscription(
+                forOwnUserRecordName: settings.cloudUserRecordName
+            )
+            try await cloudShareStore.ensureIncomingShareSubscription()
+        } catch {
+            NSLog("Liminalog: failed to ensure friend CloudKit subscriptions on \(reason): \(String(describing: error))")
+        }
+    }
+
     func publishAcceptedFriendShares(reason: String) async {
         do {
             let context = modelContainer.mainContext
