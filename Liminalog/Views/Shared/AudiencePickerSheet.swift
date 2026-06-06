@@ -220,7 +220,11 @@ struct CategoryAudiencePickerSheet: View {
         for plan in pastPlansInCategory {
             plan.audienceFriendIDs = audienceFriendIDs
             plan.audienceSource = .categoryDefaultSnapshot
-            plan.hasAudienceSnapshot = true
+            plan.hasAudienceSnapshot = AudienceSnapshotPolicy.shouldSaveSnapshot(
+                isPublic: plan.isPublic,
+                audienceSource: .categoryDefaultSnapshot,
+                audienceFriendIDs: audienceFriendIDs
+            )
             plan.updatedAt = now
         }
 

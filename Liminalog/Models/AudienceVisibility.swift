@@ -5,6 +5,20 @@ enum AudienceSource: String, Codable, CaseIterable {
     case custom
 }
 
+enum AudienceSnapshotPolicy {
+    static func shouldSaveSnapshot(
+        isPublic: Bool,
+        audienceSource: AudienceSource,
+        audienceFriendIDs: [UUID]
+    ) -> Bool {
+        guard isPublic else { return false }
+        if audienceSource == .custom {
+            return true
+        }
+        return !audienceFriendIDs.isEmpty
+    }
+}
+
 enum AudienceResolver {
     static func acceptedFriendIDs(from friends: [Friend]) -> Set<UUID> {
         Set(friends.filter { $0.status == .accepted }.map(\.id))

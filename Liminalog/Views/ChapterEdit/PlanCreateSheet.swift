@@ -526,11 +526,11 @@ struct PlanCreateSheet: View {
     }
 
     private var shouldSaveAudienceSnapshot: Bool {
-        guard isPublic else { return false }
-        if audienceSource == .custom {
-            return true
-        }
-        return !audienceFriendIDs.isEmpty
+        AudienceSnapshotPolicy.shouldSaveSnapshot(
+            isPublic: isPublic,
+            audienceSource: audienceSource,
+            audienceFriendIDs: audienceFriendIDs
+        )
     }
 
     private var saveErrorPresented: Binding<Bool> {

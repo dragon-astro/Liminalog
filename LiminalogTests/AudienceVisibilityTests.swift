@@ -3,6 +3,33 @@ import Testing
 @testable import Liminalog
 
 struct AudienceVisibilityTests {
+    @Test
+    func categoryDefaultEmptyAudienceDoesNotSaveExplicitSnapshot() {
+        #expect(!AudienceSnapshotPolicy.shouldSaveSnapshot(
+            isPublic: true,
+            audienceSource: .categoryDefaultSnapshot,
+            audienceFriendIDs: []
+        ))
+    }
+
+    @Test
+    func customEmptyAudienceSavesExplicitSnapshot() {
+        #expect(AudienceSnapshotPolicy.shouldSaveSnapshot(
+            isPublic: true,
+            audienceSource: .custom,
+            audienceFriendIDs: []
+        ))
+    }
+
+    @Test
+    func privateAudienceNeverSavesSnapshot() {
+        #expect(!AudienceSnapshotPolicy.shouldSaveSnapshot(
+            isPublic: false,
+            audienceSource: .custom,
+            audienceFriendIDs: [UUID()]
+        ))
+    }
+
     @Test("カテゴリデフォルトは友達セットと個別追加除外を展開する")
     func categoryAudienceResolvesFriendSetsAndOverrides() {
         let mika = Friend(displayName: "Mika", status: .accepted)
