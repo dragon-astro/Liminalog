@@ -191,6 +191,25 @@ final class CloudFriendShareStore {
         return try Self.snapshot(from: try await fetchRecord(recordID, from: sharedDatabase))
     }
 
+    func ensureIncomingShareSubscription() async throws {
+        try await requireAccount()
+        do {
+            _ = try await fetchSubscription(
+                subscriptionID: CloudKitFriendEventBridge.friendShareSubscriptionID,
+                from: sharedDatabase
+            )
+            return
+        } catch let error as CKError where error.code == .unknownItem {
+            // Create the shared database subscription once per account.
+        }
+
+        let subscription = CKDatabaseSubscription(subscriptionID: CloudKitFriendEventBridge.friendShareSubscriptionID)
+        let info = CKSubscription.NotificationInfo()
+        info.shouldSendContentAvailable = true
+        subscription.notificationInfo = info
+        _ = try await save(subscription, to: sharedDatabase)
+    }
+
     func revokeOutgoingShare(targetUserRecordName: String) async throws {
         try await requireAccount()
         let ownerUserRecordName = try await fetchCurrentUserRecordID().recordName
@@ -334,6 +353,38 @@ final class CloudFriendShareStore {
             savePolicy: .changedKeys,
             atomically: true
         )
+    }
+
+    private func save(_ subscription: CKSubscription, to database: CKDatabase) async throws -> CKSubscription {
+        try await withCheckedThrowingContinuation { continuation in
+            database.save(subscription) { savedSubscription, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                guard let savedSubscription else {
+                    continuation.resume(throwing: CloudFriendShareError.missingRootRecord)
+                    return
+                }
+                continuation.resume(returning: savedSubscription)
+            }
+        }
+    }
+
+    private func fetchSubscription(subscriptionID: String, from database: CKDatabase) async throws -> CKSubscription {
+        try await withCheckedThrowingContinuation { continuation in
+            database.fetch(withSubscriptionID: subscriptionID) { subscription, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                guard let subscription else {
+                    continuation.resume(throwing: CloudFriendShareError.missingRootRecord)
+                    return
+                }
+                continuation.resume(returning: subscription)
+            }
+        }
     }
 
     private func savedRecord(for recordID: CKRecord.ID, in records: [CKRecord.ID: CKRecord]) throws -> CKRecord {

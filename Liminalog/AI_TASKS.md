@@ -620,8 +620,8 @@ refactor: split plan store
 - [x] プロフィール画面からのプロフィール共有導線 <!-- 担当: Codex, 完了: 2026-05-30。`ProfileShareSheet` を共通化し、プロフィール画面から自分の招待QR/リンクを共有できるようにした。友達タブは「友達を探す」ではなく、空状態の共有CTAと受信導線に限定 -->
 - [~] 招待受信時のディープリンクハンドリング <!-- 担当: Codex, 進捗: 2026-05-30。URL Scheme登録とRootTab→FriendsViewへの受け渡しを実装。Universal Link/CKShare受諾はDeveloper登録後のShareCoordinatorで追加 -->
 - [x] `FriendsAddView`（受け取った招待入力版）<!-- 担当: Codex, 完了: 2026-05-30。初期仕様のメール/iCloud検索は11-friends-designで廃止。プロフィール共有は `ProfileShareSheet` に分離し、FriendsAddView は受け取ったリンク/コードを pendingIncoming 化する入力に限定 -->
-- [ ] `CKSubscription` 設定（友達のレコード更新監視）<!-- 担当: Codex -->
-- [ ] バックグラウンド通知ハンドラ <!-- 担当: Codex -->
+- [~] `CKSubscription` 設定（友達のレコード更新監視）<!-- 担当: Codex, 進捗: 2026-06-07。Public DB の `FriendConsent` query subscription と shared DB の `FriendShareSnapshot` database subscription を実装。実機2アカウントでpush遅延/購読作成/CloudKit Dashboard反映の検証待ち -->
+- [~] バックグラウンド通知ハンドラ <!-- 担当: Codex, 進捗: 2026-06-07。remote-notification受信時に承認状態更新と共有スナップショット再取得へ振り分け。OSのsilent push coalescingを含む実機検証待ち -->
 
 ### 8.3 公開設定（本格実装）
 

@@ -28,6 +28,7 @@ Private/shared database:
 - `FriendConsent.targetUserRecordName` must be queryable because incoming requests and CloudKit subscriptions filter by it.
 - Deploy the development schema to production before TestFlight or App Store distribution.
 - Confirm silent push capability is active: `UIBackgroundModes` includes `remote-notification`, and devices can register for remote notifications.
+- Confirm subscriptions are created for both public `FriendConsent` changes and shared database `FriendShareSnapshot` changes.
 - Confirm `FriendShareSnapshot` records only appear in the owner private database and recipient shared database, never in the public database.
 
 ## Device Test Matrix
@@ -45,14 +46,14 @@ Use two real devices with different iCloud accounts.
 9. Set visibility to none and confirm scores, plans, active activity, and mood do not leak.
 10. Set visibility to selected friends and confirm only accepted selected friends receive the data.
 11. Exclude categories and confirm those plans/activities are not present in `sharedPlansJSON` or `sharedActivitiesJSON`.
-12. Change a friend's visibility preset or category audience, then confirm the recipient's `FriendShareSnapshot` updates.
+12. Change a friend's visibility preset or category audience, then confirm the recipient's `FriendShareSnapshot` updates by shared database push. Use manual refresh only as a fallback.
 13. Delete or block a friend, then confirm the outgoing `FriendShareSnapshot`/`CKShare` is revoked, own `FriendConsent` becomes `blocked`, and the other device stops sharing back after refresh or push.
 14. Kill and relaunch both apps, then confirm user ID, friend list, and latest accepted snapshots remain.
 15. Delete and reinstall the app on one device, sign into the same iCloud account, then confirm CloudKit profile/consent/share can be restored by opening Friends and refreshing.
 
 ## Latency Notes
 
-CloudKit query subscriptions and silent pushes are best-effort and can be delayed or coalesced by the system. The Friends screen registers a `FriendConsent` subscription for the current user and refreshes incoming consents when a matching push arrives. The manual refresh button must remain available as the fallback path during real-device testing.
+CloudKit query/database subscriptions and silent pushes are best-effort and can be delayed or coalesced by the system. The Friends screen registers a public `FriendConsent` query subscription for the current user and a shared database subscription for accepted `FriendShareSnapshot` updates. The app-level refresh coordinator refetches accepted incoming shares when the shared database push arrives. The manual refresh button must remain available as the fallback path during real-device testing.
 
 Record p50/p95 latency during the two-account test:
 

@@ -31,6 +31,7 @@ struct FriendsView: View {
     @State private var didLoadIncomingCloudRequests = false
     @State private var didRegisterCloudKitPushes = false
     @State private var subscribedFriendConsentUserRecordName: String?
+    @State private var didSubscribeFriendShares = false
 
     private let cloudSocialStore = CloudKitSocialStore()
     private let cloudShareStore = CloudFriendShareStore()
@@ -161,6 +162,7 @@ struct FriendsView: View {
                 handlePendingInviteURL()
                 registerForCloudKitPushesIfPossible()
                 ensureFriendConsentSubscriptionIfPossible()
+                ensureFriendShareSubscriptionIfPossible()
                 refreshCloudRequestsIfPossible()
                 clock.start()
             }
@@ -653,6 +655,7 @@ struct FriendsView: View {
                         friendSearchUserID = ""
                         registerForCloudKitPushesIfPossible()
                         ensureFriendConsentSubscriptionIfPossible()
+                        ensureFriendShareSubscriptionIfPossible()
                     }
                     isRegisteringCloudProfile = false
                 }
@@ -794,6 +797,24 @@ struct FriendsView: View {
         }
     }
 
+    private func ensureFriendShareSubscriptionIfPossible() {
+        guard hasCloudUsername, !didSubscribeFriendShares else { return }
+        Task {
+            do {
+                try await cloudShareStore.ensureIncomingShareSubscription()
+                await MainActor.run {
+                    didSubscribeFriendShares = true
+                }
+            } catch {
+                await MainActor.run {
+                    if cloudErrorText == nil {
+                        cloudErrorText = "友達共有の通知登録に失敗しました: \(error.localizedDescription)"
+                    }
+                }
+            }
+        }
+    }
+
     @discardableResult
     private func upsertCloudFriend(profile: CloudFriendProfile, status: FriendStatus) -> Friend {
         let existing = friends.first {
@@ -898,24 +919,7 @@ struct FriendsView: View {
     }
 
     private func applyIncomingShare(_ snapshot: CloudFriendShareSnapshot, to friend: Friend) {
-        friend.displayName = snapshot.ownerDisplayName
-        friend.handle = "@\(snapshot.ownerUsername)"
-        friend.currentStatusTitle = snapshot.currentStatusTitle
-        friend.currentStatusIcon = snapshot.currentStatusIcon
-        friend.currentStatusColorHex = snapshot.currentStatusColorHex
-        friend.currentMoodText = snapshot.currentMoodText
-        friend.currentStatusStartedAt = snapshot.currentStatusStartedAt
-        friend.currentStatusUpdatedAt = snapshot.updatedAt
-        friend.todayScore = snapshot.todayScore
-        friend.yesterdayScore = snapshot.yesterdayScore
-        friend.weekScore = snapshot.weekScore
-        friend.monthScore = snapshot.monthScore
-        friend.yearScore = snapshot.yearScore
-        friend.streakCount = snapshot.streakCount
-        friend.setSharedPlans(snapshot.sharedPlans)
-        friend.setSharedActivities(snapshot.sharedActivities)
-        friend.lastSeenAt = snapshot.updatedAt
-        friend.updatedAt = Date()
+        CloudFriendShareSnapshotApplier.apply(snapshot, to: friend)
     }
 
     private func clearIncomingShareData(for friend: Friend) {

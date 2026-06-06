@@ -37,6 +37,7 @@ enum CloudKitSocialError: LocalizedError {
     case profileNotFound
     case ownProfileMissing
     case cannotRequestSelf
+    case requestBlocked
     case missingRecordField(String)
 
     var errorDescription: String? {
@@ -53,6 +54,8 @@ enum CloudKitSocialError: LocalizedError {
             return "先に自分のユーザーIDを確定してください。"
         case .cannotRequestSelf:
             return "自分自身は追加できません。"
+        case .requestBlocked:
+            return "ブロック中の相手とは友達申請できません。"
         case let .missingRecordField(field):
             return "CloudKitレコードの\(field)が不足しています。"
         }
@@ -135,8 +138,12 @@ final class CloudKitSocialStore {
             throw CloudKitSocialError.cannotRequestSelf
         }
 
+        let existingOwnConsent = try? await fetchConsent(ownerUserRecordName: ownRecordName, targetUserRecordName: target.ownerUserRecordName)
         let reciprocalConsent = try? await fetchConsent(ownerUserRecordName: target.ownerUserRecordName, targetUserRecordName: ownRecordName)
-        let status: CloudFriendConsent.Status = reciprocalConsent == nil ? .requested : .accepted
+        let status = try CloudFriendConsentPolicy.statusForOutgoingRequest(
+            existingOwnStatus: existingOwnConsent?.status,
+            reciprocalStatus: reciprocalConsent?.status
+        )
         _ = try await saveConsent(
             ownerUserRecordName: ownRecordName,
             targetUserRecordName: target.ownerUserRecordName,
@@ -160,6 +167,11 @@ final class CloudKitSocialStore {
         ownDisplayName: String
     ) async throws {
         let ownRecordName = try await currentUserRecordName()
+        let existingOwnConsent = try? await fetchConsent(
+            ownerUserRecordName: ownRecordName,
+            targetUserRecordName: requesterUserRecordName
+        )
+        try CloudFriendConsentPolicy.validateAcceptingRequest(existingOwnStatus: existingOwnConsent?.status)
         _ = try await saveConsent(
             ownerUserRecordName: ownRecordName,
             targetUserRecordName: requesterUserRecordName,

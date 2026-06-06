@@ -8,16 +8,17 @@ final class CloudFriendShareRefreshCoordinator {
     private let modelContainer: ModelContainer
     private let cloudShareStore: CloudFriendShareStore
     private let cloudSocialStore: CloudKitSocialStore
-    private var pendingTask: Task<Void, Never>?
+    private var pendingOutgoingTask: Task<Void, Never>?
+    private var pendingIncomingTask: Task<Void, Never>?
 
     init(
         modelContainer: ModelContainer,
-        cloudShareStore: CloudFriendShareStore = CloudFriendShareStore(),
-        cloudSocialStore: CloudKitSocialStore = CloudKitSocialStore()
+        cloudShareStore: CloudFriendShareStore? = nil,
+        cloudSocialStore: CloudKitSocialStore? = nil
     ) {
         self.modelContainer = modelContainer
-        self.cloudShareStore = cloudShareStore
-        self.cloudSocialStore = cloudSocialStore
+        self.cloudShareStore = cloudShareStore ?? CloudFriendShareStore()
+        self.cloudSocialStore = cloudSocialStore ?? CloudKitSocialStore()
     }
 
     static func requestRefresh(reason: String) {
@@ -31,11 +32,21 @@ final class CloudFriendShareRefreshCoordinator {
 
     func scheduleRefresh(reason: String) {
         guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
-        pendingTask?.cancel()
-        pendingTask = Task { [weak self] in
+        pendingOutgoingTask?.cancel()
+        pendingOutgoingTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 1_500_000_000)
             guard !Task.isCancelled else { return }
             await self?.publishAcceptedFriendShares(reason: reason)
+        }
+    }
+
+    func scheduleIncomingRefresh(reason: String) {
+        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
+        pendingIncomingTask?.cancel()
+        pendingIncomingTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            guard !Task.isCancelled else { return }
+            await self?.refreshAcceptedIncomingShares(reason: reason)
         }
     }
 
@@ -93,6 +104,32 @@ final class CloudFriendShareRefreshCoordinator {
             }
         } catch {
             NSLog("Liminalog: failed to publish friend shares on \(reason): \(String(describing: error))")
+        }
+    }
+
+    func refreshAcceptedIncomingShares(reason: String) async {
+        do {
+            let context = modelContainer.mainContext
+            let friends = try context.fetch(FetchDescriptor<Friend>(
+                sortBy: [SortDescriptor(\.displayName)]
+            ))
+            let acceptedFriends = friends.filter {
+                $0.status == .accepted
+                    && !$0.userRecordID.isEmpty
+                    && !($0.shareURL?.isEmpty ?? true)
+            }
+            guard !acceptedFriends.isEmpty else { return }
+
+            for friend in acceptedFriends {
+                guard let rawShareURL = friend.shareURL,
+                      let shareURL = URL(string: rawShareURL)
+                else { continue }
+                let snapshot = try await cloudShareStore.acceptIncomingShare(url: shareURL)
+                CloudFriendShareSnapshotApplier.apply(snapshot, to: friend)
+            }
+            try context.save()
+        } catch {
+            NSLog("Liminalog: failed to refresh incoming friend shares on \(reason): \(String(describing: error))")
         }
     }
 

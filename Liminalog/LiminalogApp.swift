@@ -25,6 +25,9 @@ struct LiminalogApp: App {
                     let reason = notification.userInfo?["reason"] as? String ?? "unknown"
                     cloudFriendShareRefreshCoordinator?.scheduleRefresh(reason: reason)
                 }
+                .onReceive(NotificationCenter.default.publisher(for: CloudKitFriendEventBridge.friendShareDidChange)) { _ in
+                    cloudFriendShareRefreshCoordinator?.scheduleIncomingRefresh(reason: "friend share push")
+                }
         }
         .modelContainer(modelContainer)
     }
