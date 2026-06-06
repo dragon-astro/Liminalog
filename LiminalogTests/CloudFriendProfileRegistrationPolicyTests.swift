@@ -6,7 +6,7 @@ struct CloudFriendProfileRegistrationPolicyTests {
     func allowsFirstProfileRegistration() {
         #expect(CloudFriendProfileRegistrationPolicy.canRegister(
             requestedUsername: "ryu",
-            existingOwnerUsername: nil
+            registeredUsername: nil
         ))
     }
 
@@ -14,7 +14,7 @@ struct CloudFriendProfileRegistrationPolicyTests {
     func allowsReclaimingSameProfileAfterLocalDataLoss() {
         #expect(CloudFriendProfileRegistrationPolicy.canRegister(
             requestedUsername: "ryu",
-            existingOwnerUsername: "ryu"
+            registeredUsername: "ryu"
         ))
     }
 
@@ -22,7 +22,40 @@ struct CloudFriendProfileRegistrationPolicyTests {
     func blocksChangingUsernameForSameCloudOwner() {
         #expect(!CloudFriendProfileRegistrationPolicy.canRegister(
             requestedUsername: "new.ryu",
-            existingOwnerUsername: "ryu"
+            registeredUsername: "ryu"
+        ))
+    }
+
+    @Test
+    func usesOwnerIndexBeforeLegacyProfiles() {
+        #expect(CloudFriendProfileRegistrationPolicy.registeredUsername(
+            requestedUsername: "ryu",
+            ownerIndexUsername: "indexed",
+            ownedProfileUsernames: ["legacy"]
+        ) == "indexed")
+    }
+
+    @Test
+    func detectsLegacyProfileWhenOwnerIndexIsMissing() {
+        #expect(CloudFriendProfileRegistrationPolicy.registeredUsername(
+            requestedUsername: "new.ryu",
+            ownerIndexUsername: nil,
+            ownedProfileUsernames: ["ryu"]
+        ) == "ryu")
+    }
+
+    @Test
+    func blocksLegacyInconsistentMultipleProfiles() {
+        let registered = CloudFriendProfileRegistrationPolicy.registeredUsername(
+            requestedUsername: "ryu",
+            ownerIndexUsername: nil,
+            ownedProfileUsernames: ["ryu", "new.ryu"]
+        )
+
+        #expect(registered == "new.ryu")
+        #expect(!CloudFriendProfileRegistrationPolicy.canRegister(
+            requestedUsername: "ryu",
+            registeredUsername: registered
         ))
     }
 }

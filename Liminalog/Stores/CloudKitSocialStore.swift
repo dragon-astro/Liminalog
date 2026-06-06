@@ -112,12 +112,20 @@ final class CloudKitSocialStore {
         let ownerRecordName = try await currentUserRecordName()
         let now = Date()
         let ownerIndex = try await fetchRecordIfExists(Self.profileOwnerIndexRecordID(ownerUserRecordName: ownerRecordName))
-        let existingOwnerUsername = try ownerIndex.map(Self.ownerIndexUsername(from:))
+        let ownerIndexUsername = try ownerIndex.map(Self.ownerIndexUsername(from:))
+        let ownedProfileUsernames = ownerIndexUsername == nil
+            ? try await existingProfileUsernames(ownerUserRecordName: ownerRecordName)
+            : []
+        let registeredUsername = CloudFriendProfileRegistrationPolicy.registeredUsername(
+            requestedUsername: username,
+            ownerIndexUsername: ownerIndexUsername,
+            ownedProfileUsernames: ownedProfileUsernames
+        )
         guard CloudFriendProfileRegistrationPolicy.canRegister(
             requestedUsername: username,
-            existingOwnerUsername: existingOwnerUsername
+            registeredUsername: registeredUsername
         ) else {
-            throw CloudKitSocialError.usernameAlreadyRegistered(existingOwnerUsername ?? username)
+            throw CloudKitSocialError.usernameAlreadyRegistered(registeredUsername ?? username)
         }
 
         let profile = CKRecord(recordType: RecordType.profile, recordID: Self.profileRecordID(username: username))
@@ -438,6 +446,16 @@ final class CloudKitSocialStore {
         } catch CloudKitSocialError.profileNotFound {
             return nil
         }
+    }
+
+    private func existingProfileUsernames(ownerUserRecordName: String) async throws -> [String] {
+        let predicate = NSPredicate(
+            format: "%K == %@",
+            Field.ownerUserRecordName,
+            ownerUserRecordName
+        )
+        let records = try await queryRecords(type: RecordType.profile, predicate: predicate, resultsLimit: 10)
+        return try records.map(Self.profile(from:)).map(\.username)
     }
 
     private func fetchCurrentUserRecordID() async throws -> CKRecord.ID {
