@@ -127,6 +127,16 @@ final class CloudKitSocialStore {
         ) else {
             throw CloudKitSocialError.usernameAlreadyRegistered(registeredUsername ?? username)
         }
+        if let existingProfile = try await fetchProfileRecordIfExists(username: username) {
+            return try await reclaimExistingProfileIfOwned(
+                record: existingProfile,
+                username: username,
+                displayName: displayName,
+                appUserID: appUserID,
+                ownerRecordName: ownerRecordName,
+                existingOwnerIndex: ownerIndex
+            )
+        }
 
         let profile = CKRecord(recordType: RecordType.profile, recordID: Self.profileRecordID(username: username))
         applyProfileFields(
@@ -169,11 +179,10 @@ final class CloudKitSocialStore {
 
     func fetchProfile(username rawUsername: String) async throws -> CloudFriendProfile {
         let username = try normalizedUsername(rawUsername)
-        do {
-            return try Self.profile(from: try await fetchRecord(Self.profileRecordID(username: username)))
-        } catch let error as CKError where error.code == .unknownItem {
+        guard let record = try await fetchProfileRecordIfExists(username: username) else {
             throw CloudKitSocialError.profileNotFound
         }
+        return try Self.profile(from: record)
     }
 
     func sendFriendRequest(to rawUsername: String, fromOwnUsername ownUsername: String, ownDisplayName: String) async throws -> CloudFriendRequestResult {
@@ -437,7 +446,27 @@ final class CloudKitSocialStore {
         ownerRecordName: String,
         existingOwnerIndex: CKRecord?
     ) async throws -> CloudFriendProfile {
-        let record = try await fetchRecord(Self.profileRecordID(username: username))
+        guard let record = try await fetchProfileRecordIfExists(username: username) else {
+            throw CloudKitSocialError.profileNotFound
+        }
+        return try await reclaimExistingProfileIfOwned(
+            record: record,
+            username: username,
+            displayName: displayName,
+            appUserID: appUserID,
+            ownerRecordName: ownerRecordName,
+            existingOwnerIndex: existingOwnerIndex
+        )
+    }
+
+    private func reclaimExistingProfileIfOwned(
+        record: CKRecord,
+        username: String,
+        displayName: String,
+        appUserID: UUID,
+        ownerRecordName: String,
+        existingOwnerIndex: CKRecord?
+    ) async throws -> CloudFriendProfile {
         let profile = try Self.profile(from: record)
         guard CloudFriendProfileOwnershipPolicy.canReuseProfile(profile, currentUserRecordName: ownerRecordName) else {
             throw CloudKitSocialError.usernameTaken
@@ -497,6 +526,15 @@ final class CloudKitSocialStore {
         )
         let records = try await queryRecords(type: RecordType.profile, predicate: predicate, resultsLimit: 10)
         return try records.map(Self.profile(from:)).map(\.username)
+    }
+
+    private func fetchProfileRecordIfExists(username: String) async throws -> CKRecord? {
+        for recordID in Self.profileRecordIDs(username: username) {
+            if let record = try await fetchRecordIfExists(recordID) {
+                return record
+            }
+        }
+        return nil
     }
 
     private func fetchCurrentUserRecordID() async throws -> CKRecord.ID {
@@ -681,7 +719,12 @@ final class CloudKitSocialStore {
     }
 
     private static func profileRecordID(username: String) -> CKRecord.ID {
-        CKRecord.ID(recordName: "profile:\(username)")
+        CKRecord.ID(recordName: CloudFriendProfileRecordIDPolicy.recordName(username: username))
+    }
+
+    private static func profileRecordIDs(username: String) -> [CKRecord.ID] {
+        CloudFriendProfileRecordIDPolicy.lookupRecordNames(username: username)
+            .map { CKRecord.ID(recordName: $0) }
     }
 
     private static func profileOwnerIndexRecordID(ownerUserRecordName: String) -> CKRecord.ID {
