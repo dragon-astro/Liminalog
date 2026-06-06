@@ -1640,6 +1640,30 @@ private struct FriendDetailView: View {
         )
     }
 
+    private func refreshIncomingShare(for friend: Friend, shareURL: URL) async throws {
+        do {
+            let snapshot = try await cloudShareStore.acceptIncomingShare(url: shareURL)
+            await MainActor.run {
+                CloudFriendShareSnapshotApplier.apply(snapshot, to: friend)
+                save()
+            }
+        } catch {
+            guard CloudFriendShareRefreshFailurePolicy.shouldClearCachedShare(after: error) else {
+                throw error
+            }
+            await MainActor.run {
+                CloudFriendShareSnapshotApplier.clearCachedShare(from: friend)
+                friend.shareURL = nil
+                save()
+            }
+        }
+    }
+
+    private func incomingShareURL(for friend: Friend) -> URL? {
+        guard let shareURL = friend.shareURL else { return nil }
+        return URL(string: shareURL)
+    }
+
     private func clearIncomingShareData() {
         CloudFriendShareSnapshotApplier.clearCachedShare(from: friend)
     }
@@ -1689,10 +1713,7 @@ private struct FriendDetailView: View {
         VStack(spacing: 10) {
             if friend.status == .pendingIncoming {
                 Button {
-                    friend.status = .accepted
-                    friend.acceptedAt = Date()
-                    friend.updatedAt = Date()
-                    save()
+                    acceptFriend()
                 } label: {
                     Label("承認", systemImage: "checkmark.circle.fill")
                         .font(.headline.weight(.semibold))
@@ -1702,6 +1723,49 @@ private struct FriendDetailView: View {
                 .buttonStyle(.borderedProminent)
             }
         }
+    }
+
+    private func acceptFriend() {
+        guard !friend.userRecordID.isEmpty,
+              let ownUsername = settings?.cloudUsernameNormalized,
+              !ownUsername.isEmpty
+        else {
+            acceptFriendLocally()
+            return
+        }
+
+        Task {
+            do {
+                try await cloudSocialStore.acceptFriendRequest(
+                    from: friend.userRecordID,
+                    requesterUsername: cloudUsername(from: friend),
+                    ownUsername: ownUsername,
+                    ownDisplayName: ownDisplayName
+                )
+                await MainActor.run {
+                    acceptFriendLocally()
+                    onSharingSettingsChanged(friend)
+                }
+                if let shareURL = incomingShareURL(for: friend) {
+                    try await refreshIncomingShare(for: friend, shareURL: shareURL)
+                }
+            } catch {
+                await MainActor.run {
+                    saveError = "友達申請を承認できませんでした: \(error.localizedDescription)"
+                }
+            }
+        }
+    }
+
+    private func acceptFriendLocally() {
+        friend.status = .accepted
+        friend.acceptedAt = Date()
+        friend.updatedAt = Date()
+        friend.lastSeenAt = Date()
+        if friend.visibilityPresetID == nil {
+            friend.visibilityPresetID = defaultVisibilityPresetID
+        }
+        save()
     }
 
     private var sharingSettingsCard: some View {
