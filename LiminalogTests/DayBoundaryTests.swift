@@ -228,11 +228,11 @@ struct DashboardCardKeyTests {
                 "scoreTrend",
                 "hero"
             ],
-            for: .month
+            for: .today
         )
 
         #expect(!order.contains(.periodDelta))
-        #expect(order.first == .scoreTrend)
+        #expect(!order.contains(.scoreTrend))
         #expect(order.contains(.hero))
     }
 

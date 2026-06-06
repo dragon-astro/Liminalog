@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct DashboardPeriodDeltaCard: View {
+    let period: DashboardPeriod
     let summary: DashboardPeriodDeltaSummary
 
     private var rows: [DashboardDeltaDisplayRow] {
@@ -50,15 +51,47 @@ struct DashboardPeriodDeltaCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            DashboardSectionHeader(title: "先週比", systemImage: "arrow.left.arrow.right", tint: Color(hex: "#F2994A"))
+            DashboardSectionHeader(title: period.comparisonTitle, systemImage: "arrow.left.arrow.right", tint: Color(hex: "#F2994A"))
 
             VStack(spacing: 12) {
                 ForEach(rows) { row in
-                    DashboardDeltaMetricRow(row: row)
+                    DashboardDeltaMetricRow(period: period, row: row)
                 }
             }
         }
         .dashboardCard()
+    }
+}
+
+private extension DashboardPeriod {
+    var comparisonTitle: String {
+        switch self {
+        case .today:
+            "前日比"
+        case .week:
+            "先週比"
+        case .month:
+            "先月比"
+        case .year:
+            "前年比"
+        }
+    }
+
+    var previousPeriodLabel: String {
+        switch self {
+        case .today:
+            "前日"
+        case .week:
+            "前週"
+        case .month:
+            "前月"
+        case .year:
+            "前年"
+        }
+    }
+
+    var missingPreviousPeriodText: String {
+        "\(previousPeriodLabel)なし"
     }
 }
 
@@ -96,6 +129,7 @@ struct DashboardDeltaDisplayRow: Identifiable {
 }
 
 struct DashboardDeltaMetricRow: View {
+    let period: DashboardPeriod
     let row: DashboardDeltaDisplayRow
 
     private var deltaColor: Color {
@@ -140,9 +174,9 @@ struct DashboardDeltaMetricRow: View {
                 .frame(height: 18)
 
             HStack {
-                Text("前週 \(formatDashboardDeltaBaseline(row.metric.previous, title: row.title))")
+                Text("\(period.previousPeriodLabel) \(formatDashboardDeltaBaseline(row.metric.previous, title: row.title))")
                 Spacer()
-                Text(formatDashboardPercentChange(row.metric.percentChange))
+                Text(formatDashboardPercentChange(row.metric.percentChange, missingText: period.missingPreviousPeriodText))
             }
             .font(.caption2.monospacedDigit())
             .foregroundStyle(LiminalTheme.secondaryText)
@@ -244,8 +278,8 @@ private func formatDashboardSignedCount(_ value: Double) -> String {
     return "±0日"
 }
 
-private func formatDashboardPercentChange(_ value: Double?) -> String {
-    guard let value else { return "前週なし" }
+private func formatDashboardPercentChange(_ value: Double?, missingText: String) -> String {
+    guard let value else { return missingText }
     let percent = Int((value * 100).rounded())
     if percent > 0 {
         return "+\(percent)%"

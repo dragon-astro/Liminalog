@@ -164,7 +164,7 @@ struct DashboardPeriodContent: View {
         case .scoreBreakdown:
             ScoreBreakdownCard(summary: snapshot.periodSummary)
         case .periodDelta:
-            DashboardPeriodDeltaCard(summary: snapshot.periodDeltaSummary)
+            DashboardPeriodDeltaCard(period: period, summary: snapshot.periodDeltaSummary)
         case .categoryShare:
             CategoryShareCard(chapters: snapshot.chapters)
         case .hourRhythm:

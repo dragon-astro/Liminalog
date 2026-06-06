@@ -78,6 +78,7 @@ enum DashboardCardKey: String, CaseIterable, Identifiable {
             return [
                 .hero,
                 .scoreBreakdown,
+                .periodDelta,
                 .categoryShare,
                 .hourRhythm,
                 .scoreTrend,
