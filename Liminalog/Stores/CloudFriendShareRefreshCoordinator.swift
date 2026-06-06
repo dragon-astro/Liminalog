@@ -107,27 +107,35 @@ final class CloudFriendShareRefreshCoordinator {
             let acceptedFriendIDs = Set(acceptedFriends.map(\.id))
 
             for friend in acceptedFriends {
-                let snapshot = outgoingShareSnapshot(
-                    for: friend,
-                    ownUsername: ownUsername,
-                    ownDisplayName: ownDisplayName,
-                    acceptedFriendIDs: acceptedFriendIDs,
-                    visibilityPresets: visibilityPresets,
-                    chapters: chapters,
-                    planBlocks: planBlocks,
-                    modelContext: context,
-                    now: now
-                )
-                let result = try await cloudShareStore.upsertOutgoingShare(snapshot: snapshot)
-                if let shareURL = result.shareURL {
-                    _ = try await cloudSocialStore.updateOwnConsentShareURL(
+                do {
+                    try await cloudSocialStore.validateCanPublishOwnShare(
                         targetUserRecordName: friend.userRecordID,
-                        ownUsername: ownUsername,
-                        targetUsername: cloudUsername(from: friend),
-                        ownDisplayName: ownDisplayName,
-                        shareURL: shareURL,
                         status: .accepted
                     )
+                    let snapshot = outgoingShareSnapshot(
+                        for: friend,
+                        ownUsername: ownUsername,
+                        ownDisplayName: ownDisplayName,
+                        acceptedFriendIDs: acceptedFriendIDs,
+                        visibilityPresets: visibilityPresets,
+                        chapters: chapters,
+                        planBlocks: planBlocks,
+                        modelContext: context,
+                        now: now
+                    )
+                    let result = try await cloudShareStore.upsertOutgoingShare(snapshot: snapshot)
+                    if let shareURL = result.shareURL {
+                        _ = try await cloudSocialStore.updateOwnConsentShareURL(
+                            targetUserRecordName: friend.userRecordID,
+                            ownUsername: ownUsername,
+                            targetUsername: cloudUsername(from: friend),
+                            ownDisplayName: ownDisplayName,
+                            shareURL: shareURL,
+                            status: .accepted
+                        )
+                    }
+                } catch {
+                    NSLog("Liminalog: skipped publishing friend share for \(friend.userRecordID) on \(reason): \(String(describing: error))")
                 }
             }
         } catch {

@@ -255,17 +255,13 @@ final class CloudKitSocialStore {
         status: CloudFriendConsent.Status
     ) async throws -> CloudFriendConsent {
         let ownRecordName = try await currentUserRecordName()
-        let existingOwnConsent = try await fetchConsentIfExists(
-            ownerUserRecordName: ownRecordName,
+        let statuses = try await consentStatuses(
+            ownRecordName: ownRecordName,
             targetUserRecordName: targetUserRecordName
         )
-        let reciprocalConsent = try await fetchConsentIfExists(
-            ownerUserRecordName: targetUserRecordName,
-            targetUserRecordName: ownRecordName
-        )
         try CloudFriendConsentPolicy.validateUpdatingShareURL(
-            existingOwnStatus: existingOwnConsent?.status,
-            reciprocalStatus: reciprocalConsent?.status,
+            existingOwnStatus: statuses.own,
+            reciprocalStatus: statuses.reciprocal,
             updatedStatus: status
         )
         return try await saveConsent(
@@ -276,6 +272,22 @@ final class CloudKitSocialStore {
             ownerDisplayName: publicDisplayName(ownDisplayName),
             shareURL: shareURL.absoluteString,
             status: status
+        )
+    }
+
+    func validateCanPublishOwnShare(
+        targetUserRecordName: String,
+        status: CloudFriendConsent.Status
+    ) async throws {
+        let ownRecordName = try await currentUserRecordName()
+        let statuses = try await consentStatuses(
+            ownRecordName: ownRecordName,
+            targetUserRecordName: targetUserRecordName
+        )
+        try CloudFriendConsentPolicy.validateUpdatingShareURL(
+            existingOwnStatus: statuses.own,
+            reciprocalStatus: statuses.reciprocal,
+            updatedStatus: status
         )
     }
 
@@ -401,6 +413,21 @@ final class CloudKitSocialStore {
         record[Field.updatedAt] = now as CKRecordValue
 
         return try Self.consent(from: try await save(record, savePolicy: .changedKeys))
+    }
+
+    private func consentStatuses(
+        ownRecordName: String,
+        targetUserRecordName: String
+    ) async throws -> (own: CloudFriendConsent.Status?, reciprocal: CloudFriendConsent.Status?) {
+        let existingOwnConsent = try await fetchConsentIfExists(
+            ownerUserRecordName: ownRecordName,
+            targetUserRecordName: targetUserRecordName
+        )
+        let reciprocalConsent = try await fetchConsentIfExists(
+            ownerUserRecordName: targetUserRecordName,
+            targetUserRecordName: ownRecordName
+        )
+        return (existingOwnConsent?.status, reciprocalConsent?.status)
     }
 
     private func reclaimExistingProfileIfOwned(

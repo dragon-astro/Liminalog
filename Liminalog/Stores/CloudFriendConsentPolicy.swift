@@ -40,7 +40,8 @@ enum CloudFriendConsentPolicy {
         guard updatedStatus == .accepted else {
             throw CloudKitSocialError.requestNotFound
         }
-        if existingOwnStatus == .accepted {
+        if existingOwnStatus == .accepted,
+           reciprocalStatus == .requested || reciprocalStatus == .accepted {
             return
         }
         if existingOwnStatus == .requested,

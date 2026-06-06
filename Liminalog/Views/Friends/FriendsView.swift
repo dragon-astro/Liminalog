@@ -906,6 +906,10 @@ struct FriendsView: View {
             throw CloudKitSocialError.ownProfileMissing
         }
         let targetUsername = cloudUsername(from: friend)
+        try await cloudSocialStore.validateCanPublishOwnShare(
+            targetUserRecordName: friend.userRecordID,
+            status: consentStatus
+        )
         let snapshot = outgoingShareSnapshot(for: friend, ownUsername: ownUsername)
         let result = try await cloudShareStore.upsertOutgoingShare(snapshot: snapshot)
         if let shareURL = result.shareURL {

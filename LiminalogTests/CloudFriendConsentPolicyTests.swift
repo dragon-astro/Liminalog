@@ -101,10 +101,19 @@ struct CloudFriendConsentPolicyTests {
     }
 
     @Test
-    func shareURLUpdateAllowsAcceptedConsent() throws {
+    func shareURLUpdateAllowsAcceptedConsentWithReciprocalRequest() throws {
         try CloudFriendConsentPolicy.validateUpdatingShareURL(
             existingOwnStatus: .accepted,
-            reciprocalStatus: nil,
+            reciprocalStatus: .requested,
+            updatedStatus: .accepted
+        )
+    }
+
+    @Test
+    func shareURLUpdateAllowsAcceptedConsentWithReciprocalAcceptedConsent() throws {
+        try CloudFriendConsentPolicy.validateUpdatingShareURL(
+            existingOwnStatus: .accepted,
+            reciprocalStatus: .accepted,
             updatedStatus: .accepted
         )
     }
@@ -176,6 +185,17 @@ struct CloudFriendConsentPolicyTests {
         expectRequestNotFound {
             try CloudFriendConsentPolicy.validateUpdatingShareURL(
                 existingOwnStatus: .requested,
+                reciprocalStatus: nil,
+                updatedStatus: .accepted
+            )
+        }
+    }
+
+    @Test
+    func shareURLUpdateDoesNotPublishForOneSidedOwnAccept() {
+        expectRequestNotFound {
+            try CloudFriendConsentPolicy.validateUpdatingShareURL(
+                existingOwnStatus: .accepted,
                 reciprocalStatus: nil,
                 updatedStatus: .accepted
             )
