@@ -29,6 +29,8 @@ struct FriendsView: View {
     @State private var isSendingCloudFriendRequest = false
     @State private var isRefreshingCloudRequests = false
     @State private var didLoadIncomingCloudRequests = false
+    @State private var didRegisterCloudKitPushes = false
+    @State private var subscribedFriendConsentUserRecordName: String?
 
     private let cloudSocialStore = CloudKitSocialStore()
     private let cloudShareStore = CloudFriendShareStore()
@@ -154,6 +156,8 @@ struct FriendsView: View {
                     desiredUserID = settings?.cloudUsernameNormalized ?? ""
                 }
                 handlePendingInviteURL()
+                registerForCloudKitPushesIfPossible()
+                ensureFriendConsentSubscriptionIfPossible()
                 refreshCloudRequestsIfPossible()
                 clock.start()
             }
@@ -162,6 +166,9 @@ struct FriendsView: View {
             }
             .onChange(of: pendingInviteURL) { _, _ in
                 handlePendingInviteURL()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: CloudKitFriendEventBridge.friendConsentDidChange)) { _ in
+                refreshCloudRequests(force: false)
             }
             .alert("友達の変更を保存できませんでした", isPresented: saveErrorPresented) {
                 Button("OK", role: .cancel) {
@@ -641,6 +648,8 @@ struct FriendsView: View {
                     if save() {
                         cloudStatusText = "@\(profile.username) を確定しました。"
                         friendSearchUserID = ""
+                        registerForCloudKitPushesIfPossible()
+                        ensureFriendConsentSubscriptionIfPossible()
                     }
                     isRegisteringCloudProfile = false
                 }
@@ -736,6 +745,31 @@ struct FriendsView: View {
                         cloudErrorText = error.localizedDescription
                     }
                     isRefreshingCloudRequests = false
+                }
+            }
+        }
+    }
+
+    private func registerForCloudKitPushesIfPossible() {
+        guard hasCloudUsername, !didRegisterCloudKitPushes else { return }
+        didRegisterCloudKitPushes = true
+        UIApplication.shared.registerForRemoteNotifications()
+    }
+
+    private func ensureFriendConsentSubscriptionIfPossible() {
+        guard let ownUserRecordName = settings?.cloudUserRecordName, !ownUserRecordName.isEmpty else { return }
+        guard subscribedFriendConsentUserRecordName != ownUserRecordName else { return }
+        Task {
+            do {
+                try await cloudSocialStore.ensureIncomingConsentSubscription(forOwnUserRecordName: ownUserRecordName)
+                await MainActor.run {
+                    subscribedFriendConsentUserRecordName = ownUserRecordName
+                }
+            } catch {
+                await MainActor.run {
+                    if cloudErrorText == nil {
+                        cloudErrorText = "友達更新の通知登録に失敗しました: \(error.localizedDescription)"
+                    }
                 }
             }
         }

@@ -205,6 +205,32 @@ final class CloudKitSocialStore {
         return try records.map(Self.consent(from:))
     }
 
+    func ensureIncomingConsentSubscription(forOwnUserRecordName ownUserRecordName: String) async throws {
+        let subscriptionID = "\(CloudKitFriendEventBridge.friendConsentSubscriptionPrefix)\(ownUserRecordName)"
+        do {
+            _ = try await fetchSubscription(subscriptionID: subscriptionID)
+            return
+        } catch let error as CKError where error.code == .unknownItem {
+            // The subscription is app-scoped on CloudKit, so only create it when it is absent.
+        }
+
+        let predicate = NSPredicate(
+            format: "%K == %@",
+            Field.targetUserRecordName,
+            ownUserRecordName
+        )
+        let subscription = CKQuerySubscription(
+            recordType: RecordType.consent,
+            predicate: predicate,
+            subscriptionID: subscriptionID,
+            options: [.firesOnRecordCreation, .firesOnRecordUpdate, .firesOnRecordDeletion]
+        )
+        let info = CKSubscription.NotificationInfo()
+        info.shouldSendContentAvailable = true
+        subscription.notificationInfo = info
+        _ = try await save(subscription)
+    }
+
     private func saveConsent(
         ownerUserRecordName: String,
         targetUserRecordName: String,
@@ -318,6 +344,38 @@ final class CloudKitSocialStore {
                 }
             }
             publicDatabase.add(operation)
+        }
+    }
+
+    private func save(_ subscription: CKSubscription) async throws -> CKSubscription {
+        try await withCheckedThrowingContinuation { continuation in
+            publicDatabase.save(subscription) { savedSubscription, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                guard let savedSubscription else {
+                    continuation.resume(throwing: CloudKitSocialError.missingRecordField("subscription"))
+                    return
+                }
+                continuation.resume(returning: savedSubscription)
+            }
+        }
+    }
+
+    private func fetchSubscription(subscriptionID: String) async throws -> CKSubscription {
+        try await withCheckedThrowingContinuation { continuation in
+            publicDatabase.fetch(withSubscriptionID: subscriptionID) { subscription, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                guard let subscription else {
+                    continuation.resume(throwing: CloudKitSocialError.missingRecordField("subscription"))
+                    return
+                }
+                continuation.resume(returning: subscription)
+            }
         }
     }
 
