@@ -135,7 +135,7 @@ final class CloudFriendShareStore {
             targetUserRecordName: snapshot.targetUserRecordName
         )
 
-        if let existing = try? await fetchRecord(rootID, from: privateDatabase) {
+        if let existing = try await fetchRecordIfExists(rootID, from: privateDatabase) {
             Self.apply(snapshot, to: existing)
             do {
                 let share = try await fetchShare(for: existing)
@@ -246,7 +246,7 @@ final class CloudFriendShareStore {
             ownerUserRecordName: ownerUserRecordName,
             targetUserRecordName: targetUserRecordName
         )
-        guard let root = try? await fetchRecord(rootID, from: privateDatabase) else { return }
+        guard let root = try await fetchRecordIfExists(rootID, from: privateDatabase) else { return }
 
         var recordIDs = [root.recordID]
         if let shareRecordID = root.share?.recordID {
@@ -341,6 +341,17 @@ final class CloudFriendShareStore {
             throw CloudFriendShareError.missingRootRecord
         }
         return try result.get()
+    }
+
+    private func fetchRecordIfExists(_ recordID: CKRecord.ID, from database: CKDatabase) async throws -> CKRecord? {
+        do {
+            return try await fetchRecord(recordID, from: database)
+        } catch {
+            guard CloudKitRecordExistencePolicy.shouldTreatFetchErrorAsMissing(error) else {
+                throw error
+            }
+            return nil
+        }
     }
 
     private func fetchShare(for rootRecord: CKRecord) async throws -> CKShare {

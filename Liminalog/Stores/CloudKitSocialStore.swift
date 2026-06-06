@@ -330,7 +330,7 @@ final class CloudKitSocialStore {
         clearsShareURL: Bool = false
     ) async throws -> CloudFriendConsent {
         let recordID = Self.consentRecordID(ownerUserRecordName: ownerUserRecordName, targetUserRecordName: targetUserRecordName)
-        let existing = try? await fetchRecord(recordID)
+        let existing = try await fetchRecordIfExists(recordID)
         let now = Date()
         let record = existing ?? CKRecord(recordType: RecordType.consent, recordID: recordID)
         record[Field.ownerUserRecordName] = ownerUserRecordName as CKRecordValue
@@ -420,6 +420,17 @@ final class CloudKitSocialStore {
                 }
                 continuation.resume(returning: record)
             }
+        }
+    }
+
+    private func fetchRecordIfExists(_ recordID: CKRecord.ID) async throws -> CKRecord? {
+        do {
+            return try await fetchRecord(recordID)
+        } catch {
+            guard CloudKitRecordExistencePolicy.shouldTreatFetchErrorAsMissing(error) else {
+                throw error
+            }
+            return nil
         }
     }
 
