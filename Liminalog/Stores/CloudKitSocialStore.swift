@@ -259,8 +259,13 @@ final class CloudKitSocialStore {
             ownerUserRecordName: ownRecordName,
             targetUserRecordName: targetUserRecordName
         )
+        let reciprocalConsent = try await fetchConsentIfExists(
+            ownerUserRecordName: targetUserRecordName,
+            targetUserRecordName: ownRecordName
+        )
         try CloudFriendConsentPolicy.validateUpdatingShareURL(
             existingOwnStatus: existingOwnConsent?.status,
+            reciprocalStatus: reciprocalConsent?.status,
             updatedStatus: status
         )
         return try await saveConsent(

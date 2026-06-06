@@ -31,13 +31,22 @@ enum CloudFriendConsentPolicy {
 
     static func validateUpdatingShareURL(
         existingOwnStatus: CloudFriendConsent.Status?,
+        reciprocalStatus: CloudFriendConsent.Status?,
         updatedStatus: CloudFriendConsent.Status
     ) throws {
-        if existingOwnStatus == .blocked {
+        if existingOwnStatus == .blocked || reciprocalStatus == .blocked {
             throw CloudKitSocialError.requestBlocked
         }
         guard updatedStatus == .accepted else {
             throw CloudKitSocialError.requestNotFound
         }
+        if existingOwnStatus == .accepted {
+            return
+        }
+        if existingOwnStatus == .requested,
+           reciprocalStatus == .requested || reciprocalStatus == .accepted {
+            return
+        }
+        throw CloudKitSocialError.requestNotFound
     }
 }

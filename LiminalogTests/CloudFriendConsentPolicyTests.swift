@@ -104,14 +104,25 @@ struct CloudFriendConsentPolicyTests {
     func shareURLUpdateAllowsAcceptedConsent() throws {
         try CloudFriendConsentPolicy.validateUpdatingShareURL(
             existingOwnStatus: .accepted,
+            reciprocalStatus: nil,
             updatedStatus: .accepted
         )
     }
 
     @Test
-    func shareURLUpdateCanCreateAcceptedConsentAfterRestore() throws {
+    func shareURLUpdateAllowsCrossRequestAfterReciprocalRequest() throws {
         try CloudFriendConsentPolicy.validateUpdatingShareURL(
-            existingOwnStatus: nil,
+            existingOwnStatus: .requested,
+            reciprocalStatus: .requested,
+            updatedStatus: .accepted
+        )
+    }
+
+    @Test
+    func shareURLUpdateAllowsExistingRequestAfterReciprocalAccepts() throws {
+        try CloudFriendConsentPolicy.validateUpdatingShareURL(
+            existingOwnStatus: .requested,
+            reciprocalStatus: .accepted,
             updatedStatus: .accepted
         )
     }
@@ -121,6 +132,18 @@ struct CloudFriendConsentPolicyTests {
         expectRequestBlocked {
             try CloudFriendConsentPolicy.validateUpdatingShareURL(
                 existingOwnStatus: .blocked,
+                reciprocalStatus: .accepted,
+                updatedStatus: .accepted
+            )
+        }
+    }
+
+    @Test
+    func shareURLUpdateDoesNotOverrideReciprocalBlock() {
+        expectRequestBlocked {
+            try CloudFriendConsentPolicy.validateUpdatingShareURL(
+                existingOwnStatus: .accepted,
+                reciprocalStatus: .blocked,
                 updatedStatus: .accepted
             )
         }
@@ -131,7 +154,30 @@ struct CloudFriendConsentPolicyTests {
         expectRequestNotFound {
             try CloudFriendConsentPolicy.validateUpdatingShareURL(
                 existingOwnStatus: .requested,
+                reciprocalStatus: .accepted,
                 updatedStatus: .requested
+            )
+        }
+    }
+
+    @Test
+    func shareURLUpdateRequiresOwnConsentBeforePublishing() {
+        expectRequestNotFound {
+            try CloudFriendConsentPolicy.validateUpdatingShareURL(
+                existingOwnStatus: nil,
+                reciprocalStatus: .accepted,
+                updatedStatus: .accepted
+            )
+        }
+    }
+
+    @Test
+    func shareURLUpdateDoesNotPublishForOneSidedOwnRequest() {
+        expectRequestNotFound {
+            try CloudFriendConsentPolicy.validateUpdatingShareURL(
+                existingOwnStatus: .requested,
+                reciprocalStatus: nil,
+                updatedStatus: .accepted
             )
         }
     }
