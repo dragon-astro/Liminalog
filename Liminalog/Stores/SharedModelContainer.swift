@@ -276,8 +276,11 @@ enum SharedModelContainer {
                 "recording.activeCategoryID",
                 "recording.pendingCategoryID",
                 "recording.enabledCategorySetID",
-                "recording.surfaceSnapshot"
+                "recording.surfaceSnapshot",
+                "recording.widget.mediumCategorySetMode",
+                "recording.widget.mediumCategorySetID"
             ].forEach { defaults.removeObject(forKey: $0) }
+            (0..<4).forEach { defaults.removeObject(forKey: "recording.widget.smallCategoryID.\($0)") }
             defaults.synchronize()
         }
 

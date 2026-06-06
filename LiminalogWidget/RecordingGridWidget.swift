@@ -32,6 +32,11 @@ private enum RecordingWidgetStore {
     static let pendingCategoryCacheKey = "recording.pendingCategoryID"
     static let enabledCategorySetCacheKey = "recording.enabledCategorySetID"
     static let surfaceSnapshotCacheKey = "recording.surfaceSnapshot"
+    static let smallWidgetCategoryIDCacheKeyPrefix = "recording.widget.smallCategoryID."
+    static let mediumWidgetCategorySetModeCacheKey = "recording.widget.mediumCategorySetMode"
+    static let mediumWidgetCategorySetIDCacheKey = "recording.widget.mediumCategorySetID"
+    static let mediumWidgetModeCurrent = "current"
+    static let mediumWidgetModeFixed = "fixed"
     private static let developmentStoreVersionKey = "development.storeVersion"
     private static let currentDevelopmentStoreVersion = 2026060501
     private static let requiredDevelopmentStoreMarkers = [
@@ -163,8 +168,11 @@ private enum RecordingWidgetStore {
                 activeCategoryCacheKey,
                 pendingCategoryCacheKey,
                 enabledCategorySetCacheKey,
-                surfaceSnapshotCacheKey
+                surfaceSnapshotCacheKey,
+                mediumWidgetCategorySetModeCacheKey,
+                mediumWidgetCategorySetIDCacheKey
             ].forEach { defaults.removeObject(forKey: $0) }
+            (0..<4).forEach { defaults.removeObject(forKey: smallWidgetCategoryIDCacheKeyPrefix + "\($0)") }
             defaults.synchronize()
         }
 
@@ -187,10 +195,6 @@ private enum RecordingWidgetStore {
 
             let activeCategoryID = try cachedActiveCategoryID() ?? fetchActiveChapter(context: context)?.category?.id
 
-            if let snapshot {
-                return entry(from: snapshot, activeCategoryID: activeCategoryID)
-            }
-
             let sets = try context.fetch(FetchDescriptor<CategorySet>(
                 sortBy: [
                     SortDescriptor(\.sortOrder),
@@ -199,49 +203,63 @@ private enum RecordingWidgetStore {
             ))
             let settings = try fetchUserSettings(context: context)
             let requestedID = cachedEnabledCategorySetID(validatingWith: sets) ?? settings?.enabledCategorySetID
-            let selectedSet = requestedID.flatMap { id in sets.first { $0.id == id } }
+            let currentSet = requestedID.flatMap { id in sets.first { $0.id == id } }
                 ?? sets.first { $0.isDefault }
                 ?? sets.first
 
+            if shouldUseCurrentCategorySet, let snapshot {
+                return entry(
+                    from: snapshot,
+                    activeCategoryID: activeCategoryID,
+                    categoryByID: categoryByID
+                )
+            }
+
+            let selectedSet = selectedMediumCategorySet(from: sets, fallback: currentSet)
+
             guard let selectedSet else {
+                let cells = Array<WidgetCategory?>(repeating: nil, count: CategorySet.slotCount)
                 return RecordingGridEntry(
                     date: Date(),
                     categorySetID: nil,
                     categorySetName: "カテゴリ",
-                    cells: Array(repeating: nil, count: CategorySet.slotCount),
+                    cells: cells,
+                    smallCells: smallWidgetCells(categoryByID: categoryByID, fallbackCells: cells),
                     activeCategoryID: activeCategoryID,
                     message: "カテゴリセットがありません"
                 )
             }
 
-            let normalizedSlots = normalizeSlots(selectedSet.slots)
-            let cells: [WidgetCategory?] = normalizedSlots.map { id in
-                guard let id, let category = categoryByID[id] else { return nil }
-                return WidgetCategory(
-                    id: category.id,
-                    name: category.name,
-                    colorHex: category.colorHex,
-                    icon: category.icon
-                )
-            }
+            let cells = widgetCells(from: selectedSet, categoryByID: categoryByID)
+            let smallFallbackCells = currentSet.map {
+                widgetCells(from: $0, categoryByID: categoryByID)
+            } ?? cells
 
+            let smallCells = smallWidgetCells(categoryByID: categoryByID, fallbackCells: smallFallbackCells)
             return RecordingGridEntry(
                 date: Date(),
                 categorySetID: selectedSet.id,
                 categorySetName: selectedSet.name,
                 cells: cells,
+                smallCells: smallCells,
                 activeCategoryID: activeCategoryID,
                 message: nil
             )
         } catch {
             if let snapshot {
-                return entry(from: snapshot, activeCategoryID: cachedActiveCategoryID())
+                return entry(
+                    from: snapshot,
+                    activeCategoryID: cachedActiveCategoryID(),
+                    categoryByID: nil
+                )
             }
+            let cells = Array<WidgetCategory?>(repeating: nil, count: CategorySet.slotCount)
             return RecordingGridEntry(
                 date: Date(),
                 categorySetID: nil,
                 categorySetName: "カテゴリ",
-                cells: Array(repeating: nil, count: CategorySet.slotCount),
+                cells: cells,
+                smallCells: Array(cells.prefix(4)),
                 activeCategoryID: nil,
                 message: "データを読み込めません"
             )
@@ -250,16 +268,34 @@ private enum RecordingWidgetStore {
 
     private static func entry(
         from snapshot: RecordingSurfaceSnapshot,
-        activeCategoryID: UUID?
+        activeCategoryID: UUID?,
+        categoryByID: [UUID: Category]?
     ) -> RecordingGridEntry {
-        RecordingGridEntry(
+        let cells = widgetCells(from: snapshot)
+        return RecordingGridEntry(
             date: Date(),
             categorySetID: snapshot.selectedCategorySetID,
             categorySetName: snapshot.categorySetName,
-            cells: widgetCells(from: snapshot),
+            cells: cells,
+            smallCells: smallWidgetCells(categoryByID: categoryByID, fallbackCells: cells),
             activeCategoryID: activeCategoryID,
             message: nil
         )
+    }
+
+    private static func widgetCells(
+        from set: CategorySet,
+        categoryByID: [UUID: Category]
+    ) -> [WidgetCategory?] {
+        normalizeSlots(set.slots).map { id in
+            guard let id, let category = categoryByID[id] else { return nil }
+            return WidgetCategory(
+                id: category.id,
+                name: category.name,
+                colorHex: category.colorHex,
+                icon: category.icon
+            )
+        }
     }
 
     private static func widgetCells(from snapshot: RecordingSurfaceSnapshot) -> [WidgetCategory?] {
@@ -273,6 +309,64 @@ private enum RecordingWidgetStore {
                 colorHex: cell.colorHex,
                 icon: cell.icon
             )
+        }
+    }
+
+    private static var shouldUseCurrentCategorySet: Bool {
+        guard let defaults = UserDefaults(suiteName: appGroupID) else { return true }
+        let mode = defaults.string(forKey: mediumWidgetCategorySetModeCacheKey) ?? mediumWidgetModeCurrent
+        return mode != mediumWidgetModeFixed
+    }
+
+    private static func selectedMediumCategorySet(from sets: [CategorySet], fallback: CategorySet?) -> CategorySet? {
+        guard !shouldUseCurrentCategorySet,
+              let value = UserDefaults(suiteName: appGroupID)?.string(forKey: mediumWidgetCategorySetIDCacheKey),
+              let id = UUID(uuidString: value),
+              let fixedSet = sets.first(where: { $0.id == id })
+        else {
+            return fallback
+        }
+        return fixedSet
+    }
+
+    private static func smallWidgetCells(
+        categoryByID: [UUID: Category]?,
+        fallbackCells: [WidgetCategory?]
+    ) -> [WidgetCategory?] {
+        var cells: [WidgetCategory?] = []
+        let fallbackCategories = fallbackCells.compactMap { $0 }
+        var usedIDs = Set<UUID>()
+
+        if let categoryByID {
+            for id in cachedSmallWidgetCategoryIDs() {
+                guard let category = categoryByID[id], !usedIDs.contains(category.id) else { continue }
+                cells.append(WidgetCategory(
+                    id: category.id,
+                    name: category.name,
+                    colorHex: category.colorHex,
+                    icon: category.icon
+                ))
+                usedIDs.insert(category.id)
+                if cells.count == 4 { return cells }
+            }
+        }
+
+        for category in fallbackCategories where !usedIDs.contains(category.id) {
+            cells.append(category)
+            usedIDs.insert(category.id)
+            if cells.count == 4 { return cells }
+        }
+
+        while cells.count < 4 { cells.append(nil) }
+        return cells
+    }
+
+    private static func cachedSmallWidgetCategoryIDs() -> [UUID] {
+        guard let defaults = UserDefaults(suiteName: appGroupID) else { return [] }
+        return (0..<4).compactMap { index in
+            let key = smallWidgetCategoryIDCacheKeyPrefix + "\(index)"
+            guard let value = defaults.string(forKey: key) else { return nil }
+            return UUID(uuidString: value)
         }
     }
 
@@ -574,6 +668,7 @@ struct RecordingGridEntry: TimelineEntry {
     let categorySetID: UUID?
     let categorySetName: String
     let cells: [WidgetCategory?]
+    let smallCells: [WidgetCategory?]
     let activeCategoryID: UUID?
     let message: String?
 }
@@ -612,6 +707,12 @@ struct RecordingGridProvider: TimelineProvider {
                 previewCategory(6, name: "家事", colorHex: "#FFD60A", icon: "house.fill"),
                 previewCategory(7, name: "趣味", colorHex: "#BF5AF2", icon: "sparkles"),
                 previewCategory(8, name: "睡眠", colorHex: "#5E5CE6", icon: "moon.fill")
+            ],
+            smallCells: [
+                previewCategory(1, name: "勉強", colorHex: "#3478F6", icon: "book.fill"),
+                previewCategory(2, name: "作業", colorHex: "#30B0C7", icon: "desktopcomputer"),
+                previewCategory(3, name: "休憩", colorHex: "#34C759", icon: "cup.and.saucer.fill"),
+                previewCategory(4, name: "移動", colorHex: "#FF9F0A", icon: "tram.fill")
             ],
             activeCategoryID: nil,
             message: nil
@@ -655,7 +756,7 @@ private struct RecordingGridView: View {
     private var optimisticCategoryIDString = ""
 
     private var visibleCells: [WidgetCategory?] {
-        family == .systemSmall ? Array(entry.cells.prefix(4)) : entry.cells
+        family == .systemSmall ? entry.smallCells : entry.cells
     }
 
     private var columns: [GridItem] {
