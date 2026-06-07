@@ -4,6 +4,9 @@ import SwiftData
 
 @MainActor
 extension PreviewSupport {
+    static let devDataFlagKey = "LiminalogSeedDevData"
+    static let previewDataFlagKey = "LiminalogSeedPreviewData"
+
     struct RuntimeSeedRequest: Equatable {
         var shouldSeedPreviewPlans: Bool
         var shouldSeedDevData: Bool
@@ -15,13 +18,13 @@ extension PreviewSupport {
         environment: [String: String] = ProcessInfo.processInfo.environment
     ) -> RuntimeSeedRequest {
         let shouldSeedDevData = runtimeFlagEnabled(
-            "LiminalogSeedDevData",
+            devDataFlagKey,
             defaults: defaults,
             arguments: arguments,
             environment: environment
         )
         let shouldSeedPreviewPlans = shouldSeedDevData || runtimeFlagEnabled(
-            "LiminalogSeedPreviewData",
+            previewDataFlagKey,
             defaults: defaults,
             arguments: arguments,
             environment: environment
@@ -56,15 +59,16 @@ extension PreviewSupport {
             NSLog("Liminalog: skipped preview plan seed because existing data could not be fetched")
             return didBootstrapCategories
         }
+        let debugSeedPlans = seedPlans.filter(Self.isDebugPreviewPlan)
         let hasCurrentSeedVersion = UserDefaults.standard.integer(forKey: previewPlanSeedVersionKey) >= currentPreviewPlanSeedVersion
 
-        if hasCurrentSeedVersion && monthHasCompleteShowcasePlans(seedPlans, in: seedInterval, calendar: calendar) {
+        if hasCurrentSeedVersion && monthHasCompleteShowcasePlans(debugSeedPlans, in: seedInterval, calendar: calendar) {
             return didBootstrapCategories
         }
 
         let categories = categoryLookupByName(allCategories)
 
-        for plan in seedPlans {
+        for plan in debugSeedPlans {
             modelContext.delete(plan)
         }
 
@@ -122,6 +126,7 @@ extension PreviewSupport {
             NSLog("Liminalog: skipped dev chapter seed because existing chapters could not be fetched: \(String(describing: error))")
             return didBootstrapCategories
         }
+        let existingDebugChapters = existingChapters.filter(Self.isDebugDevChapter)
         let hasCurrentSeedVersion = UserDefaults.standard.integer(
             forKey: devSampleChapterSeedVersionKey
         ) >= currentDevSampleChapterSeedVersion
@@ -129,12 +134,12 @@ extension PreviewSupport {
             forKey: devSampleChapterSeedAnchorDayKey
         ) == todayKey
 
-        if hasCurrentSeedVersion && hasCurrentAnchorDay && !existingChapters.isEmpty {
+        if hasCurrentSeedVersion && hasCurrentAnchorDay && !existingDebugChapters.isEmpty {
             return didBootstrapCategories
         }
 
-        if !existingChapters.isEmpty {
-            existingChapters.forEach { modelContext.delete($0) }
+        if !existingDebugChapters.isEmpty {
+            existingDebugChapters.forEach { modelContext.delete($0) }
             _ = save(modelContext)
         }
 
@@ -156,11 +161,53 @@ extension PreviewSupport {
         return true
     }
 
+    @discardableResult
+    static func removeRuntimeSeedData(in modelContext: ModelContext) -> Bool {
+        var didChange = false
+
+        do {
+            let plans = try modelContext.fetch(FetchDescriptor<PlanBlock>())
+            for plan in plans where isDebugPreviewPlan(plan) {
+                modelContext.delete(plan)
+                didChange = true
+            }
+        } catch {
+            NSLog("Liminalog: skipped removing preview plan seed because plans could not be fetched: \(String(describing: error))")
+        }
+
+        do {
+            let chapters = try modelContext.fetch(FetchDescriptor<Chapter>())
+            for chapter in chapters where isDebugDevChapter(chapter) {
+                modelContext.delete(chapter)
+                didChange = true
+            }
+        } catch {
+            NSLog("Liminalog: skipped removing dev chapter seed because chapters could not be fetched: \(String(describing: error))")
+        }
+
+        UserDefaults.standard.removeObject(forKey: previewPlanSeedVersionKey)
+        UserDefaults.standard.removeObject(forKey: devSampleChapterSeedVersionKey)
+        UserDefaults.standard.removeObject(forKey: devSampleChapterSeedAnchorDayKey)
+
+        guard didChange else { return false }
+        return save(modelContext)
+    }
+
     private static var previewPlanSeedVersionKey: String { "LiminalogPreviewPlanSeedVersion" }
     private static var currentPreviewPlanSeedVersion: Int { 7 }
     private static var devSampleChapterSeedVersionKey: String { "LiminalogDevSampleChapterSeedVersion" }
     private static var devSampleChapterSeedAnchorDayKey: String { "LiminalogDevSampleChapterSeedAnchorDay" }
     private static var currentDevSampleChapterSeedVersion: Int { 4 }
+    private static var debugDevChapterMarker: String { "liminalog.debug.dev-chapter" }
+
+    private static func isDebugPreviewPlan(_ plan: PlanBlock) -> Bool {
+        guard let sourceEventID = plan.sourceEventID else { return false }
+        return sourceEventID.hasPrefix("debug.preview.")
+    }
+
+    private static func isDebugDevChapter(_ chapter: Chapter) -> Bool {
+        chapter.photoLocalIdentifier == debugDevChapterMarker
+    }
 
     private static func runtimeFlagEnabled(
         _ key: String,
@@ -455,6 +502,7 @@ extension PreviewSupport {
                 chapter.endTime = plannedEnd <= now ? plannedEnd : nil
                 chapter.mood = "😴"
                 chapter.isPublic = false
+                chapter.photoLocalIdentifier = debugDevChapterMarker
                 modelContext.insert(chapter)
             }
             guard let nextNightStart = calendar.date(byAdding: .day, value: 1, to: nightStart) else { break }
@@ -486,6 +534,7 @@ extension PreviewSupport {
                 chapter.mood = segment.mood
                 chapter.locationName = segment.location
                 chapter.isPublic = segment.isPublic
+                chapter.photoLocalIdentifier = debugDevChapterMarker
                 modelContext.insert(chapter)
 
                 if plannedEnd > now {

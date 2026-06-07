@@ -350,7 +350,7 @@ struct ChapterStoreTests {
         #expect(chapter.hasAudienceSnapshot)
     }
 
-    @Test("開発用Chapter seedは月跨ぎの昨日を含め、未来と重複を作らず現在の1件だけをactiveにする")
+    @Test("開発用Chapter seedはユーザー実績を残し、月跨ぎの昨日を含めたデモ実績を作る")
     func devSampleChapterSeedAvoidsFutureAndOverlaps() throws {
         let versionKey = "LiminalogDevSampleChapterSeedVersion"
         let anchorKey = "LiminalogDevSampleChapterSeedAnchorDay"
@@ -368,8 +368,9 @@ struct ChapterStoreTests {
         let context = container.mainContext
         let staleCategory = Category(name: "古いダミー", colorHex: "#999999")
         context.insert(staleCategory)
-        let staleActive = Chapter(category: staleCategory, startTime: try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1))))
-        context.insert(staleActive)
+        let userChapter = Chapter(category: staleCategory, startTime: try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1, hour: 6))))
+        userChapter.endTime = try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1, hour: 7)))
+        context.insert(userChapter)
         try context.save()
         UserDefaults.standard.set(999, forKey: versionKey)
         UserDefaults.standard.set("20260531", forKey: anchorKey)
@@ -380,17 +381,19 @@ struct ChapterStoreTests {
         let chapters = try context.fetch(FetchDescriptor<Chapter>(sortBy: [SortDescriptor(\.startTime)]))
         let yesterdayStart = try #require(calendar.date(from: DateComponents(year: 2026, month: 5, day: 31)))
         let todayStart = try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1)))
+        let debugChapters = chapters.filter { $0.photoLocalIdentifier == "liminalog.debug.dev-chapter" }
         #expect(!chapters.isEmpty)
-        #expect(chapters.filter { $0.endTime == nil }.count == 1)
-        #expect(chapters.allSatisfy { $0.startTime <= now })
-        #expect(chapters.allSatisfy { ($0.endTime ?? now) <= now })
-        #expect(chapters.contains { $0.startTime < todayStart && ($0.endTime ?? now) > yesterdayStart })
-        #expect(!chapters.contains { $0.category?.name == "古いダミー" })
+        #expect(chapters.contains { $0.id == userChapter.id })
+        #expect(!debugChapters.isEmpty)
+        #expect(debugChapters.filter { $0.endTime == nil }.count == 1)
+        #expect(debugChapters.allSatisfy { $0.startTime <= now })
+        #expect(debugChapters.allSatisfy { ($0.endTime ?? now) <= now })
+        #expect(debugChapters.contains { $0.startTime < todayStart && ($0.endTime ?? now) > yesterdayStart })
 
-        for index in chapters.indices {
-            for laterIndex in chapters.indices.dropFirst(index + 1) {
-                let first = chapters[index]
-                let second = chapters[laterIndex]
+        for index in debugChapters.indices {
+            for laterIndex in debugChapters.indices.dropFirst(index + 1) {
+                let first = debugChapters[index]
+                let second = debugChapters[laterIndex]
                 let firstEnd = first.endTime ?? now
                 let secondEnd = second.endTime ?? now
                 #expect(firstEnd <= second.startTime || secondEnd <= first.startTime)
@@ -409,16 +412,27 @@ struct ChapterStoreTests {
         let clock = MutableTestClock(now: now)
         let container = try TestModelContainer.make()
         let context = container.mainContext
+        let userCategory = Category(name: "ユーザー予定", colorHex: "#111111")
+        context.insert(userCategory)
+        let userPlan = PlanBlock(
+            category: userCategory,
+            title: "消えない予定",
+            startTime: try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1, hour: 8))),
+            endTime: try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1, hour: 9)))
+        )
+        context.insert(userPlan)
+        try context.save()
         let store = ChapterStore(modelContext: context, clock: clock)
 
         store.seedPreviewPlansIfNeeded()
 
         let plans = try context.fetch(FetchDescriptor<PlanBlock>(sortBy: [SortDescriptor(\.startTime)]))
+        let debugPlans = plans.filter { $0.sourceEventID?.hasPrefix("debug.preview.") == true }
         let monthStart = try #require(calendar.date(from: calendar.dateComponents([.year, .month], from: now)))
         let monthEnd = try #require(calendar.date(byAdding: .month, value: 1, to: monthStart))
         let previousDayStart = try #require(calendar.date(byAdding: .day, value: -1, to: monthStart))
         let nextMonthFirstDayEnd = try #require(calendar.date(byAdding: .day, value: 1, to: monthEnd))
-        let timedPlans = plans.filter { !$0.isAllDay }
+        let timedPlans = debugPlans.filter { !$0.isAllDay }
 
         var dayCount = 0
         var cursor = previousDayStart
@@ -431,11 +445,46 @@ struct ChapterStoreTests {
         }
 
         #expect(dayCount == 32)
-        #expect(plans.contains { $0.isImportant && !$0.isAllDay && $0.title == "中間発表" })
-        #expect(plans.contains { $0.isImportant && !$0.isAllDay && $0.title == "デイリー共有" })
-        #expect(plans.contains { $0.isImportant && $0.isAllDay && $0.title == "集中制作週間" })
-        #expect(plans.contains { $0.isImportant && $0.isAllDay && $0.startTime < monthStart && $0.endTime > monthStart })
-        #expect(plans.contains { $0.isImportant && $0.isAllDay && $0.startTime < monthEnd && $0.endTime > monthEnd })
+        #expect(plans.contains { $0.id == userPlan.id })
+        #expect(debugPlans.contains { $0.isImportant && !$0.isAllDay && $0.title == "中間発表" })
+        #expect(debugPlans.contains { $0.isImportant && !$0.isAllDay && $0.title == "デイリー共有" })
+        #expect(debugPlans.contains { $0.isImportant && $0.isAllDay && $0.title == "集中制作週間" })
+        #expect(debugPlans.contains { $0.isImportant && $0.isAllDay && $0.startTime < monthStart && $0.endTime > monthStart })
+        #expect(debugPlans.contains { $0.isImportant && $0.isAllDay && $0.startTime < monthEnd && $0.endTime > monthEnd })
+    }
+
+    @Test("設定のダミーデータOFFはデモ由来の予定と実績だけを削除する")
+    func runtimeSeedRemovalKeepsUserData() throws {
+        let calendar = Calendar.current
+        let now = try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1, hour: 10, minute: 15)))
+        let clock = MutableTestClock(now: now)
+        let container = try TestModelContainer.make()
+        let context = container.mainContext
+        let userCategory = Category(name: "ユーザー", colorHex: "#111111")
+        context.insert(userCategory)
+        let userChapter = Chapter(category: userCategory, startTime: try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1, hour: 6))))
+        userChapter.endTime = try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1, hour: 7)))
+        context.insert(userChapter)
+        let userPlan = PlanBlock(
+            category: userCategory,
+            title: "ユーザー予定",
+            startTime: try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1, hour: 8))),
+            endTime: try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1, hour: 9)))
+        )
+        context.insert(userPlan)
+        try context.save()
+
+        let store = ChapterStore(modelContext: context, clock: clock)
+        store.seedPreviewPlansIfNeeded()
+        store.seedDevSampleChaptersIfNeeded()
+        #expect(PreviewSupport.removeRuntimeSeedData(in: context))
+
+        let chapters = try context.fetch(FetchDescriptor<Chapter>())
+        let plans = try context.fetch(FetchDescriptor<PlanBlock>())
+        #expect(chapters.count == 1)
+        #expect(chapters.contains { $0.id == userChapter.id })
+        #expect(plans.count == 1)
+        #expect(plans.contains { $0.id == userPlan.id })
     }
 
     @Test("CategorySetのスロット順と空きスロットを保ってカテゴリを解決する")

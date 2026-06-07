@@ -359,6 +359,31 @@ final class CloudKitSocialStore {
         )
     }
 
+    #if DEBUG
+    func resetOwnProfileForDevelopment(username rawUsername: String?) async throws {
+        let ownerRecordName = try await currentUserRecordName()
+        let ownerIndexRecordID = Self.profileOwnerIndexRecordID(ownerUserRecordName: ownerRecordName)
+        let ownerIndex = try await fetchRecordIfExists(ownerIndexRecordID)
+
+        var usernames = Set<String>()
+        if let rawUsername, let normalized = normalizedUsernameIfPossible(rawUsername) {
+            usernames.insert(normalized)
+        }
+        if let ownerIndexUsername = try ownerIndex.map(Self.ownerIndexUsername(from:)) {
+            usernames.insert(ownerIndexUsername)
+        }
+        for username in try await existingProfileUsernames(ownerUserRecordName: ownerRecordName) {
+            usernames.insert(username)
+        }
+
+        var recordIDs = [ownerIndexRecordID]
+        for username in usernames {
+            recordIDs.append(contentsOf: Self.profileRecordIDs(username: username))
+        }
+        try await deleteRecordsIfExists(recordIDs)
+    }
+    #endif
+
     private func ensureConsentSubscription(
         forOwnUserRecordName ownUserRecordName: String,
         scope: CloudFriendConsentSubscriptionScope
@@ -610,6 +635,26 @@ final class CloudKitSocialStore {
             savedRecords[recordID] = try recordResult.get()
         }
         return savedRecords
+    }
+
+    private func deleteRecordsIfExists(_ recordIDs: [CKRecord.ID]) async throws {
+        let uniqueRecordIDs = Array(Dictionary(grouping: recordIDs, by: \.recordName).compactMap { $0.value.first })
+        guard !uniqueRecordIDs.isEmpty else { return }
+        let result = try await publicDatabase.modifyRecords(
+            saving: [],
+            deleting: uniqueRecordIDs,
+            savePolicy: .changedKeys,
+            atomically: false
+        )
+        for (_, deleteResult) in result.deleteResults {
+            do {
+                _ = try deleteResult.get()
+            } catch {
+                guard CloudKitRecordExistencePolicy.shouldTreatFetchErrorAsMissing(error) else {
+                    throw error
+                }
+            }
+        }
     }
 
     private func savedRecord(for recordID: CKRecord.ID, in records: [CKRecord.ID: CKRecord]) throws -> CKRecord {

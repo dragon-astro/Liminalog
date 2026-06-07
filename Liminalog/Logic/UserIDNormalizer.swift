@@ -15,7 +15,7 @@ enum UserIDValidationError: Equatable, LocalizedError {
 }
 
 enum UserIDNormalizer {
-    nonisolated static let minimumLength = 3
+    nonisolated static let minimumLength = 4
     private nonisolated static let displayAtMarks: Set<Character> = ["@", "＠"]
 
     nonisolated static func normalize(_ rawValue: String) -> Result<String, UserIDValidationError> {
