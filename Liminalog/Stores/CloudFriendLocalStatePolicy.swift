@@ -9,4 +9,15 @@ enum CloudFriendLocalStatePolicy {
         guard status == .accepted else { return false }
         return !(incomingShareURL?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
     }
+
+    static func shouldDowngradeAcceptedCloudFriend(
+        status: FriendStatus,
+        userRecordID: String,
+        acceptedCloudFriendRecordNames: Set<String>
+    ) -> Bool {
+        guard status == .accepted else { return false }
+        let trimmedRecordID = userRecordID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedRecordID.isEmpty else { return false }
+        return !acceptedCloudFriendRecordNames.contains(trimmedRecordID)
+    }
 }

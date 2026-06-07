@@ -211,8 +211,8 @@ final class CloudFriendShareRefreshCoordinator {
 
             for friend in acceptedFriends {
                 guard acceptedCloudFriendRecordNames.contains(friend.userRecordID) else {
-                    CloudFriendShareSnapshotApplier.clearCachedShare(from: friend)
-                    friend.shareURL = nil
+                    downgradeAcceptedCloudFriendWithoutConsent(friend)
+                    try? await cloudShareStore.revokeOutgoingShare(targetUserRecordName: friend.userRecordID)
                     didUpdateFriends = true
                     continue
                 }
@@ -255,7 +255,6 @@ final class CloudFriendShareRefreshCoordinator {
             let outgoingConsents = try await cloudSocialStore.outgoingConsents(
                 forOwnUserRecordName: settings.cloudUserRecordName
             )
-            guard !incomingConsents.isEmpty || !outgoingConsents.isEmpty else { return }
 
             let visibilityPresets = try context.fetch(FetchDescriptor<VisibilityPreset>(
                 sortBy: [SortDescriptor(\.sortOrder)]
@@ -269,6 +268,9 @@ final class CloudFriendShareRefreshCoordinator {
             let restorations = CloudFriendConsentRestorePolicy.restorations(
                 incomingConsents: incomingConsents,
                 outgoingConsents: outgoingConsents
+            )
+            let acceptedCloudFriendRecordNames = CloudFriendConsentRestorePolicy.acceptedFriendUserRecordNames(
+                in: restorations
             )
             for restoration in restorations {
                 let status = restoration.status
@@ -314,6 +316,16 @@ final class CloudFriendShareRefreshCoordinator {
                         }
                     }
                 }
+            }
+
+            for friend in friends where CloudFriendLocalStatePolicy.shouldDowngradeAcceptedCloudFriend(
+                status: friend.status,
+                userRecordID: friend.userRecordID,
+                acceptedCloudFriendRecordNames: acceptedCloudFriendRecordNames
+            ) {
+                downgradeAcceptedCloudFriendWithoutConsent(friend)
+                try? await cloudShareStore.revokeOutgoingShare(targetUserRecordName: friend.userRecordID)
+                didChange = true
             }
 
             if didChange {
@@ -417,6 +429,14 @@ final class CloudFriendShareRefreshCoordinator {
             friend.visibilityPresetID = defaultVisibilityPresetID(in: visibilityPresets)
         }
         return friend
+    }
+
+    private func downgradeAcceptedCloudFriendWithoutConsent(_ friend: Friend) {
+        friend.status = .pendingOutgoing
+        friend.acceptedAt = nil
+        friend.shareURL = nil
+        CloudFriendShareSnapshotApplier.clearCachedShare(from: friend)
+        friend.updatedAt = Date()
     }
 
     private func defaultVisibilityPresetID(in visibilityPresets: [VisibilityPreset]) -> UUID? {
