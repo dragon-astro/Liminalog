@@ -1,7 +1,7 @@
 import Foundation
 
 enum CloudFriendProfileRegistrationPolicy {
-    static func registeredUsername(
+    nonisolated static func registeredUsername(
         requestedUsername: String,
         ownerIndexUsername: String?,
         ownedProfileUsernames: [String]
@@ -18,7 +18,7 @@ enum CloudFriendProfileRegistrationPolicy {
         return uniqueUsernames.first { $0 != requestedUsername } ?? uniqueUsernames[0]
     }
 
-    static func canRegister(
+    nonisolated static func canRegister(
         requestedUsername: String,
         registeredUsername: String?
     ) -> Bool {
@@ -28,7 +28,7 @@ enum CloudFriendProfileRegistrationPolicy {
         return normalizedUsername(registeredUsername) == normalizedUsername(requestedUsername)
     }
 
-    private static func normalizedUsername(_ username: String) -> String {
+    private nonisolated static func normalizedUsername(_ username: String) -> String {
         UserIDNormalizer.normalizedValue(username) ?? username
     }
 }
