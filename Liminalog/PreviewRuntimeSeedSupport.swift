@@ -194,7 +194,7 @@ extension PreviewSupport {
     }
 
     private static var previewPlanSeedVersionKey: String { "LiminalogPreviewPlanSeedVersion" }
-    private static var currentPreviewPlanSeedVersion: Int { 7 }
+    private static var currentPreviewPlanSeedVersion: Int { 8 }
     private static var devSampleChapterSeedVersionKey: String { "LiminalogDevSampleChapterSeedVersion" }
     private static var devSampleChapterSeedAnchorDayKey: String { "LiminalogDevSampleChapterSeedAnchorDay" }
     private static var currentDevSampleChapterSeedVersion: Int { 4 }
@@ -383,10 +383,18 @@ extension PreviewSupport {
         let highlights: [Int: (startMinute: Int, title: String, categoryName: String, note: String)] = [
             1: (1140, "THMC", "趣味", "月カレンダーで時間つき重要予定として見せるサンプル"),
             2: (780, "講師レビュー", "仕事", "週末の重要予定サンプル"),
+            4: (990, "企画レビュー", "仕事", "短めの重要予定"),
+            6: (570, "朝活イベント", "趣味", "週末午前の重要予定"),
             8: (780, "中間発表", "仕事", "重要予定が通常の24時間予定に混ざる例"),
+            10: (990, "1on1", "仕事", "平日の小さな重要予定"),
             13: (990, "歯医者", "移動", "時間つきでも重要なら月カレンダーに表示"),
+            15: (570, "作品撮影", "趣味", "午前の見せ場"),
+            18: (780, "提出締切", "勉強", "月中の締切サンプル"),
             20: (780, "遠出MTG", "仕事", "平日の大きな予定"),
+            22: (780, "友達と展示", "趣味", "休日午後の重要予定"),
+            24: (990, "メンテ予約", "移動", "暮らしの重要予定"),
             26: (1140, "デイリー共有", "趣味", "夜の短め重要予定"),
+            28: (780, "振り返り会", "勉強", "月末前の重要予定"),
             29: (1140, "信頼関係の話", "仕事", "夕方以降の重要予定"),
             31: (780, "カメラ研修", "仕事", "月末の重要予定")
         ]
@@ -418,9 +426,14 @@ extension PreviewSupport {
             DemoImportantPlan(categoryName: "趣味", title: "連休プロジェクト", startDayOffset: -2, endDayOffsetExclusive: 2, note: "月をまたぐ重要予定の表示確認"),
             DemoImportantPlan(categoryName: "休憩", title: "憲法記念日", startDayOffset: 2, endDayOffsetExclusive: 3, note: "終日の重要予定"),
             DemoImportantPlan(categoryName: "趣味", title: "こどもの日", startDayOffset: 4, endDayOffsetExclusive: 5, note: "祝日/イベントのサンプル"),
+            DemoImportantPlan(categoryName: "仕事", title: "企画スプリント", startDayOffset: 4, endDayOffsetExclusive: 7, note: "序盤にかかる複数日重要予定"),
             DemoImportantPlan(categoryName: "勉強", title: "集中制作週間", startDayOffset: 7, endDayOffsetExclusive: 12, note: "週をまたぐ横長バーのサンプル"),
+            DemoImportantPlan(categoryName: "休憩", title: "リカバリー日", startDayOffset: 11, endDayOffsetExclusive: 12, note: "単日バーの見せ場"),
             DemoImportantPlan(categoryName: "移動", title: "合宿", startDayOffset: 14, endDayOffsetExclusive: 17, note: "複数日にまたがる重要予定"),
+            DemoImportantPlan(categoryName: "勉強", title: "試験対策", startDayOffset: 16, endDayOffsetExclusive: 19, note: "中旬の横長重要予定"),
             DemoImportantPlan(categoryName: "仕事", title: "展示準備", startDayOffset: 20, endDayOffsetExclusive: 24, note: "友達共有で見せたい大きめの予定"),
+            DemoImportantPlan(categoryName: "趣味", title: "小旅行", startDayOffset: 23, endDayOffsetExclusive: 25, note: "週末をまたぐ予定"),
+            DemoImportantPlan(categoryName: "勉強", title: "読書強化", startDayOffset: 25, endDayOffsetExclusive: 28, note: "終盤の連続予定"),
             DemoImportantPlan(categoryName: "仕事", title: "リリース準備", startDayOffset: 29, endDayOffsetExclusive: 33, note: "翌月まで続く重要予定")
         ]
 

@@ -446,9 +446,14 @@ struct ChapterStoreTests {
 
         #expect(dayCount == 32)
         #expect(plans.contains { $0.id == userPlan.id })
+        #expect(debugPlans.filter { $0.isImportant && !$0.isAllDay }.count >= 14)
+        #expect(debugPlans.filter { $0.isImportant && $0.isAllDay }.count >= 12)
         #expect(debugPlans.contains { $0.isImportant && !$0.isAllDay && $0.title == "中間発表" })
         #expect(debugPlans.contains { $0.isImportant && !$0.isAllDay && $0.title == "デイリー共有" })
+        #expect(debugPlans.contains { $0.isImportant && !$0.isAllDay && $0.title == "提出締切" })
         #expect(debugPlans.contains { $0.isImportant && $0.isAllDay && $0.title == "集中制作週間" })
+        #expect(debugPlans.contains { $0.isImportant && $0.isAllDay && $0.title == "企画スプリント" })
+        #expect(debugPlans.contains { $0.isImportant && $0.isAllDay && $0.title == "読書強化" })
         #expect(debugPlans.contains { $0.isImportant && $0.isAllDay && $0.startTime < monthStart && $0.endTime > monthStart })
         #expect(debugPlans.contains { $0.isImportant && $0.isAllDay && $0.startTime < monthEnd && $0.endTime > monthEnd })
     }
