@@ -10,6 +10,10 @@ enum CloudFriendLocalStatePolicy {
         return !(incomingShareURL?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
     }
 
+    static func shouldRejectOutgoingRequest(existingStatus: FriendStatus?) -> Bool {
+        existingStatus == .blocked
+    }
+
     static func shouldDowngradeAcceptedCloudFriend(
         status: FriendStatus,
         userRecordID: String,

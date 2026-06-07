@@ -674,6 +674,12 @@ struct FriendsView: View {
             cloudErrorText = CloudKitSocialError.ownProfileMissing.localizedDescription
             return
         }
+        if CloudFriendLocalStatePolicy.shouldRejectOutgoingRequest(
+            existingStatus: localCloudFriendStatus(matchingUsername: friendSearchUserID)
+        ) {
+            cloudErrorText = CloudKitSocialError.requestBlocked.localizedDescription
+            return
+        }
 
         isSendingCloudFriendRequest = true
         cloudErrorText = nil
@@ -711,6 +717,13 @@ struct FriendsView: View {
                 }
             }
         }
+    }
+
+    private func localCloudFriendStatus(matchingUsername rawUsername: String) -> FriendStatus? {
+        guard let username = UserIDNormalizer.normalizedValue(rawUsername) else { return nil }
+        return friends.first { friend in
+            cloudUsername(from: friend) == username
+        }?.status
     }
 
     private func refreshCloudRequestsIfPossible() {

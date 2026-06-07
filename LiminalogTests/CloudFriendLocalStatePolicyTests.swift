@@ -36,6 +36,15 @@ struct CloudFriendLocalStatePolicyTests {
     }
 
     @Test
+    func outgoingRequestIsRejectedOnlyForLocalBlock() {
+        #expect(CloudFriendLocalStatePolicy.shouldRejectOutgoingRequest(existingStatus: .blocked))
+        #expect(!CloudFriendLocalStatePolicy.shouldRejectOutgoingRequest(existingStatus: .accepted))
+        #expect(!CloudFriendLocalStatePolicy.shouldRejectOutgoingRequest(existingStatus: .pendingIncoming))
+        #expect(!CloudFriendLocalStatePolicy.shouldRejectOutgoingRequest(existingStatus: .pendingOutgoing))
+        #expect(!CloudFriendLocalStatePolicy.shouldRejectOutgoingRequest(existingStatus: nil))
+    }
+
+    @Test
     func acceptedCloudFriendDowngradesWhenAcceptedConsentIsMissing() {
         #expect(CloudFriendLocalStatePolicy.shouldDowngradeAcceptedCloudFriend(
             status: .accepted,
