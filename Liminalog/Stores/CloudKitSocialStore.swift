@@ -388,7 +388,14 @@ final class CloudKitSocialStore {
         let info = CKSubscription.NotificationInfo()
         info.shouldSendContentAvailable = true
         subscription.notificationInfo = info
-        _ = try await save(subscription)
+        do {
+            _ = try await save(subscription)
+        } catch {
+            guard CloudKitRecordExistencePolicy.shouldTreatFetchErrorAsMissing(error) else {
+                throw error
+            }
+            return
+        }
     }
 
     private func saveConsent(
@@ -615,16 +622,23 @@ final class CloudKitSocialStore {
     private func queryRecords(type: String, predicate: NSPredicate, resultsLimit: Int) async throws -> [CKRecord] {
         var records: [CKRecord] = []
         var cursor: CKQueryOperation.Cursor?
-        repeat {
-            let page = try await queryRecordPage(
-                type: type,
-                predicate: predicate,
-                cursor: cursor,
-                resultsLimit: resultsLimit
-            )
-            records.append(contentsOf: page.records)
-            cursor = page.cursor
-        } while cursor != nil
+        do {
+            repeat {
+                let page = try await queryRecordPage(
+                    type: type,
+                    predicate: predicate,
+                    cursor: cursor,
+                    resultsLimit: resultsLimit
+                )
+                records.append(contentsOf: page.records)
+                cursor = page.cursor
+            } while cursor != nil
+        } catch {
+            guard CloudKitRecordExistencePolicy.shouldTreatFetchErrorAsMissing(error) else {
+                throw error
+            }
+            return []
+        }
         return records
     }
 
