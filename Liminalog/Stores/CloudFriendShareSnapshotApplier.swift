@@ -1,5 +1,7 @@
 import Foundation
+import SwiftData
 
+@MainActor
 enum CloudFriendShareSnapshotApplier {
     static func apply(_ snapshot: CloudFriendShareSnapshot, to friend: Friend) {
         friend.displayName = snapshot.ownerDisplayName
@@ -20,6 +22,14 @@ enum CloudFriendShareSnapshotApplier {
         friend.setSharedActivities(snapshot.sharedActivities)
         friend.lastSeenAt = snapshot.updatedAt
         friend.updatedAt = Date()
+        // docs/20: 塊JSONと並行して個別行キャッシュにも書く（UIを範囲クエリへ移行するための二重書き）。
+        if let modelContext = friend.modelContext {
+            FriendSharedRecordStore(modelContext: modelContext).reconcile(
+                friendID: friend.id,
+                plans: snapshot.sharedPlans,
+                activities: snapshot.sharedActivities
+            )
+        }
     }
 
     static func clearCachedShare(from friend: Friend) {
@@ -37,6 +47,9 @@ enum CloudFriendShareSnapshotApplier {
         friend.streakCount = 0
         friend.setSharedPlans([])
         friend.setSharedActivities([])
+        if let modelContext = friend.modelContext {
+            FriendSharedRecordStore(modelContext: modelContext).deleteAll(friendID: friend.id)
+        }
         friend.lastSeenAt = nil
         friend.updatedAt = Date()
     }

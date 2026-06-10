@@ -233,7 +233,11 @@ final class CloudFriendShareRefreshCoordinator {
                     }
                 }
             }
-            if didUpdateFriends {
+            // docs/20: 削除済み友達の個別行キャッシュを回収する（取りこぼし防止）。
+            let purgedRecordCount = FriendSharedRecordStore(modelContext: context).purgeRecords(
+                notBelongingTo: Set(friends.map(\.id))
+            )
+            if didUpdateFriends || purgedRecordCount > 0 {
                 try context.save()
             }
         } catch {

@@ -68,3 +68,30 @@
 - `Models/Friend.swift`：`FriendShareSnapshotCache`（塊デコードのメモ化）。
 - `Stores/CalendarDayScoreCache.swift`：日スコアの署名キャッシュ（変化なければ再計算しない）。
 - これらは塊方式の延命。**本設計（個別レコード化）が入ったら撤去/置換**。
+
+---
+
+## 7. 実装状況（2026-06-10 Claude・段階1完了）
+
+### 7.1 決着した設計判断
+- **§2.2の「Codex判断の肝」（派生データを自分のCloudKitへ二重同期させない方法）は解決済み**:
+  既存の `LocalCache` ModelConfiguration（`cloudKitDatabase: .none`、`CalendarEventCache` と同居）に置く。
+  別コンテナ不要。消えても再同期で復元できる純粋な派生キャッシュ。
+
+### 7.2 実装済み（受信側の土台＋二重書き）
+| 部品 | 役割 |
+|---|---|
+| `Models/FriendSharedRecord.swift` | `FriendSharedPlanRecord` / `FriendSharedChapterRecord`（@Model・`#Index(friendID, startTime)`・snapshot相互変換） |
+| `Stores/FriendSharedRecordReconcilePolicy.swift` | sourceID突合の純ロジック（insert/update/delete、updatedAt比較、重複除去）。CloudKit差分同期になってもそのまま使える |
+| `Stores/FriendSharedRecordStore.swift` | reconcile（全量正の一致化）・範囲クエリ（overlapping）・deleteAll・purge |
+| `CloudFriendShareSnapshotApplier` | 塊JSON反映と同時に個別行へも**二重書き**。`clearCachedShare` で行も削除 |
+| `CloudFriendShareRefreshCoordinator` | リフレッシュ末尾で孤児行をpurge |
+| スキーマ | `localCacheSchema` / `schema` / `LiminalogSchemaV1` / `TestModelContainer` に追加（軽量マイグレーションで追加されるだけ） |
+| テスト | `FriendSharedRecordStoreTests`（policy 3件＋store 4件、applier二重書き含む） |
+
+### 7.3 残り（着手順）
+1. **[Claude] UIの範囲クエリ移行**: `FriendCalendarView` / 友達デイビューの塊デコード（`friend.sharedPlans` 全件→42日フィルタ）を `FriendSharedRecordStore.plans/chapters(friendID:overlapping:)` に置換。`FriendShareSnapshotCache` を撤去 or ステータス専用に縮小。二重書きが先に入っているのでデータは既に行側にもある。
+2. **[Codex] CloudKit輸送層の個別レコード化**（§2.1）: 共有ゾーンに `SharedPlan`/`SharedChapter` を1件1レコードでupsert/delete（`sourceID`突合・可視性フィルタ）。ルートは現在地/スコア等の軽量ステータス専用に縮小。
+3. **[Codex] 受信の差分同期**（§2.2）: `CKFetchRecordZoneChangesOperation`＋ゾーン変更トークン。受信行の反映は `FriendSharedRecordReconcilePolicy`/`FriendSharedRecordStore` を流用（全量reconcileではなく差分適用APIを足す）。
+4. **[両者] 塊JSON撤去**: 2-3完了後に `sharedPlansJSON`/`sharedActivitiesJSON` と二重書きを撤去。1MB上限・ウィンドウ制限から解放され「全履歴×軽量」が成立。
+5. 二台実機での反復検証（共有・差分・削除・可視性）。§5の通り友達正式リリースの更新に同梱が安全。

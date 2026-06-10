@@ -2,6 +2,7 @@ import Foundation
 import Testing
 @testable import Liminalog
 
+@MainActor
 struct CloudFriendShareSnapshotApplierTests {
     @Test
     func appliesIncomingSnapshotToFriendCache() {

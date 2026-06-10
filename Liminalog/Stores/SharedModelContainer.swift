@@ -82,7 +82,9 @@ enum SharedModelContainer {
 
     static var localCacheSchema: Schema {
         Schema([
-            CalendarEventCache.self
+            CalendarEventCache.self,
+            FriendSharedPlanRecord.self,
+            FriendSharedChapterRecord.self
         ])
     }
 
@@ -99,7 +101,9 @@ enum SharedModelContainer {
             FriendSet.self,
             FriendCategoryMapping.self,
             DailyCardSnapshot.self,
-            CalendarEventCache.self
+            CalendarEventCache.self,
+            FriendSharedPlanRecord.self,
+            FriendSharedChapterRecord.self
         ])
     }
 
