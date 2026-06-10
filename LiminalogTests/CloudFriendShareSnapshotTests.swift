@@ -236,3 +236,47 @@ struct FriendSharePublishStateStoreTests {
         #expect(store.publishedFingerprints(targetUserRecordName: "_b", kind: FriendSharePublishStateStore.planKind).isEmpty)
     }
 }
+
+struct CloudKitTransientRetryPolicyTests {
+    private func makeCKError(_ code: CKError.Code, retryAfter: Double? = nil) -> CKError {
+        var userInfo: [String: Any] = [:]
+        if let retryAfter {
+            userInfo[CKErrorRetryAfterKey] = retryAfter
+        }
+        return CKError(code, userInfo: userInfo)
+    }
+
+    @Test
+    func honorsServerRetryAfterForZoneBusy() {
+        // 実機で観測した形: Zone Busy + Retry after 2.0 seconds
+        let error = makeCKError(.zoneBusy, retryAfter: 2.0)
+        #expect(CloudKitTransientRetryPolicy.retryDelay(after: error, attempt: 1) == 2.0)
+        #expect(CloudKitTransientRetryPolicy.retryDelay(after: error, attempt: 2) == 2.0)
+    }
+
+    @Test
+    func fallsBackToBackoffWithoutRetryAfter() {
+        let error = makeCKError(.serviceUnavailable)
+        #expect(CloudKitTransientRetryPolicy.retryDelay(after: error, attempt: 1) == 2)
+        #expect(CloudKitTransientRetryPolicy.retryDelay(after: error, attempt: 2) == 4)
+    }
+
+    @Test
+    func stopsAfterMaxAttempts() {
+        let error = makeCKError(.zoneBusy, retryAfter: 2.0)
+        #expect(CloudKitTransientRetryPolicy.retryDelay(after: error, attempt: CloudKitTransientRetryPolicy.maxAttempts) == nil)
+    }
+
+    @Test
+    func permanentErrorsAreNotRetried() {
+        #expect(CloudKitTransientRetryPolicy.retryDelay(after: makeCKError(.unknownItem), attempt: 1) == nil)
+        #expect(CloudKitTransientRetryPolicy.retryDelay(after: makeCKError(.permissionFailure), attempt: 1) == nil)
+        #expect(CloudKitTransientRetryPolicy.retryDelay(after: CloudFriendShareError.missingShareURL, attempt: 1) == nil)
+    }
+
+    @Test
+    func clampsExcessiveRetryAfter() {
+        let error = makeCKError(.requestRateLimited, retryAfter: 600)
+        #expect(CloudKitTransientRetryPolicy.retryDelay(after: error, attempt: 1) == 30)
+    }
+}

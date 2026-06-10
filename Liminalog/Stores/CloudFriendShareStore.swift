@@ -142,6 +142,12 @@ final class CloudFriendShareStore {
                 lastError = error
                 try? await Task.sleep(nanoseconds: UInt64(150_000_000) * UInt64(attempt + 1))
                 continue
+            } catch let error where CloudKitTransientRetryPolicy.retryDelay(after: error, attempt: attempt + 1) != nil {
+                // Zone Busy / レート制限など。サーバー指定の待ち時間でリトライする。
+                let delay = CloudKitTransientRetryPolicy.retryDelay(after: error, attempt: attempt + 1) ?? 2
+                lastError = error
+                try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                continue
             }
         }
         throw lastError ?? CloudFriendShareError.missingShareURL
