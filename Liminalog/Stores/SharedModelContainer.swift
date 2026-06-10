@@ -13,7 +13,7 @@ enum SharedModelContainer {
         ("ZCHAPTER", ["ZAUDIENCEFRIENDIDS", "ZAUDIENCESOURCERAWVALUE", "ZHASAUDIENCESNAPSHOT"]),
         ("ZPLANBLOCK", ["ZAUDIENCEFRIENDIDS", "ZAUDIENCESOURCERAWVALUE", "ZHASAUDIENCESNAPSHOT"]),
         ("ZUSERSETTINGS", ["ZPROFILEACCENTCOLORHEX", "ZPROFILEBADGEID", "ZPROFILEICONFRAMEID", "ZPROFILESTREAKICONID", "ZPROFILECARDSTYLEID", "ZCLOUDUSERNAME", "ZCLOUDUSERNAMENORMALIZED", "ZCLOUDUSERRECORDNAME", "ZCLOUDUSERNAMEREGISTEREDAT", "ZDASHBOARDHIDDENCARDKEYS", "ZDIDSEEDINITIALFRIENDSETS"]),
-        ("ZFRIEND", ["ZSTATUSRAWVALUE", "ZPROFILEBADGEID", "ZPROFILEICONFRAMEID", "ZPROFILESTREAKICONID", "ZPROFILECARDSTYLEID", "ZSTREAKCOUNT", "ZMONTHSCORE", "ZYEARSCORE"]),
+        ("ZFRIEND", ["ZSTATUSRAWVALUE", "ZPROFILEBADGEID", "ZPROFILEICONFRAMEID", "ZPROFILESTREAKICONID", "ZPROFILECARDSTYLEID", "ZSTREAKCOUNT", "ZMONTHSCORE", "ZYEARSCORE", "ZSHAREDPLANSJSON", "ZSHAREDACTIVITIESJSON"]),
         ("ZFRIENDSET", ["ZNAME", "ZMEMBERFRIENDIDS", "ZSORTORDER"]),
         ("ZFRIENDCATEGORYMAPPING", ["ZMYCATEGORYID", "ZFRIENDCATEGORYID", "ZUSEUNIFIEDCOLOR"]),
         ("ZDAILYCARDSNAPSHOT", ["ZDAYIDENTIFIER", "ZPERSONAKINDRAWVALUE", "ZTITLE", "ZFACTPAYLOADJSON", "ZCATEGORYPAYLOADJSON"]),
@@ -118,11 +118,10 @@ enum SharedModelContainer {
             isStoredInMemoryOnly: false,
             cloudKitDatabase: .none
         )
-        return try ModelContainer(
-            for: schema,
-            migrationPlan: LiminalogMigrationPlan.self,
-            configurations: [configuration]
-        )
+        // 注: migrationPlan は渡さない。開発中はV1のモデル構成が変わり続けるため、
+        // ステージ0のプランを渡すとハッシュ不一致でロード拒否される（実機で観測）。
+        // 正式リリース時のスキーマを固定した時点で LiminalogMigrationPlan を配線し直す。
+        return try ModelContainer(for: schema, configurations: [configuration])
     }
 
     static func appGroupLocalOnly() throws -> ModelContainer {
@@ -144,7 +143,6 @@ enum SharedModelContainer {
 
         return try ModelContainer(
             for: schema,
-            migrationPlan: LiminalogMigrationPlan.self,
             configurations: [cloudConfiguration, localCacheConfiguration]
         )
     }
@@ -178,7 +176,6 @@ enum SharedModelContainer {
 
         return try ModelContainer(
             for: schema,
-            migrationPlan: LiminalogMigrationPlan.self,
             configurations: [cloudConfiguration, localCacheConfiguration]
         )
     }

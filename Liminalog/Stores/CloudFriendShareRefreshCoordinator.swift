@@ -438,6 +438,7 @@ final class CloudFriendShareRefreshCoordinator {
         if let token = changes.changeToken {
             stateStore.setChangeToken(token, ownerUserRecordName: friend.userRecordID)
         }
+        NSLog("Liminalog: applied friend share zone changes from \(friend.userRecordID): \(changedPlans.count) plans, \(changedChapters.count) chapters, \(changes.deletedRecordNames.count) deletions, fullZone=\(changes.didFetchFullZone)")
     }
 
     private func outgoingShareSnapshot(
@@ -548,6 +549,7 @@ final class CloudFriendShareRefreshCoordinator {
             deleted: outcome.appliedChapterDeletes
         )
         try? modelContext.save()
+        NSLog("Liminalog: published friend share items for \(target): +\(outcome.appliedPlanUpserts.count + outcome.appliedChapterUpserts.count) upserts, -\(outcome.appliedPlanDeletes.count + outcome.appliedChapterDeletes.count) deletes (requested \(request.upsertPlans.count + request.upsertChapters.count)/\(request.deletePlanSourceIDs.count + request.deleteChapterSourceIDs.count))")
         if let failure = outcome.failure {
             NSLog("Liminalog: friend share item publish was partial for \(target): \(String(describing: failure))")
         }

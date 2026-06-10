@@ -117,10 +117,16 @@
 ### 8.2 主な新規ファイル
 `FriendSharedItemRecordPolicy` / `FriendSharePublishDiffPolicy` / `FriendSharePublishStateStore` / `FriendShareSyncState`（@Model×2） / `CloudFriendShareItemTransport`（store拡張）
 
-### 8.3 ⚠️ 未検証事項（実機2台が必要）
-ロジックはユニットテスト（CKRecord往復・差分・台帳・行反映）で担保したが、以下は**CloudKit実環境での動作未確認**:
-1. `parent` 参照による階層共有の継承（子レコードが参加者に見えるか）
-2. ゾーン変更トークンの差分取得・失効フォールバック
-3. 初回接続（URL承認→zoneNotFound→全件取得）の流れ
-4. CloudKit Dashboard 上の新レコード型 `SharedPlan`/`SharedChapter` のスキーマ自動作成（development環境で初回保存時に生成される想定）
-5. 大量アイテム（数千件）の初回公開のチャンク送信挙動
+### 8.3 実機検証の状況（2026-06-11 実機2台で実施）
+| 項目 | 状態 |
+|---|---|
+| 1. `parent` 参照付き子レコードの保存・削除（階層構造） | ✅ ライブスモークテスト `testSharedItemRecordsRoundTripOnRealCloudKit` がiPhone 13実機+実CloudKitでパス。**参加者から見えるかの最終確認は2台E2Eで** |
+| 4. 新レコード型のスキーマ自動作成 | ✅ 同テストで確認（development環境） |
+| 2. ゾーン差分・トークン失効 / 3. 初回接続 / 5. 大量初回公開 | ⏳ 2台E2Eで確認（両端末のユーザーID再確定後に実施） |
+
+### 8.4 実機検証で見つかった重大バグ（修正済み）
+1. **CloudKit同期コンテナが実機で一度もロードできていなかった**: `FriendCategoryMapping.friend` リレーションに inverse が無く、`NSPersistentCloudKitContainer` がロード拒否（"CloudKit integration requires that all relationships have an inverse"）→ 常にローカルフォールバックで動作していた。`Friend.categoryMappings` に inverse を追加して解消。**昨日入れた起動時フォールバック告知がこの問題を可視化した**
+2. **CloudKit同期モデルのプロパティ削除は禁止**: 段階3で `Friend.sharedPlansJSON` 等を物理削除したが、CloudKit統合スキーマは追記専用。未使用のまま残置する形に修正（コメントで読み書き禁止を明示）
+3. **migrationPlan（ステージ0）は開発中は配線しない**: V1のモデル構成が変わるたびにハッシュ不一致でロード拒否される。リリース時スキーマ固定の時点で配線し直す（`SharedModelContainer` にコメント）
+4. CloudKit `zoneBusy` はサーバー指定の待ち時間でリトライ（`CloudKitTransientRetryPolicy`）
+5. 既知の軽微事象: 新ビルド初回起動時、ストアのマイグレーション中に最初の数フェッチが "couldn't be opened" で失敗することがある（次回起動で解消）。リリース前に bootstrap のリトライ検討

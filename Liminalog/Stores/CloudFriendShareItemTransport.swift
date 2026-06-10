@@ -187,6 +187,74 @@ extension CloudFriendShareStore {
         return deletedNames
     }
 
+    // MARK: - 実機スモークテスト用（CKShare を張らずレコード階層だけを検証する）
+
+    /// ライブスモークテスト専用。共有ルートを CKShare なしで作成する。
+    /// 実在の友達フローでは必ず `upsertOutgoingShare`（CKShare 付き）を使うこと。
+    func upsertOutgoingShareRootForSmokeTest(
+        snapshot: CloudFriendShareSnapshot
+    ) async throws -> CloudFriendShareUpsertResult {
+        try await ensureShareZoneForSmokeTest()
+        let ownerUserRecordName = try await currentUserRecordNameForSmokeTest()
+        let rootID = CKRecord.ID(
+            recordName: "friend-share:\(ownerUserRecordName):\(snapshot.targetUserRecordName)",
+            zoneID: CKRecordZone.ID(zoneName: Self.shareZoneName, ownerName: CKCurrentUserDefaultName)
+        )
+        let root = CKRecord(recordType: Self.rootRecordType, recordID: rootID)
+        Self.applySnapshotForSmokeTest(snapshot, to: root)
+        let saved = try await privateDatabase.modifyRecords(
+            saving: [root],
+            deleting: [],
+            savePolicy: .changedKeys,
+            atomically: true
+        )
+        for (_, recordResult) in saved.saveResults {
+            _ = try recordResult.get()
+        }
+        return CloudFriendShareUpsertResult(
+            snapshot: snapshot,
+            shareURL: nil,
+            rootRecordID: rootID,
+            shareRecordName: nil,
+            didCreateRoot: true
+        )
+    }
+
+    func deleteOutgoingShareRootForSmokeTest(rootRecordID: CKRecord.ID) async throws {
+        _ = try await privateDatabase.modifyRecords(
+            saving: [],
+            deleting: [rootRecordID],
+            savePolicy: .changedKeys,
+            atomically: true
+        )
+    }
+
+    private func ensureShareZoneForSmokeTest() async throws {
+        let zoneID = CKRecordZone.ID(zoneName: Self.shareZoneName, ownerName: CKCurrentUserDefaultName)
+        _ = try await privateDatabase.save(CKRecordZone(zoneID: zoneID))
+    }
+
+    private func currentUserRecordNameForSmokeTest() async throws -> String {
+        try await CloudKitSocialStore().currentUserRecordName()
+    }
+
+    private static func applySnapshotForSmokeTest(_ snapshot: CloudFriendShareSnapshot, to record: CKRecord) {
+        record["ownerUsername"] = snapshot.ownerUsername as CKRecordValue
+        record["ownerDisplayName"] = snapshot.ownerDisplayName as CKRecordValue
+        record["targetUserRecordName"] = snapshot.targetUserRecordName as CKRecordValue
+        record["currentStatusTitle"] = snapshot.currentStatusTitle as CKRecordValue
+        record["currentStatusIcon"] = snapshot.currentStatusIcon as CKRecordValue
+        record["currentStatusColorHex"] = snapshot.currentStatusColorHex as CKRecordValue
+        record["currentMoodText"] = snapshot.currentMoodText as CKRecordValue
+        record["todayScore"] = snapshot.todayScore as CKRecordValue
+        record["yesterdayScore"] = snapshot.yesterdayScore as CKRecordValue
+        record["weekScore"] = snapshot.weekScore as CKRecordValue
+        record["monthScore"] = snapshot.monthScore as CKRecordValue
+        record["yearScore"] = snapshot.yearScore as CKRecordValue
+        record["streakCount"] = snapshot.streakCount as CKRecordValue
+        record["updatedAt"] = snapshot.updatedAt as CKRecordValue
+    }
+
     // MARK: - 受信（差分取得）
 
     /// 友達の共有ゾーンから変更分だけを取得する。トークン失効時は全件取得へ自動フォールバック。

@@ -52,6 +52,13 @@ final class Friend {
     var weekScore: Double = 0
     var monthScore: Double = 0
     var yearScore: Double = 0
+    /// 旧・塊JSON方式の名残。CloudKit同期スキーマは追記専用（プロパティ削除は既存ストアを壊す）ため、
+    /// 未使用のまま残置している。読み書きしないこと。個別行キャッシュ（FriendSharedRecord）が後継。
+    var sharedPlansJSON: String = "[]"
+    var sharedActivitiesJSON: String = "[]"
+    /// CloudKit統合は全リレーションに inverse が必須（無いと同期コンテナがロード拒否される。実機で観測）。
+    @Relationship(deleteRule: .cascade, inverse: \FriendCategoryMapping.friend)
+    var categoryMappings: [FriendCategoryMapping]? = []
     var streakCount: Int = 0
     var lastSeenAt: Date?
     var acceptedAt: Date?
@@ -107,6 +114,8 @@ final class Friend {
         self.weekScore = 0
         self.monthScore = 0
         self.yearScore = 0
+        self.sharedPlansJSON = "[]"
+        self.sharedActivitiesJSON = "[]"
         self.streakCount = 0
         self.lastSeenAt = nil
         self.acceptedAt = status == .accepted ? now : nil
