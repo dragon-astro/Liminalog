@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-label="Liminalog frameless stack icon concept">
+  <defs>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#1f2937" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <rect width="1024" height="1024" fill="#F7F4EE"/>
+
+  <g filter="url(#shadow)">
+    <rect x="334" y="282" width="356" height="116" rx="58" fill="#5E9CF5"/>
+    <rect x="334" y="454" width="256" height="116" rx="58" fill="#FF7A66"/>
+    <rect x="334" y="626" width="322" height="116" rx="58" fill="#48C995"/>
+
+    <circle cx="372" cy="340" r="20" fill="#FFFFFF" opacity="0.82"/>
+    <circle cx="372" cy="512" r="20" fill="#FFFFFF" opacity="0.82"/>
+    <circle cx="372" cy="684" r="20" fill="#FFFFFF" opacity="0.82"/>
+
+    <path d="M 706 296 L 726 342 L 772 362 L 726 382 L 706 428 L 686 382 L 640 362 L 686 342 Z" fill="#FFD15C"/>
+  </g>
+</svg>

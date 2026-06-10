@@ -117,6 +117,7 @@ struct ProfileView: View {
                         onEdit: { isShowingEditProfile = true },
                         onShare: { isShowingShareProfile = true }
                     )
+                    .padding(.bottom, cardStyle.hasGeneratedArtwork ? -36 : 0)
 
                     ProfileStatsRow(
                         streak: performanceSnapshot.streakCount,

@@ -522,8 +522,9 @@ struct CalendarView: View {
                 importantPlansByDay[boundary.dayStart] = displayPlans
             }
             scoreSummariesByDay[boundary.dayStart] = CalendarDisplayScore(
-                summary: ScoreCalculator.summary(
+                summary: CalendarDayScoreCache.summary(
                     date: date,
+                    dayStart: boundary.dayStart,
                     plans: dayPlans,
                     chapters: dayChapters,
                     calendar: calendar,

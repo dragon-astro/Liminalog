@@ -1,0 +1,136 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="920" viewBox="0 0 1400 920" role="img" aria-label="Liminalog app icon SVG concept sheet">
+  <defs>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#111827" flood-opacity="0.10"/>
+    </filter>
+    <clipPath id="iconMask">
+      <rect x="0" y="0" width="256" height="256" rx="56"/>
+    </clipPath>
+    <style>
+      .label { font: 600 26px -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Arial, sans-serif; fill: #242832; }
+      .note { font: 400 18px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif; fill: #6B7280; }
+    </style>
+  </defs>
+
+  <rect width="1400" height="920" fill="#F1F2F4"/>
+  <text x="80" y="82" class="label">Liminalog icon SVG concepts</text>
+  <text x="80" y="116" class="note">Flat source shapes for Icon Composer. iOS corner mask preview included.</text>
+
+  <g transform="translate(92 178)">
+    <text x="0" y="-24" class="label">Schedule card</text>
+    <g clip-path="url(#iconMask)" filter="url(#shadow)">
+      <rect width="256" height="256" fill="#F7F4EE"/>
+      <g transform="scale(.25)">
+        <rect x="256" y="172" width="512" height="680" rx="120" fill="#FFFFFF"/>
+        <rect x="378" y="274" width="16" height="476" rx="8" fill="#D8DCE2"/>
+        <rect x="430" y="276" width="236" height="92" rx="46" fill="#5E9CF5"/>
+        <rect x="430" y="466" width="178" height="92" rx="46" fill="#FF7A66"/>
+        <rect x="430" y="656" width="220" height="92" rx="46" fill="#48C995"/>
+        <circle cx="386" cy="512" r="42" fill="#FFD15C"/>
+        <circle cx="386" cy="512" r="18" fill="#FFFFFF" opacity="0.82"/>
+      </g>
+    </g>
+  </g>
+
+  <g transform="translate(404 178)">
+    <text x="0" y="-24" class="label">Time rail</text>
+    <g clip-path="url(#iconMask)" filter="url(#shadow)">
+      <rect width="256" height="256" fill="#F7F4EE"/>
+      <g transform="scale(.25)">
+        <rect x="352" y="236" width="26" height="552" rx="13" fill="#D8DCE2"/>
+        <rect x="426" y="244" width="254" height="112" rx="56" fill="#5E9CF5"/>
+        <rect x="426" y="456" width="190" height="112" rx="56" fill="#FF7A66"/>
+        <rect x="426" y="668" width="232" height="112" rx="56" fill="#48C995"/>
+        <path d="M365 434 A78 78 0 1 1 365 590" fill="none" stroke="#FFD15C" stroke-width="36" stroke-linecap="round"/>
+      </g>
+    </g>
+  </g>
+
+  <g transform="translate(716 178)">
+    <text x="0" y="-24" class="label">Clock blocks</text>
+    <g clip-path="url(#iconMask)" filter="url(#shadow)">
+      <rect width="256" height="256" fill="#F7F4EE"/>
+      <g transform="scale(.25)">
+        <circle cx="512" cy="512" r="286" fill="none" stroke="#D8DCE2" stroke-width="42"/>
+        <path d="M512 226 A286 286 0 0 1 732 329" fill="none" stroke="#5E9CF5" stroke-width="64" stroke-linecap="round"/>
+        <path d="M762 486 A286 286 0 0 1 666 730" fill="none" stroke="#FF7A66" stroke-width="64" stroke-linecap="round"/>
+        <path d="M434 787 A286 286 0 0 1 252 620" fill="none" stroke="#48C995" stroke-width="64" stroke-linecap="round"/>
+        <circle cx="512" cy="512" r="70" fill="#FFD15C"/>
+        <circle cx="512" cy="512" r="30" fill="#FFFFFF" opacity="0.86"/>
+      </g>
+    </g>
+  </g>
+
+  <g transform="translate(1028 178)">
+    <text x="0" y="-24" class="label">Ranking bars</text>
+    <g clip-path="url(#iconMask)" filter="url(#shadow)">
+      <rect width="256" height="256" fill="#F7F4EE"/>
+      <g transform="scale(.25)">
+        <rect x="260" y="518" width="136" height="244" rx="68" fill="#5E9CF5"/>
+        <rect x="444" y="346" width="136" height="416" rx="68" fill="#FF7A66"/>
+        <rect x="628" y="438" width="136" height="324" rx="68" fill="#48C995"/>
+        <rect x="286" y="560" width="84" height="26" rx="13" fill="#FFFFFF" opacity="0.72"/>
+        <rect x="470" y="388" width="84" height="26" rx="13" fill="#FFFFFF" opacity="0.72"/>
+        <rect x="654" y="480" width="84" height="26" rx="13" fill="#FFFFFF" opacity="0.72"/>
+        <circle cx="512" cy="268" r="36" fill="#FFD15C"/>
+        <circle cx="512" cy="268" r="15" fill="#FFFFFF" opacity="0.82"/>
+      </g>
+    </g>
+  </g>
+
+  <g transform="translate(92 548)">
+    <text x="0" y="-24" class="label">Small-size check</text>
+    <g transform="scale(.5)">
+      <use href="#smallOne"/>
+    </g>
+  </g>
+
+  <g id="smallOne" transform="translate(0 0)">
+    <g transform="translate(0 0) scale(.36)" clip-path="url(#iconMask)">
+      <rect width="256" height="256" fill="#F7F4EE"/>
+    </g>
+  </g>
+
+  <g transform="translate(92 602)">
+    <g clip-path="url(#iconMask)" transform="scale(.45)" filter="url(#shadow)">
+      <rect width="256" height="256" fill="#F7F4EE"/>
+      <g transform="scale(.25)">
+        <rect x="256" y="172" width="512" height="680" rx="120" fill="#FFFFFF"/>
+        <rect x="378" y="274" width="16" height="476" rx="8" fill="#D8DCE2"/>
+        <rect x="430" y="276" width="236" height="92" rx="46" fill="#5E9CF5"/>
+        <rect x="430" y="466" width="178" height="92" rx="46" fill="#FF7A66"/>
+        <rect x="430" y="656" width="220" height="92" rx="46" fill="#48C995"/>
+        <circle cx="386" cy="512" r="42" fill="#FFD15C"/>
+      </g>
+    </g>
+    <g clip-path="url(#iconMask)" transform="translate(148 0) scale(.45)" filter="url(#shadow)">
+      <rect width="256" height="256" fill="#F7F4EE"/>
+      <g transform="scale(.25)">
+        <rect x="352" y="236" width="26" height="552" rx="13" fill="#D8DCE2"/>
+        <rect x="426" y="244" width="254" height="112" rx="56" fill="#5E9CF5"/>
+        <rect x="426" y="456" width="190" height="112" rx="56" fill="#FF7A66"/>
+        <rect x="426" y="668" width="232" height="112" rx="56" fill="#48C995"/>
+        <path d="M365 434 A78 78 0 1 1 365 590" fill="none" stroke="#FFD15C" stroke-width="36" stroke-linecap="round"/>
+      </g>
+    </g>
+    <g clip-path="url(#iconMask)" transform="translate(296 0) scale(.45)" filter="url(#shadow)">
+      <rect width="256" height="256" fill="#F7F4EE"/>
+      <g transform="scale(.25)">
+        <circle cx="512" cy="512" r="286" fill="none" stroke="#D8DCE2" stroke-width="42"/>
+        <path d="M512 226 A286 286 0 0 1 732 329" fill="none" stroke="#5E9CF5" stroke-width="64" stroke-linecap="round"/>
+        <path d="M762 486 A286 286 0 0 1 666 730" fill="none" stroke="#FF7A66" stroke-width="64" stroke-linecap="round"/>
+        <path d="M434 787 A286 286 0 0 1 252 620" fill="none" stroke="#48C995" stroke-width="64" stroke-linecap="round"/>
+        <circle cx="512" cy="512" r="70" fill="#FFD15C"/>
+      </g>
+    </g>
+    <g clip-path="url(#iconMask)" transform="translate(444 0) scale(.45)" filter="url(#shadow)">
+      <rect width="256" height="256" fill="#F7F4EE"/>
+      <g transform="scale(.25)">
+        <rect x="260" y="518" width="136" height="244" rx="68" fill="#5E9CF5"/>
+        <rect x="444" y="346" width="136" height="416" rx="68" fill="#FF7A66"/>
+        <rect x="628" y="438" width="136" height="324" rx="68" fill="#48C995"/>
+        <circle cx="512" cy="268" r="36" fill="#FFD15C"/>
+      </g>
+    </g>
+  </g>
+</svg>

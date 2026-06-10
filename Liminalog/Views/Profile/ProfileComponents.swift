@@ -9,54 +9,85 @@ struct ProfileHero: View {
     let equippedBadge: ProfileBadgeModel
     let iconFrame: ProfileIconFrameStyle
     let cardStyle: ProfileCardStyle
+    var showsActions: Bool = true
     let onEdit: () -> Void
     let onShare: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            HStack(alignment: .top, spacing: 14) {
+        let usesGeneratedArtwork = cardStyle.hasGeneratedArtwork
+        let contentHorizontalPadding: CGFloat = usesGeneratedArtwork ? 42 : 18
+        let contentTopPadding: CGFloat = usesGeneratedArtwork ? 30 : 28
+        let contentBottomPadding: CGFloat = usesGeneratedArtwork ? 36 : 28
+        let minCardHeight: CGFloat = usesGeneratedArtwork ? 258 : 196
+        let photoSize: CGFloat = usesGeneratedArtwork ? 88 : 92
+        let photoOuterSize: CGFloat = photoSize + 16
+
+        HStack(alignment: .top, spacing: usesGeneratedArtwork ? 10 : 14) {
+            VStack(spacing: 8) {
                 ProfilePhotoView(
                     displayName: displayName,
                     imageData: imageData,
                     accentColor: accentColor,
                     frameStyle: iconFrame,
-                    size: 92
+                    size: photoSize
                 )
 
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(displayName)
-                        .font(.title2.weight(.bold))
-                        .foregroundStyle(cardStyle.textColor)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.82)
-                        .padding(.trailing, 76)
-
-                    EquippedBadgePill(badge: equippedBadge)
-
-                    Text(bio.isEmpty ? "プロフィールを育てよう" : bio)
-                        .font(.subheadline)
-                        .foregroundStyle(cardStyle.secondaryTextColor)
-                        .lineLimit(2)
-                        .frame(minHeight: 42, alignment: .topLeading)
+                if showsActions {
+                    HStack(spacing: 9) {
+                        ProfileHeroActionButton(systemImage: "pencil", label: "編集", isOnGeneratedArtwork: usesGeneratedArtwork, action: onEdit)
+                        ProfileHeroActionButton(systemImage: "square.and.arrow.up", label: "シェア", isOnGeneratedArtwork: usesGeneratedArtwork, action: onShare)
+                    }
+                    .foregroundStyle(cardStyle.textColor)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .layoutPriority(1)
-
-                Spacer(minLength: 0)
             }
+            .frame(width: max(photoOuterSize, 78), alignment: .top)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text(displayName)
+                    .font(.title2.weight(.bold))
+                    .profileGeneratedCardReadableText(enabled: usesGeneratedArtwork, fallback: cardStyle.textColor)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.82)
+                    .padding(.trailing, 4)
+
+                EquippedBadgePill(badge: equippedBadge)
+                    .frame(height: 23, alignment: .leading)
+
+                Text(bio.isEmpty ? "プロフィールを育てよう" : bio)
+                    .font(.subheadline)
+                    .profileGeneratedCardReadableText(enabled: usesGeneratedArtwork, fallback: cardStyle.secondaryTextColor)
+                    .lineLimit(2)
+                    .frame(minHeight: 42, alignment: .topLeading)
+            }
+            .padding(.top, usesGeneratedArtwork ? 16 : 0)
+            .padding(.trailing, usesGeneratedArtwork ? 20 : 0)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .layoutPriority(1)
+
+            Spacer(minLength: 0)
         }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 28)
+        .padding(.horizontal, contentHorizontalPadding)
+        .padding(.top, contentTopPadding)
+        .padding(.bottom, contentBottomPadding)
+        .frame(maxWidth: .infinity, minHeight: minCardHeight, alignment: .topLeading)
         .background {
             ProfileDecoratedCardBackground(style: cardStyle, accentColor: accentColor, cornerRadius: 8)
-                .overlay(alignment: .topTrailing) {
-                    HStack(spacing: 8) {
-                        ProfileHeroActionButton(systemImage: "pencil", label: "編集", action: onEdit)
-                        ProfileHeroActionButton(systemImage: "square.and.arrow.up", label: "シェア", action: onShare)
-                    }
-                    .padding(.top, 18)
-                    .padding(.trailing, 18)
-                }
+        }
+        .padding(.horizontal, usesGeneratedArtwork ? -6 : 0)
+        .padding(.top, usesGeneratedArtwork ? 0 : 0)
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func profileGeneratedCardReadableText(enabled: Bool, fallback: Color) -> some View {
+        if enabled {
+            self
+                .foregroundStyle(.white)
+                .blendMode(.difference)
+        } else {
+            self
+                .foregroundStyle(fallback)
         }
     }
 }
@@ -78,37 +109,46 @@ struct ProfileDecoratedCardBackground: View {
         let usesGeneratedArtwork = style.hasGeneratedArtwork
 
         ZStack {
-            shape
-                .fill(style.backgroundColor)
-                .overlay {
-                    if !usesGeneratedArtwork {
+            if usesGeneratedArtwork {
+                GeometryReader { proxy in
+                    Image(style.artworkAssetName)
+                        .resizable()
+                        .interpolation(.high)
+                        .scaledToFill()
+                        .frame(width: proxy.size.width, height: proxy.size.height)
+                        .scaleEffect(generatedArtworkScale(for: proxy.size))
+                        .offset(y: generatedArtworkOffsetY(for: proxy.size))
+                        .allowsHitTesting(false)
+                }
+            } else {
+                shape
+                    .fill(style.backgroundColor)
+                    .overlay {
                         ProfileCardDecorationLayer(style: style, accentColor: accentColor)
                     }
-                }
-                .overlay { topSheen }
-                .overlay(alignment: .bottom) {
-                    if !usesGeneratedArtwork {
+                    .overlay { topSheen }
+                    .overlay(alignment: .bottom) {
                         DecorativeAccentStrip(color: style.stripColor(accentColor: accentColor))
                             .clipShape(shape)
                     }
-                }
-                .overlay {
-                    shape.stroke(style.borderColor(accentColor: accentColor), lineWidth: style.borderWidth)
-                }
-                .clipShape(shape)
-
-            if usesGeneratedArtwork {
-                Image(style.artworkAssetName)
-                    .resizable(
-                        capInsets: EdgeInsets(),
-                        resizingMode: .stretch
-                    )
+                    .overlay {
+                        shape.stroke(style.borderColor(accentColor: accentColor), lineWidth: style.borderWidth)
+                    }
                     .clipShape(shape)
-                    .allowsHitTesting(false)
-            } else if hasOrnament {
-                ProfileCardBorderOrnament(style: style, accentColor: accentColor, cornerRadius: cornerRadius)
+
+                if hasOrnament {
+                    ProfileCardBorderOrnament(style: style, accentColor: accentColor, cornerRadius: cornerRadius)
+                }
             }
         }
+    }
+
+    private func generatedArtworkScale(for size: CGSize) -> CGFloat {
+        size.height < 60 ? 1.18 : 1.08
+    }
+
+    private func generatedArtworkOffsetY(for size: CGSize) -> CGFloat {
+        size.height < 60 ? -2 : -24
     }
 
     // 上端の控えめな光沢。ダーク地でガラス質の艶を、ライト地ではほぼ不可視に。
@@ -792,14 +832,31 @@ private struct ProfileCardDecorationLayer: View {
 private struct ProfileHeroActionButton: View {
     let systemImage: String
     let label: String
+    let isOnGeneratedArtwork: Bool
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: systemImage)
-                .font(.footnote.weight(.semibold))
-                .frame(width: 30, height: 30)
-                .liminalGlassFill(in: Circle())
+            if isOnGeneratedArtwork {
+                Image(systemName: systemImage)
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 30, height: 30)
+                    .background {
+                        Circle()
+                            .fill(.black.opacity(0.26))
+                            .overlay {
+                                Circle()
+                                    .stroke(.white.opacity(0.34), lineWidth: 1)
+                            }
+                    }
+                    .shadow(color: .black.opacity(0.24), radius: 8, y: 4)
+            } else {
+                Image(systemName: systemImage)
+                    .font(.footnote.weight(.semibold))
+                    .frame(width: 30, height: 30)
+                    .liminalGlassFill(in: Circle())
+            }
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)
@@ -835,8 +892,9 @@ struct ProfilePhotoView: View {
     let size: CGFloat
 
     var body: some View {
+        let hasFrame = frameStyle.id != ProfileDecorationUnlocks.noIconFrameID
+
         ZStack {
-            let hasFrame = frameStyle.id != ProfileDecorationUnlocks.noIconFrameID
             Circle()
                 .fill(accentColor.gradient)
                 .frame(width: size, height: size)
@@ -862,7 +920,8 @@ struct ProfilePhotoView: View {
             }
         }
         .frame(width: size + 16, height: size + 16)
-        .shadow(color: accentColor.opacity(0.2), radius: 14, y: 6)
+        .shadow(color: hasFrame ? .black.opacity(0.22) : accentColor.opacity(0.2), radius: hasFrame ? 10 : 14, y: hasFrame ? 8 : 6)
+        .shadow(color: hasFrame ? frameStyle.primaryColor.opacity(0.26) : .clear, radius: 12, y: 2)
     }
 
     private var initial: String {
@@ -927,6 +986,10 @@ struct ProfileIconFrameView: View {
                         .scaledToFit()
                         .frame(width: size, height: size)
                         .scaleEffect(contentScale)
+                        .allowsHitTesting(false)
+                } else if let tier = ProfileIconFrameCatalog.earnedTier(for: style.id) {
+                    // 生成PNGが未投入の獲得フレームだけ、開発中fallbackとして描く。
+                    EarnedEmblemFrame(tier: tier, tint: primary, accent: secondary, size: size)
                         .allowsHitTesting(false)
                 } else {
                     ZStack {
@@ -1393,6 +1456,212 @@ struct ProfileIconFrameView: View {
         default:
             return .aura(soft: false)
         }
+    }
+}
+
+// MARK: - 獲得勲章フレーム（パラメトリック・ベクター）
+
+/// 継続で得る獲得フレームを「現代的な達成メダル」として描くパラメトリック勲章。
+/// プレミアム（自然/作品の生成アート）と種類を分け、見た瞬間「買えない＝勝ち取った」と
+/// 分かる金属の報酬語彙にする。品質ラダーは底上げ済み（最低位でも白金のベベル環）：
+/// - T1：磨いた白金のベベル環＋細い刻線＋小さなクレスト宝石（質素だが安っぽくない）
+/// - T2：暖白金＋月桂の芽＋クレスト拡大
+/// - T3：薄金＋月桂（半周）＋面取りクレスト＋多重刻線
+/// - T4：豪奢な金メダリオン＋ほぼ全周の金月桂＋放射光＋強い署名グロー（自慢の頂点）
+///
+/// 金属＝ティア（達成度）の signal。tint（アイテム固有色）はクレスト宝石として残し、
+/// 個体識別を保つ（docs/16 §7）。落差そのものが報酬（docs/16 §5・§11）。
+struct EarnedEmblemFrame: View {
+    let tier: Int            // 1...4
+    let tint: Color          // アイテム固有色（クレスト宝石＝個体識別）
+    let accent: Color        // secondary（淡い補助光）
+    let size: CGFloat
+
+    private var t: Int { min(max(tier, 1), 4) }
+    private var luminous: Color { tint.liminalLuminous }
+    private var compact: Bool { size < 44 }   // 友達リスト等の小サイズは簡略化＋負荷軽減
+    private var unit: CGFloat { size / 108 }  // 96〜108基準で設計、サイズに比例
+
+    private let amber = Color(hex: "#FFE3A3")
+
+    // MARK: ティア・パラメータ（落差を保証する変数群・底上げ済み）
+    private var rimWidth: CGFloat { [3.6, 4.3, 5.0, 5.9][t - 1] * unit }
+    private var guilloche: Int { [1, 2, 2, 3][t - 1] }          // 内側の細い刻線リング
+    private var tickCount: Int { [48, 56, 64, 72][t - 1] }       // 細かい刻み（低コントラスト）
+    private var laurelPerSide: Int { [4, 6, 8, 11][t - 1] }
+    private var laurelSpan: Double { [56, 78, 100, 124][t - 1] } // 月桂が覆う片側の角度
+    private var glowOpacity: Double { [0.12, 0.16, 0.22, 0.30][t - 1] }   // 抑制（金属を主役に）
+    private var doubleBand: Bool { t >= 2 }                      // 内側にもう一本＝コイン縁の高級感
+    private var hasRays: Bool { t == 4 }
+    private var warm: Bool { t >= 3 }                            // 金寄り
+
+    /// 磨いた金属の艶（白金→暖白金→薄金→豪奢な金）。AngularGradient で回り込む光沢。
+    private var metal: AngularGradient {
+        let stops: [Color]
+        switch t {
+        case 1: stops = ["#9AA6BC", "#EAF1FB", "#B6C3D8", "#FFFFFF", "#9AA6BC"].map(Color.init(hex:))
+        case 2: stops = ["#A6A6B2", "#F3ECE0", "#CFC9BE", "#FFFFFF", "#A6A6B2"].map(Color.init(hex:))
+        case 3: stops = ["#B89A5A", "#FBEEC8", "#D9BE78", "#FFF8E4", "#C2A668"].map(Color.init(hex:))
+        default: stops = ["#A9772A", "#FFE6A6", "#E4B458", "#FFF7DC", "#B98430"].map(Color.init(hex:))
+        }
+        return AngularGradient(colors: stops, center: .center, angle: .degrees(-90))
+    }
+
+    /// 刻線・台座などのソリッド差し色。
+    private var accentMetal: Color {
+        switch t {
+        case 1: return Color(hex: "#DCE6F5")
+        case 2: return Color(hex: "#EFE6D6")
+        case 3: return Color(hex: "#E7C97E")
+        default: return Color(hex: "#F4CE7A")
+        }
+    }
+
+    // 環はアバター外周近くまで広げる（クレスト/月桂は環の上に乗るので外余白は最小）
+    private var inset: CGFloat { rimWidth * 0.7 + 2 * unit }
+    private var ring: CGFloat { size - inset * 2 }   // メダリオン環の直径
+    private var rr: CGFloat { ring / 2 }              // 環の半径
+
+    var body: some View {
+        ZStack {
+            glowLayer
+            if hasRays && !compact { raysLayer }
+            guillocheLayer
+            if !compact { engravingTicks }
+            band                       // ベベル金属環
+            if !compact { laurelWreath }
+            crest                      // 頂点クレスト宝石（固有色）
+        }
+        .frame(width: size, height: size)
+    }
+
+    // MARK: 下支えグロー（tint）— 金属を twilight 世界に留める。薄く・締まりよく。
+    private var glowLayer: some View {
+        Circle()
+            .stroke(tint.opacity(glowOpacity), lineWidth: rimWidth + 2 * unit)
+            .frame(width: ring, height: ring)
+            .blur(radius: 4 * unit)
+    }
+
+    // MARK: 放射光（T4のみ・儀礼的な後光）
+    private var raysLayer: some View {
+        ForEach(0..<16, id: \.self) { i in
+            Capsule()
+                .fill(amber.opacity(i.isMultiple(of: 2) ? 0.30 : 0.14))
+                .frame(width: 1.4 * unit, height: rr * 0.55)
+                .offset(y: -rr * 0.7)
+                .rotationEffect(.degrees(Double(i) / 16 * 360))
+        }
+        .blur(radius: 0.6)
+    }
+
+    // MARK: 内側の細い刻線（guilloché 風の同心リング）
+    private var guillocheLayer: some View {
+        ForEach(0..<guilloche, id: \.self) { i in
+            Circle()
+                .stroke((warm ? amber : Color.white).opacity(0.22 - Double(i) * 0.05), lineWidth: 0.8 * unit)
+                .frame(width: ring - rimWidth * (2.2 + CGFloat(i) * 1.6),
+                       height: ring - rimWidth * (2.2 + CGFloat(i) * 1.6))
+        }
+    }
+
+    // MARK: 細かい刻み（低コントラストの彫り・計器っぽさを出さない）
+    private var engravingTicks: some View {
+        ForEach(0..<tickCount, id: \.self) { i in
+            Rectangle()
+                .fill(accentMetal.opacity(0.5))
+                .frame(width: 0.7 * unit, height: rimWidth * 0.7)
+                .offset(y: -rr)
+                .rotationEffect(.degrees(Double(i) / Double(tickCount) * 360))
+        }
+        .mask(
+            // 上のクレスト位置と下の月桂位置は刻みを抜いて整理する
+            Circle().frame(width: ring + rimWidth, height: ring + rimWidth)
+        )
+    }
+
+    // MARK: ベベル金属環（外影＋本体＋内ハイライトの三層で立体に）
+    private var band: some View {
+        ZStack {
+            Circle()
+                .stroke(Color.black.opacity(0.22), lineWidth: rimWidth + 1.2 * unit)
+                .frame(width: ring, height: ring)
+                .blur(radius: 0.6)
+            Circle()
+                .stroke(metal, lineWidth: rimWidth)
+                .frame(width: ring, height: ring)
+            Circle()
+                .stroke(Color.white.opacity(0.6), lineWidth: 0.7 * unit)
+                .frame(width: ring - rimWidth + 0.7 * unit, height: ring - rimWidth + 0.7 * unit)
+            // 内側にもう一本の細い金属環＝コインの縁取り（T2+の高級感）
+            if doubleBand {
+                Circle()
+                    .stroke(metal, lineWidth: max(1, rimWidth * 0.32))
+                    .frame(width: ring - rimWidth * 2.4, height: ring - rimWidth * 2.4)
+            }
+        }
+    }
+
+    // MARK: 月桂冠（接線方向に寝かせた葉が両側から立ち上がる）
+    private var laurelWreath: some View {
+        ZStack {
+            // 枝（底部の弧）
+            Circle()
+                .trim(from: 0.25 - laurelSpan / 720, to: 0.25 + laurelSpan / 720)
+                .stroke(metal, style: StrokeStyle(lineWidth: 1.2 * unit, lineCap: .round))
+                .frame(width: ring, height: ring)
+            ForEach(0..<laurelPerSide, id: \.self) { i in
+                let frac = laurelPerSide <= 1 ? 0 : Double(i) / Double(laurelPerSide - 1)
+                let a = 12 + frac * laurelSpan
+                let scale = CGFloat(1 - frac * 0.4)
+                laurelLeaf(angle: 180 - a, side: -1, scale: scale)
+                laurelLeaf(angle: 180 + a, side: 1, scale: scale)
+            }
+        }
+    }
+
+    private func laurelLeaf(angle: Double, side: CGFloat, scale: CGFloat) -> some View {
+        let w: CGFloat = rimWidth * 1.0 * scale
+        let h: CGFloat = rimWidth * 2.4 * scale
+        return Capsule()
+            .fill(metal)
+            .frame(width: w, height: h)
+            .overlay(Capsule().stroke(Color.white.opacity(0.5), lineWidth: 0.5 * unit))
+            // 接線方向へ寝かせ、内側上向きに開く（放射状の棘にしない）
+            .rotationEffect(.degrees(Double(side) * -72))
+            .offset(y: -rr)
+            .rotationEffect(.degrees(angle))
+            .shadow(color: (warm ? amber : Color.white).opacity(0.3), radius: unit)
+    }
+
+    // MARK: 頂点クレスト（金属台座＋固有色の面取り宝石）
+    private var crest: some View {
+        ZStack {
+            // 台座（金属のひし形＝宝石のセッティング）
+            FourPointStar(waist: 0.42)
+                .fill(metal)
+                .frame(width: rimWidth * 3.4, height: rimWidth * 3.4)
+                .shadow(color: Color.black.opacity(0.25), radius: 1)
+            // 宝石本体（固有色・面取り風）
+            Circle()
+                .fill(RadialGradient(colors: [Color.white, luminous, tint],
+                                     center: .init(x: 0.38, y: 0.34),
+                                     startRadius: 0, endRadius: rimWidth * 1.5))
+                .frame(width: rimWidth * 2.0, height: rimWidth * 2.0)
+                .overlay(Circle().stroke(accentMetal, lineWidth: 0.8 * unit))
+                .shadow(color: tint.opacity(0.9), radius: 3 * unit)
+            // T3+ は宝石脇に小粒の副石
+            if t >= 3 {
+                ForEach([-1.0, 1.0], id: \.self) { s in
+                    Circle()
+                        .fill(luminous)
+                        .frame(width: rimWidth * 0.8, height: rimWidth * 0.8)
+                        .overlay(Circle().stroke(accentMetal, lineWidth: 0.4 * unit))
+                        .offset(x: s * rimWidth * 2.0)
+                }
+            }
+        }
+        .offset(y: -rr)
     }
 }
 
@@ -1897,7 +2166,7 @@ struct ProfileEquipmentCardStyleTile: View {
     var body: some View {
         ProfileEquipmentTileShell(title: title, value: value) {
             ProfileMiniCardStyleView(style: cardStyle, accentColor: accentColor)
-                .frame(width: 42, height: 24)
+                .frame(width: 58, height: 34)
         }
     }
 }
@@ -1912,7 +2181,7 @@ struct ProfileEquipmentTileShell<Preview: View>: View {
         let _ = themeTransitionProgress
         VStack(alignment: .leading, spacing: 8) {
             preview()
-                .frame(height: 24, alignment: .leading)
+                .frame(height: 34, alignment: .leading)
             Text(value)
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(LiminalTheme.text)

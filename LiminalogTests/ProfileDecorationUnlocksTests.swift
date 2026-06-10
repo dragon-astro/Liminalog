@@ -33,37 +33,37 @@ struct ProfileDecorationUnlocksTests {
     func unlockedItemsExposeTheirTargetIDsByDecorationKind() throws {
         let now = try #require(Calendar.liminalogTest.date(from: DateComponents(year: 2026, month: 6, day: 1)))
         let planner = try unlockedItem(key: "badge.planner", now: now)
-        let cloudFrame = try unlockedItem(key: "frame.cloud_veil", now: now)
+        let ironFrame = try unlockedItem(key: "frame.free_instrument_iron", now: now)
         let goldFlame = try unlockedItem(key: "streak.gold_flame", now: now)
-        let threadCard = try unlockedItem(key: "card.thread_panel", now: now)
-        let lockedHorizon = try #require(UnlockCatalog.items.first { $0.key == "frame.horizon_wreath" }).item()
+        let threadCard = try unlockedItem(key: "card.free_thread_border_panel", now: now)
+        let lockedPlatinum = try #require(UnlockCatalog.items.first { $0.key == "frame.free_instrument_platinum" }).item()
 
         let unlocks = ProfileDecorationUnlocks(
-            unlockItems: [planner, cloudFrame, goldFlame, threadCard, lockedHorizon]
+            unlockItems: [planner, ironFrame, goldFlame, threadCard, lockedPlatinum]
         )
 
         #expect(unlocks.badgeIsUnlocked("planner"))
-        #expect(unlocks.iconFrameIsUnlocked("cloud_veil"))
+        #expect(unlocks.iconFrameIsUnlocked("free_instrument_iron"))
         #expect(unlocks.streakIconIsUnlocked("bolt"))
-        #expect(unlocks.cardStyleIsUnlocked("thread_panel"))
-        #expect(!unlocks.iconFrameIsUnlocked("horizon_wreath"))
+        #expect(unlocks.cardStyleIsUnlocked("free_thread_border_panel"))
+        #expect(!unlocks.iconFrameIsUnlocked("free_instrument_platinum"))
         #expect(unlocks.equippedBadgeID("planner") == "planner")
-        #expect(unlocks.equippedIconFrameID("cloud_veil") == "cloud_veil")
+        #expect(unlocks.equippedIconFrameID("free_instrument_iron") == "free_instrument_iron")
         #expect(unlocks.equippedStreakIconID("bolt") == "bolt")
-        #expect(unlocks.equippedCardStyleID("thread_panel") == "thread_panel")
-        #expect(unlocks.equippedIconFrameID("horizon_wreath") == "clear_air")
+        #expect(unlocks.equippedCardStyleID("free_thread_border_panel") == "free_thread_border_panel")
+        #expect(unlocks.equippedIconFrameID("free_instrument_platinum") == "clear_air")
     }
 
     @Test
     func freshUnlockedItemsIgnoreSeenEquippedAndHiddenItems() throws {
         let now = try #require(Calendar.liminalogTest.date(from: DateComponents(year: 2026, month: 6, day: 1)))
         let planner = try unlockedItem(key: "badge.planner", now: now)
-        let threadCard = try unlockedItem(key: "card.thread_panel", now: now)
+        let threadCard = try unlockedItem(key: "card.free_thread_border_panel", now: now)
         let auroraTheme = try unlockedItem(key: "theme.aurora", now: now)
         let futureTheme = try unlockedItem(key: "theme.akane", now: now)
         let settings = UserSettings()
         settings.profileBadgeID = "planner"
-        settings.seenUnlockItemKeys = ["card.thread_panel"]
+        settings.seenUnlockItemKeys = ["card.free_thread_border_panel"]
 
         let fresh = ProfileDecorationUnlocks.freshUnlockedItems(
             unlockItems: [planner, threadCard, auroraTheme, futureTheme],
@@ -79,32 +79,32 @@ struct ProfileDecorationUnlocksTests {
         let now = try #require(Calendar.liminalogTest.date(from: DateComponents(year: 2026, month: 6, day: 1)))
         let planner = try unlockedItem(key: "badge.planner", now: now)
         let keeper = try unlockedItem(key: "badge.promise_keeper", now: now)
-        let cloudFrame = try unlockedItem(key: "frame.cloud_veil", now: now)
-        let lockedHorizon = try lockedItem(key: "frame.horizon_wreath")
+        let ironFrame = try unlockedItem(key: "frame.free_instrument_iron", now: now)
+        let lockedPlatinum = try lockedItem(key: "frame.free_instrument_platinum")
         let settings = UserSettings()
 
         ProfileDecorationUnlocks.markEquippedItem(
             kind: .nameBadge,
             targetID: "planner",
-            unlockItems: [planner, keeper, cloudFrame, lockedHorizon],
+            unlockItems: [planner, keeper, ironFrame, lockedPlatinum],
             settings: settings
         )
         ProfileDecorationUnlocks.markEquippedItem(
             kind: .nameBadge,
             targetID: "promise_keeper",
-            unlockItems: [planner, keeper, cloudFrame, lockedHorizon],
+            unlockItems: [planner, keeper, ironFrame, lockedPlatinum],
             settings: settings
         )
         ProfileDecorationUnlocks.markEquippedItem(
             kind: .iconFrame,
-            targetID: "cloud_veil",
-            unlockItems: [planner, keeper, cloudFrame, lockedHorizon],
+            targetID: "free_instrument_iron",
+            unlockItems: [planner, keeper, ironFrame, lockedPlatinum],
             settings: settings
         )
         ProfileDecorationUnlocks.markEquippedItem(
             kind: .iconFrame,
-            targetID: "horizon_wreath",
-            unlockItems: [planner, keeper, cloudFrame, lockedHorizon],
+            targetID: "free_instrument_platinum",
+            unlockItems: [planner, keeper, ironFrame, lockedPlatinum],
             settings: settings
         )
 
@@ -119,21 +119,21 @@ struct ProfileUnlockTargetsTests {
     func targetsSortByProgressAndLimit() throws {
         let now = try #require(Calendar.liminalogTest.date(from: DateComponents(year: 2026, month: 6, day: 1)))
         let planner = try unlockedItem(key: "badge.planner", now: now)
-        let threadCard = try lockedItem(key: "card.thread_panel")
-        let cloudFrame = try lockedItem(key: "frame.cloud_veil")
+        let threadCard = try lockedItem(key: "card.free_thread_border_panel")
+        let ironFrame = try lockedItem(key: "frame.free_instrument_iron")
         let goldFlame = try lockedItem(key: "streak.gold_flame")
 
         let targets = ProfileUnlockTargetCatalog.targets(
-            metrics: UnlockMetrics(cumulativeScore: 800),
-            unlockItems: [cloudFrame, goldFlame, planner, threadCard],
+            metrics: UnlockMetrics(cumulativeScore: 800, recordedDays: 2),
+            unlockItems: [ironFrame, goldFlame, planner, threadCard],
             limit: 2
         )
 
-        #expect(targets.map(\.key) == ["frame.cloud_veil", "card.thread_panel"])
-        #expect(targets[0].remainingValue == 0)
-        #expect(targets[0].progressPercent == 100)
-        #expect(targets[0].conditionText == "継続XP 300pt")
-        #expect(targets[0].progressText == "300 / 300pt・100%")
+        #expect(targets.map(\.key) == ["frame.free_instrument_iron", "card.free_thread_border_panel"])
+        #expect(targets[0].remainingValue == 1)
+        #expect(targets[0].progressPercent == 66)
+        #expect(targets[0].conditionText == "記録日数 3日")
+        #expect(targets[0].progressText == "2 / 3日・66%")
         #expect(targets[0].kindTitle == "フレーム")
         #expect(targets[1].requirementKind == .cumulativeScore)
         #expect(targets[1].remainingValue == 1_900)
@@ -155,7 +155,7 @@ struct ProfileUnlockTargetsTests {
     func targetsReturnEmptyWhenEverythingIsUnlocked() throws {
         let now = try #require(Calendar.liminalogTest.date(from: DateComponents(year: 2026, month: 6, day: 1)))
         let planner = try unlockedItem(key: "badge.planner", now: now)
-        let threadCard = try unlockedItem(key: "card.thread_panel", now: now)
+        let threadCard = try unlockedItem(key: "card.free_thread_border_panel", now: now)
 
         let targets = ProfileUnlockTargetCatalog.targets(
             cumulativeScore: 10_000,

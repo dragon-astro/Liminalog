@@ -45,10 +45,10 @@ struct UnlockRulesTests {
     func rulesUnlockItemsAtRequirementThresholds() {
         #expect(UnlockRules.unlockedKeys(cumulativeScore: -1).isEmpty)
         #expect(UnlockRules.unlockedKeys(cumulativeScore: 0).isEmpty)
-        #expect(UnlockRules.unlockedKeys(cumulativeScore: 21_900).count == 40)
+        #expect(UnlockRules.unlockedKeys(cumulativeScore: 21_900).count == 25)
 
         let plannerKeys = UnlockRules.unlockedKeys(metrics: UnlockMetrics(planMatchedDays: 5))
-        #expect(plannerKeys == Set(["badge.planner"]))
+        #expect(plannerKeys == Set(["frame.free_instrument_iron_crest", "badge.planner"]))
 
         let patternKeys = UnlockRules.unlockedKeys(
             metrics: UnlockMetrics(
@@ -62,13 +62,13 @@ struct UnlockRulesTests {
         let allKeys = UnlockRules.unlockedKeys(
             metrics: UnlockMetrics(
                 cumulativeScore: 21_900,
-                recordedDays: 10,
-                recordedHours: 200,
+                recordedDays: 365,
+                recordedHours: 8_000,
                 streakDays: 60,
                 earlyRecordDays: 21,
                 lateNightRecordDays: 14,
                 distinctCategoryCount: 6,
-                planMatchedDays: 30,
+                planMatchedDays: 365,
                 chargeDays: 15,
                 morningPersonaDays: 15,
                 nightPersonaDays: 15,
@@ -99,12 +99,12 @@ struct UnlockRulesTests {
         let items = try context.fetch(FetchDescriptor<UnlockItem>())
         #expect(items.count == 69)
         #expect(Set(items.map(\.key)).count == 69)
-        let first = try #require(items.first { $0.key == "frame.cloud_veil" })
+        let first = try #require(items.first { $0.key == "frame.free_instrument_iron" })
         #expect(first.kind == .iconFrame)
-        #expect(first.requiredCumulativeScore == 300)
-        #expect(first.requirementKind == .cumulativeScore)
-        #expect(first.requiredValue == 300)
-        #expect(first.targetID == "cloud_veil")
+        #expect(first.requiredCumulativeScore == 420)
+        #expect(first.requirementKind == .recordedDays)
+        #expect(first.requiredValue == 3)
+        #expect(first.targetID == "free_instrument_iron")
     }
 
     @Test
@@ -112,7 +112,7 @@ struct UnlockRulesTests {
         let calendar = Calendar.liminalogTest
         let container = try TestModelContainer.make()
         let context = container.mainContext
-        let seed = try #require(UnlockCatalog.items.first { $0.key == "card.thread_panel" })
+        let seed = try #require(UnlockCatalog.items.first { $0.key == "card.free_thread_border_panel" })
         let olderCreatedAt = try #require(calendar.date(from: DateComponents(year: 2026, month: 5, day: 1)))
         let olderUnlock = try #require(calendar.date(from: DateComponents(year: 2026, month: 5, day: 2)))
         let newerCreatedAt = try #require(calendar.date(from: DateComponents(year: 2026, month: 5, day: 3)))
@@ -129,7 +129,7 @@ struct UnlockRulesTests {
         UnlockStore(modelContext: context).seedMasterItems(now: now)
 
         let items = try context.fetch(FetchDescriptor<UnlockItem>())
-        let threadItems = items.filter { $0.key == "card.thread_panel" }
+        let threadItems = items.filter { $0.key == "card.free_thread_border_panel" }
         #expect(items.count == 69)
         #expect(threadItems.count == 1)
         #expect(threadItems.first?.id == primary.id)
@@ -174,9 +174,9 @@ struct UnlockRulesTests {
         let firstUnlockTime = try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1)))
         let secondUnlockTime = try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 2)))
 
-        let metrics = UnlockMetrics(cumulativeScore: 450)
+        let metrics = UnlockMetrics(cumulativeScore: 450, recordedDays: 3)
         let firstBatch = store.refresh(metrics: metrics, now: firstUnlockTime)
-        #expect(firstBatch.map(\.key) == ["frame.cloud_veil", "card.cloud_panel"])
+        #expect(firstBatch.map(\.key) == ["frame.free_instrument_iron", "card.free_dawn_horizon_panel"])
 
         let repeated = store.refresh(metrics: metrics, now: secondUnlockTime)
         #expect(repeated.isEmpty)
@@ -187,11 +187,11 @@ struct UnlockRulesTests {
         let unlocked = try context.fetch(FetchDescriptor<UnlockItem>())
             .filter { $0.unlockedAt != nil }
             .sorted { $0.sortOrder < $1.sortOrder }
-        #expect(unlocked.map(\.key) == ["frame.cloud_veil", "card.cloud_panel"])
+        #expect(unlocked.map(\.key) == ["frame.free_instrument_iron", "card.free_dawn_horizon_panel"])
         #expect(unlocked.allSatisfy { $0.unlockedAt == firstUnlockTime })
 
         let next = try #require(store.nextLockedItem(metrics: metrics))
-        #expect(next.key == "frame.ripple_ring")
+        #expect(next.key == "card.free_ripple_border_panel")
         #expect(UnlockRules.progress(metrics: metrics, toward: next) > 0)
         #expect(UnlockRules.progress(metrics: metrics, toward: next) < 1)
     }
@@ -214,6 +214,7 @@ struct UnlockRulesTests {
         )
 
         #expect(unlocked.map(\.key) == [
+            "frame.free_instrument_iron_crest",
             "badge.planner",
             "badge.restorer",
             "streak.gold_flame",

@@ -14,7 +14,7 @@ struct SettingsView: View {
     #endif
 
     /// お問い合わせ先（必要に応じて差し替え）。
-    private let supportEmailAddress = "yuhapenguin@gmail.com"
+    private let supportEmailAddress = "yuhlab.dev@gmail.com"
 
     private var versionText: String {
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
@@ -58,10 +58,16 @@ struct SettingsView: View {
                 } label: {
                     Label("友達への見え方", systemImage: "eye")
                 }
+
+                NavigationLink {
+                    BlockedFriendsView()
+                } label: {
+                    Label("ブロックリスト", systemImage: "nosign")
+                }
             } header: {
                 Text("プライバシー")
             } footer: {
-                Text("カテゴリごとの既定の公開相手はカテゴリ管理から、友達ごとのプリセット割り当ては友達詳細から変更できます。")
+                Text("カテゴリごとの既定の公開相手はカテゴリ管理から、友達ごとのプリセット割り当ては友達詳細から変更できます。ブロックはブロックリストから解除できます。")
             }
 
             Section("外観") {
@@ -131,6 +137,12 @@ struct SettingsView: View {
             Section("アプリ情報") {
                 LabeledContent("バージョン", value: versionText)
 
+                NavigationLink {
+                    PrivacyPolicyView(supportEmailAddress: supportEmailAddress)
+                } label: {
+                    Label("プライバシーポリシー", systemImage: "hand.raised")
+                }
+
                 if let supportMailURL {
                     Link(destination: supportMailURL) {
                         Label("お問い合わせ", systemImage: "envelope")
@@ -190,6 +202,79 @@ struct SettingsView: View {
         settings.first { $0.settingsKey == "default" } ?? settings.first
     }
     #endif
+}
+
+// MARK: - プライバシーポリシー
+
+private struct PrivacyPolicyView: View {
+    let supportEmailAddress: String
+
+    private let effectiveDate = "2026年6月7日"
+
+    var body: some View {
+        List {
+            Section {
+                policyParagraph("Liminalogは、日々の記録、習慣、予定、プロフィール、友達共有をユーザー自身が管理するためのアプリです。記録内容はユーザーのプライバシーに深く関わるため、必要な範囲に限って保存・利用します。")
+                LabeledContent("施行日", value: effectiveDate)
+            }
+
+            Section("保存する情報") {
+                policyParagraph("アプリは、記録した時間、カテゴリ、予定、メモ、場所名、気分、プロフィール画像、表示名、ユーザーID、公開設定、友達関係、装飾やテーマなどの設定を保存します。")
+                policyParagraph("問い合わせを送る場合、メールアドレス、問い合わせ内容、端末やアプリのバージョン情報がサポート対応に使われることがあります。")
+            }
+
+            Section("利用目的") {
+                bullet("記録・統計・カレンダー・ウィジェットなど、アプリ機能を提供するため")
+                bullet("iCloudを使った同期、バックアップ、友達共有を行うため")
+                bullet("ユーザーID検索、友達申請、相互同意した友達との共有範囲を管理するため")
+                bullet("不具合調査、問い合わせ対応、サービス改善のため")
+            }
+
+            Section("iCloudと友達共有") {
+                policyParagraph("記録や設定は端末内およびiCloud/CloudKitに保存されます。iCloudにサインインしていない場合、同期や友達共有の一部機能は利用できないことがあります。")
+                policyParagraph("友達共有は、ユーザーID検索と相互同意が成立した相手に対してのみ行われます。共有される内容は、ユーザーが設定した公開範囲に従います。")
+                policyParagraph("友達解除またはブロックを行うと、その相手との共有は停止されます。")
+            }
+
+            Section("開発者が確認できる範囲") {
+                policyParagraph("CloudKitのPrivate DatabaseやShared Databaseに保存されたユーザー本人の記録内容は、原則として開発者ポータルから直接閲覧できません。")
+                policyParagraph("ユーザーID検索や友達申請などに必要な公開領域の情報、問い合わせでユーザーが送信した内容、App Store Connectなどで提供される診断情報は確認できる場合があります。")
+            }
+
+            Section("第三者提供") {
+                policyParagraph("ユーザーの記録内容を広告目的で販売したり、第三者に提供したりすることはありません。法令に基づく場合、ユーザーの同意がある場合、またはアプリ機能の提供に必要な範囲を除き、個人情報を第三者に提供しません。")
+            }
+
+            Section("削除と同意の撤回") {
+                policyParagraph("ユーザーは、アプリ内の削除操作、友達解除、公開設定の変更、iCloud設定の変更により、保存・共有される情報を管理できます。")
+                policyParagraph("データ削除やプライバシーに関する相談が必要な場合は、問い合わせ先まで連絡してください。")
+            }
+
+            Section("問い合わせ") {
+                Text(supportEmailAddress)
+                    .textSelection(.enabled)
+                policyParagraph("プライバシーポリシーの内容は、機能追加や法令変更に応じて更新されることがあります。重要な変更がある場合は、アプリ内またはApp Store上で案内します。")
+            }
+        }
+        .navigationTitle("プライバシーポリシー")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func policyParagraph(_ text: String) -> some View {
+        Text(text)
+            .font(.body)
+            .foregroundStyle(LiminalTheme.text)
+    }
+
+    private func bullet(_ text: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text("・")
+                .foregroundStyle(LiminalTheme.secondaryText)
+            Text(text)
+                .foregroundStyle(LiminalTheme.text)
+        }
+        .font(.body)
+    }
 }
 
 // MARK: - iCloud 同期

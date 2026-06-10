@@ -15,6 +15,21 @@ struct ProfileEditSheet: View {
     @State private var pendingCropImage: ProfilePhotoCropDraft?
     @State private var photoLoadError: String?
     @State private var saveError: String?
+    @State private var activeTab: EditTab = .basics
+
+    enum EditTab: String, CaseIterable, Identifiable {
+        case basics, badge, frame, streak, card
+        var id: String { rawValue }
+        var title: String {
+            switch self {
+            case .basics: return "基本"
+            case .badge: return "バッジ"
+            case .frame: return "フレーム"
+            case .streak: return "ストリーク"
+            case .card: return "カード"
+            }
+        }
+    }
 
     let badges: [ProfileBadgeModel]
     let unlocks: ProfileDecorationUnlocks
@@ -40,72 +55,50 @@ struct ProfileEditSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section {
-                    HStack(spacing: 16) {
-                        ProfilePhotoView(
-                            displayName: previewDisplayName,
-                            imageData: imageData,
-                            accentColor: visualAccentColor,
-                            frameStyle: ProfileIconFrameCatalog.item(for: iconFrameID),
-                            size: 76
-                        )
+            VStack(spacing: 0) {
+                previewHeader
 
-                        VStack(alignment: .leading, spacing: 10) {
-                            PhotosPicker(selection: $selectedPhoto, matching: .images) {
-                                Label("写真を選択", systemImage: "photo")
-                            }
+                Picker("", selection: $activeTab) {
+                    ForEach(EditTab.allCases) { tab in
+                        Text(tab.title).tag(tab)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 8)
 
-                            if let photoLoadError {
-                                Text(photoLoadError)
-                                    .font(.caption)
-                                    .foregroundStyle(.red)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-
-                            if imageData != nil {
-                                Button(role: .destructive) {
-                                    imageData = nil
-                                    photoLoadError = nil
-                                } label: {
-                                    Label("写真を削除", systemImage: "trash")
-                                }
-                            }
+                Form {
+                    switch activeTab {
+                    case .basics:
+                        basicsContent
+                    case .badge:
+                        Section {
+                            ProfileBadgeSelector(badges: badges, selectedID: $badgeID)
+                        }
+                    case .frame:
+                        Section {
+                            ProfileFrameSelector(
+                                selectedID: $iconFrameID,
+                                accentColor: visualAccentColor,
+                                unlockedIDs: unlocks.iconFrameIDs
+                            )
+                        }
+                    case .streak:
+                        Section {
+                            ProfileStreakIconSelector(
+                                selectedID: $streakIconID,
+                                unlockedIDs: unlocks.streakIconIDs
+                            )
+                        }
+                    case .card:
+                        Section {
+                            ProfileCardStyleSelector(
+                                selectedID: $cardStyleID,
+                                accentColor: visualAccentColor,
+                                unlockedIDs: unlocks.cardStyleIDs
+                            )
                         }
                     }
-                    .padding(.vertical, 4)
-                }
-
-                Section("プロフィール") {
-                    TextField("名前", text: $displayName)
-                        .textInputAutocapitalization(.never)
-
-                    TextField("自己紹介", text: $bio, axis: .vertical)
-                        .lineLimit(3...5)
-                }
-
-                Section("装備") {
-                    ProfileBadgeSelector(
-                        badges: badges,
-                        selectedID: $badgeID
-                    )
-
-                    ProfileFrameSelector(
-                        selectedID: $iconFrameID,
-                        accentColor: visualAccentColor,
-                        unlockedIDs: unlocks.iconFrameIDs
-                    )
-
-                    ProfileStreakIconSelector(
-                        selectedID: $streakIconID,
-                        unlockedIDs: unlocks.streakIconIDs
-                    )
-
-                    ProfileCardStyleSelector(
-                        selectedID: $cardStyleID,
-                        accentColor: visualAccentColor,
-                        unlockedIDs: unlocks.cardStyleIDs
-                    )
                 }
             }
             .navigationTitle("プロフィール編集")
@@ -166,6 +159,105 @@ struct ProfileEditSheet: View {
                 Text(saveError ?? "")
             }
         }
+    }
+
+    private var previewHeader: some View {
+        VStack(spacing: 12) {
+            ProfileHero(
+                displayName: previewDisplayName,
+                bio: trimmedBio,
+                imageData: imageData,
+                accentColor: visualAccentColor,
+                equippedBadge: resolvedBadge,
+                iconFrame: ProfileIconFrameCatalog.item(for: iconFrameID),
+                cardStyle: resolvedCardStyle,
+                showsActions: false,
+                onEdit: {},
+                onShare: {}
+            )
+            .animation(.snappy(duration: 0.28), value: previewSignature)
+
+            streakChip
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 12)
+        .padding(.bottom, 16)
+        .frame(maxWidth: .infinity)
+        .background(LiminalTheme.canvasGradient)
+    }
+
+    private var streakChip: some View {
+        let style = ProfileStreakIconCatalog.item(for: streakIconID)
+        return HStack(spacing: 7) {
+            Image(systemName: style.systemImage)
+                .font(.footnote.weight(.bold))
+                .foregroundStyle(Color(hex: style.tintHex))
+            Text("ストリーク・\(style.title)")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(LiminalTheme.secondaryText)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 7)
+        .background(LiminalTheme.surface, in: Capsule())
+        .animation(.snappy(duration: 0.28), value: streakIconID)
+    }
+
+    @ViewBuilder
+    private var basicsContent: some View {
+        Section {
+            HStack(spacing: 16) {
+                ProfilePhotoView(
+                    displayName: previewDisplayName,
+                    imageData: imageData,
+                    accentColor: visualAccentColor,
+                    frameStyle: ProfileIconFrameCatalog.item(for: iconFrameID),
+                    size: 76
+                )
+
+                VStack(alignment: .leading, spacing: 10) {
+                    PhotosPicker(selection: $selectedPhoto, matching: .images) {
+                        Label("写真を選択", systemImage: "photo")
+                    }
+
+                    if let photoLoadError {
+                        Text(photoLoadError)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    if imageData != nil {
+                        Button(role: .destructive) {
+                            imageData = nil
+                            photoLoadError = nil
+                        } label: {
+                            Label("写真を削除", systemImage: "trash")
+                        }
+                    }
+                }
+            }
+            .padding(.vertical, 4)
+        }
+
+        Section("プロフィール") {
+            TextField("名前", text: $displayName)
+                .textInputAutocapitalization(.never)
+
+            TextField("自己紹介", text: $bio, axis: .vertical)
+                .lineLimit(3...5)
+        }
+    }
+
+    private var resolvedBadge: ProfileBadgeModel {
+        ProfileBadgeCatalog.equippedBadge(id: badgeID, badges: badges)
+    }
+
+    private var resolvedCardStyle: ProfileCardStyle {
+        ProfileCardStyleCatalog.item(for: cardStyleID)
+    }
+
+    private var previewSignature: String {
+        "\(badgeID)|\(iconFrameID)|\(cardStyleID)"
     }
 
     private var visualAccentColor: Color {
@@ -516,7 +608,7 @@ private struct ProfileFrameSelector: View {
                 .font(.subheadline.weight(.semibold))
 
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 2), spacing: 10) {
-                ForEach(ProfileIconFrameCatalog.items) { item in
+                ForEach(ProfileIconFrameCatalog.visibleItems) { item in
                     let isUnlocked = unlockedIDs.contains(item.id)
                     Button {
                         guard isUnlocked else { return }
@@ -620,7 +712,7 @@ private struct ProfileCardStyleSelector: View {
                 .font(.subheadline.weight(.semibold))
 
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 2), spacing: 10) {
-                ForEach(ProfileCardStyleCatalog.items) { item in
+                ForEach(ProfileCardStyleCatalog.visibleItems) { item in
                     let isUnlocked = unlockedIDs.contains(item.id)
                     Button {
                         guard isUnlocked else { return }
@@ -668,8 +760,7 @@ private struct ProfileCardStylePreview: View {
 
     var body: some View {
         ProfileMiniCardStyleView(style: style, accentColor: accentColor)
-            .frame(height: 34)
-            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+            .frame(height: 48)
     }
 }
 

@@ -253,7 +253,7 @@ struct FriendsView: View {
                 }
             } else {
                 VStack(alignment: .leading, spacing: 10) {
-                    TextField("3文字以上のユーザーID", text: $desiredUserID)
+                    TextField("4〜20文字の半角英数字と _ . -", text: $desiredUserID)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .font(.body.monospaced())
@@ -794,7 +794,7 @@ struct FriendsView: View {
         clearIncomingShareData(for: friend)
         friend.updatedAt = Date()
         Task {
-            try? await stopCloudSharing(with: friend)
+            try? await stopCloudSharing(with: friend, block: true)
         }
     }
 
@@ -1026,16 +1026,22 @@ struct FriendsView: View {
         }
     }
 
-    private func stopCloudSharing(with friend: Friend) async throws {
+    /// 共有を停止する。`block: false` は申請取り下げ／友達削除（同意レコードを削除＝再申請可）、
+    /// `block: true` は明示的なブロック（同意レコードを `.blocked` にする）。
+    private func stopCloudSharing(with friend: Friend, block: Bool) async throws {
         guard !friend.userRecordID.isEmpty else { return }
         try await cloudShareStore.revokeOutgoingShare(targetUserRecordName: friend.userRecordID)
         guard let ownUsername = settings?.cloudUsernameNormalized, !ownUsername.isEmpty else { return }
-        _ = try await cloudSocialStore.blockOwnConsent(
-            targetUserRecordName: friend.userRecordID,
-            ownUsername: ownUsername,
-            targetUsername: cloudUsername(from: friend),
-            ownDisplayName: ownDisplayName
-        )
+        if block {
+            _ = try await cloudSocialStore.blockOwnConsent(
+                targetUserRecordName: friend.userRecordID,
+                ownUsername: ownUsername,
+                targetUsername: cloudUsername(from: friend),
+                ownDisplayName: ownDisplayName
+            )
+        } else {
+            try await cloudSocialStore.withdrawOwnConsent(targetUserRecordName: friend.userRecordID)
+        }
     }
 
     private func incomingShareURL(for friend: Friend) -> URL? {
@@ -1064,7 +1070,7 @@ struct FriendsView: View {
         }
         Task {
             do {
-                try await stopCloudSharing(with: friend)
+                try await stopCloudSharing(with: friend, block: false)
                 await MainActor.run {
                     modelContext.delete(friend)
                     save()
@@ -1615,7 +1621,7 @@ private struct FriendDetailView: View {
         }
         Task {
             do {
-                try await stopCloudSharing(with: friend)
+                try await stopCloudSharing(with: friend, block: true)
                 await MainActor.run {
                     friend.status = .blocked
                     friend.blockedAt = Date()
@@ -1641,7 +1647,7 @@ private struct FriendDetailView: View {
         }
         Task {
             do {
-                try await stopCloudSharing(with: friend)
+                try await stopCloudSharing(with: friend, block: false)
                 await MainActor.run {
                     modelContext.delete(friend)
                     guard save() else { return }
@@ -1655,16 +1661,21 @@ private struct FriendDetailView: View {
         }
     }
 
-    private func stopCloudSharing(with friend: Friend) async throws {
+    /// `block: false` は友達削除（同意レコードを削除＝再申請可）、`block: true` は明示ブロック。
+    private func stopCloudSharing(with friend: Friend, block: Bool) async throws {
         guard !friend.userRecordID.isEmpty else { return }
         try await cloudShareStore.revokeOutgoingShare(targetUserRecordName: friend.userRecordID)
         guard let ownUsername = settings?.cloudUsernameNormalized, !ownUsername.isEmpty else { return }
-        _ = try await cloudSocialStore.blockOwnConsent(
-            targetUserRecordName: friend.userRecordID,
-            ownUsername: ownUsername,
-            targetUsername: cloudUsername(from: friend),
-            ownDisplayName: ownDisplayName
-        )
+        if block {
+            _ = try await cloudSocialStore.blockOwnConsent(
+                targetUserRecordName: friend.userRecordID,
+                ownUsername: ownUsername,
+                targetUsername: cloudUsername(from: friend),
+                ownDisplayName: ownDisplayName
+            )
+        } else {
+            try await cloudSocialStore.withdrawOwnConsent(targetUserRecordName: friend.userRecordID)
+        }
     }
 
     private func refreshIncomingShare(for friend: Friend, shareURL: URL) async throws {

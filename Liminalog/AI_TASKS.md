@@ -22,6 +22,7 @@ ClaudeとCodexが連携してLiminalogを開発するための共有タスク管
 | [../Liminalog/Design/docs/theme-system.md](../Liminalog/Design/docs/theme-system.md) | テーマ定義型リファクタ 実装仕様（色＋扱い方を型化・§8.7） |
 | [../Liminalog/liminalog_spec_v04.md](../Liminalog/liminalog_spec_v04.md) | プロダクト仕様書 |
 | [../Liminalog/CLAUDE_v04.md](../Liminalog/CLAUDE_v04.md) | Claude向けプロジェクト概要 |
+| [../decoration-masters/README.md](../decoration-masters/README.md) | 装飾アート（カード/フレーム）のマスター管理・追加手順。**生成画像は xcassets に直接置かず、必ずこの手順で** |
 
 実装着手前に **最低限 `Liminalog/Views/Profile/docs/03-architecture.md` と該当機能の `04-` `05-`** を読むこと。
 
@@ -920,6 +921,40 @@ refactor: split plan store
 
 ---
 
+## 9.5 リリース準備（ストア申請）
+
+設計: **[../Liminalog/Views/Profile/docs/18-landing-page.md](../Liminalog/Views/Profile/docs/18-landing-page.md)**（LP要件・プライバシー/サポート本文ドラフト）／[17-monetization.md](../Liminalog/Views/Profile/docs/17-monetization.md)（課金は初回アップデートで追加）。
+
+### Claude 対応済み（2026-06）
+- [x] 画面を縦固定・`ITSAppUsesNonExemptEncryption=false`（`Config/LiminalogInfo.plist`）。`BUILD SUCCEEDED`。
+- [x] 設定にプライバシーポリシー画面・お問い合わせ(mailto `yuhlab.dev@gmail.com`)。
+- [x] リリース不足リストの棚卸し（友達タブ出荷判断・ASCメタデータ・LP）。
+
+### Claude が Codex領域（CloudKit社交）に入れた修正（2026-06・Codex要把握）
+- [x] **友達バグ：申請取り下げ/友達削除が相手をブロックしていた**。`FriendsView` の `stopCloudSharing(with:)` が常に `blockOwnConsent`（status=.blocked）を呼んでおり、取り下げ＝ブロック化＋解除UI無しで詰む状態だった。修正：`stopCloudSharing(with:block:)` に分離し、取り下げ/削除は新規 `CloudKitSocialStore.withdrawOwnConsent`（同意レコード削除＝再申請可）を、明示ブロックのみ `blockOwnConsent` を呼ぶ。`handleBlockedCloudFriend` は `block:true`。
+- [x] **設定にブロックリスト追加**（`Views/Settings/BlockedFriendsView.swift`・プライバシー節にリンク）。一覧は `CloudKitSocialStore.blockedConsents()`（自分の同意 status=.blocked）から取得＝ローカルにFriendが残らない詰みケースも解除可。解除＝`withdrawOwnConsent`＋ローカルFriend削除。
+- 影響ファイル：`Stores/CloudKitSocialStore.swift`（`withdrawOwnConsent`/`blockedConsents` 追加）、`Views/Friends/FriendsView.swift`（2箇所の`stopCloudSharing`に`block:`）、`Views/Settings/{BlockedFriendsView.swift,SettingsView.swift}`。`BUILD SUCCEEDED`・実機2台へ配備済。
+- [x] **CloudKit共有バグ：「Can't share records in the default zone」**。`CloudFriendShareStore.rootRecordID` が共有ルートを**デフォルトゾーン**に作っており、CKShare がデフォルトゾーン不可で失敗していた。修正：専用カスタムゾーン `LiminalogFriendShares`（`shareZoneID`）を追加し root をそのゾーンへ。`upsertOutgoingShare` 冒頭で `ensureShareZone()`（`privateDatabase.save(CKRecordZone)` 冪等）を呼ぶ。revoke も同じ `rootRecordID` 生成元なので整合。影響：`Stores/CloudFriendShareStore.swift` のみ。実機2台へ配備済。
+- [x] **共有保存の oplock 競合（client oplock error / serverRecordChanged）**。承認や再公開とのレースで失敗（時間経過で自然回復していた）。修正：`upsertOutgoingShare` を `performOutgoingUpsert` に分離し、`serverRecordChanged` を最大3回・指数待機で**最新を取り直して再試行**。併せて `save(_:to:savePolicy:)` を改善し、atomicバッチの巻き添え(`.batchRequestFailed`=「Atomic failure」)でなく**真因レコードのエラーをログ＆送出**。
+- [x] **カレンダー友達オーバーレイが重い**（Releaseでも）。原因＝開くたび(`onAppear→reloadVisibleData`)・オーバーレイ切替でページキャッシュ全破棄→**1日ごとに `ScoreCalculator.summary` 再計算**。修正：(1) `Models/Friend.swift` の `sharedPlans/sharedActivities` 復号を `FriendShareSnapshotCache` でメモ化、(2) `Stores/CalendarDayScoreCache.swift` 追加＝その日の予定/実績の**署名が同じならスコア再計算をスキップ**（`CalendarView.computePageData` で使用）。データ未保存ではなく再計算が重さの正体（友達データは既に `sharedPlansJSON` にローカル保存済み）。
+
+- [x] **【真因】共有スナップショットが無制限肥大→数分ハング・全タブ重い**。`CloudFriendShareSnapshotBuilder` が**全期間の chapters/planBlocks** を `FriendShared*Snapshot.snapshots(from:)`（上限なし）に渡しており、記録が増えるほど `sharedActivitiesJSON`/`sharedPlansJSON` が肥大。受信側で `@Query Friend` が巨大JSONを全画面に読み込み→**iPhone13(RAM少)で全タブ重い**＋カレンダーが巨大配列を42日×friendでフィルタ→数分。修正：**共有を過去31日〜未来62日・最大600件にウィンドウ化**（`chaptersInShareWindow`/`plansInShareWindow`）。※既存の肥大ローカルJSONは次の publish/refresh か friend 再追加で縮む。スコア署名キャッシュ等は別の小最適化として有効だが本件が主因だった。
+
+- [ ] **【Codex本題】友達共有を個別レコード化（全履歴×軽量）**。塊JSON方式は CloudKit 1MB上限・メモリ・カレンダー描画で破綻するため、`SharedChapter`/`SharedPlan` を1件1レコード＋ゾーン変更トークン差分同期＋受信側ローカル個別行＋表示は範囲ロード、へ作り直す。設計：**[../Liminalog/Views/Profile/docs/20-friend-share-scalable.md](../Liminalog/Views/Profile/docs/20-friend-share-scalable.md)**。⚠️ SwiftDataコンテナのCloudKit二重同期回避が肝（Codex判断）。多日＋二台検証必須。友達正式リリース更新で実施。<!-- 担当: Codex -->
+  - 暫定（Claude実装済）：共有ウィンドウ 過去365/未来180日・最大2000件（`CloudFriendShareSnapshotBuilder`）＋ `FriendShareSnapshotCache`（復号メモ化）＋ `CalendarDayScoreCache`（日スコア署名キャッシュ）。本題が入ったら撤去/置換。
+
+### Codex への CloudKit レビュー所見（2026-06・要検討）
+- ✅ 健全：クエリは `resultsLimit`＋ページングで上限あり／共有リフレッシュは `CloudKitFriendEventBridge` のイベント駆動。
+- ⚠️ **`currentUserRecordName()`/`fetchCurrentUserRecordID()` の多重呼び出し**：1操作で `CloudKitSocialStore` 14回・`CloudFriendShareStore` 11回。各々 `accountStatus()`＋`fetchUserRecordID()` の2往復。userRecordIDはセッション中不変なので**プロセス内キャッシュ化で往復削減**可。ただし**アカウント切替時の無効化**（accountStatus変化で破棄）が要るため、不変条件を把握する Codex 判断に委ねる。
+- ⚠️ `FriendsView.task` の `refreshCloudRequestsIfPossible()` が開くたびに走る。友達数が多い場合の一括リフレッシュ頻度をスロットルする余地（イベント駆動があるので appear 毎は過剰かも）。
+
+### 残（担当別）
+- [ ] **LP制作（Vercel/Next.js+Tailwind・日本語・近日公開・mailto+FAQ）**。`/`・`/privacy`・`/support` の3ルート、ASCのサポート/プライバシーURL兼用。本文は docs/18 付録A/B。<!-- 担当: Codex, 理由: 別リポWeb実装。iOSリポに混ぜない。アセット(スクショ/アイコン)はユーザー提供 -->
+- [ ] **友達タブを v1 に載せる/見送るの最終決定**（CloudKit=Codex進行中）。見送るなら友達タブ非表示＋`remote-notification`除去（Claude実装可）。<!-- 担当: 未定（ユーザー判断） -->
+- [ ] App Store Connect 側：プライバシーラベル記入・スクショ・説明文・年齢レーティング・カテゴリ・審査連絡先。<!-- 担当: ユーザー -->
+
+---
+
 ## 10. 完了ログ
 | 2026-06-01 | Codex | Phase0-3品質対応: DailyCardEngineをViewから抽出し、称号/本文整合・メタ文言除去・休息除外fact stripを実装。月カレンダーのスコア数値をミニリング化。VisibilityPresetをdocs/04 §4.5設計へ拡張し built-in seed/重複統合を実装。CloudKitSyncCoordinatorのアカウント状態監視土台を追加。追加品質対応としてVisibilityPreset seedの不要なupdatedAt更新を抑制し、built-in seed/重複統合/カスタム非統合テストへ更新。検証: `xcodebuild test -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5' -derivedDataPath /private/tmp/LiminalogDerivedData` 成功（35 tests / 11 suites）。iOS実機向け `build-for-testing` も `CODE_SIGNING_ALLOWED=NO` で成功。 |
 
@@ -927,6 +962,9 @@ refactor: split plan store
 
 | 日付 | 担当 | 内容 |
 |---|---|---|
+| 2026-06-10 | Claude | 既存fail `PlanStoreTests/未来の予定は追加、更新、削除できる` を修正（6eb8b48以降の既存fail）。`PlanBlock.isPublic` / `PlanStore.addPlanBlock` のデフォルトが true へ変わったのにテストが `isPublic == false` 期待のままだった。**仕様判断: デフォルト公開（true）が正**。根拠: docs/04-data-model.md §データモデルで `PlanBlock.isPublic: Bool = true` と明示設計されており、実際の友達への露出は VisibilityPreset（仲良し/知り合い/オフモード）の公開設定レイヤーで日・カテゴリ・友達単位にゲートされる（spec_v04 公開設定仕様）。isPublic 単体で即外部公開にはならないためプライバシー上も整合。対応: テストを `isPublic == true` 期待へ更新し、savePlanBlock 側は `isPublic: false` への変更＋検証に反転してフラグ更新経路のカバレッジを維持。検証: `xcodebuild test -only-testing:LiminalogTests` 成功。 |
+| 2026-06-10 | Claude | 全体レビューP0/P1のセキュリティ・堅牢性対応3件。①**FriendConsent/Profile偽造対策**: public DBレコードの `ownerUserRecordName` フィールドは自己申告にすぎず、第三者が他人名義の同意レコードを偽造すると被害者側が友達関係を復元して共有を公開してしまう脆弱性を修正。`CloudFriendRecordAuthenticityPolicy` 新設（サーバー付与の `creatorUserRecordID` と名義の照合、`__defaultOwner__`/nil creator は自分名義のみ信頼）。`CloudKitSocialStore` の consent取得3経路・profile取得・reclaim・owner index に配線し、偽造レコードは「存在しない」扱い。テスト6件追加。②**ユーザーID制限**: `UserIDNormalizer` を半角英小文字・数字・`_ . -` のみ/4〜20文字に制限（ホモグリフなりすまし対策）。全角入力は半角へ自動変換。**日本語IDは不可に仕様変更**（テスト更新済み）。FriendsViewのプレースホルダも「4〜20文字の半角英数字と _ . -」へ修正（旧文言は最小4文字なのに「3文字以上」で不整合だった）。③**SwiftDataマイグレーション配線**: `SharedModelContainer` の永続3系統に `LiminalogMigrationPlan` を接続し、リリース時スキーマをV1ベースラインとして固定。あわせて `storageMode` を導入し、Cloud→ローカル→in-memory へフォールバックした際は RootTabView が起動時アラートで告知（無告知の空DB起動を防止）。検証: `git diff --check` 成功、`xcodebuild test`（229件中228成功・新規suite含む。失敗1件 `PlanStoreTests/未来の予定は追加、更新、削除できる` は本変更前からの既存failで `PlanBlock.isPublic` 初期値変更にテスト未追従が原因）、iOS実機向け `build-for-testing` 成功。 |
+| 2026-06-10 | Claude | 装飾アセットのマスター/出荷分離（DLサイズ対策・92MB→41MB）。①`decoration-masters/Cards|Frames/` を新設し、原寸マスターPNG（カード2048px・フレーム1024px）を集約。②`Scripts/generate-decoration-assets.sh` 新規作成: マスターから出荷解像度（カード幅1280px・フレーム512px）へ縮小して imageset へ書き出す。冪等・imageset 自動生成対応。③全65枚を縮小版へ差し替え（imageset 名・Contents.json は不変、コード変更なし）。④手順書 `decoration-masters/README.md` 追加＋本ファイル§0へリンク。**今後の生成画像は xcassets 直置き禁止、README の手順に従うこと。**検証: スクリプト実行成功（masters 92MB / shipped 41MB）、`xcodebuild build` 成功。 |
 | 2026-06-04 | Claude | 解放要素（装飾アイテム経済）の段階1・2を実装。①`UnlockRules.swift` の `definitions` を中立指標で再構成（cumulativeScore解放廃止・streak重複解消 badge.seven_streak→seven_days・テーマ枠を極光/暁/朧＋将来3種へ整理、翡翠/瑠璃置換）、`UnlockRulesTests` 更新（全7件パス）、`FriendsView` バッジ表示も追従。②テーマ選択機構: `LiminalThemeDefinition` に極光/暁/朧パレット追加＋`activeThemeID`/`resolvedDefinition`、`LiminalTheme` token を computed 化＋6箇所 `resolvedDefinition` 置換、`RootTabView` で `UserSettings.themeName` 監視→`activeThemeID`同期＋`.id`再構築（`liminalAppChrome`をkeyed展開）、`ProfileDecorationUnlocks.themeIDs/equippedThemeID`。③`ThemePickerView`＋設定導線。検証: `xcodebuild build` 成功、aurora/akatsuki 一時固定でテーマ全体追従を確認（地/グラデ/アクセントはOK）。**判明課題**: カードが `secondarySystemGroupedBackground` 等システム色でテーマ非追従→§8.8 として Codex へ引き継ぎ。残り段階3（装飾実体）・段階5（コレクションハブ）は Claude 継続予定。スクショ: artifacts/theme-aurora-proof.png, theme-akatsuki-cards-white.png。 |
 | 2026-06-02 | Codex | ユーザー指摘を受け、`ChapterEditSheet` を予定編集画面と同じリッチなカードUIへ刷新。従来の `Form` を `ScrollView + LiminalTheme.canvasGradient + PlanEditorCard` 構成へ置き換え、カテゴリ/時間/メモ/場所/公開設定/削除をカード化し、上部にカテゴリ色・時間範囲・記録状態・共有状態・ロック状態をまとめたプレビューカードを追加。予定編集側の `PlanEditorCard` / `PlanEditorSectionHeader` / `PlanPreviewBadge` / `PlanEditorStatusLabel` / `PlanCategoryPickerSheet` / `CategoryPreviewIcon` を共有できるよう `private` を外した。カテゴリは予定編集と同じグリッド選択を使い、チャプター既存仕様として「カテゴリを外す」導線も残した。検証: `git diff --check` 成功、`xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -destination 'generic/platform=iOS' -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功、`xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath /private/tmp/LiminalogDerivedData build` 成功。CSV書き出しは不要・スコープ外を維持。 |
 | 2026-06-02 | Codex | ユーザー指摘を受け、週間Dashboardの「先週比」差分バーに中央基準の読み取り補助を追加。表現自体は中央線を基準に左=減少/右=増加で適切だったため維持し、先週データがないケースでも中央線の意味が伝わるよう、バー上部中央へ小さな `±0` 表記を追加した。検証: `git diff --check` 成功、`xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -destination 'generic/platform=iOS' -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功。CSV書き出しは不要・スコープ外を維持。 |

@@ -19,19 +19,19 @@ struct CollectionMockupRenderTests {
     private func render(scheme: ColorScheme, name: String) throws {
         let canvas = scheme == .dark ? Color(hex: "#0D0B16") : Color(hex: "#FBF3E7")
         let content = VStack(alignment: .leading, spacing: 22) {
-            Text("フレーム  cloud / petal / horizon")
+            Text("フレーム  iron / bronze / platinum")
                 .font(.caption).foregroundStyle(scheme == .dark ? .white : .black)
             HStack(spacing: 28) {
-                framePreview("cloud_veil")
-                framePreview("petal_wreath")
-                framePreview("horizon_wreath")
+                framePreview("free_instrument_iron")
+                framePreview("free_instrument_bronze")
+                framePreview("free_instrument_platinum")
             }
-            Text("カード  cloud / thread / horizon")
+            Text("カード  dawn / thread / night")
                 .font(.caption).foregroundStyle(scheme == .dark ? .white : .black)
             VStack(spacing: 18) {
-                cardPreview("cloud_panel")
-                cardPreview("thread_panel")
-                cardPreview("horizon_panel")
+                cardPreview("free_dawn_horizon_panel")
+                cardPreview("free_thread_border_panel")
+                cardPreview("free_night_bloom_panel")
             }
         }
         .padding(40)

@@ -59,7 +59,7 @@ struct UnlockGalleryView: View {
     }
 
     private var galleryFrameStyles: [ProfileIconFrameStyle] {
-        ProfileIconFrameCatalog.items.filter { frame in
+        ProfileIconFrameCatalog.visibleItems.filter { frame in
             frame.id == ProfileDecorationUnlocks.noIconFrameID
                 || frame.id == ProfileDecorationUnlocks.defaultIconFrameID
                 || UnlockCatalog.items.contains { $0.kind == .iconFrame && $0.targetID == frame.id }
@@ -67,7 +67,7 @@ struct UnlockGalleryView: View {
     }
 
     private var galleryCardStyles: [ProfileCardStyle] {
-        ProfileCardStyleCatalog.items.filter { style in
+        ProfileCardStyleCatalog.visibleItems.filter { style in
             style.id == ProfileDecorationUnlocks.noCardStyleID
                 || style.id == ProfileDecorationUnlocks.defaultCardStyleID
                 || UnlockCatalog.items.contains { $0.kind == .cardStyle && $0.targetID == style.id }

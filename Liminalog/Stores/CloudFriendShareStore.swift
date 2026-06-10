@@ -129,6 +129,25 @@ final class CloudFriendShareStore {
 
     func upsertOutgoingShare(snapshot: CloudFriendShareSnapshot) async throws -> CloudFriendShareUpsertResult {
         try await requireAccount()
+        try await ensureShareZone()
+
+        // 楽観ロック衝突（client oplock error / serverRecordChanged）は、相手の承認や
+        // 直近の再公開とレースしたときに起きる。最新のレコード（とトークン）を取り直して数回再試行する。
+        let maxAttempts = 3
+        var lastError: Error?
+        for attempt in 0..<maxAttempts {
+            do {
+                return try await performOutgoingUpsert(snapshot: snapshot)
+            } catch let error as CKError where error.code == .serverRecordChanged {
+                lastError = error
+                try? await Task.sleep(nanoseconds: UInt64(150_000_000) * UInt64(attempt + 1))
+                continue
+            }
+        }
+        throw lastError ?? CloudFriendShareError.missingShareURL
+    }
+
+    private func performOutgoingUpsert(snapshot: CloudFriendShareSnapshot) async throws -> CloudFriendShareUpsertResult {
         let ownerUserRecordName = try await fetchCurrentUserRecordID().recordName
         let rootID = Self.rootRecordID(
             ownerUserRecordName: ownerUserRecordName,
@@ -409,9 +428,25 @@ final class CloudFriendShareStore {
             atomically: true
         )
         var saved: [CKRecord.ID: CKRecord] = [:]
+        var primaryError: Error?
+        var batchError: Error?
         for (recordID, recordResult) in result.saveResults {
-            saved[recordID] = try recordResult.get()
+            switch recordResult {
+            case let .success(record):
+                saved[recordID] = record
+            case let .failure(error):
+                // atomically:true のバッチでは巻き添えのレコードが .batchRequestFailed（=「Atomic failure」）に
+                // なり真因が隠れる。実際に失敗したレコードのエラーを優先してログ＆送出する。
+                NSLog("Liminalog: friend-share save failed for \(recordID.recordName): \(String(describing: error))")
+                if let ckError = error as? CKError, ckError.code == .batchRequestFailed {
+                    batchError = batchError ?? error
+                } else {
+                    primaryError = primaryError ?? error
+                }
+            }
         }
+        if let primaryError { throw primaryError }
+        if let batchError { throw batchError }
         return saved
     }
 
@@ -464,8 +499,22 @@ final class CloudFriendShareStore {
         return record
     }
 
+    // CKShare はデフォルトゾーンのレコードを共有できないため、共有ルートは専用のカスタムゾーンに置く。
+    private static let shareZoneID = CKRecordZone.ID(
+        zoneName: "LiminalogFriendShares",
+        ownerName: CKCurrentUserDefaultName
+    )
+
+    /// 共有用カスタムゾーンを用意する（存在すれば冪等）。CKShare はデフォルトゾーン不可のため必須。
+    private func ensureShareZone() async throws {
+        _ = try await privateDatabase.save(CKRecordZone(zoneID: Self.shareZoneID))
+    }
+
     private static func rootRecordID(ownerUserRecordName: String, targetUserRecordName: String) -> CKRecord.ID {
-        CKRecord.ID(recordName: "friend-share:\(ownerUserRecordName):\(targetUserRecordName)")
+        CKRecord.ID(
+            recordName: "friend-share:\(ownerUserRecordName):\(targetUserRecordName)",
+            zoneID: shareZoneID
+        )
     }
 
     private static func apply(_ snapshot: CloudFriendShareSnapshot, to record: CKRecord) {

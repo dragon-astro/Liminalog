@@ -96,9 +96,30 @@ enum ProfileIconFrameCatalog {
     static let noneItem = ProfileIconFrameStyle(id: ProfileDecorationUnlocks.noIconFrameID, title: "なし", systemImage: "minus.circle", primaryHex: "#8E879F", secondaryHex: "#8E879F", lineWidth: 0)
     static let defaultID = ProfileDecorationUnlocks.defaultIconFrameID
     static let defaultItem = ProfileIconFrameStyle(id: defaultID, title: "澄空", systemImage: "circle", primaryHex: "#7DD3FC", secondaryHex: "#C9A7FF", lineWidth: 3)
-    static let items: [ProfileIconFrameStyle] = [
-        noneItem,
-        defaultItem,
+    static let freeItems: [ProfileIconFrameStyle] = [
+        instrument("iron", title: "鉄の標", primaryHex: "#59606B", secondaryHex: "#8B6BFF", lineWidth: 3),
+        instrument("bronze", title: "銅の標", primaryHex: "#B87545", secondaryHex: "#F0A2A2", lineWidth: 3),
+        instrument("silver", title: "銀の標", primaryHex: "#D8DEE8", secondaryHex: "#39D5E8", lineWidth: 4),
+        instrument("gold", title: "金の標", primaryHex: "#F2C94C", secondaryHex: "#FFB3C7", lineWidth: 4),
+        instrument("platinum", title: "白金の標", primaryHex: "#F2F4FF", secondaryHex: "#8AB4FF", lineWidth: 5),
+        instrument("iron_seal", title: "鉄の印", primaryHex: "#59606B", secondaryHex: "#8B6BFF", lineWidth: 3),
+        instrument("bronze_seal", title: "銅の印", primaryHex: "#B87545", secondaryHex: "#F0A2A2", lineWidth: 3),
+        instrument("silver_seal", title: "銀の印", primaryHex: "#D8DEE8", secondaryHex: "#39D5E8", lineWidth: 4),
+        instrument("gold_seal", title: "金の印", primaryHex: "#F2C94C", secondaryHex: "#FFB3C7", lineWidth: 4),
+        instrument("platinum_seal", title: "白金の印", primaryHex: "#F2F4FF", secondaryHex: "#8AB4FF", lineWidth: 5),
+        instrument("iron_orbit", title: "鉄の軌", primaryHex: "#59606B", secondaryHex: "#8B6BFF", lineWidth: 3),
+        instrument("bronze_orbit", title: "銅の軌", primaryHex: "#B87545", secondaryHex: "#F0A2A2", lineWidth: 3),
+        instrument("silver_orbit", title: "銀の軌", primaryHex: "#D8DEE8", secondaryHex: "#39D5E8", lineWidth: 4),
+        instrument("gold_orbit", title: "金の軌", primaryHex: "#F2C94C", secondaryHex: "#FFB3C7", lineWidth: 4),
+        instrument("platinum_orbit", title: "白金の軌", primaryHex: "#F2F4FF", secondaryHex: "#8AB4FF", lineWidth: 5),
+        instrument("iron_crest", title: "鉄の冠", primaryHex: "#59606B", secondaryHex: "#8B6BFF", lineWidth: 3),
+        instrument("bronze_crest", title: "銅の冠", primaryHex: "#B87545", secondaryHex: "#F0A2A2", lineWidth: 3),
+        instrument("silver_crest", title: "銀の冠", primaryHex: "#D8DEE8", secondaryHex: "#39D5E8", lineWidth: 4),
+        instrument("gold_crest", title: "金の冠", primaryHex: "#F2C94C", secondaryHex: "#FFB3C7", lineWidth: 4),
+        instrument("platinum_crest", title: "白金の冠", primaryHex: "#F2F4FF", secondaryHex: "#8AB4FF", lineWidth: 5)
+    ]
+
+    static let legacyItems: [ProfileIconFrameStyle] = [
         ProfileIconFrameStyle(id: "cloud_veil", title: "雲間", systemImage: "cloud.fill", primaryHex: "#9BDCF8", secondaryHex: "#FFB3C7", lineWidth: 3),
         ProfileIconFrameStyle(id: "ripple_ring", title: "水紋", systemImage: "water.waves", primaryHex: "#39D5E8", secondaryHex: "#7DD3FC", lineWidth: 3),
         ProfileIconFrameStyle(id: "leaf_orbit", title: "若葉環", systemImage: "leaf.fill", primaryHex: "#5FE0A8", secondaryHex: "#C9A7FF", lineWidth: 3),
@@ -120,9 +141,41 @@ enum ProfileIconFrameCatalog {
         ProfileIconFrameStyle(id: "lacquer_vein", title: "漆脈", systemImage: "seal.fill", primaryHex: "#FFC98A", secondaryHex: "#D946EF", lineWidth: 3),
         ProfileIconFrameStyle(id: "horizon_wreath", title: "水平花", systemImage: "sunrise.fill", primaryHex: "#FFB3C7", secondaryHex: "#7DD3FC", lineWidth: 4)
     ]
+    static let visibleItems: [ProfileIconFrameStyle] = [noneItem, defaultItem] + freeItems
+    static let items: [ProfileIconFrameStyle] = visibleItems + legacyItems
 
     static func item(for id: String?) -> ProfileIconFrameStyle {
         items.first { $0.id == id } ?? defaultItem
+    }
+
+    private static func instrument(
+        _ suffix: String,
+        title: String,
+        primaryHex: String,
+        secondaryHex: String,
+        lineWidth: CGFloat
+    ) -> ProfileIconFrameStyle {
+        ProfileIconFrameStyle(
+            id: "free_instrument_\(suffix)",
+            title: title,
+            systemImage: "circle",
+            primaryHex: primaryHex,
+            secondaryHex: secondaryHex,
+            lineWidth: lineWidth
+        )
+    }
+
+    /// 獲得フレーム（継続で得る `free_*`）のfallback達成ティア。
+    /// IDの素材ランクから導く。生成PNGがある場合は画像を優先する。
+    /// プレミアム/レガシーは `nil`（＝勲章ベクターの対象外）。
+    static func earnedTier(for id: String?) -> Int? {
+        guard let id, freeItems.contains(where: { $0.id == id }) else { return nil }
+        if id.contains("iron") { return 1 }
+        if id.contains("bronze") { return 2 }
+        if id.contains("silver") { return 3 }
+        if id.contains("gold") { return 4 }
+        if id.contains("platinum") { return 4 }
+        return nil
     }
 }
 
@@ -161,6 +214,8 @@ struct ProfileCardStyle: Identifiable {
     let markHex: String?
     let stripOpacity: Double
     let borderWidth: CGFloat
+    var foregroundHex: String?
+    var secondaryForegroundHex: String?
 
     var backgroundColor: Color {
         Color(
@@ -171,7 +226,13 @@ struct ProfileCardStyle: Identifiable {
     }
 
     var textColor: Color {
-        Color(
+        if let foregroundHex {
+            return Color(hex: foregroundHex)
+        }
+        if hasGeneratedArtwork {
+            return Color(hex: "#F7F2FF")
+        }
+        return Color(
             UIColor { traits in
                 UIColor(liminalHex: traits.userInterfaceStyle == .light ? "#2A2440" : "#ECE8F5")
             }
@@ -179,7 +240,13 @@ struct ProfileCardStyle: Identifiable {
     }
 
     var secondaryTextColor: Color {
-        Color(
+        if let secondaryForegroundHex {
+            return Color(hex: secondaryForegroundHex)
+        }
+        if hasGeneratedArtwork {
+            return Color(hex: "#D8CEE8")
+        }
+        return Color(
             UIColor { traits in
                 UIColor(liminalHex: traits.userInterfaceStyle == .light ? "#6A6388" : "#C8C1DA")
             }
@@ -209,33 +276,55 @@ enum ProfileCardStyleCatalog {
     static let noneItem = ProfileCardStyle(id: ProfileDecorationUnlocks.noCardStyleID, title: "なし", systemImage: "minus.rectangle", lightBackgroundHex: "#FFFFFF", darkBackgroundHex: "#1F1A38", markHex: "#8E879F", stripOpacity: 0, borderWidth: 0)
     static let defaultID = ProfileDecorationUnlocks.defaultCardStyleID
     static let defaultItem = ProfileCardStyle(id: defaultID, title: "静空", systemImage: "rectangle", lightBackgroundHex: "#FFFFFF", darkBackgroundHex: "#1F1A38", markHex: nil, stripOpacity: 0.34, borderWidth: 1)
-    static let items: [ProfileCardStyle] = [
-        noneItem,
-        defaultItem,
-        ProfileCardStyle(id: "cloud_panel", title: "雲影", systemImage: "cloud.fill", lightBackgroundHex: "#F6FBFF", darkBackgroundHex: "#18243A", markHex: "#9BDCF8", stripOpacity: 0.34, borderWidth: 1),
-        ProfileCardStyle(id: "ripple_panel", title: "水面", systemImage: "water.waves", lightBackgroundHex: "#F1FDFF", darkBackgroundHex: "#102D35", markHex: "#39D5E8", stripOpacity: 0.34, borderWidth: 1),
-        ProfileCardStyle(id: "leaf_panel", title: "葉脈", systemImage: "leaf.fill", lightBackgroundHex: "#F2FFF8", darkBackgroundHex: "#143229", markHex: "#5FE0A8", stripOpacity: 0.34, borderWidth: 1),
-        ProfileCardStyle(id: "dawn_panel", title: "朝露", systemImage: "sunrise.fill", lightBackgroundHex: "#FFF5F8", darkBackgroundHex: "#2B1C35", markHex: "#FF8FB3", stripOpacity: 0.38, borderWidth: 1),
-        ProfileCardStyle(id: "frost_panel", title: "氷面", systemImage: "snowflake", lightBackgroundHex: "#F4FAFF", darkBackgroundHex: "#14273E", markHex: "#8AB4FF", stripOpacity: 0.36, borderWidth: 1),
-        ProfileCardStyle(id: "thread_panel", title: "縫い目", systemImage: "scribble.variable", lightBackgroundHex: "#FAF6FF", darkBackgroundHex: "#241B3A", markHex: "#C9A7FF", stripOpacity: 0.36, borderWidth: 1),
-        ProfileCardStyle(id: "wisteria_panel", title: "藤棚", systemImage: "camera.macro", lightBackgroundHex: "#F8F5FF", darkBackgroundHex: "#21183A", markHex: "#A78BFA", stripOpacity: 0.38, borderWidth: 1),
-        ProfileCardStyle(id: "laurel_panel", title: "月桂紙", systemImage: "leaf.circle.fill", lightBackgroundHex: "#F6FFF6", darkBackgroundHex: "#1A3024", markHex: "#5FE0A8", stripOpacity: 0.38, borderWidth: 1),
-        ProfileCardStyle(id: "chart_panel", title: "星図面", systemImage: "scope", lightBackgroundHex: "#F5FAFF", darkBackgroundHex: "#171E36", markHex: "#7DD3FC", stripOpacity: 0.36, borderWidth: 1),
-        ProfileCardStyle(id: "petal_panel", title: "花影", systemImage: "camera.macro", lightBackgroundHex: "#FFF4FA", darkBackgroundHex: "#2B1B35", markHex: "#FF8FB3", stripOpacity: 0.4, borderWidth: 1),
+    static let freeItems: [ProfileCardStyle] = [
+        generated(id: "free_dawn_horizon_panel", title: "暁線", systemImage: "sunrise.fill", markHex: "#FFB3C7"),
+        generated(id: "free_ripple_border_panel", title: "水縁", systemImage: "water.waves", markHex: "#39D5E8"),
+        generated(id: "free_cloud_veil_panel", title: "雲幕", systemImage: "cloud.fill", markHex: "#9BDCF8"),
+        generated(id: "free_leaf_corner_panel", title: "葉隅", systemImage: "leaf.fill", markHex: "#5FE0A8"),
+        generated(id: "free_frost_edge_panel", title: "霜縁", systemImage: "snowflake", markHex: "#8AB4FF"),
+        generated(id: "free_thread_border_panel", title: "糸枠", systemImage: "scribble.variable", markHex: "#C9A7FF"),
+        generated(id: "free_orbit_grid_panel", title: "軌跡線", systemImage: "scope", markHex: "#7DD3FC"),
+        generated(id: "free_rain_panel", title: "雨粒", systemImage: "cloud.rain.fill", markHex: "#7DD3FC"),
+        generated(id: "free_candle_panel", title: "灯影", systemImage: "flame.fill", markHex: "#FF8A5B"),
+        generated(id: "free_ink_panel", title: "墨縁", systemImage: "paintbrush.pointed.fill", markHex: "#A78BFA"),
+        generated(id: "free_aurora_trace_panel", title: "極光線", systemImage: "sparkles", markHex: "#5FE0A8"),
+        generated(id: "free_glass_bead_panel", title: "硝子点", systemImage: "drop.circle.fill", markHex: "#39D5E8"),
+        generated(id: "free_linen_stitch_panel", title: "織目", systemImage: "circle.dashed", markHex: "#C9A7FF"),
+        generated(id: "free_constellation_panel", title: "星図線", systemImage: "scope", markHex: "#7DD3FC"),
+        generated(id: "free_wave_panel", title: "波端", systemImage: "water.waves", markHex: "#39D5E8"),
+        generated(id: "free_mist_panel", title: "霧面", systemImage: "circle.dotted", markHex: "#C9A7FF"),
+        generated(id: "free_petal_corner_panel", title: "花隅", systemImage: "camera.macro", markHex: "#FF8FB3"),
+        generated(id: "free_stone_path_panel", title: "石径", systemImage: "point.topleft.down.curvedto.point.bottomright.up", markHex: "#5FE0A8"),
+        generated(id: "free_sunline_panel", title: "陽線", systemImage: "sunrise.fill", markHex: "#FFC98A"),
+        generated(id: "free_night_bloom_panel", title: "夜花", systemImage: "camera.macro", markHex: "#FF8FB3")
+    ]
+
+    static let legacyItems: [ProfileCardStyle] = [
         ProfileCardStyle(id: "aurora_panel", title: "極光幕", systemImage: "sparkles", lightBackgroundHex: "#F1FFF9", darkBackgroundHex: "#102D27", markHex: "#5FE0A8", stripOpacity: 0.44, borderWidth: 1),
         ProfileCardStyle(id: "kintsugi_panel", title: "金継ぎ", systemImage: "line.diagonal", lightBackgroundHex: "#FFF8EA", darkBackgroundHex: "#261D26", markHex: "#FFC98A", stripOpacity: 0.42, borderWidth: 1),
         ProfileCardStyle(id: "porcelain_panel", title: "白磁", systemImage: "circle.hexagongrid.fill", lightBackgroundHex: "#F8FBFF", darkBackgroundHex: "#172033", markHex: "#D8ECFF", stripOpacity: 0.38, borderWidth: 1),
-        ProfileCardStyle(id: "tide_panel", title: "潮目", systemImage: "drop.fill", lightBackgroundHex: "#F0FFFD", darkBackgroundHex: "#122E34", markHex: "#39D5E8", stripOpacity: 0.42, borderWidth: 1),
-        ProfileCardStyle(id: "ember_vine_panel", title: "灯蔓", systemImage: "flame.fill", lightBackgroundHex: "#FFF3EE", darkBackgroundHex: "#321D24", markHex: "#FF8A5B", stripOpacity: 0.44, borderWidth: 1),
-        ProfileCardStyle(id: "prism_dew_panel", title: "虹露", systemImage: "drop.circle.fill", lightBackgroundHex: "#F7F5FF", darkBackgroundHex: "#201936", markHex: "#C9A7FF", stripOpacity: 0.46, borderWidth: 1),
-        ProfileCardStyle(id: "snow_crest_panel", title: "雪冠", systemImage: "snowflake", lightBackgroundHex: "#F7FCFF", darkBackgroundHex: "#16263A", markHex: "#D8ECFF", stripOpacity: 0.42, borderWidth: 2),
-        ProfileCardStyle(id: "chrono_panel", title: "時軌", systemImage: "timer", lightBackgroundHex: "#F3FAFF", darkBackgroundHex: "#171F35", markHex: "#7DD3FC", stripOpacity: 0.44, borderWidth: 2),
-        ProfileCardStyle(id: "lacquer_panel", title: "漆光", systemImage: "seal.fill", lightBackgroundHex: "#FFF5F1", darkBackgroundHex: "#231622", markHex: "#FFC98A", stripOpacity: 0.46, borderWidth: 2),
-        ProfileCardStyle(id: "horizon_panel", title: "水平花", systemImage: "sunrise.fill", lightBackgroundHex: "#FFF6FB", darkBackgroundHex: "#211B3B", markHex: "#FFB3C7", stripOpacity: 0.48, borderWidth: 2)
+        ProfileCardStyle(id: "tide_panel", title: "潮目", systemImage: "drop.fill", lightBackgroundHex: "#F0FFFD", darkBackgroundHex: "#122E34", markHex: "#39D5E8", stripOpacity: 0.42, borderWidth: 1)
     ]
+    static let visibleItems: [ProfileCardStyle] = [noneItem, defaultItem] + freeItems
+    static let items: [ProfileCardStyle] = visibleItems + legacyItems
 
     static func item(for id: String?) -> ProfileCardStyle {
         items.first { $0.id == id } ?? defaultItem
+    }
+
+    private static func generated(id: String, title: String, systemImage: String, markHex: String) -> ProfileCardStyle {
+        ProfileCardStyle(
+            id: id,
+            title: title,
+            systemImage: systemImage,
+            lightBackgroundHex: "#151126",
+            darkBackgroundHex: "#151126",
+            markHex: markHex,
+            stripOpacity: 0.38,
+            borderWidth: 1,
+            foregroundHex: "#F7F2FF",
+            secondaryForegroundHex: "#D8CEE8"
+        )
     }
 }
 

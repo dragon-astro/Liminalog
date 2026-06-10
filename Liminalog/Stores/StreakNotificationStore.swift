@@ -21,6 +21,7 @@ enum LiminalNotificationAuthorization: Equatable {
 
 protocol StreakNotificationScheduling {
     func authorizationStatus() async -> LiminalNotificationAuthorization
+    func requestAuthorization() async -> Bool
     func replacePendingStreakBreakNotification(with plan: StreakBreakNotificationPlan?) async throws
 }
 
@@ -54,6 +55,15 @@ final class UserNotificationStreakScheduler: StreakNotificationScheduling {
         }
     }
 
+    func requestAuthorization() async -> Bool {
+        do {
+            return try await center.requestAuthorization(options: [.alert, .sound, .badge])
+        } catch {
+            NSLog("Liminalog: notification authorization request failed: \(String(describing: error))")
+            return false
+        }
+    }
+
     func replacePendingStreakBreakNotification(with plan: StreakBreakNotificationPlan?) async throws {
         center.removePendingNotificationRequests(withIdentifiers: [StreakBreakNotificationPlan.identifier])
         guard let plan else { return }
@@ -80,21 +90,45 @@ final class UserNotificationStreakScheduler: StreakNotificationScheduling {
 
 @MainActor
 final class StreakNotificationStore {
+    /// ストリーク通知のユーザー有効フラグ（設定のトグルと共有）。既定はオフ＝明示的オプトイン。
+    nonisolated static let streakReminderEnabledKey = "settings.notifications.streakReminderEnabled"
+    nonisolated static var streakReminderEnabled: Bool {
+        UserDefaults.standard.bool(forKey: streakReminderEnabledKey)
+    }
+
     private let modelContext: ModelContext
     private let scheduler: any StreakNotificationScheduling
     private let calendar: Calendar
+    private let isStreakReminderEnabled: () -> Bool
 
     init(
         modelContext: ModelContext,
         scheduler: (any StreakNotificationScheduling)? = nil,
-        calendar: Calendar = .japanese
+        calendar: Calendar = .japanese,
+        isStreakReminderEnabled: @escaping () -> Bool = { StreakNotificationStore.streakReminderEnabled }
     ) {
         self.modelContext = modelContext
         self.scheduler = scheduler ?? UserNotificationStreakScheduler()
         self.calendar = calendar
+        self.isStreakReminderEnabled = isStreakReminderEnabled
+    }
+
+    /// 通知許可をリクエストし、許可されたら true。
+    func requestAuthorization() async -> Bool {
+        await scheduler.requestAuthorization()
+    }
+
+    /// 現在の通知許可状態。
+    func authorizationStatus() async -> LiminalNotificationAuthorization {
+        await scheduler.authorizationStatus()
     }
 
     func refreshStreakBreakWarning(now: Date = Date()) async {
+        guard isStreakReminderEnabled() else {
+            await replacePendingNotification(with: nil)
+            return
+        }
+
         let authorization = await scheduler.authorizationStatus()
         guard authorization.allowsScheduling else {
             await replacePendingNotification(with: nil)

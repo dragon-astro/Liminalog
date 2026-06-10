@@ -23,6 +23,7 @@ struct RootTabView: View {
     @State private var themeTransitionProgress: CGFloat = 1
     @State private var themeTransitionNonce = 0
     @State private var tabThemeRefreshEpochs: [RootTab: Int] = [:]
+    @State private var isShowingStorageFallbackNotice = false
     #if DEBUG
     @AppStorage("debug.unlocks.allowLockedDecorations") private var allowsLockedDecorationTesting = false
     #endif
@@ -113,6 +114,9 @@ struct RootTabView: View {
                 }
                 #endif
                 appStores = initializedStores
+                if SharedModelContainer.storageMode != .cloudSync {
+                    isShowingStorageFallbackNotice = true
+                }
                 await initializedStores.streakNotificationStore.refreshStreakBreakWarning()
                 let didConsumeShortcutRoute = consumePendingShortcutRoute()
                 #if DEBUG
@@ -146,6 +150,36 @@ struct RootTabView: View {
                 pendingFriendInviteURL = url
                 selectedTab = .friends
             }
+            .alert(storageFallbackTitle, isPresented: $isShowingStorageFallbackNotice) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(storageFallbackMessage)
+            }
+        }
+    }
+
+    /// 保存先がフォールバックしている（iCloud同期や永続化が縮退している）ことを起動時に告知する。
+    private var storageFallbackTitle: String {
+        switch SharedModelContainer.storageMode {
+        case .cloudSync:
+            return ""
+        case .appGroupLocal, .deviceLocal:
+            return "iCloud同期を開始できませんでした"
+        case .inMemory:
+            return "記録を保存できない状態です"
+        }
+    }
+
+    private var storageFallbackMessage: String {
+        switch SharedModelContainer.storageMode {
+        case .cloudSync:
+            return ""
+        case .appGroupLocal:
+            return "記録はこの端末の中に保存されますが、iCloudへのバックアップと他の端末との同期は行われません。iCloudのサインイン状態と空き容量を確認して、アプリを起動し直してください。"
+        case .deviceLocal:
+            return "記録はこの端末の中に保存されますが、iCloud同期とウィジェット連携は利用できません。端末の空き容量を確認して、アプリを起動し直してください。"
+        case .inMemory:
+            return "アプリを閉じると今回の記録が失われます。端末の空き容量を確認して、アプリを起動し直してください。"
         }
     }
 

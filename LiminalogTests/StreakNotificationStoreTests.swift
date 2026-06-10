@@ -15,7 +15,8 @@ struct StreakNotificationStoreTests {
         let store = StreakNotificationStore(
             modelContext: context,
             scheduler: scheduler,
-            calendar: calendar
+            calendar: calendar,
+            isStreakReminderEnabled: { true }
         )
         let now = try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 16, hour: 20)))
         let category = Liminalog.Category(name: "作業", colorHex: "#2F80ED")
@@ -51,7 +52,25 @@ struct StreakNotificationStoreTests {
         let store = StreakNotificationStore(
             modelContext: container.mainContext,
             scheduler: scheduler,
-            calendar: .liminalogTest
+            calendar: .liminalogTest,
+            isStreakReminderEnabled: { true }
+        )
+
+        await store.refreshStreakBreakWarning(now: Date())
+
+        #expect(scheduler.replacedPlans.count == 1)
+        #expect(scheduler.replacedPlans[0] == nil)
+    }
+
+    @Test("ストリーク通知が無効なら許可済みでも保留中の警告を消す")
+    func clearsWarningWhenReminderDisabled() async throws {
+        let container = try TestModelContainer.make()
+        let scheduler = FakeStreakNotificationScheduler(authorization: .authorized)
+        let store = StreakNotificationStore(
+            modelContext: container.mainContext,
+            scheduler: scheduler,
+            calendar: .liminalogTest,
+            isStreakReminderEnabled: { false }
         )
 
         await store.refreshStreakBreakWarning(now: Date())
@@ -146,6 +165,10 @@ private final class FakeStreakNotificationScheduler: StreakNotificationSchedulin
 
     func authorizationStatus() async -> LiminalNotificationAuthorization {
         authorization
+    }
+
+    func requestAuthorization() async -> Bool {
+        authorization.allowsScheduling
     }
 
     func replacePendingStreakBreakNotification(with plan: StreakBreakNotificationPlan?) async throws {

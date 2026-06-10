@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-label="Liminalog L clock icon concept">
+  <defs>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#1f2937" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <rect width="1024" height="1024" fill="#F7F4EE"/>
+
+  <g filter="url(#shadow)">
+    <path d="M 386 252 V 652 Q 386 738 472 738 H 700"
+          fill="none"
+          stroke="#2F7DF6"
+          stroke-width="112"
+          stroke-linecap="round"
+          stroke-linejoin="round"/>
+
+    <path d="M 512 246
+             A 266 266 0 0 1 766 512"
+          fill="none"
+          stroke="#FFD15C"
+          stroke-width="54"
+          stroke-linecap="round"/>
+
+    <path d="M 758 570
+             A 266 266 0 0 1 656 728"
+          fill="none"
+          stroke="#48C995"
+          stroke-width="54"
+          stroke-linecap="round"/>
+
+    <circle cx="512" cy="512" r="42" fill="#FF7A66"/>
+    <circle cx="512" cy="512" r="17" fill="#FFFFFF" opacity="0.84"/>
+  </g>
+</svg>

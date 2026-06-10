@@ -229,33 +229,56 @@ enum LiminalThemeCatalog {
         )
     }
 
-    static let aurora: LiminalThemeDefinition = {
-        let t = skyTreatments()
-        return LiminalThemeDefinition(
-            id: "aurora", name: "極光", appearance: .dark,
-            palette: LiminalPalette(
-                canvas: "#08120E", surface: "#0E3329", elevated: "#15463A", divider: "#265A4C",
-                text: "#E6F2EC", secondaryText: "#A6CEC0", tertiaryText: "#6E948A",
-                primary: "#5FE0A8", accent: "#5FE0A8", reward: "#D984B8",
-                dawn: "#8FE6C0", dusk: "#A66A9A",
-                gradientTop: "#0C2820", gradientMiddle: "#1F6B5E", gradientBottom: "#9560A0",
-                cardBottom: "#173045"
-            ),
-            surface: t.0, glass: t.1, emphasis: t.2, effects: t.3
-        )
-    }()
+    // 極光は「幻想的なオーロラの薄明」＝ライトベースのテーマ。地もカードも明るく、文字は暗色。
+    static let aurora = LiminalThemeDefinition(
+        id: "aurora", name: "極光", appearance: .light,
+        palette: LiminalPalette(
+            canvas: "#E3F2EB",
+            surface: "#F4FBF8",
+            elevated: "#FFFFFF",
+            divider: "#D2E7DE",
+            text: "#24242B",
+            secondaryText: "#585862",
+            tertiaryText: "#8C8C96",
+            primary: "#179C73",
+            accent: "#179C73",
+            reward: "#C98A2E",
+            dawn: "#BDEBD6",
+            dusk: "#CDB9E8",
+            gradientTop: "#D4EEE1",
+            gradientMiddle: "#A6DCCD",
+            gradientBottom: "#C2B4E6",
+            cardBottom: "#EAF7F1"
+        ),
+        surface: LiminalSurfaceTreatment(
+            style: .solid,
+            baseColor: nil,
+            tintFillOpacity: 0.1,
+            strokeOpacity: 0.28,
+            strokeWidth: 1
+        ),
+        glass: LiminalGlassTreatment(
+            fillColor: UIColor(liminalHex: "#F4FBF8"),
+            fillOpacity: 0.94,
+            strokeColor: UIColor(liminalHex: "#D2E7DE"),
+            strokeOpacity: 0.5,
+            strokeWidth: 1
+        ),
+        emphasis: LiminalTextEmphasis(secondaryOpacity: 1, tertiaryOpacity: 1),
+        effects: LiminalEffectTreatment(shadowStrength: 0.9, grainOpacity: 0.12)
+    )
 
     static let akatsuki: LiminalThemeDefinition = {
         let t = skyTreatments()
         return LiminalThemeDefinition(
             id: "akatsuki", name: "暁", appearance: .dark,
             palette: LiminalPalette(
-                canvas: "#0A0820", surface: "#1C1747", elevated: "#28205E", divider: "#392E72",
+                canvas: "#08061A", surface: "#16122C", elevated: "#1E1940", divider: "#2C2756",
                 text: "#ECE8FA", secondaryText: "#B4ACD8", tertiaryText: "#7E76A6",
                 primary: "#9B8CFF", accent: "#9B8CFF", reward: "#FFCFA0",
                 dawn: "#C9A0E8", dusk: "#6E5AB0",
                 gradientTop: "#0F0C30", gradientMiddle: "#2A1E58", gradientBottom: "#C98A6E",
-                cardBottom: "#261C58"
+                cardBottom: "#18142F"
             ),
             surface: t.0, glass: t.1, emphasis: t.2, effects: t.3
         )
