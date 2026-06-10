@@ -22,6 +22,8 @@ final class BootstrapStore {
 
     @discardableResult
     func bootstrap(now: Date = Date()) -> ChapterStore {
+        // CloudKitインポートで合流した重複（各端末のシード等）を、シードより先に統合する。
+        CloudDuplicateMergeStore(modelContext: modelContext).mergeAll()
         if SeedCoordinator.ensureUserSettingsIfAvailable(in: modelContext, now: now) != nil {
             SeedCoordinator.consolidateBuiltInVisibilityPresets(in: modelContext, now: now)
             SeedCoordinator.seedInitialFriendSetsIfNeeded(in: modelContext, now: now)

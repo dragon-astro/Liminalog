@@ -137,6 +137,10 @@ struct RootTabView: View {
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active {
                     consumePendingShortcutRoute()
+                    // バックグラウンド中に届いたCloudKitインポートの重複を回収する。
+                    if appStores != nil {
+                        CloudDuplicateMergeStore(modelContext: modelContext).mergeAll()
+                    }
                 } else {
                     persistAppState(reason: "\(phase)")
                 }

@@ -149,6 +149,49 @@ struct FriendSharedRecordStore {
         }
     }
 
+    /// 友達の重複統合時に、行キャッシュを勝者の friendID へ付け替える（sourceID重複は勝者優先で破棄）。
+    func repointRows(from loserFriendID: UUID, to winnerFriendID: UUID) {
+        let winnerPlanSourceIDs = Set((
+            (try? modelContext.fetch(
+                FetchDescriptor<FriendSharedPlanRecord>(
+                    predicate: #Predicate { $0.friendID == winnerFriendID }
+                )
+            )) ?? []
+        ).map(\.sourceID))
+        let loserPlans = (try? modelContext.fetch(
+            FetchDescriptor<FriendSharedPlanRecord>(
+                predicate: #Predicate { $0.friendID == loserFriendID }
+            )
+        )) ?? []
+        for record in loserPlans {
+            if winnerPlanSourceIDs.contains(record.sourceID) {
+                modelContext.delete(record)
+            } else {
+                record.friendID = winnerFriendID
+            }
+        }
+
+        let winnerChapterSourceIDs = Set((
+            (try? modelContext.fetch(
+                FetchDescriptor<FriendSharedChapterRecord>(
+                    predicate: #Predicate { $0.friendID == winnerFriendID }
+                )
+            )) ?? []
+        ).map(\.sourceID))
+        let loserChapters = (try? modelContext.fetch(
+            FetchDescriptor<FriendSharedChapterRecord>(
+                predicate: #Predicate { $0.friendID == loserFriendID }
+            )
+        )) ?? []
+        for record in loserChapters {
+            if winnerChapterSourceIDs.contains(record.sourceID) {
+                modelContext.delete(record)
+            } else {
+                record.friendID = winnerFriendID
+            }
+        }
+    }
+
     /// 友達1人分の行キャッシュを全削除する（友達削除・共有解除時）。
     func deleteAll(friendID: UUID) {
         try? modelContext.delete(
