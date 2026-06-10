@@ -90,7 +90,13 @@
 | テスト | `FriendSharedRecordStoreTests`（policy 3件＋store 4件、applier二重書き含む） |
 
 ### 7.3 残り（着手順）
-1. **[Claude] UIの範囲クエリ移行**: `FriendCalendarView` / 友達デイビューの塊デコード（`friend.sharedPlans` 全件→42日フィルタ）を `FriendSharedRecordStore.plans/chapters(friendID:overlapping:)` に置換。`FriendShareSnapshotCache` を撤去 or ステータス専用に縮小。二重書きが先に入っているのでデータは既に行側にもある。
+1. [Claude] UIの範囲クエリ移行 → **完了（2026-06-10・段階2）**。置換済み:
+   - メインカレンダーの友達オーバーレイ（CalendarView）: グリッド範囲の行クエリ＋初回 backfill
+   - `FriendCalendarView`: 月グリッド範囲の行クエリ＋`.task` で backfill
+   - 友達デイビュー（`FriendSharedCalendarDayView`）: 当日範囲の行クエリ
+   - 共有予定検索シート: `searchPlans(titleContains:)` / `hasAnyPlans` の行クエリ
+   - 後方互換: `backfillFromBlobIfNeeded`（行が空＆塊にデータあり→一度だけ補填）。デバッグシードも行を併記
+   - 注: `FriendShareSnapshotCache`（塊デコードのメモ化）は §7.3-4 の塊撤去時に一緒に消す
 2. **[Codex] CloudKit輸送層の個別レコード化**（§2.1）: 共有ゾーンに `SharedPlan`/`SharedChapter` を1件1レコードでupsert/delete（`sourceID`突合・可視性フィルタ）。ルートは現在地/スコア等の軽量ステータス専用に縮小。
 3. **[Codex] 受信の差分同期**（§2.2）: `CKFetchRecordZoneChangesOperation`＋ゾーン変更トークン。受信行の反映は `FriendSharedRecordReconcilePolicy`/`FriendSharedRecordStore` を流用（全量reconcileではなく差分適用APIを足す）。
 4. **[両者] 塊JSON撤去**: 2-3完了後に `sharedPlansJSON`/`sharedActivitiesJSON` と二重書きを撤去。1MB上限・ウィンドウ制限から解放され「全履歴×軽量」が成立。
