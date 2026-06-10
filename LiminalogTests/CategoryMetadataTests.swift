@@ -95,7 +95,7 @@ struct PlanStoreTests {
 
         let plan = try #require(store.allPlannedBlocks().first)
         #expect(plan.title == "作業")
-        #expect(plan.isPublic == false)
+        #expect(plan.isPublic == true)
 
         #expect(store.savePlanBlock(
             plan,
@@ -106,11 +106,12 @@ struct PlanStoreTests {
             isAllDay: false,
             isImportant: true,
             note: "準備",
-            isPublic: true
+            isPublic: false
         ))
         #expect(plan.title == "集中作業")
         #expect(plan.isImportant)
         #expect(plan.note == "準備")
+        #expect(plan.isPublic == false)
 
         #expect(store.deletePlanBlock(plan))
         #expect(store.allPlannedBlocks().isEmpty)

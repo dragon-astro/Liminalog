@@ -21,19 +21,37 @@ enum SharedModelContainer {
         ("ZVISIBILITYPRESET", ["ZISBUILTIN", "ZSORTORDER", "ZPUBLISHMODERAWVALUE", "ZHIDEMOODANDNOTE", "ZHIDEPHOTO", "ZHIDELOCATION", "ZEXCLUDEDCATEGORYIDS", "ZFREETIMEONLY"])
     ]
 
+    /// `shared` がどの保存先で起動できたか。cloudSync 以外は機能が縮退しているため、
+    /// UI 側（RootTabView）が起動時にユーザーへ告知する。
+    enum StorageMode {
+        case cloudSync
+        case appGroupLocal
+        case deviceLocal
+        case inMemory
+    }
+
+    nonisolated(unsafe) private(set) static var storageMode: StorageMode = .cloudSync
+
     static let shared: ModelContainer = {
         do {
-            return try appGroupCloud()
+            let container = try appGroupCloud()
+            storageMode = .cloudSync
+            return container
         } catch {
             NSLog("Liminalog: falling back to local-only ModelContainer because shared Cloud container failed: \(String(describing: error))")
             do {
-                return try appGroupLocalOnly()
+                let container = try appGroupLocalOnly()
+                storageMode = .appGroupLocal
+                return container
             } catch {
                 NSLog("Liminalog: falling back to app-local ModelContainer because app group local ModelContainer failed: \(String(describing: error))")
                 do {
-                    return try localOnly()
+                    let container = try localOnly()
+                    storageMode = .deviceLocal
+                    return container
                 } catch {
                     NSLog("Liminalog: falling back to in-memory ModelContainer because app-local ModelContainer failed: \(String(describing: error))")
+                    storageMode = .inMemory
                     do {
                         return try inMemory()
                     } catch {
@@ -92,7 +110,11 @@ enum SharedModelContainer {
             isStoredInMemoryOnly: false,
             cloudKitDatabase: .none
         )
-        return try ModelContainer(for: schema, configurations: [configuration])
+        return try ModelContainer(
+            for: schema,
+            migrationPlan: LiminalogMigrationPlan.self,
+            configurations: [configuration]
+        )
     }
 
     static func appGroupLocalOnly() throws -> ModelContainer {
@@ -114,6 +136,7 @@ enum SharedModelContainer {
 
         return try ModelContainer(
             for: schema,
+            migrationPlan: LiminalogMigrationPlan.self,
             configurations: [cloudConfiguration, localCacheConfiguration]
         )
     }
@@ -147,6 +170,7 @@ enum SharedModelContainer {
 
         return try ModelContainer(
             for: schema,
+            migrationPlan: LiminalogMigrationPlan.self,
             configurations: [cloudConfiguration, localCacheConfiguration]
         )
     }

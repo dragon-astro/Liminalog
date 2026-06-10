@@ -21,19 +21,17 @@ struct UserIDNormalizerTests {
     }
 
     @Test
-    func normalizesCanonicalUnicodeEquivalents() throws {
-        let composed = try #require(UserIDNormalizer.normalizedValue("CaféLog"))
-        let decomposed = try #require(UserIDNormalizer.normalizedValue("Cafe\u{301}Log"))
+    func convertsFullWidthInputToHalfWidth() throws {
+        let value = try #require(UserIDNormalizer.normalizedValue("ＲＹＵ＿Ｌｏｇ７"))
 
-        #expect(composed == "cafélog")
-        #expect(decomposed == composed)
+        #expect(value == "ryu_log7")
     }
 
     @Test
-    func keepsAtMarkInsideUserID() throws {
-        let value = try #require(UserIDNormalizer.normalizedValue("Ryu@Log"))
+    func rejectsAtMarkInsideUserID() {
+        let result = UserIDNormalizer.normalize("Ryu@Log")
 
-        #expect(value == "ryu@log")
+        #expect(result == .failure(.invalidCharacters))
     }
 
     @Test
@@ -51,11 +49,25 @@ struct UserIDNormalizerTests {
     }
 
     @Test
-    func acceptsNonAsciiAndSymbolUserIDsWhenMinimumLengthIsSatisfied() throws {
-        let japanese = try #require(UserIDNormalizer.normalizedValue("  りゅうログ  "))
-        let symbol = try #require(UserIDNormalizer.normalizedValue("Ryu-Log"))
+    func acceptsAllowedSymbolUserIDs() throws {
+        let value = try #require(UserIDNormalizer.normalizedValue("Ryu-Log_7.dev"))
 
-        #expect(japanese == "りゅうログ")
-        #expect(symbol == "ryu-log")
+        #expect(value == "ryu-log_7.dev")
+    }
+
+    @Test
+    func rejectsNonAsciiUserIDsToPreventHomoglyphSpoofing() {
+        // キリル文字の「а」(U+0430) はラテン文字の「a」と見分けが付かない。
+        #expect(UserIDNormalizer.normalize("りゅうログ") == .failure(.invalidCharacters))
+        #expect(UserIDNormalizer.normalize("ry\u{0430}log") == .failure(.invalidCharacters))
+        #expect(UserIDNormalizer.normalize("cafélog") == .failure(.invalidCharacters))
+    }
+
+    @Test
+    func rejectsIDsLongerThanMaximum() {
+        let tooLong = String(repeating: "a", count: UserIDNormalizer.maximumLength + 1)
+
+        #expect(UserIDNormalizer.normalize(tooLong) == .failure(.tooLong(maximum: UserIDNormalizer.maximumLength)))
+        #expect(UserIDNormalizer.normalizedValue(String(repeating: "a", count: UserIDNormalizer.maximumLength)) != nil)
     }
 }

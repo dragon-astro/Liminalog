@@ -111,7 +111,15 @@ final class CloudKitSocialStore {
         let username = try normalizedUsername(rawUsername)
         let ownerRecordName = try await currentUserRecordName()
         let now = Date()
-        let ownerIndex = try await fetchRecordIfExists(Self.profileOwnerIndexRecordID(ownerUserRecordName: ownerRecordName))
+        let fetchedOwnerIndex = try await fetchRecordIfExists(Self.profileOwnerIndexRecordID(ownerUserRecordName: ownerRecordName))
+        // 第三者が他人名義で先回り作成した index は無視する（偽造 index による登録妨害対策）。
+        let ownerIndex = fetchedOwnerIndex.flatMap { record in
+            CloudFriendRecordAuthenticityPolicy.isAuthentic(
+                claimedOwnerUserRecordName: ownerRecordName,
+                creatorUserRecordName: record.creatorUserRecordID?.recordName,
+                currentUserRecordName: ownerRecordName
+            ) ? record : nil
+        }
         let ownerIndexUsername = try ownerIndex.map(Self.ownerIndexUsername(from:))
         let ownedProfileUsernames = ownerIndexUsername == nil
             ? try await existingProfileUsernames(ownerUserRecordName: ownerRecordName)
@@ -182,7 +190,18 @@ final class CloudKitSocialStore {
         guard let record = try await fetchProfileRecordIfExists(username: username) else {
             throw CloudKitSocialError.profileNotFound
         }
-        return try Self.profile(from: record)
+        let profile = try Self.profile(from: record)
+        // 名義人以外が作った（ownerUserRecordName を偽った）プロフィールは存在しない扱いにする。
+        let currentRecordName = try? await currentUserRecordName()
+        guard CloudFriendRecordAuthenticityPolicy.isAuthentic(
+            claimedOwnerUserRecordName: profile.ownerUserRecordName,
+            creatorUserRecordName: record.creatorUserRecordID?.recordName,
+            currentUserRecordName: currentRecordName
+        ) else {
+            NSLog("Liminalog: ignored forged profile record \(record.recordID.recordName)")
+            throw CloudKitSocialError.profileNotFound
+        }
+        return profile
     }
 
     func sendFriendRequest(to rawUsername: String, fromOwnUsername ownUsername: String, ownDisplayName: String) async throws -> CloudFriendRequestResult {
@@ -195,11 +214,13 @@ final class CloudKitSocialStore {
 
         let existingOwnConsent = try await fetchConsentIfExists(
             ownerUserRecordName: ownRecordName,
-            targetUserRecordName: target.ownerUserRecordName
+            targetUserRecordName: target.ownerUserRecordName,
+            currentUserRecordName: ownRecordName
         )
         let reciprocalConsent = try await fetchConsentIfExists(
             ownerUserRecordName: target.ownerUserRecordName,
-            targetUserRecordName: ownRecordName
+            targetUserRecordName: ownRecordName,
+            currentUserRecordName: ownRecordName
         )
         let status = try CloudFriendConsentPolicy.statusForOutgoingRequest(
             existingOwnStatus: existingOwnConsent?.status,
@@ -234,11 +255,13 @@ final class CloudKitSocialStore {
         let ownRecordName = try await currentUserRecordName()
         let existingOwnConsent = try await fetchConsentIfExists(
             ownerUserRecordName: ownRecordName,
-            targetUserRecordName: requesterUserRecordName
+            targetUserRecordName: requesterUserRecordName,
+            currentUserRecordName: ownRecordName
         )
         let incomingConsent = try await fetchConsentIfExists(
             ownerUserRecordName: requesterUserRecordName,
-            targetUserRecordName: ownRecordName
+            targetUserRecordName: ownRecordName,
+            currentUserRecordName: ownRecordName
         )
         try CloudFriendConsentPolicy.validateAcceptingRequest(
             existingOwnStatus: existingOwnConsent?.status,
@@ -318,6 +341,24 @@ final class CloudKitSocialStore {
         )
     }
 
+    /// 自分がブロックしている相手の同意レコード一覧（設定のブロックリスト用）。
+    func blockedConsents() async throws -> [CloudFriendConsent] {
+        let ownRecordName = try await currentUserRecordName()
+        return try await outgoingConsents(forOwnUserRecordName: ownRecordName)
+            .filter { $0.status == .blocked }
+    }
+
+    /// 自分の同意レコードを削除する（申請の取り下げ・友達削除・ブロック解除）。
+    /// ブロックはしない＝相手に再申請できる状態へ戻す。レコードが無くても安全。
+    func withdrawOwnConsent(targetUserRecordName: String) async throws {
+        let ownRecordName = try await currentUserRecordName()
+        let recordID = Self.consentRecordID(
+            ownerUserRecordName: ownRecordName,
+            targetUserRecordName: targetUserRecordName
+        )
+        try await deleteRecordsIfExists([recordID])
+    }
+
     func incomingRequests(forOwnUserRecordName ownUserRecordName: String) async throws -> [CloudFriendConsent] {
         try await incomingConsents(forOwnUserRecordName: ownUserRecordName)
             .filter { $0.status == .requested }
@@ -330,7 +371,7 @@ final class CloudKitSocialStore {
             ownUserRecordName
         )
         let records = try await queryRecords(type: RecordType.consent, predicate: predicate, resultsLimit: 50)
-        return try records.map(Self.consent(from:))
+        return try authenticConsents(from: records, currentUserRecordName: ownUserRecordName)
     }
 
     func outgoingConsents(forOwnUserRecordName ownUserRecordName: String) async throws -> [CloudFriendConsent] {
@@ -340,7 +381,26 @@ final class CloudKitSocialStore {
             ownUserRecordName
         )
         let records = try await queryRecords(type: RecordType.consent, predicate: predicate, resultsLimit: 50)
-        return try records.map(Self.consent(from:))
+        return try authenticConsents(from: records, currentUserRecordName: ownUserRecordName)
+    }
+
+    /// 偽造された同意レコード（名義人 ≠ 実際の作成者）を除外する。
+    private func authenticConsents(
+        from records: [CKRecord],
+        currentUserRecordName: String
+    ) throws -> [CloudFriendConsent] {
+        try records.compactMap { record in
+            let consent = try Self.consent(from: record)
+            guard CloudFriendRecordAuthenticityPolicy.isAuthentic(
+                claimedOwnerUserRecordName: consent.ownerUserRecordName,
+                creatorUserRecordName: record.creatorUserRecordID?.recordName,
+                currentUserRecordName: currentUserRecordName
+            ) else {
+                NSLog("Liminalog: ignored forged friend consent record \(record.recordID.recordName)")
+                return nil
+            }
+            return consent
+        }
     }
 
     func ensureConsentSubscriptions(forOwnUserRecordName ownUserRecordName: String) async throws {
@@ -462,11 +522,13 @@ final class CloudKitSocialStore {
     ) async throws -> (own: CloudFriendConsent.Status?, reciprocal: CloudFriendConsent.Status?) {
         let existingOwnConsent = try await fetchConsentIfExists(
             ownerUserRecordName: ownRecordName,
-            targetUserRecordName: targetUserRecordName
+            targetUserRecordName: targetUserRecordName,
+            currentUserRecordName: ownRecordName
         )
         let reciprocalConsent = try await fetchConsentIfExists(
             ownerUserRecordName: targetUserRecordName,
-            targetUserRecordName: ownRecordName
+            targetUserRecordName: ownRecordName,
+            currentUserRecordName: ownRecordName
         )
         return (existingOwnConsent?.status, reciprocalConsent?.status)
     }
@@ -500,7 +562,11 @@ final class CloudKitSocialStore {
         existingOwnerIndex: CKRecord?
     ) async throws -> CloudFriendProfile {
         let profile = try Self.profile(from: record)
-        guard CloudFriendProfileOwnershipPolicy.canReuseProfile(profile, currentUserRecordName: ownerRecordName) else {
+        guard CloudFriendRecordAuthenticityPolicy.isAuthentic(
+            claimedOwnerUserRecordName: profile.ownerUserRecordName,
+            creatorUserRecordName: record.creatorUserRecordID?.recordName,
+            currentUserRecordName: ownerRecordName
+        ), CloudFriendProfileOwnershipPolicy.canReuseProfile(profile, currentUserRecordName: ownerRecordName) else {
             throw CloudKitSocialError.usernameTaken
         }
 
@@ -529,20 +595,28 @@ final class CloudKitSocialStore {
         return try Self.profile(from: try savedRecord(for: record.recordID, in: savedRecords))
     }
 
-    private func fetchConsent(ownerUserRecordName: String, targetUserRecordName: String) async throws -> CloudFriendConsent {
+    private func fetchConsentIfExists(
+        ownerUserRecordName: String,
+        targetUserRecordName: String,
+        currentUserRecordName: String
+    ) async throws -> CloudFriendConsent? {
         let recordID = Self.consentRecordID(
             ownerUserRecordName: ownerUserRecordName,
             targetUserRecordName: targetUserRecordName
         )
-        return try Self.consent(from: try await fetchRecord(recordID))
-    }
-
-    private func fetchConsentIfExists(ownerUserRecordName: String, targetUserRecordName: String) async throws -> CloudFriendConsent? {
         do {
-            return try await fetchConsent(
-                ownerUserRecordName: ownerUserRecordName,
-                targetUserRecordName: targetUserRecordName
-            )
+            let record = try await fetchRecord(recordID)
+            let consent = try Self.consent(from: record)
+            guard CloudFriendRecordAuthenticityPolicy.isAuthentic(
+                claimedOwnerUserRecordName: consent.ownerUserRecordName,
+                creatorUserRecordName: record.creatorUserRecordID?.recordName,
+                currentUserRecordName: currentUserRecordName
+            ) else {
+                // 偽造レコードは「存在しない」扱いにする。
+                NSLog("Liminalog: ignored forged friend consent record \(record.recordID.recordName)")
+                return nil
+            }
+            return consent
         } catch let error as CKError where error.code == .unknownItem {
             return nil
         } catch CloudKitSocialError.profileNotFound {
@@ -557,7 +631,15 @@ final class CloudKitSocialStore {
             ownerUserRecordName
         )
         let records = try await queryRecords(type: RecordType.profile, predicate: predicate, resultsLimit: 10)
-        return try records.map(Self.profile(from:)).map(\.username)
+        return try records.compactMap { record in
+            let profile = try Self.profile(from: record)
+            guard CloudFriendRecordAuthenticityPolicy.isAuthentic(
+                claimedOwnerUserRecordName: profile.ownerUserRecordName,
+                creatorUserRecordName: record.creatorUserRecordID?.recordName,
+                currentUserRecordName: ownerUserRecordName
+            ) else { return nil }
+            return profile.username
+        }
     }
 
     private func fetchProfileRecordIfExists(username: String) async throws -> CKRecord? {
