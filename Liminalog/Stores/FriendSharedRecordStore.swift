@@ -95,6 +95,60 @@ struct FriendSharedRecordStore {
         }
     }
 
+    /// ゾーン差分（docs/20 §2.2）の適用。変更分のみ upsert / 削除分のみ delete する。
+    func applyChanges(
+        friendID: UUID,
+        upsertPlans: [FriendSharedPlanSnapshot],
+        upsertChapters: [FriendSharedActivitySnapshot],
+        deletePlanSourceIDs: Set<UUID>,
+        deleteChapterSourceIDs: Set<UUID>
+    ) {
+        for snapshot in upsertPlans {
+            upsertPlan(friendID: friendID, snapshot: snapshot)
+        }
+        for snapshot in upsertChapters {
+            upsertChapter(friendID: friendID, snapshot: snapshot)
+        }
+        for sourceID in deletePlanSourceIDs {
+            try? modelContext.delete(
+                model: FriendSharedPlanRecord.self,
+                where: #Predicate { $0.friendID == friendID && $0.sourceID == sourceID }
+            )
+        }
+        for sourceID in deleteChapterSourceIDs {
+            try? modelContext.delete(
+                model: FriendSharedChapterRecord.self,
+                where: #Predicate { $0.friendID == friendID && $0.sourceID == sourceID }
+            )
+        }
+    }
+
+    private func upsertPlan(friendID: UUID, snapshot: FriendSharedPlanSnapshot) {
+        let sourceID = snapshot.id
+        var descriptor = FetchDescriptor<FriendSharedPlanRecord>(
+            predicate: #Predicate { $0.friendID == friendID && $0.sourceID == sourceID }
+        )
+        descriptor.fetchLimit = 1
+        if let existing = (try? modelContext.fetch(descriptor))?.first {
+            existing.apply(snapshot)
+        } else {
+            modelContext.insert(FriendSharedPlanRecord(friendID: friendID, snapshot: snapshot))
+        }
+    }
+
+    private func upsertChapter(friendID: UUID, snapshot: FriendSharedActivitySnapshot) {
+        let sourceID = snapshot.id
+        var descriptor = FetchDescriptor<FriendSharedChapterRecord>(
+            predicate: #Predicate { $0.friendID == friendID && $0.sourceID == sourceID }
+        )
+        descriptor.fetchLimit = 1
+        if let existing = (try? modelContext.fetch(descriptor))?.first {
+            existing.apply(snapshot)
+        } else {
+            modelContext.insert(FriendSharedChapterRecord(friendID: friendID, snapshot: snapshot))
+        }
+    }
+
     /// 友達1人分の行キャッシュを全削除する（友達削除・共有解除時）。
     func deleteAll(friendID: UUID) {
         try? modelContext.delete(
@@ -123,31 +177,6 @@ struct FriendSharedRecordStore {
             deleted += 1
         }
         return deleted
-    }
-
-    /// 行キャッシュが空で塊JSONにデータが残っている場合、一度だけ塊から行を補填する。
-    /// 段階1以前に受信したデータ・デバッグシードなど、applier を通っていない塊との後方互換。
-    /// - Returns: 補填を行った場合 true（呼び出し側で save すること）。
-    @discardableResult
-    func backfillFromBlobIfNeeded(friend: Friend) -> Bool {
-        let friendID = friend.id
-        var planCheck = FetchDescriptor<FriendSharedPlanRecord>(
-            predicate: #Predicate { $0.friendID == friendID }
-        )
-        planCheck.fetchLimit = 1
-        var chapterCheck = FetchDescriptor<FriendSharedChapterRecord>(
-            predicate: #Predicate { $0.friendID == friendID }
-        )
-        chapterCheck.fetchLimit = 1
-        let hasRows = ((try? modelContext.fetchCount(planCheck)) ?? 0) > 0
-            || ((try? modelContext.fetchCount(chapterCheck)) ?? 0) > 0
-        guard !hasRows else { return false }
-
-        let plans = friend.sharedPlans
-        let activities = friend.sharedActivities
-        guard !plans.isEmpty || !activities.isEmpty else { return false }
-        reconcile(friendID: friendID, plans: plans, activities: activities)
-        return true
     }
 
     // MARK: - 読み出し（範囲クエリ）

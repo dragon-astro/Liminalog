@@ -53,8 +53,6 @@ final class Friend {
     var monthScore: Double = 0
     var yearScore: Double = 0
     var streakCount: Int = 0
-    var sharedPlansJSON: String = "[]"
-    var sharedActivitiesJSON: String = "[]"
     var lastSeenAt: Date?
     var acceptedAt: Date?
     var blockedAt: Date?
@@ -110,8 +108,6 @@ final class Friend {
         self.monthScore = 0
         self.yearScore = 0
         self.streakCount = 0
-        self.sharedPlansJSON = "[]"
-        self.sharedActivitiesJSON = "[]"
         self.lastSeenAt = nil
         self.acceptedAt = status == .accepted ? now : nil
         self.blockedAt = status == .blocked ? now : nil
@@ -138,29 +134,6 @@ final class Friend {
         }
     }
 
-    var sharedPlans: [FriendSharedPlanSnapshot] {
-        FriendShareSnapshotCache.plans(for: sharedPlansJSON)
-    }
-
-    func setSharedPlans(_ plans: [FriendSharedPlanSnapshot]) {
-        guard let data = try? JSONEncoder.liminalog.encode(plans),
-              let json = String(data: data, encoding: .utf8)
-        else { return }
-        sharedPlansJSON = json
-        updatedAt = Date()
-    }
-
-    var sharedActivities: [FriendSharedActivitySnapshot] {
-        FriendShareSnapshotCache.activities(for: sharedActivitiesJSON)
-    }
-
-    func setSharedActivities(_ activities: [FriendSharedActivitySnapshot]) {
-        guard let data = try? JSONEncoder.liminalog.encode(activities),
-              let json = String(data: data, encoding: .utf8)
-        else { return }
-        sharedActivitiesJSON = json
-        updatedAt = Date()
-    }
 }
 
 struct FriendSharedPlanSnapshot: Codable, Identifiable, Hashable {
@@ -478,46 +451,6 @@ private extension JSONDecoder {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         return decoder
-    }
-}
-
-/// 友達の共有スナップショット(JSON)の復号結果をキャッシュする。
-/// `sharedPlans`/`sharedActivities` は月グリッドやデイ送りで何度も読まれるため、
-/// 同じJSONを毎回復号するとカレンダーが重くなる。JSON文字列をキーに結果を再利用する。
-enum FriendShareSnapshotCache {
-    private static let lock = NSLock()
-    nonisolated(unsafe) private static var plansByJSON: [String: [FriendSharedPlanSnapshot]] = [:]
-    nonisolated(unsafe) private static var activitiesByJSON: [String: [FriendSharedActivitySnapshot]] = [:]
-    private static let maxEntries = 64
-
-    static func plans(for json: String) -> [FriendSharedPlanSnapshot] {
-        lock.lock(); defer { lock.unlock() }
-        if let cached = plansByJSON[json] { return cached }
-        let decoded: [FriendSharedPlanSnapshot]
-        if let data = json.data(using: .utf8),
-           let value = try? JSONDecoder.liminalog.decode([FriendSharedPlanSnapshot].self, from: data) {
-            decoded = value
-        } else {
-            decoded = []
-        }
-        if plansByJSON.count >= maxEntries { plansByJSON.removeAll(keepingCapacity: true) }
-        plansByJSON[json] = decoded
-        return decoded
-    }
-
-    static func activities(for json: String) -> [FriendSharedActivitySnapshot] {
-        lock.lock(); defer { lock.unlock() }
-        if let cached = activitiesByJSON[json] { return cached }
-        let decoded: [FriendSharedActivitySnapshot]
-        if let data = json.data(using: .utf8),
-           let value = try? JSONDecoder.liminalog.decode([FriendSharedActivitySnapshot].self, from: data) {
-            decoded = value
-        } else {
-            decoded = []
-        }
-        if activitiesByJSON.count >= maxEntries { activitiesByJSON.removeAll(keepingCapacity: true) }
-        activitiesByJSON[json] = decoded
-        return decoded
     }
 }
 

@@ -948,6 +948,8 @@ struct FriendsView: View {
         )
         let snapshot = outgoingShareSnapshot(for: friend, ownUsername: ownUsername)
         let result = try await cloudShareStore.upsertOutgoingShare(snapshot: snapshot)
+        // 個別アイテム（予定/実績レコード）の差分公開はコーディネータに任せる。
+        CloudFriendShareRefreshCoordinator.requestRefresh(reason: "friend share published from view")
         if let shareURL = result.shareURL {
             _ = try await cloudSocialStore.updateOwnConsentShareURL(
                 targetUserRecordName: friend.userRecordID,
@@ -993,7 +995,6 @@ struct FriendsView: View {
             ownDisplayName: ownDisplayName,
             visibilityPresets: visibilityPresets,
             chapters: chapters,
-            planBlocks: planBlocks,
             acceptedFriendIDs: acceptedFriendIDs,
             now: now,
             scoreProvider: { period in
@@ -2193,13 +2194,6 @@ private struct FriendCalendarView: View {
             .scrollIndicators(.hidden)
             .frame(maxHeight: .infinity, alignment: .top)
             .onAppear {
-                ensureData(around: scrolledOffset ?? 0)
-            }
-            .task(id: friend.id) {
-                // docs/20: 段階1以前の塊JSONしか無い友達は、初回表示時に行キャッシュへ補填する。
-                guard FriendSharedRecordStore(modelContext: modelContext).backfillFromBlobIfNeeded(friend: friend) else { return }
-                try? modelContext.save()
-                pageDataByMonth = [:]
                 ensureData(around: scrolledOffset ?? 0)
             }
             .onChange(of: scrolledOffset) { _, newValue in

@@ -1,6 +1,8 @@
 import CloudKit
 import Foundation
 
+/// 共有ルートレコードの内容。docs/20 §2.1 により「現在地・スコア・streak」などの
+/// 軽量ステータス専用。予定/実績の本体は SharedPlan/SharedChapter の個別レコードで運ぶ。
 struct CloudFriendShareSnapshot: Codable, Equatable {
     var ownerUsername: String
     var ownerDisplayName: String
@@ -16,8 +18,6 @@ struct CloudFriendShareSnapshot: Codable, Equatable {
     var monthScore: Double
     var yearScore: Double
     var streakCount: Int
-    var sharedPlans: [FriendSharedPlanSnapshot]
-    var sharedActivities: [FriendSharedActivitySnapshot]
     var updatedAt: Date
 
     init(
@@ -35,8 +35,6 @@ struct CloudFriendShareSnapshot: Codable, Equatable {
         monthScore: Double = 0,
         yearScore: Double = 0,
         streakCount: Int = 0,
-        sharedPlans: [FriendSharedPlanSnapshot] = [],
-        sharedActivities: [FriendSharedActivitySnapshot] = [],
         updatedAt: Date = Date()
     ) {
         self.ownerUsername = ownerUsername
@@ -53,8 +51,6 @@ struct CloudFriendShareSnapshot: Codable, Equatable {
         self.monthScore = monthScore
         self.yearScore = yearScore
         self.streakCount = streakCount
-        self.sharedPlans = sharedPlans
-        self.sharedActivities = sharedActivities
         self.updatedAt = updatedAt
     }
 }
@@ -62,8 +58,12 @@ struct CloudFriendShareSnapshot: Codable, Equatable {
 struct CloudFriendShareUpsertResult {
     let snapshot: CloudFriendShareSnapshot
     let shareURL: URL?
-    let rootRecordName: String
+    let rootRecordID: CKRecord.ID
     let shareRecordName: String?
+    /// ルートを新規作成（or 作り直し）した場合 true。公開台帳を破棄して全量再公開する合図。
+    let didCreateRoot: Bool
+
+    var rootRecordName: String { rootRecordID.recordName }
 }
 
 enum CloudFriendShareError: LocalizedError {
@@ -93,8 +93,10 @@ enum CloudFriendShareError: LocalizedError {
 }
 
 final class CloudFriendShareStore {
+    static let rootRecordType = "FriendShareSnapshot"
+
     private enum RecordType {
-        static let friendShareSnapshot = "FriendShareSnapshot"
+        static let friendShareSnapshot = CloudFriendShareStore.rootRecordType
     }
 
     private enum Field {
@@ -112,14 +114,12 @@ final class CloudFriendShareStore {
         static let monthScore = "monthScore"
         static let yearScore = "yearScore"
         static let streakCount = "streakCount"
-        static let sharedPlansJSON = "sharedPlansJSON"
-        static let sharedActivitiesJSON = "sharedActivitiesJSON"
         static let updatedAt = "updatedAt"
     }
 
     private let container: CKContainer
-    private let privateDatabase: CKDatabase
-    private let sharedDatabase: CKDatabase
+    let privateDatabase: CKDatabase
+    let sharedDatabase: CKDatabase
 
     init(container: CKContainer = CKContainer(identifier: SharedModelContainer.cloudKitContainerID)) {
         self.container = container
@@ -168,8 +168,9 @@ final class CloudFriendShareStore {
                 return CloudFriendShareUpsertResult(
                     snapshot: try Self.snapshot(from: root),
                     shareURL: savedShare?.url ?? share.url,
-                    rootRecordName: root.recordID.recordName,
-                    shareRecordName: savedShare?.recordID.recordName ?? share.recordID.recordName
+                    rootRecordID: root.recordID,
+                    shareRecordName: savedShare?.recordID.recordName ?? share.recordID.recordName,
+                    didCreateRoot: false
                 )
             } catch {
                 guard CloudFriendShareUpsertRepairPolicy.shouldRecreateRootAndShare(after: error) else {
@@ -207,8 +208,9 @@ final class CloudFriendShareStore {
         return CloudFriendShareUpsertResult(
             snapshot: try Self.snapshot(from: savedRoot),
             shareURL: shareURL,
-            rootRecordName: savedRoot.recordID.recordName,
-            shareRecordName: savedShare?.recordID.recordName ?? share.recordID.recordName
+            rootRecordID: savedRoot.recordID,
+            shareRecordName: savedShare?.recordID.recordName ?? share.recordID.recordName,
+            didCreateRoot: true
         )
     }
 
@@ -500,10 +502,17 @@ final class CloudFriendShareStore {
     }
 
     // CKShare はデフォルトゾーンのレコードを共有できないため、共有ルートは専用のカスタムゾーンに置く。
+    static let shareZoneName = "LiminalogFriendShares"
+
     private static let shareZoneID = CKRecordZone.ID(
-        zoneName: "LiminalogFriendShares",
+        zoneName: shareZoneName,
         ownerName: CKCurrentUserDefaultName
     )
+
+    /// 受信側から見た友達（=ゾーンオーナー）の共有ゾーンID。
+    static func sharedZoneID(ownerUserRecordName: String) -> CKRecordZone.ID {
+        CKRecordZone.ID(zoneName: shareZoneName, ownerName: ownerUserRecordName)
+    }
 
     /// 共有用カスタムゾーンを用意する（存在すれば冪等）。CKShare はデフォルトゾーン不可のため必須。
     private func ensureShareZone() async throws {
@@ -532,8 +541,6 @@ final class CloudFriendShareStore {
         record[Field.monthScore] = snapshot.monthScore as CKRecordValue
         record[Field.yearScore] = snapshot.yearScore as CKRecordValue
         record[Field.streakCount] = snapshot.streakCount as CKRecordValue
-        record[Field.sharedPlansJSON] = encode(snapshot.sharedPlans) as CKRecordValue
-        record[Field.sharedActivitiesJSON] = encode(snapshot.sharedActivities) as CKRecordValue
         record[Field.updatedAt] = snapshot.updatedAt as CKRecordValue
     }
 
@@ -551,8 +558,6 @@ final class CloudFriendShareStore {
               let monthScore = record[Field.monthScore] as? Double,
               let yearScore = record[Field.yearScore] as? Double,
               let streakCount = record[Field.streakCount] as? Int,
-              let plansJSON = record[Field.sharedPlansJSON] as? String,
-              let activitiesJSON = record[Field.sharedActivitiesJSON] as? String,
               let updatedAt = record[Field.updatedAt] as? Date
         else {
             throw CloudFriendShareError.invalidSnapshotPayload
@@ -573,10 +578,13 @@ final class CloudFriendShareStore {
             monthScore: monthScore,
             yearScore: yearScore,
             streakCount: streakCount,
-            sharedPlans: try decode([FriendSharedPlanSnapshot].self, from: plansJSON),
-            sharedActivities: try decode([FriendSharedActivitySnapshot].self, from: activitiesJSON),
             updatedAt: updatedAt
         )
+    }
+
+    /// ゾーン差分で届いたルートレコードをステータススナップショットへ復号する（受信者検証込み）。
+    static func incomingStatusSnapshot(from record: CKRecord, currentUserRecordName: String) throws -> CloudFriendShareSnapshot {
+        try validatedSnapshot(from: record, currentUserRecordName: currentUserRecordName)
     }
 
     private static func validatedSnapshot(from record: CKRecord, currentUserRecordName: String) throws -> CloudFriendShareSnapshot {
@@ -587,29 +595,4 @@ final class CloudFriendShareStore {
         return snapshot
     }
 
-    private static func encode<Value: Encodable>(_ value: Value) -> String {
-        guard let data = try? shareJSONEncoder.encode(value),
-              let json = String(data: data, encoding: .utf8)
-        else { return "[]" }
-        return json
-    }
-
-    private static func decode<Value: Decodable>(_ type: Value.Type, from json: String) throws -> Value {
-        guard let data = json.data(using: .utf8) else {
-            throw CloudFriendShareError.invalidSnapshotPayload
-        }
-        return try shareJSONDecoder.decode(type, from: data)
-    }
-
-    private static var shareJSONEncoder: JSONEncoder {
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        return encoder
-    }
-
-    private static var shareJSONDecoder: JSONDecoder {
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        return decoder
-    }
 }

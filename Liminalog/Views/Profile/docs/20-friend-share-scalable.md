@@ -97,7 +97,30 @@
    - 共有予定検索シート: `searchPlans(titleContains:)` / `hasAnyPlans` の行クエリ
    - 後方互換: `backfillFromBlobIfNeeded`（行が空＆塊にデータあり→一度だけ補填）。デバッグシードも行を併記
    - 注: `FriendShareSnapshotCache`（塊デコードのメモ化）は §7.3-4 の塊撤去時に一緒に消す
-2. **[Codex] CloudKit輸送層の個別レコード化**（§2.1）: 共有ゾーンに `SharedPlan`/`SharedChapter` を1件1レコードでupsert/delete（`sourceID`突合・可視性フィルタ）。ルートは現在地/スコア等の軽量ステータス専用に縮小。
-3. **[Codex] 受信の差分同期**（§2.2）: `CKFetchRecordZoneChangesOperation`＋ゾーン変更トークン。受信行の反映は `FriendSharedRecordReconcilePolicy`/`FriendSharedRecordStore` を流用（全量reconcileではなく差分適用APIを足す）。
-4. **[両者] 塊JSON撤去**: 2-3完了後に `sharedPlansJSON`/`sharedActivitiesJSON` と二重書きを撤去。1MB上限・ウィンドウ制限から解放され「全履歴×軽量」が成立。
-5. 二台実機での反復検証（共有・差分・削除・可視性）。§5の通り友達正式リリースの更新に同梱が安全。
+2. [Codex→Claude] CloudKit輸送層の個別レコード化（§2.1）→ **実装完了（2026-06-11・段階3）**
+3. [Codex→Claude] 受信の差分同期（§2.2）→ **実装完了（2026-06-11・段階3）**
+4. [両者] 塊JSON撤去 → **完了（2026-06-11・段階3）**
+5. **二台実機での反復検証（共有・差分・削除・可視性）— 未実施・リリース前必須**。§5の通り友達正式リリースの更新に同梱が安全。`CloudKitLiveDeviceSmokeTests` と docs/18 のランブックを使うこと。
+
+---
+
+## 8. 段階3 実装メモ（2026-06-11 Claude・Codexトークン切れのため代行）
+
+### 8.1 構成
+- **レコード**: 共有ゾーン `LiminalogFriendShares` 内
+  - ルート `friend-share:{owner}:{target}`（型 `FriendShareSnapshot`）= ステータス専用（現在地/スコア/streak）。CKShare はここに張る（既存のまま）
+  - アイテム `shared-plan:{target}:{sourceID}` / `shared-chapter:{target}:{sourceID}`（型 `SharedPlan`/`SharedChapter`）。**`parent` = ルート参照**で CKShare の階層共有に乗せる（共有相手にだけ見える）
+- **送信（差分）**: `FriendSharePublishedItem`（LocalCache台帳: sourceID→内容のSHA256指紋）と可視セットを `FriendSharePublishDiffPolicy` で突合 → upsert/delete だけを `modifySharedItems`（300件チャンク・非アトミック・成功分のみ台帳反映）。ルート作り直し時は台帳クリア→全量再公開（孤児レコードは parent 再設定で再接続）
+- **受信（差分）**: `CKFetchRecordZoneChangesOperation`＋ゾーン変更トークン（`FriendShareZoneSyncState` に永続化）。トークン失効→全件取得にフォールバックし**全量突合**（reconcile）で消えた行も回収。初回（共有未承認/zoneNotFound）は共有URL承認→全件取得
+- **塊JSON撤去済み**: ルートの `sharedPlansJSON` フィールド、`Friend.sharedPlansJSON/sharedActivitiesJSON`、`FriendShareSnapshotCache`、backfill、シードの塊書き込み。スナップショット構造体はステータス専用化
+
+### 8.2 主な新規ファイル
+`FriendSharedItemRecordPolicy` / `FriendSharePublishDiffPolicy` / `FriendSharePublishStateStore` / `FriendShareSyncState`（@Model×2） / `CloudFriendShareItemTransport`（store拡張）
+
+### 8.3 ⚠️ 未検証事項（実機2台が必要）
+ロジックはユニットテスト（CKRecord往復・差分・台帳・行反映）で担保したが、以下は**CloudKit実環境での動作未確認**:
+1. `parent` 参照による階層共有の継承（子レコードが参加者に見えるか）
+2. ゾーン変更トークンの差分取得・失効フォールバック
+3. 初回接続（URL承認→zoneNotFound→全件取得）の流れ
+4. CloudKit Dashboard 上の新レコード型 `SharedPlan`/`SharedChapter` のスキーマ自動作成（development環境で初回保存時に生成される想定）
+5. 大量アイテム（数千件）の初回公開のチャンク送信挙動

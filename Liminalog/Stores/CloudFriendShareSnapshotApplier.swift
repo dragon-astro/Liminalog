@@ -18,18 +18,8 @@ enum CloudFriendShareSnapshotApplier {
         friend.monthScore = snapshot.monthScore
         friend.yearScore = snapshot.yearScore
         friend.streakCount = snapshot.streakCount
-        friend.setSharedPlans(snapshot.sharedPlans)
-        friend.setSharedActivities(snapshot.sharedActivities)
         friend.lastSeenAt = snapshot.updatedAt
         friend.updatedAt = Date()
-        // docs/20: 塊JSONと並行して個別行キャッシュにも書く（UIを範囲クエリへ移行するための二重書き）。
-        if let modelContext = friend.modelContext {
-            FriendSharedRecordStore(modelContext: modelContext).reconcile(
-                friendID: friend.id,
-                plans: snapshot.sharedPlans,
-                activities: snapshot.sharedActivities
-            )
-        }
     }
 
     static func clearCachedShare(from friend: Friend) {
@@ -45,8 +35,6 @@ enum CloudFriendShareSnapshotApplier {
         friend.monthScore = 0
         friend.yearScore = 0
         friend.streakCount = 0
-        friend.setSharedPlans([])
-        friend.setSharedActivities([])
         if let modelContext = friend.modelContext {
             FriendSharedRecordStore(modelContext: modelContext).deleteAll(friendID: friend.id)
         }

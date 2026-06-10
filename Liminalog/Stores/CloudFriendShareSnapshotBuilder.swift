@@ -1,13 +1,21 @@
 import Foundation
 
+/// 共有データの組み立て（docs/20 §2.1）。
+/// - `snapshot(...)`: 共有ルートに載せる軽量ステータス（現在地・スコア・streak）。
+/// - `sharedItems(...)`: SharedPlan/SharedChapter 個別レコードに載せる全履歴の可視アイテム。
+///   個別レコード方式は CloudKit の1レコード上限に依存しないため、期間ウィンドウは設けない。
 enum CloudFriendShareSnapshotBuilder {
+    struct SharedItems {
+        var plans: [FriendSharedPlanSnapshot] = []
+        var activities: [FriendSharedActivitySnapshot] = []
+    }
+
     static func snapshot(
         for friend: Friend,
         ownUsername: String,
         ownDisplayName: String,
         visibilityPresets: [VisibilityPreset],
         chapters: [Chapter],
-        planBlocks: [PlanBlock],
         acceptedFriendIDs: Set<UUID>,
         now: Date,
         scoreProvider: (FriendScorePeriod) -> Double,
@@ -16,27 +24,7 @@ enum CloudFriendShareSnapshotBuilder {
         let preset = visibilityPreset(for: friend, in: visibilityPresets)
         let canPublish = publishingEnabled(for: preset)
 
-        // 共有は「全期間」ではなく now を中心とした近い期間だけに限定する。
-        // 無制限だと記録が増えるほど共有JSONが肥大し、受信側で全画面に読み込まれて
-        // メモリ圧迫・カレンダー描画の激重化を招く（数分単位のハングの原因）。
-        let windowedChapters = chaptersInShareWindow(chapters, now: now)
-        let windowedPlans = plansInShareWindow(planBlocks, now: now)
-
-        let activeChapters = windowedChapters.filter { $0.endTime == nil }
-        let visiblePlans = FriendSharedPlanSnapshot.snapshots(
-            from: canPublish ? windowedPlans : [],
-            visibilityPreset: preset,
-            recipientFriendID: friend.id,
-            acceptedFriendIDs: acceptedFriendIDs,
-            now: now
-        )
-        let visibleActivities = FriendSharedActivitySnapshot.snapshots(
-            from: canPublish ? windowedChapters : [],
-            now: now,
-            visibilityPreset: preset,
-            recipientFriendID: friend.id,
-            acceptedFriendIDs: acceptedFriendIDs
-        )
+        let activeChapters = chapters.filter { $0.endTime == nil }
         let visibleActiveActivity = FriendSharedActivitySnapshot.snapshots(
             from: canPublish ? activeChapters : [],
             now: now,
@@ -60,45 +48,37 @@ enum CloudFriendShareSnapshotBuilder {
             monthScore: canPublish ? scoreProvider(.month) : 0,
             yearScore: canPublish ? scoreProvider(.year) : 0,
             streakCount: canPublish ? streakProvider() : 0,
-            sharedPlans: visiblePlans,
-            sharedActivities: visibleActivities,
             updatedAt: now
         )
     }
 
-    // 共有期間：過去1年〜未来半年。件数上限は CloudKit の1レコード上限(約1MB)に収まる範囲で最大化。
-    // ※「全履歴を本当に無制限」は塊JSON方式では不可（サイズ上限・メモリ）。
-    //   真の無制限は個別レコード化＋差分同期の改修が必要（Codex引き継ぎ・docs参照）。
-    private static let shareWindowPastDays = 365
-    private static let shareWindowFutureDays = 180
-    private static let shareWindowMaxItems = 2000
+    /// 個別レコードとして公開する全履歴の可視アイテム。可視性プリセットでフィルタ済み。
+    static func sharedItems(
+        for friend: Friend,
+        visibilityPresets: [VisibilityPreset],
+        chapters: [Chapter],
+        planBlocks: [PlanBlock],
+        acceptedFriendIDs: Set<UUID>,
+        now: Date
+    ) -> SharedItems {
+        let preset = visibilityPreset(for: friend, in: visibilityPresets)
+        guard publishingEnabled(for: preset) else { return SharedItems() }
 
-    private static func shareWindow(now: Date) -> (start: Date, end: Date) {
-        let calendar = Calendar.japanese
-        let today = calendar.startOfDay(for: now)
-        let start = calendar.date(byAdding: .day, value: -shareWindowPastDays, to: today) ?? today
-        let end = calendar.date(byAdding: .day, value: shareWindowFutureDays, to: today) ?? today
-        return (start, end)
-    }
-
-    private static func chaptersInShareWindow(_ chapters: [Chapter], now: Date) -> [Chapter] {
-        let window = shareWindow(now: now)
-        return Array(
-            chapters
-                .filter { ($0.endTime ?? now) >= window.start && $0.startTime <= window.end }
-                .sorted { $0.startTime > $1.startTime }
-                .prefix(shareWindowMaxItems)
+        let plans = FriendSharedPlanSnapshot.snapshots(
+            from: planBlocks,
+            visibilityPreset: preset,
+            recipientFriendID: friend.id,
+            acceptedFriendIDs: acceptedFriendIDs,
+            now: now
         )
-    }
-
-    private static func plansInShareWindow(_ plans: [PlanBlock], now: Date) -> [PlanBlock] {
-        let window = shareWindow(now: now)
-        return Array(
-            plans
-                .filter { $0.endTime >= window.start && $0.startTime <= window.end }
-                .sorted { $0.startTime > $1.startTime }
-                .prefix(shareWindowMaxItems)
+        let activities = FriendSharedActivitySnapshot.snapshots(
+            from: chapters,
+            now: now,
+            visibilityPreset: preset,
+            recipientFriendID: friend.id,
+            acceptedFriendIDs: acceptedFriendIDs
         )
+        return SharedItems(plans: plans, activities: activities)
     }
 
     private static func visibilityPreset(for friend: Friend, in presets: [VisibilityPreset]) -> VisibilityPreset? {

@@ -8,19 +8,6 @@ struct CloudFriendShareSnapshotApplierTests {
     func appliesIncomingSnapshotToFriendCache() {
         let now = Date(timeIntervalSince1970: 1_780_764_000)
         let friend = Friend(displayName: "Before", handle: "@before", status: .accepted)
-        let plan = FriendSharedPlanSnapshot(
-            title: "共有予定",
-            startTime: now,
-            endTime: now.addingTimeInterval(3_600),
-            isImportant: true
-        )
-        let activity = FriendSharedActivitySnapshot(
-            title: "勉強",
-            startTime: now.addingTimeInterval(-1_800),
-            endTime: now,
-            mood: "集中",
-            updatedAt: now
-        )
         let snapshot = CloudFriendShareSnapshot(
             ownerUsername: "owner",
             ownerDisplayName: "Owner",
@@ -36,8 +23,6 @@ struct CloudFriendShareSnapshotApplierTests {
             monthScore: 55,
             yearScore: 44,
             streakCount: 12,
-            sharedPlans: [plan],
-            sharedActivities: [activity],
             updatedAt: now
         )
 
@@ -56,8 +41,6 @@ struct CloudFriendShareSnapshotApplierTests {
         #expect(friend.monthScore == 55)
         #expect(friend.yearScore == 44)
         #expect(friend.streakCount == 12)
-        #expect(friend.sharedPlans.map(\.title) == ["共有予定"])
-        #expect(friend.sharedActivities.map(\.title) == ["勉強"])
         #expect(friend.lastSeenAt == now)
     }
 
@@ -77,21 +60,6 @@ struct CloudFriendShareSnapshotApplierTests {
         friend.monthScore = 55
         friend.yearScore = 44
         friend.streakCount = 12
-        friend.setSharedPlans([
-            FriendSharedPlanSnapshot(
-                title: "共有予定",
-                startTime: now,
-                endTime: now.addingTimeInterval(3_600)
-            )
-        ])
-        friend.setSharedActivities([
-            FriendSharedActivitySnapshot(
-                title: "勉強",
-                startTime: now.addingTimeInterval(-1_800),
-                endTime: now,
-                updatedAt: now
-            )
-        ])
         friend.lastSeenAt = now
 
         CloudFriendShareSnapshotApplier.clearCachedShare(from: friend)
@@ -108,8 +76,6 @@ struct CloudFriendShareSnapshotApplierTests {
         #expect(friend.monthScore == 0)
         #expect(friend.yearScore == 0)
         #expect(friend.streakCount == 0)
-        #expect(friend.sharedPlans.isEmpty)
-        #expect(friend.sharedActivities.isEmpty)
         #expect(friend.lastSeenAt == nil)
     }
 }

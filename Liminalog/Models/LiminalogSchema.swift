@@ -18,7 +18,9 @@ enum LiminalogSchemaV1: VersionedSchema {
             DailyCardSnapshot.self,
             CalendarEventCache.self,
             FriendSharedPlanRecord.self,
-            FriendSharedChapterRecord.self
+            FriendSharedChapterRecord.self,
+            FriendSharePublishedItem.self,
+            FriendShareZoneSyncState.self
         ]
     }
 }

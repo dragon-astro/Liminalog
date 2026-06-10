@@ -27,11 +27,18 @@ struct CloudFriendShareSnapshotBuilderTests {
             ownDisplayName: "Owner",
             visibilityPresets: [preset],
             chapters: [chapter],
-            planBlocks: [plan],
             acceptedFriendIDs: [friend.id],
             now: now,
             scoreProvider: { _ in 99 },
             streakProvider: { 12 }
+        )
+        let items = CloudFriendShareSnapshotBuilder.sharedItems(
+            for: friend,
+            visibilityPresets: [preset],
+            chapters: [chapter],
+            planBlocks: [plan],
+            acceptedFriendIDs: [friend.id],
+            now: now
         )
 
         #expect(snapshot.currentStatusTitle.isEmpty)
@@ -39,12 +46,12 @@ struct CloudFriendShareSnapshotBuilderTests {
         #expect(snapshot.todayScore == 0)
         #expect(snapshot.weekScore == 0)
         #expect(snapshot.streakCount == 0)
-        #expect(snapshot.sharedPlans.isEmpty)
-        #expect(snapshot.sharedActivities.isEmpty)
+        #expect(items.plans.isEmpty)
+        #expect(items.activities.isEmpty)
     }
 
     @Test
-    func presetRedactsPlanAndMoodDetailsInSnapshot() {
+    func presetRedactsPlanAndMoodDetailsInSharedItems() {
         let now = Date(timeIntervalSince1970: 1_780_764_000)
         let category = Category(name: "病院", colorHex: "#EB5757", icon: "cross.case.fill")
         let friend = Friend(displayName: "A", handle: "@friend", status: .accepted)
@@ -76,22 +83,29 @@ struct CloudFriendShareSnapshotBuilderTests {
             ownDisplayName: "Owner",
             visibilityPresets: [preset],
             chapters: [chapter],
-            planBlocks: [plan],
             acceptedFriendIDs: [friend.id],
             now: now,
             scoreProvider: { _ in 42 },
             streakProvider: { 7 }
+        )
+        let items = CloudFriendShareSnapshotBuilder.sharedItems(
+            for: friend,
+            visibilityPresets: [preset],
+            chapters: [chapter],
+            planBlocks: [plan],
+            acceptedFriendIDs: [friend.id],
+            now: now
         )
 
         #expect(snapshot.currentStatusTitle == "病院")
         #expect(snapshot.currentMoodText.isEmpty)
         #expect(snapshot.todayScore == 42)
         #expect(snapshot.streakCount == 7)
-        #expect(snapshot.sharedPlans.map(\.title) == ["予定あり"])
-        #expect(snapshot.sharedPlans.first?.categoryID == nil)
-        #expect(snapshot.sharedActivities.first?.note == nil)
-        #expect(snapshot.sharedActivities.first?.mood == nil)
-        #expect(snapshot.sharedActivities.first?.locationName == nil)
+        #expect(items.plans.map(\.title) == ["予定あり"])
+        #expect(items.plans.first?.categoryID == nil)
+        #expect(items.activities.first?.note == nil)
+        #expect(items.activities.first?.mood == nil)
+        #expect(items.activities.first?.locationName == nil)
     }
 
     @Test
@@ -116,31 +130,25 @@ struct CloudFriendShareSnapshotBuilderTests {
         plan.hasAudienceSnapshot = true
         let acceptedFriendIDs: Set<UUID> = [selectedFriend.id, otherFriend.id]
 
-        let selectedSnapshot = CloudFriendShareSnapshotBuilder.snapshot(
+        let selectedItems = CloudFriendShareSnapshotBuilder.sharedItems(
             for: selectedFriend,
-            ownUsername: "owner",
-            ownDisplayName: "Owner",
             visibilityPresets: [preset],
             chapters: [],
             planBlocks: [plan],
             acceptedFriendIDs: acceptedFriendIDs,
-            now: now,
-            scoreProvider: { _ in 0 }
+            now: now
         )
-        let otherSnapshot = CloudFriendShareSnapshotBuilder.snapshot(
+        let otherItems = CloudFriendShareSnapshotBuilder.sharedItems(
             for: otherFriend,
-            ownUsername: "owner",
-            ownDisplayName: "Owner",
             visibilityPresets: [preset],
             chapters: [],
             planBlocks: [plan],
             acceptedFriendIDs: acceptedFriendIDs,
-            now: now,
-            scoreProvider: { _ in 0 }
+            now: now
         )
 
-        #expect(selectedSnapshot.sharedPlans.map(\.title) == ["限定予定"])
-        #expect(otherSnapshot.sharedPlans.isEmpty)
+        #expect(selectedItems.plans.map(\.title) == ["限定予定"])
+        #expect(otherItems.plans.isEmpty)
     }
 
     @Test
@@ -166,17 +174,24 @@ struct CloudFriendShareSnapshotBuilderTests {
             ownDisplayName: "Owner",
             visibilityPresets: [],
             chapters: [],
-            planBlocks: [plan],
             acceptedFriendIDs: [friend.id],
             now: now,
             scoreProvider: { _ in 99 }
+        )
+        let items = CloudFriendShareSnapshotBuilder.sharedItems(
+            for: friend,
+            visibilityPresets: [],
+            chapters: [],
+            planBlocks: [plan],
+            acceptedFriendIDs: [friend.id],
+            now: now
         )
 
         #expect(snapshot.todayScore == 0)
         #expect(snapshot.weekScore == 0)
         #expect(snapshot.currentStatusTitle.isEmpty)
-        #expect(snapshot.sharedPlans.isEmpty)
-        #expect(snapshot.sharedActivities.isEmpty)
+        #expect(items.plans.isEmpty)
+        #expect(items.activities.isEmpty)
     }
 
     @Test
@@ -200,16 +215,23 @@ struct CloudFriendShareSnapshotBuilderTests {
             ownDisplayName: "Owner",
             visibilityPresets: [],
             chapters: [chapter],
-            planBlocks: [plan],
             acceptedFriendIDs: [friend.id],
             now: now,
             scoreProvider: { _ in 99 }
+        )
+        let items = CloudFriendShareSnapshotBuilder.sharedItems(
+            for: friend,
+            visibilityPresets: [],
+            chapters: [chapter],
+            planBlocks: [plan],
+            acceptedFriendIDs: [friend.id],
+            now: now
         )
 
         #expect(snapshot.todayScore == 0)
         #expect(snapshot.weekScore == 0)
         #expect(snapshot.currentStatusTitle.isEmpty)
-        #expect(snapshot.sharedPlans.isEmpty)
-        #expect(snapshot.sharedActivities.isEmpty)
+        #expect(items.plans.isEmpty)
+        #expect(items.activities.isEmpty)
     }
 }

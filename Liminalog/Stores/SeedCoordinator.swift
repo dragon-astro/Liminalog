@@ -225,26 +225,28 @@ enum SeedCoordinator {
         let defaultPresetID = defaultFriendVisibilityPresetID(in: context)
         let debugFriends = makeDebugFriends(defaultVisibilityPresetID: defaultPresetID, now: now)
         let recordStore = FriendSharedRecordStore(modelContext: context)
-        for debugFriend in debugFriends {
+        for seed in debugFriends {
             let target: Friend
-            if let existing = friends.first(where: { $0.userRecordID == debugFriend.userRecordID }) {
-                updateDebugFriend(existing, from: debugFriend)
+            if let existing = friends.first(where: { $0.userRecordID == seed.friend.userRecordID }) {
+                updateDebugFriend(existing, from: seed.friend)
                 target = existing
             } else {
-                context.insert(debugFriend)
-                target = debugFriend
+                context.insert(seed.friend)
+                target = seed.friend
             }
-            // docs/20: シードは applier を通らないため、個別行キャッシュも塊と一致させる。
+            // 共有アイテムは個別行キャッシュへ直接シードする（本番は CloudKit のゾーン差分が書く）。
             recordStore.reconcile(
                 friendID: target.id,
-                plans: target.sharedPlans,
-                activities: target.sharedActivities
+                plans: seed.plans,
+                activities: seed.activities
             )
         }
         saveChanges(context, action: "debug friends")
     }
 
-    private static func makeDebugFriends(defaultVisibilityPresetID: UUID?, now: Date) -> [Friend] {
+    typealias DebugFriendSeed = (friend: Friend, plans: [FriendSharedPlanSnapshot], activities: [FriendSharedActivitySnapshot])
+
+    private static func makeDebugFriends(defaultVisibilityPresetID: UUID?, now: Date) -> [DebugFriendSeed] {
         let calendar = Calendar.current
         return [
             makeDebugFriend(
@@ -379,7 +381,7 @@ enum SeedCoordinator {
         updatedAt: Date,
         defaultVisibilityPresetID: UUID?,
         now: Date
-    ) -> Friend {
+    ) -> DebugFriendSeed {
         let friend = Friend(
             displayName: displayName,
             handle: handle,
@@ -406,11 +408,9 @@ enum SeedCoordinator {
         friend.monthScore = monthScore
         friend.yearScore = yearScore
         friend.streakCount = streakCount
-        friend.setSharedPlans(sharedPlans)
-        friend.setSharedActivities(sharedActivities)
         friend.isFavorite = isFavorite
         friend.updatedAt = now
-        return friend
+        return (friend, sharedPlans, sharedActivities)
     }
 
     private static func updateDebugFriend(_ existing: Friend, from debugFriend: Friend) {
@@ -435,8 +435,6 @@ enum SeedCoordinator {
         existing.monthScore = debugFriend.monthScore
         existing.yearScore = debugFriend.yearScore
         existing.streakCount = debugFriend.streakCount
-        existing.sharedPlansJSON = debugFriend.sharedPlansJSON
-        existing.sharedActivitiesJSON = debugFriend.sharedActivitiesJSON
         if existing.visibilityPresetID == nil {
             existing.visibilityPresetID = debugFriend.visibilityPresetID
         }

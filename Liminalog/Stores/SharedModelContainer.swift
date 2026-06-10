@@ -7,13 +7,13 @@ enum SharedModelContainer {
     static let cloudKitContainerID = "iCloud.app.YasudaRyuga.Liminalog"
     private static let developmentStoreVersionKey = "development.storeVersion"
     private static let developmentStoreResetRequestedKey = "development.resetStoreOnNextLaunch"
-    private static let currentDevelopmentStoreVersion = 2026060701
+    private static let currentDevelopmentStoreVersion = 2026061101
     private static let requiredDevelopmentStoreColumns: [(table: String, columns: [String])] = [
         ("ZCATEGORY", ["ZDAILYCARDINTENTRAWVALUE", "ZISDAILYCARDSLEEPCATEGORY", "ZDEFAULTAUDIENCEFRIENDSETIDS", "ZDEFAULTAUDIENCEINCLUDEDFRIENDIDS", "ZDEFAULTAUDIENCEEXCLUDEDFRIENDIDS"]),
         ("ZCHAPTER", ["ZAUDIENCEFRIENDIDS", "ZAUDIENCESOURCERAWVALUE", "ZHASAUDIENCESNAPSHOT"]),
         ("ZPLANBLOCK", ["ZAUDIENCEFRIENDIDS", "ZAUDIENCESOURCERAWVALUE", "ZHASAUDIENCESNAPSHOT"]),
         ("ZUSERSETTINGS", ["ZPROFILEACCENTCOLORHEX", "ZPROFILEBADGEID", "ZPROFILEICONFRAMEID", "ZPROFILESTREAKICONID", "ZPROFILECARDSTYLEID", "ZCLOUDUSERNAME", "ZCLOUDUSERNAMENORMALIZED", "ZCLOUDUSERRECORDNAME", "ZCLOUDUSERNAMEREGISTEREDAT", "ZDASHBOARDHIDDENCARDKEYS", "ZDIDSEEDINITIALFRIENDSETS"]),
-        ("ZFRIEND", ["ZSTATUSRAWVALUE", "ZPROFILEBADGEID", "ZPROFILEICONFRAMEID", "ZPROFILESTREAKICONID", "ZPROFILECARDSTYLEID", "ZSTREAKCOUNT", "ZMONTHSCORE", "ZYEARSCORE", "ZSHAREDPLANSJSON", "ZSHAREDACTIVITIESJSON"]),
+        ("ZFRIEND", ["ZSTATUSRAWVALUE", "ZPROFILEBADGEID", "ZPROFILEICONFRAMEID", "ZPROFILESTREAKICONID", "ZPROFILECARDSTYLEID", "ZSTREAKCOUNT", "ZMONTHSCORE", "ZYEARSCORE"]),
         ("ZFRIENDSET", ["ZNAME", "ZMEMBERFRIENDIDS", "ZSORTORDER"]),
         ("ZFRIENDCATEGORYMAPPING", ["ZMYCATEGORYID", "ZFRIENDCATEGORYID", "ZUSEUNIFIEDCOLOR"]),
         ("ZDAILYCARDSNAPSHOT", ["ZDAYIDENTIFIER", "ZPERSONAKINDRAWVALUE", "ZTITLE", "ZFACTPAYLOADJSON", "ZCATEGORYPAYLOADJSON"]),
@@ -84,7 +84,9 @@ enum SharedModelContainer {
         Schema([
             CalendarEventCache.self,
             FriendSharedPlanRecord.self,
-            FriendSharedChapterRecord.self
+            FriendSharedChapterRecord.self,
+            FriendSharePublishedItem.self,
+            FriendShareZoneSyncState.self
         ])
     }
 
@@ -103,7 +105,9 @@ enum SharedModelContainer {
             DailyCardSnapshot.self,
             CalendarEventCache.self,
             FriendSharedPlanRecord.self,
-            FriendSharedChapterRecord.self
+            FriendSharedChapterRecord.self,
+            FriendSharePublishedItem.self,
+            FriendShareZoneSyncState.self
         ])
     }
 

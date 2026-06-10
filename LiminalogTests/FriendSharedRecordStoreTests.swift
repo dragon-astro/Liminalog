@@ -194,29 +194,6 @@ struct FriendSharedRecordStoreTests {
         #expect(store.plans(friendID: friendB, overlapping: allRange).isEmpty)
     }
 
-    @Test("塊JSONしか無い友達は backfill で行キャッシュへ補填される")
-    func backfillFromBlob() throws {
-        let container = try TestModelContainer.make()
-        let context = container.mainContext
-        let friend = Friend(displayName: "Legacy")
-        friend.setSharedPlans([makePlanSnapshot(title: "旧形式の予定", start: 0, end: 3600)])
-        friend.setSharedActivities([makeActivitySnapshot(title: "旧形式の実績", start: 0, end: 1800)])
-        context.insert(friend)
-        try context.save()
-
-        let store = FriendSharedRecordStore(modelContext: context)
-        let allRange = base.addingTimeInterval(-86_400)..<base.addingTimeInterval(86_400)
-        #expect(store.plans(friendID: friend.id, overlapping: allRange).isEmpty)
-
-        #expect(store.backfillFromBlobIfNeeded(friend: friend))
-        try context.save()
-        #expect(store.plans(friendID: friend.id, overlapping: allRange).map(\.title) == ["旧形式の予定"])
-        #expect(store.chapters(friendID: friend.id, overlapping: allRange).map(\.title) == ["旧形式の実績"])
-
-        // 2回目は何もしない（行が既にある）
-        #expect(!store.backfillFromBlobIfNeeded(friend: friend))
-    }
-
     @Test("タイトル部分一致検索と空状態判定")
     func searchPlansAndEmptyState() throws {
         let container = try TestModelContainer.make()
@@ -241,29 +218,62 @@ struct FriendSharedRecordStoreTests {
         #expect(store.searchPlans(friendID: friendID, titleContains: "").isEmpty)
     }
 
-    @Test("applier の二重書きで行キャッシュも更新される")
-    func applierDualWrite() throws {
+    @Test("ゾーン差分の applyChanges で upsert と削除が反映される")
+    func applyZoneChangesUpsertAndDelete() throws {
+        let container = try TestModelContainer.make()
+        let store = FriendSharedRecordStore(modelContext: container.mainContext)
+        let friendID = UUID()
+        let keptID = UUID()
+        let removedID = UUID()
+        let allRange = base.addingTimeInterval(-86_400)..<base.addingTimeInterval(86_400)
+
+        store.reconcile(
+            friendID: friendID,
+            plans: [
+                makePlanSnapshot(id: keptID, title: "元の予定", start: 0, end: 3600),
+                makePlanSnapshot(id: removedID, title: "消える予定", start: 7200, end: 10_800)
+            ],
+            activities: []
+        )
+        try container.mainContext.save()
+
+        // 差分: keptID はタイトル更新、removedID は削除、新規1件追加
+        let addedID = UUID()
+        store.applyChanges(
+            friendID: friendID,
+            upsertPlans: [
+                makePlanSnapshot(id: keptID, title: "更新された予定", start: 0, end: 3600, updatedAt: 60),
+                makePlanSnapshot(id: addedID, title: "追加された予定", start: 14_400, end: 18_000)
+            ],
+            upsertChapters: [makeActivitySnapshot(title: "追加された実績", start: 0, end: 1800)],
+            deletePlanSourceIDs: [removedID],
+            deleteChapterSourceIDs: []
+        )
+        try container.mainContext.save()
+
+        let titles = store.plans(friendID: friendID, overlapping: allRange).map(\.title)
+        #expect(titles == ["更新された予定", "追加された予定"])
+        #expect(store.chapters(friendID: friendID, overlapping: allRange).map(\.title) == ["追加された実績"])
+    }
+
+    @Test("clearCachedShare で行キャッシュも消える")
+    func clearCachedShareDeletesRows() throws {
         let container = try TestModelContainer.make()
         let context = container.mainContext
         let friend = Friend(displayName: "Mika")
         context.insert(friend)
         try context.save()
 
-        let snapshot = CloudFriendShareSnapshot(
-            ownerUsername: "mika",
-            ownerDisplayName: "Mika",
-            targetUserRecordName: "_target",
-            sharedPlans: [makePlanSnapshot(title: "共有予定", start: 0, end: 3600)],
-            sharedActivities: [makeActivitySnapshot(title: "共有実績", start: 0, end: 1800)],
-            updatedAt: base
+        let store = FriendSharedRecordStore(modelContext: context)
+        store.reconcile(
+            friendID: friend.id,
+            plans: [makePlanSnapshot(title: "共有予定", start: 0, end: 3600)],
+            activities: [makeActivitySnapshot(title: "共有実績", start: 0, end: 1800)]
         )
-        CloudFriendShareSnapshotApplier.apply(snapshot, to: friend)
         try context.save()
 
-        let store = FriendSharedRecordStore(modelContext: context)
         let allRange = base.addingTimeInterval(-86_400)..<base.addingTimeInterval(86_400)
-        #expect(store.plans(friendID: friend.id, overlapping: allRange).map(\.title) == ["共有予定"])
-        #expect(store.chapters(friendID: friend.id, overlapping: allRange).map(\.title) == ["共有実績"])
+        #expect(store.plans(friendID: friend.id, overlapping: allRange).count == 1)
 
         CloudFriendShareSnapshotApplier.clearCachedShare(from: friend)
         try context.save()

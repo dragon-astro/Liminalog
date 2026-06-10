@@ -1,3 +1,4 @@
+import CloudKit
 import Foundation
 import SwiftData
 
@@ -131,7 +132,6 @@ final class CloudFriendShareRefreshCoordinator {
                         acceptedFriendIDs: acceptedFriendIDs,
                         visibilityPresets: visibilityPresets,
                         chapters: chapters,
-                        planBlocks: planBlocks,
                         modelContext: context,
                         now: now
                     )
@@ -146,6 +146,16 @@ final class CloudFriendShareRefreshCoordinator {
                             status: .accepted
                         )
                     }
+                    await publishSharedItems(
+                        for: friend,
+                        rootResult: result,
+                        acceptedFriendIDs: acceptedFriendIDs,
+                        visibilityPresets: visibilityPresets,
+                        chapters: chapters,
+                        planBlocks: planBlocks,
+                        modelContext: context,
+                        now: now
+                    )
                 } catch {
                     NSLog("Liminalog: skipped publishing friend share for \(friend.userRecordID) on \(reason): \(String(describing: error))")
                 }
@@ -209,6 +219,7 @@ final class CloudFriendShareRefreshCoordinator {
                 return
             }
 
+            let ownUserRecordName = settings.cloudUserRecordName
             for friend in acceptedFriends {
                 guard acceptedCloudFriendRecordNames.contains(friend.userRecordID) else {
                     downgradeAcceptedCloudFriendWithoutConsent(friend)
@@ -220,8 +231,12 @@ final class CloudFriendShareRefreshCoordinator {
                       let shareURL = URL(string: rawShareURL)
                 else { continue }
                 do {
-                    let snapshot = try await cloudShareStore.acceptIncomingShare(url: shareURL)
-                    CloudFriendShareSnapshotApplier.apply(snapshot, to: friend)
+                    try await syncIncomingShare(
+                        friend: friend,
+                        shareURL: shareURL,
+                        ownUserRecordName: ownUserRecordName,
+                        modelContext: context
+                    )
                     didUpdateFriends = true
                 } catch {
                     if CloudFriendShareRefreshFailurePolicy.shouldClearCachedShare(after: error) {
@@ -343,6 +358,88 @@ final class CloudFriendShareRefreshCoordinator {
         }
     }
 
+    /// docs/20 §2.2: 共有ゾーンの差分だけを取得して行キャッシュへ反映する。
+    /// 初回（共有未承認）やゾーン消失時は共有URLから承認し直して全件取得する。
+    private func syncIncomingShare(
+        friend: Friend,
+        shareURL: URL,
+        ownUserRecordName: String,
+        modelContext: ModelContext
+    ) async throws {
+        let stateStore = FriendSharePublishStateStore(modelContext: modelContext)
+        let owner = friend.userRecordID
+        let changes: FriendShareZoneChanges
+        do {
+            changes = try await cloudShareStore.fetchSharedZoneChanges(
+                ownerUserRecordName: owner,
+                previousToken: stateStore.changeToken(ownerUserRecordName: owner)
+            )
+        } catch let error as CKError where error.code == .zoneNotFound || error.code == .userDeletedZone {
+            let snapshot = try await cloudShareStore.acceptIncomingShare(url: shareURL)
+            CloudFriendShareSnapshotApplier.apply(snapshot, to: friend)
+            stateStore.clearChangeToken(ownerUserRecordName: owner)
+            changes = try await cloudShareStore.fetchSharedZoneChanges(
+                ownerUserRecordName: owner,
+                previousToken: nil
+            )
+        }
+        applyZoneChanges(
+            changes,
+            to: friend,
+            ownUserRecordName: ownUserRecordName,
+            modelContext: modelContext,
+            stateStore: stateStore
+        )
+    }
+
+    private func applyZoneChanges(
+        _ changes: FriendShareZoneChanges,
+        to friend: Friend,
+        ownUserRecordName: String,
+        modelContext: ModelContext,
+        stateStore: FriendSharePublishStateStore
+    ) {
+        let recordStore = FriendSharedRecordStore(modelContext: modelContext)
+        var changedPlans: [FriendSharedPlanSnapshot] = []
+        var changedChapters: [FriendSharedActivitySnapshot] = []
+
+        for record in changes.changedRecords {
+            if let plan = FriendSharedItemRecordPolicy.planSnapshot(from: record) {
+                changedPlans.append(plan)
+            } else if let activity = FriendSharedItemRecordPolicy.activitySnapshot(from: record) {
+                changedChapters.append(activity)
+            } else if record.recordType == CloudFriendShareStore.rootRecordType {
+                if let snapshot = try? CloudFriendShareStore.incomingStatusSnapshot(
+                    from: record,
+                    currentUserRecordName: ownUserRecordName
+                ) {
+                    CloudFriendShareSnapshotApplier.apply(snapshot, to: friend)
+                }
+            }
+        }
+
+        if changes.didFetchFullZone {
+            // 全件取得＝そのゾーンの今の全量。差分適用ではなく突合して、消えた行も回収する。
+            recordStore.reconcile(friendID: friend.id, plans: changedPlans, activities: changedChapters)
+        } else {
+            recordStore.applyChanges(
+                friendID: friend.id,
+                upsertPlans: changedPlans,
+                upsertChapters: changedChapters,
+                deletePlanSourceIDs: Set(
+                    changes.deletedRecordNames.compactMap(FriendSharedItemRecordPolicy.planSourceID(fromRecordName:))
+                ),
+                deleteChapterSourceIDs: Set(
+                    changes.deletedRecordNames.compactMap(FriendSharedItemRecordPolicy.chapterSourceID(fromRecordName:))
+                )
+            )
+        }
+
+        if let token = changes.changeToken {
+            stateStore.setChangeToken(token, ownerUserRecordName: friend.userRecordID)
+        }
+    }
+
     private func outgoingShareSnapshot(
         for friend: Friend,
         ownUsername: String,
@@ -350,7 +447,6 @@ final class CloudFriendShareRefreshCoordinator {
         acceptedFriendIDs: Set<UUID>,
         visibilityPresets: [VisibilityPreset],
         chapters: [Chapter],
-        planBlocks: [PlanBlock],
         modelContext: ModelContext,
         now: Date
     ) -> CloudFriendShareSnapshot {
@@ -360,7 +456,6 @@ final class CloudFriendShareRefreshCoordinator {
             ownDisplayName: ownDisplayName,
             visibilityPresets: visibilityPresets,
             chapters: chapters,
-            planBlocks: planBlocks,
             acceptedFriendIDs: acceptedFriendIDs,
             now: now,
             scoreProvider: { period in
@@ -370,6 +465,92 @@ final class CloudFriendShareRefreshCoordinator {
                 ScoreStore(modelContext: modelContext).streakCount(endingAt: now)
             }
         )
+    }
+
+    /// docs/20 §2.1: 可視アイテムの全量と公開台帳を突合し、差分だけを個別レコードへ送る。
+    private func publishSharedItems(
+        for friend: Friend,
+        rootResult: CloudFriendShareUpsertResult,
+        acceptedFriendIDs: Set<UUID>,
+        visibilityPresets: [VisibilityPreset],
+        chapters: [Chapter],
+        planBlocks: [PlanBlock],
+        modelContext: ModelContext,
+        now: Date
+    ) async {
+        let stateStore = FriendSharePublishStateStore(modelContext: modelContext)
+        let target = friend.userRecordID
+
+        if rootResult.didCreateRoot {
+            // ルートを作り直した場合、既存アイテムの parent が切れているため全量を再公開する。
+            stateStore.clearPublishedItems(targetUserRecordName: target)
+        }
+
+        let items = CloudFriendShareSnapshotBuilder.sharedItems(
+            for: friend,
+            visibilityPresets: visibilityPresets,
+            chapters: chapters,
+            planBlocks: planBlocks,
+            acceptedFriendIDs: acceptedFriendIDs,
+            now: now
+        )
+
+        let desiredPlanFingerprints = Dictionary(
+            items.plans.map { ($0.id, FriendSharePublishDiffPolicy.fingerprint($0)) },
+            uniquingKeysWith: { lhs, _ in lhs }
+        )
+        let desiredChapterFingerprints = Dictionary(
+            items.activities.map { ($0.id, FriendSharePublishDiffPolicy.fingerprint($0)) },
+            uniquingKeysWith: { lhs, _ in lhs }
+        )
+        let planDiff = FriendSharePublishDiffPolicy.plan(
+            desired: desiredPlanFingerprints,
+            published: stateStore.publishedFingerprints(
+                targetUserRecordName: target,
+                kind: FriendSharePublishStateStore.planKind
+            )
+        )
+        let chapterDiff = FriendSharePublishDiffPolicy.plan(
+            desired: desiredChapterFingerprints,
+            published: stateStore.publishedFingerprints(
+                targetUserRecordName: target,
+                kind: FriendSharePublishStateStore.chapterKind
+            )
+        )
+        let request = FriendShareItemModifyRequest(
+            upsertPlans: items.plans.filter { planDiff.upsertSourceIDs.contains($0.id) },
+            upsertChapters: items.activities.filter { chapterDiff.upsertSourceIDs.contains($0.id) },
+            deletePlanSourceIDs: planDiff.deleteSourceIDs,
+            deleteChapterSourceIDs: chapterDiff.deleteSourceIDs
+        )
+        guard !request.isEmpty else {
+            if rootResult.didCreateRoot {
+                try? modelContext.save()
+            }
+            return
+        }
+
+        let outcome = await cloudShareStore.modifySharedItems(
+            targetUserRecordName: target,
+            rootRecordID: rootResult.rootRecordID,
+            request: request
+        )
+        stateStore.applyPublishResult(
+            targetUserRecordName: target,
+            kind: FriendSharePublishStateStore.planKind,
+            upserted: desiredPlanFingerprints.filter { outcome.appliedPlanUpserts.contains($0.key) },
+            deleted: outcome.appliedPlanDeletes
+        )
+        stateStore.applyPublishResult(
+            targetUserRecordName: target,
+            kind: FriendSharePublishStateStore.chapterKind,
+            upserted: desiredChapterFingerprints.filter { outcome.appliedChapterUpserts.contains($0.key) },
+            deleted: outcome.appliedChapterDeletes
+        )
+        try? modelContext.save()
+        if let failure = outcome.failure {
+            NSLog("Liminalog: friend share item publish was partial for \(target): \(String(describing: failure))")
+        }
     }
 
     private func upsertFriend(
