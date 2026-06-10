@@ -187,7 +187,7 @@ struct UnlockGalleryView: View {
 
     @ViewBuilder
     private var tabContent: some View {
-        LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 3), spacing: 10) {
             switch selectedTab {
             case .badges:
                 badgeCards
@@ -690,92 +690,150 @@ private struct UnlockGalleryItemCard<Preview: View>: View {
     @ViewBuilder let preview: () -> Preview
     let action: () -> Void
 
+    @State private var isShowingDetail = false
+
     var body: some View {
         let _ = themeTransitionProgress
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top) {
-                preview()
-                    .frame(height: 58, alignment: .leading)
-                    .opacity(isUnlocked ? 1 : 0.38)
+        Button {
+            isShowingDetail = true
+        } label: {
+            compactTile
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(title)。\(conditionText)")
+        .accessibilityHint("タップで詳細を表示")
+        .sheet(isPresented: $isShowingDetail) {
+            detailSheet
+        }
+    }
 
-                Spacer(minLength: 8)
+    /// 3列グリッド用のコンパクト表示。装着操作は詳細シート側に寄せている。
+    private var compactTile: some View {
+        VStack(spacing: 8) {
+            preview()
+                .frame(height: 48)
+                .frame(maxWidth: .infinity)
+                .opacity(isUnlocked ? 1 : 0.38)
 
-                if isEquipped {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.headline.weight(.bold))
-                        .foregroundStyle(LiminalTheme.accent)
-                } else if showsNewIndicator {
-                    Circle()
-                        .fill(LiminalTheme.reward)
-                        .frame(width: 10, height: 10)
-                        .overlay {
-                            Circle()
-                                .stroke(LiminalTheme.surface, lineWidth: 2)
-                        }
-                        .padding(7)
-                        .accessibilityLabel("新しく解放済み")
-                } else if !isUnlocked {
-                    Image(systemName: "lock.fill")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(LiminalTheme.secondaryText)
-                        .frame(width: 24, height: 24)
-                        .background(LiminalTheme.elevated, in: Circle())
-                }
-            }
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(LiminalTheme.text)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
-                Text(conditionText)
-                    .font(.caption)
-                    .foregroundStyle(LiminalTheme.secondaryText)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
-            }
-
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text("進捗")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(LiminalTheme.secondaryText)
-                Spacer(minLength: 6)
-                Text(progressText)
-                    .font(.caption2.monospacedDigit().weight(.semibold))
-                    .foregroundStyle(isUnlocked ? tint : LiminalTheme.secondaryText)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.68)
-            }
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(LiminalTheme.text)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
 
             UnlockGalleryProgressBar(
                 value: progress,
                 tint: tint,
                 isUnlocked: isUnlocked
             )
-
-            Button(action: action) {
-                Text(isEquipped ? equippedActionTitle : actionTitle)
-                    .font(.caption.weight(.bold))
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 30)
-                    .foregroundStyle(isUnlocked ? .white : LiminalTheme.secondaryText)
-                    .background(
-                        Capsule(style: .continuous)
-                            .fill(isUnlocked ? LiminalTheme.accent : LiminalTheme.elevated)
-                    )
-            }
-            .buttonStyle(.plain)
-            .disabled(!isUnlocked || (isEquipped && !allowsEquippedAction))
         }
-        .padding(12)
-        .frame(maxWidth: .infinity, minHeight: 170, alignment: .topLeading)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, minHeight: 104, alignment: .top)
         .background(LiminalTheme.surface, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .stroke(isEquipped ? tint.opacity(0.8) : LiminalTheme.divider.opacity(0.65), lineWidth: isEquipped ? 2 : 1)
         }
+        .overlay(alignment: .topTrailing) {
+            statusBadge
+                .padding(5)
+        }
         .opacity(isUnlocked ? 1 : 0.62)
+    }
+
+    @ViewBuilder
+    private var statusBadge: some View {
+        if isEquipped {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.caption.weight(.bold))
+                .foregroundStyle(LiminalTheme.accent)
+                .background(LiminalTheme.surface, in: Circle())
+                .accessibilityLabel("装着中")
+        } else if showsNewIndicator {
+            Circle()
+                .fill(LiminalTheme.reward)
+                .frame(width: 9, height: 9)
+                .overlay {
+                    Circle()
+                        .stroke(LiminalTheme.surface, lineWidth: 1.5)
+                }
+                .accessibilityLabel("新しく解放済み")
+        } else if !isUnlocked {
+            Image(systemName: "lock.fill")
+                .font(.system(size: 9, weight: .bold))
+                .foregroundStyle(LiminalTheme.secondaryText)
+                .frame(width: 18, height: 18)
+                .background(LiminalTheme.elevated, in: Circle())
+        }
+    }
+
+    private var detailSheet: some View {
+        VStack(spacing: 20) {
+            preview()
+                .scaleEffect(1.7)
+                .frame(height: 110)
+                .frame(maxWidth: .infinity)
+                .opacity(isUnlocked ? 1 : 0.42)
+
+            VStack(spacing: 6) {
+                Text(title)
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(LiminalTheme.text)
+                Text(conditionText)
+                    .font(.subheadline)
+                    .foregroundStyle(LiminalTheme.secondaryText)
+                    .multilineTextAlignment(.center)
+            }
+
+            VStack(spacing: 8) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text("進捗")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(LiminalTheme.secondaryText)
+                    Spacer()
+                    Text(progressText)
+                        .font(.caption.monospacedDigit().weight(.semibold))
+                        .foregroundStyle(isUnlocked ? tint : LiminalTheme.secondaryText)
+                }
+                UnlockGalleryProgressBar(
+                    value: progress,
+                    tint: tint,
+                    isUnlocked: isUnlocked
+                )
+            }
+
+            // 装着の主導線はプロフィールカード編集。ここは控えめな補助ボタンに留める。
+            Button(action: action) {
+                Text(buttonTitle)
+                    .font(.caption.weight(.bold))
+                    .padding(.horizontal, 22)
+                    .frame(height: 32)
+                    .foregroundStyle(buttonEnabled ? LiminalTheme.accent : LiminalTheme.secondaryText)
+                    .background(
+                        Capsule(style: .continuous)
+                            .stroke(buttonEnabled ? LiminalTheme.accent.opacity(0.65) : LiminalTheme.divider, lineWidth: 1)
+                    )
+            }
+            .buttonStyle(.plain)
+            .disabled(!buttonEnabled)
+        }
+        .padding(.horizontal, 28)
+        .padding(.top, 30)
+        .padding(.bottom, 24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(LiminalTheme.canvasGradient.ignoresSafeArea())
+        .presentationDetents([.medium])
+        .presentationDragIndicator(.visible)
+    }
+
+    private var buttonTitle: String {
+        if !isUnlocked { return "未解放" }
+        return isEquipped ? equippedActionTitle : actionTitle
+    }
+
+    private var buttonEnabled: Bool {
+        isUnlocked && (!isEquipped || allowsEquippedAction)
     }
 }
 

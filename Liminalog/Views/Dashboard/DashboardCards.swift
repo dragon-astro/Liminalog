@@ -156,7 +156,7 @@ struct DashboardMiniSparkline: View {
     }
 
     var body: some View {
-        ScoreTrendBarChart(summaries: scoredSummaries, colorOverride: color)
+        ScoreTrendBarChart(summaries: scoredSummaries, colorOverride: color, showsDateLabels: true)
         .accessibilityHidden(true)
     }
 }
@@ -714,6 +714,7 @@ struct ScoreTrendCard: View {
 private struct ScoreTrendBarChart: View {
     let summaries: [ScoreSummary]
     var colorOverride: Color? = nil
+    var showsDateLabels = false
 
     var body: some View {
         GeometryReader { proxy in
@@ -735,10 +736,44 @@ private struct ScoreTrendBarChart: View {
                         .frame(width: frame.width, height: frame.height)
                         .position(x: frame.midX, y: frame.midY)
                 }
+
+                if showsDateLabels {
+                    ForEach(Array(bars.enumerated()), id: \.offset) { index, frame in
+                        if let label = dateLabel(at: index) {
+                            Text(label)
+                                .font(.system(size: 8, weight: .semibold))
+                                .foregroundStyle(LiminalTheme.secondaryText)
+                                .position(x: frame.midX, y: proxy.size.height - 5)
+                        }
+                    }
+                }
             }
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("スコアの流れ")
+    }
+
+    /// 棒の下に出す日付ラベル。週間=曜日、年間（月別集計）=月、日次の長い系列=5日刻み。
+    private func dateLabel(at index: Int) -> String? {
+        let calendar = Calendar.japanese
+        let date = summaries[index].date
+        if summaries.count <= 9 {
+            let weekday = calendar.component(.weekday, from: date)
+            return calendar.veryShortWeekdaySymbols[weekday - 1]
+        }
+        if isMonthlySeries {
+            return "\(calendar.component(.month, from: date))月"
+        }
+        let day = calendar.component(.day, from: date)
+        return (day == 1 || day % 5 == 0) ? "\(day)" : nil
+    }
+
+    private var isMonthlySeries: Bool {
+        let calendar = Calendar.japanese
+        let months = summaries.map {
+            calendar.component(.year, from: $0.date) * 12 + calendar.component(.month, from: $0.date)
+        }
+        return summaries.count >= 2 && Set(months).count == months.count
     }
 
     private var guideScores: [Double] {
@@ -761,7 +796,7 @@ private struct ScoreTrendBarChart: View {
         let width = min(barWidth, max(size.width / CGFloat(max(summaries.count, 1)) * barDensity, 3))
         let horizontalInset: CGFloat = summaries.count == 1 ? size.width / 2 : max(width / 2, 6)
         let topInset: CGFloat = 8
-        let bottomInset: CGFloat = 10
+        let bottomInset: CGFloat = showsDateLabels ? 16 : 10
         let usableWidth = max(size.width - horizontalInset * 2, 1)
         let usableHeight = max(size.height - topInset - bottomInset, 1)
         let denominator = max(CGFloat(summaries.count - 1), 1)
@@ -777,7 +812,7 @@ private struct ScoreTrendBarChart: View {
 
     private func yPosition(for score: Double, in size: CGSize) -> CGFloat {
         let topInset: CGFloat = 8
-        let bottomInset: CGFloat = 10
+        let bottomInset: CGFloat = showsDateLabels ? 16 : 10
         let usableHeight = max(size.height - topInset - bottomInset, 1)
         let normalizedScore = min(max(score / 100, 0), 1)
         return topInset + usableHeight * CGFloat(1 - normalizedScore)

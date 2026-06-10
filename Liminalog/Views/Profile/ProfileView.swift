@@ -7,9 +7,9 @@ struct ProfileView: View {
     @Query(sort: \Friend.createdAt) private var friends: [Friend]
     @Query(sort: \UnlockItem.sortOrder) private var unlockItems: [UnlockItem]
 
-    @State private var isShowingSettings = false
     @State private var isShowingEditProfile = false
     @State private var isShowingShareProfile = false
+    @State private var isShowingSettings = false
     @State private var isShowingUnlockGallery = false
     @State private var performanceSnapshot = ProfilePerformanceSnapshot.empty
     @State private var saveError: String?

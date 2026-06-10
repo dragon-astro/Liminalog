@@ -185,7 +185,7 @@ struct CalendarView: View {
                         .frame(width: 44, height: 44)
                 }
                 .buttonStyle(.borderless)
-                .accessibilityLabel("カレンダー設定")
+                .accessibilityLabel("カレンダー表示設定")
 
                 Spacer(minLength: 0)
 

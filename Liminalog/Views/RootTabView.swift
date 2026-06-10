@@ -70,7 +70,7 @@ struct RootTabView: View {
                 if let appStores {
                     let store = appStores.chapterStore
                     TabView(selection: $selectedTab) {
-                        Tab("今日", systemImage: "clock.fill", value: RootTab.today) {
+                        Tab("ホーム", systemImage: "clock.fill", value: RootTab.today) {
                             HomeView()
                                 .id(themeRefreshID(for: .today))
                         }
@@ -98,6 +98,8 @@ struct RootTabView: View {
                 }
             }
             .environment(\.locale, Locale(identifier: "ja_JP"))
+            // 装飾カードやスコア表示のレイアウトを守るため、文字サイズはシステム設定に追従させない。
+            .dynamicTypeSize(.large)
             .tint(LiminalTheme.accent)
             .background(LiminalTheme.canvasGradient.ignoresSafeArea())
             .task {
