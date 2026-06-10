@@ -480,8 +480,20 @@ struct CalendarView: View {
             }
             .sorted { $0.startTime < $1.startTime }
 
+        // docs/20: 塊JSONの全件デコードをやめ、グリッド範囲だけを個別行キャッシュから引く。
+        let friendRecordStore = FriendSharedRecordStore(modelContext: modelContext)
+        var didBackfillFriendRecords = false
+        for friend in selectedOverlayFriends where friendRecordStore.backfillFromBlobIfNeeded(friend: friend) {
+            didBackfillFriendRecords = true
+        }
+        if didBackfillFriendRecords {
+            try? modelContext.save()
+        }
         let friendPlansInGrid = selectedOverlayFriends.map { friend in
-            CalendarFriendPlanSource(friend: friend, plans: friend.sharedPlans)
+            CalendarFriendPlanSource(
+                friend: friend,
+                plans: friendRecordStore.plans(friendID: friend.id, overlapping: gridStart..<gridEnd)
+            )
         }
 
         var importantPlansByDay: [Date: [CalendarDisplayPlan]] = [:]

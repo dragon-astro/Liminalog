@@ -194,6 +194,53 @@ struct FriendSharedRecordStoreTests {
         #expect(store.plans(friendID: friendB, overlapping: allRange).isEmpty)
     }
 
+    @Test("塊JSONしか無い友達は backfill で行キャッシュへ補填される")
+    func backfillFromBlob() throws {
+        let container = try TestModelContainer.make()
+        let context = container.mainContext
+        let friend = Friend(displayName: "Legacy")
+        friend.setSharedPlans([makePlanSnapshot(title: "旧形式の予定", start: 0, end: 3600)])
+        friend.setSharedActivities([makeActivitySnapshot(title: "旧形式の実績", start: 0, end: 1800)])
+        context.insert(friend)
+        try context.save()
+
+        let store = FriendSharedRecordStore(modelContext: context)
+        let allRange = base.addingTimeInterval(-86_400)..<base.addingTimeInterval(86_400)
+        #expect(store.plans(friendID: friend.id, overlapping: allRange).isEmpty)
+
+        #expect(store.backfillFromBlobIfNeeded(friend: friend))
+        try context.save()
+        #expect(store.plans(friendID: friend.id, overlapping: allRange).map(\.title) == ["旧形式の予定"])
+        #expect(store.chapters(friendID: friend.id, overlapping: allRange).map(\.title) == ["旧形式の実績"])
+
+        // 2回目は何もしない（行が既にある）
+        #expect(!store.backfillFromBlobIfNeeded(friend: friend))
+    }
+
+    @Test("タイトル部分一致検索と空状態判定")
+    func searchPlansAndEmptyState() throws {
+        let container = try TestModelContainer.make()
+        let store = FriendSharedRecordStore(modelContext: container.mainContext)
+        let friendID = UUID()
+        #expect(!store.hasAnyPlans(friendID: friendID))
+
+        store.reconcile(
+            friendID: friendID,
+            plans: [
+                makePlanSnapshot(title: "ゼミ準備", start: 0, end: 3600),
+                makePlanSnapshot(title: "レポート仕上げ", start: 7200, end: 10_800),
+                makePlanSnapshot(title: "買い物", start: 14_400, end: 18_000)
+            ],
+            activities: []
+        )
+        try container.mainContext.save()
+
+        #expect(store.hasAnyPlans(friendID: friendID))
+        #expect(store.searchPlans(friendID: friendID, titleContains: "ゼミ").map(\.title) == ["ゼミ準備"])
+        #expect(store.searchPlans(friendID: friendID, titleContains: "存在しない").isEmpty)
+        #expect(store.searchPlans(friendID: friendID, titleContains: "").isEmpty)
+    }
+
     @Test("applier の二重書きで行キャッシュも更新される")
     func applierDualWrite() throws {
         let container = try TestModelContainer.make()

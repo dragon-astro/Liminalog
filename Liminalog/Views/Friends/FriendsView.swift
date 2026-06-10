@@ -2142,6 +2142,7 @@ private struct FriendScoreCard: View {
 
 private struct FriendCalendarView: View {
     let friend: Friend
+    @Environment(\.modelContext) private var modelContext
     @State private var visibleMonth = FriendCalendarView.currentMonthStart
     @State private var anchorMonth = FriendCalendarView.currentMonthStart
     @State private var scrolledOffset: Int? = 0
@@ -2192,6 +2193,13 @@ private struct FriendCalendarView: View {
             .scrollIndicators(.hidden)
             .frame(maxHeight: .infinity, alignment: .top)
             .onAppear {
+                ensureData(around: scrolledOffset ?? 0)
+            }
+            .task(id: friend.id) {
+                // docs/20: 段階1以前の塊JSONしか無い友達は、初回表示時に行キャッシュへ補填する。
+                guard FriendSharedRecordStore(modelContext: modelContext).backfillFromBlobIfNeeded(friend: friend) else { return }
+                try? modelContext.save()
+                pageDataByMonth = [:]
                 ensureData(around: scrolledOffset ?? 0)
             }
             .onChange(of: scrolledOffset) { _, newValue in
@@ -2346,8 +2354,11 @@ private struct FriendCalendarView: View {
 
     private func computePageData(for month: Date) -> CalendarMonthPageData {
         let dates = monthGridDates(for: month)
-        // sharedPlans は呼ぶたびにJSONデコードが走るため、1ページにつき1回だけ取得する。
-        let allPlans = friend.sharedPlans
+        // docs/20: 塊JSONの全件デコードをやめ、月グリッドの範囲だけを個別行キャッシュから引く。
+        let gridStart = calendar.startOfDay(for: dates.first ?? month)
+        let gridEnd = DayBoundary(date: dates.last ?? month, calendar: calendar).dayEnd
+        let allPlans = FriendSharedRecordStore(modelContext: modelContext)
+            .plans(friendID: friend.id, overlapping: gridStart..<gridEnd)
         var importantPlansByDay: [Date: [CalendarDisplayPlan]] = [:]
         var scoreSummariesByDay: [Date: CalendarDisplayScore] = [:]
 
@@ -2491,6 +2502,7 @@ private struct FriendSharedCalendarDayPagerSheet: View {
 
 private struct FriendSharedCalendarDayView: View {
     let friend: Friend?
+    @Environment(\.modelContext) private var modelContext
     @State private var date: Date
     var plans: [FriendSharedPlanSnapshot]? = nil
     var activities: [FriendSharedActivitySnapshot]? = nil
@@ -2519,14 +2531,23 @@ private struct FriendSharedCalendarDayView: View {
         _date = State(initialValue: date)
     }
 
+    private var dayRange: Range<Date> {
+        let boundary = DayBoundary(date: date, calendar: Calendar.japanese)
+        return boundary.dayStart..<boundary.dayEnd
+    }
+
     private var resolvedPlans: [FriendSharedPlanSnapshot] {
         if let plans { return plans }
-        return friend?.sharedPlans.filter { $0.overlaps(day: date) }.sorted { $0.startTime < $1.startTime } ?? []
+        guard let friend else { return [] }
+        return FriendSharedRecordStore(modelContext: modelContext)
+            .plans(friendID: friend.id, overlapping: dayRange)
     }
 
     private var resolvedActivities: [FriendSharedActivitySnapshot] {
         if let activities { return activities }
-        return friend?.sharedActivities.filter { $0.overlaps(day: date) }.sorted { $0.startTime < $1.startTime } ?? []
+        guard let friend else { return [] }
+        return FriendSharedRecordStore(modelContext: modelContext)
+            .chapters(friendID: friend.id, overlapping: dayRange)
     }
 
     private var resolvedScore: FriendCalendarScore? {
@@ -2735,17 +2756,21 @@ private struct FriendSharedPlanSearchSheet: View {
     let onOpenPlan: (FriendSharedPlanSnapshot) -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
     @State private var query = ""
 
     private var trimmedQuery: String {
         query.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    private var hasSharedPlans: Bool {
+        FriendSharedRecordStore(modelContext: modelContext).hasAnyPlans(friendID: friend.id)
+    }
+
     private var filteredPlans: [FriendSharedPlanSnapshot] {
         guard !trimmedQuery.isEmpty else { return [] }
-        return friend.sharedPlans
-            .filter { $0.title.localizedCaseInsensitiveContains(trimmedQuery) }
-            .sorted { $0.startTime < $1.startTime }
+        return FriendSharedRecordStore(modelContext: modelContext)
+            .searchPlans(friendID: friend.id, titleContains: trimmedQuery)
     }
 
     var body: some View {
@@ -2760,7 +2785,7 @@ private struct FriendSharedPlanSearchSheet: View {
 
                 ScrollView {
                     LazyVStack(spacing: 0) {
-                        if friend.sharedPlans.isEmpty {
+                        if !hasSharedPlans {
                             ContentUnavailableView(
                                 "共有予定はまだありません",
                                 systemImage: "calendar",
@@ -2818,7 +2843,7 @@ private struct FriendSharedPlanSearchSheet: View {
     }
 
     private var searchResultText: String {
-        if friend.sharedPlans.isEmpty { return "共有予定はまだありません" }
+        if !hasSharedPlans { return "共有予定はまだありません" }
         if trimmedQuery.isEmpty { return "予定名を入力してください" }
         if filteredPlans.isEmpty { return "該当する共有予定はありません" }
         return "\(filteredPlans.count)件見つかりました"

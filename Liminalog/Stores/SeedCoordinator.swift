@@ -224,12 +224,22 @@ enum SeedCoordinator {
 
         let defaultPresetID = defaultFriendVisibilityPresetID(in: context)
         let debugFriends = makeDebugFriends(defaultVisibilityPresetID: defaultPresetID, now: now)
+        let recordStore = FriendSharedRecordStore(modelContext: context)
         for debugFriend in debugFriends {
+            let target: Friend
             if let existing = friends.first(where: { $0.userRecordID == debugFriend.userRecordID }) {
                 updateDebugFriend(existing, from: debugFriend)
+                target = existing
             } else {
                 context.insert(debugFriend)
+                target = debugFriend
             }
+            // docs/20: シードは applier を通らないため、個別行キャッシュも塊と一致させる。
+            recordStore.reconcile(
+                friendID: target.id,
+                plans: target.sharedPlans,
+                activities: target.sharedActivities
+            )
         }
         saveChanges(context, action: "debug friends")
     }

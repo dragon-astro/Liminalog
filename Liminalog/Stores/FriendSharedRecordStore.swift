@@ -125,6 +125,31 @@ struct FriendSharedRecordStore {
         return deleted
     }
 
+    /// 行キャッシュが空で塊JSONにデータが残っている場合、一度だけ塊から行を補填する。
+    /// 段階1以前に受信したデータ・デバッグシードなど、applier を通っていない塊との後方互換。
+    /// - Returns: 補填を行った場合 true（呼び出し側で save すること）。
+    @discardableResult
+    func backfillFromBlobIfNeeded(friend: Friend) -> Bool {
+        let friendID = friend.id
+        var planCheck = FetchDescriptor<FriendSharedPlanRecord>(
+            predicate: #Predicate { $0.friendID == friendID }
+        )
+        planCheck.fetchLimit = 1
+        var chapterCheck = FetchDescriptor<FriendSharedChapterRecord>(
+            predicate: #Predicate { $0.friendID == friendID }
+        )
+        chapterCheck.fetchLimit = 1
+        let hasRows = ((try? modelContext.fetchCount(planCheck)) ?? 0) > 0
+            || ((try? modelContext.fetchCount(chapterCheck)) ?? 0) > 0
+        guard !hasRows else { return false }
+
+        let plans = friend.sharedPlans
+        let activities = friend.sharedActivities
+        guard !plans.isEmpty || !activities.isEmpty else { return false }
+        reconcile(friendID: friendID, plans: plans, activities: activities)
+        return true
+    }
+
     // MARK: - 読み出し（範囲クエリ）
 
     /// 指定範囲に重なる友達の予定。カレンダーのグリッド範囲・デイビューの当日範囲で使う。
@@ -138,6 +163,27 @@ struct FriendSharedRecordStore {
             sortBy: [SortDescriptor(\.startTime)]
         )
         descriptor.includePendingChanges = true
+        return ((try? modelContext.fetch(descriptor)) ?? []).map(\.snapshot)
+    }
+
+    /// 友達の共有予定が1件でもあるか（検索シートの空状態判定用）。
+    func hasAnyPlans(friendID: UUID) -> Bool {
+        var descriptor = FetchDescriptor<FriendSharedPlanRecord>(
+            predicate: #Predicate { $0.friendID == friendID }
+        )
+        descriptor.fetchLimit = 1
+        return ((try? modelContext.fetchCount(descriptor)) ?? 0) > 0
+    }
+
+    /// タイトル部分一致の共有予定検索（検索シート用）。
+    func searchPlans(friendID: UUID, titleContains query: String) -> [FriendSharedPlanSnapshot] {
+        guard !query.isEmpty else { return [] }
+        let descriptor = FetchDescriptor<FriendSharedPlanRecord>(
+            predicate: #Predicate {
+                $0.friendID == friendID && $0.title.localizedStandardContains(query)
+            },
+            sortBy: [SortDescriptor(\.startTime)]
+        )
         return ((try? modelContext.fetch(descriptor)) ?? []).map(\.snapshot)
     }
 
