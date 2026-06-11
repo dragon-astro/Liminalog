@@ -9,8 +9,6 @@ struct FriendsView: View {
     @Query(sort: \UserSettings.createdAt) private var settingsList: [UserSettings]
     @Query(sort: \VisibilityPreset.sortOrder) private var visibilityPresets: [VisibilityPreset]
     @Query private var activeChapters: [Chapter]
-    @Query(sort: \Chapter.startTime) private var chapters: [Chapter]
-    @Query(sort: \PlanBlock.startTime) private var planBlocks: [PlanBlock]
 
     @State private var clock = TickClock(interval: 60)
     @State private var rankingDetailPeriod: FriendScorePeriod = .day
@@ -989,6 +987,10 @@ struct FriendsView: View {
         if friend.status == .accepted {
             acceptedFriendIDs.insert(friend.id)
         }
+        // 全実績の常駐@Queryをやめ、公開時にだけ取得する（docs/20: タブ常駐の全件クエリが全体を重くしていた）。
+        let chapters = (try? modelContext.fetch(FetchDescriptor<Chapter>(
+            sortBy: [SortDescriptor(\.startTime)]
+        ))) ?? []
         return CloudFriendShareSnapshotBuilder.snapshot(
             for: friend,
             ownUsername: ownUsername,
