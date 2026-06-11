@@ -1,3 +1,4 @@
+import CloudKit
 import Foundation
 import SQLite3
 import SwiftData
@@ -189,6 +190,8 @@ enum SharedModelContainer {
               )
         else { return }
 
+        purgeCloudMirrorZoneIfRequested()
+
         let supportURL = appGroupURL
             .appendingPathComponent("Library", isDirectory: true)
             .appendingPathComponent("Application Support", isDirectory: true)
@@ -210,7 +213,36 @@ enum SharedModelContainer {
 
     private static func developmentStoreResetWasRequested(defaults: UserDefaults) -> Bool {
         defaults.bool(forKey: developmentStoreResetRequestedKey) ||
-            ProcessInfo.processInfo.arguments.contains("-LiminalogResetDevelopmentStore")
+            ProcessInfo.processInfo.arguments.contains("-LiminalogResetDevelopmentStore") ||
+            ProcessInfo.processInfo.arguments.contains("-LiminalogPurgeCloudMirrorZone")
+    }
+
+    /// 開発用: CloudKit私有DBのミラーゾーンを丸ごと削除する（`-LiminalogPurgeCloudMirrorZone`）。
+    /// 開発中はリセット→再シードのたびに別UUIDのシード世代がCloudKitへ蓄積し、
+    /// インポートのたびに重複が流れ込み続ける。世代の山を一掃してから再シードするための装置。
+    /// このフラグはローカルストアのリセットも兼ねる（上の developmentStoreResetWasRequested）。
+    private static func purgeCloudMirrorZoneIfRequested() {
+        guard ProcessInfo.processInfo.arguments.contains("-LiminalogPurgeCloudMirrorZone") else { return }
+        let semaphore = DispatchSemaphore(value: 0)
+        let zoneID = CKRecordZone.ID(
+            zoneName: "com.apple.coredata.cloudkit.zone",
+            ownerName: CKCurrentUserDefaultName
+        )
+        let operation = CKModifyRecordZonesOperation(
+            recordZonesToSave: nil,
+            recordZoneIDsToDelete: [zoneID]
+        )
+        operation.modifyRecordZonesResultBlock = { result in
+            switch result {
+            case .success:
+                NSLog("Liminalog: purged CloudKit mirror zone for development")
+            case let .failure(error):
+                NSLog("Liminalog: failed to purge CloudKit mirror zone: \(String(describing: error))")
+            }
+            semaphore.signal()
+        }
+        CKContainer(identifier: cloudKitContainerID).privateCloudDatabase.add(operation)
+        _ = semaphore.wait(timeout: .now() + 30)
     }
 
     private static func developmentStoreNeedsReset(defaults: UserDefaults, supportURL: URL) -> Bool {

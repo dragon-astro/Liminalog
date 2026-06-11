@@ -1,3 +1,5 @@
+import Combine
+import CoreData
 import SwiftUI
 import SwiftData
 import UIKit
@@ -147,6 +149,16 @@ struct RootTabView: View {
             }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
                 persistAppState(reason: "did enter background")
+            }
+            // CloudKitインポートが届くたび（デバウンス付き）に重複統合を回す。
+            // 起動時だけだと、セッション中に流れ込むインポートの重複が次回起動まで残る。
+            .onReceive(
+                NotificationCenter.default
+                    .publisher(for: .NSPersistentStoreRemoteChange)
+                    .debounce(for: .seconds(3), scheduler: DispatchQueue.main)
+            ) { _ in
+                guard appStores != nil else { return }
+                CloudDuplicateMergeStore(modelContext: modelContext).mergeAll()
             }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.willTerminateNotification)) { _ in
                 persistAppState(reason: "will terminate")
