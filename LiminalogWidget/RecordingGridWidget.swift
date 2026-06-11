@@ -37,11 +37,6 @@ private enum RecordingWidgetStore {
     static let mediumWidgetCategorySetIDCacheKey = "recording.widget.mediumCategorySetID"
     static let mediumWidgetModeCurrent = "current"
     static let mediumWidgetModeFixed = "fixed"
-    private static let developmentStoreVersionKey = "development.storeVersion"
-    private static let currentDevelopmentStoreVersion = 2026060501
-    private static let requiredDevelopmentStoreMarkers = [
-        "ZPROFILEACCENTCOLORHEX"
-    ]
 
     static var cloudSchema: Schema {
         Schema([
@@ -70,9 +65,10 @@ private enum RecordingWidgetStore {
         ])
     }
 
+    // ウィジェットはストアの「読み取り専用の消費者」。リセット・マイグレーション・CloudKit同期は
+    // 一切行わない（過去: 本体とバージョン定数がズレるたびにストアを削除し、データ消失と
+    // CloudKit重複増殖の原因になっていた）。開けなければプレースホルダ表示に倒す。
     static let sharedContainer: Result<ModelContainer, Error> = Result {
-        prepareDevelopmentStoresIfNeeded()
-
         let cloudConfiguration = ModelConfiguration(
             "Cloud",
             schema: cloudSchema,
@@ -95,89 +91,6 @@ private enum RecordingWidgetStore {
 
     static func makeContainer() throws -> ModelContainer {
         try sharedContainer.get()
-    }
-
-    private static func prepareDevelopmentStoresIfNeeded() {
-        #if DEBUG
-        guard let defaults = UserDefaults(suiteName: appGroupID),
-              let appGroupURL = FileManager.default.containerURL(
-                forSecurityApplicationGroupIdentifier: appGroupID
-              )
-        else { return }
-
-        let supportURL = appGroupURL
-            .appendingPathComponent("Library", isDirectory: true)
-            .appendingPathComponent("Application Support", isDirectory: true)
-
-        guard developmentStoreNeedsReset(defaults: defaults, supportURL: supportURL) else { return }
-
-        resetDevelopmentStores(supportURL: supportURL)
-        defaults.set(currentDevelopmentStoreVersion, forKey: developmentStoreVersionKey)
-        defaults.synchronize()
-        #endif
-    }
-
-    private static func developmentStoreNeedsReset(defaults: UserDefaults, supportURL: URL) -> Bool {
-        defaults.integer(forKey: developmentStoreVersionKey) != currentDevelopmentStoreVersion ||
-            developmentCloudStoreIsMissingRequiredMarkers(supportURL: supportURL)
-    }
-
-    private static func developmentCloudStoreIsMissingRequiredMarkers(supportURL: URL) -> Bool {
-        let cloudStoreURL = supportURL.appendingPathComponent("Cloud.store")
-        guard FileManager.default.fileExists(atPath: cloudStoreURL.path),
-              let data = try? Data(contentsOf: cloudStoreURL)
-        else { return false }
-
-        return requiredDevelopmentStoreMarkers.contains { marker in
-            data.range(of: Data(marker.utf8)) == nil
-        }
-    }
-
-    private static func resetDevelopmentStores(supportURL: URL) {
-        #if DEBUG
-        let storeNames = [
-            "Cloud.store",
-            "Local.store",
-            "LocalCache.store"
-        ]
-        let suffixes = ["", "-shm", "-wal"]
-
-        for storeName in storeNames {
-            for suffix in suffixes {
-                let url = supportURL.appendingPathComponent(storeName + suffix)
-                guard FileManager.default.fileExists(atPath: url.path) else { continue }
-                do {
-                    try FileManager.default.removeItem(at: url)
-                } catch {
-                    NSLog("LiminalogWidget: failed to remove development store file \(url.lastPathComponent): \(String(describing: error))")
-                }
-            }
-        }
-
-        let cloudSupportURL = supportURL.appendingPathComponent(".Cloud_SUPPORT", isDirectory: true)
-        if FileManager.default.fileExists(atPath: cloudSupportURL.path) {
-            do {
-                try FileManager.default.removeItem(at: cloudSupportURL)
-            } catch {
-                NSLog("LiminalogWidget: failed to remove development CloudKit support directory: \(String(describing: error))")
-            }
-        }
-
-        if let defaults = UserDefaults(suiteName: appGroupID) {
-            [
-                activeCategoryCacheKey,
-                pendingCategoryCacheKey,
-                enabledCategorySetCacheKey,
-                surfaceSnapshotCacheKey,
-                mediumWidgetCategorySetModeCacheKey,
-                mediumWidgetCategorySetIDCacheKey
-            ].forEach { defaults.removeObject(forKey: $0) }
-            (0..<4).forEach { defaults.removeObject(forKey: smallWidgetCategoryIDCacheKeyPrefix + "\($0)") }
-            defaults.synchronize()
-        }
-
-        NSLog("LiminalogWidget: reset development SwiftData stores for schema version \(currentDevelopmentStoreVersion)")
-        #endif
     }
 
     static func entry() -> RecordingGridEntry {
