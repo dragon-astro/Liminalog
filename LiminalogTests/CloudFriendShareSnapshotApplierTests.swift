@@ -1,13 +1,16 @@
 import Foundation
+import SwiftData
 import Testing
 @testable import Liminalog
 
 @MainActor
 struct CloudFriendShareSnapshotApplierTests {
     @Test
-    func appliesIncomingSnapshotToFriendCache() {
+    func appliesIncomingSnapshotToFriendCache() throws {
+        let container = try TestModelContainer.make()
         let now = Date(timeIntervalSince1970: 1_780_764_000)
         let friend = Friend(displayName: "Before", handle: "@before", status: .accepted)
+        container.mainContext.insert(friend)
         let snapshot = CloudFriendShareSnapshot(
             ownerUsername: "owner",
             ownerDisplayName: "Owner",
@@ -45,9 +48,11 @@ struct CloudFriendShareSnapshotApplierTests {
     }
 
     @Test
-    func clearsCachedShareWhenAccessIsLost() {
+    func clearsCachedShareWhenAccessIsLost() throws {
+        let container = try TestModelContainer.make()
         let now = Date(timeIntervalSince1970: 1_780_764_000)
         let friend = Friend(displayName: "Before", handle: "@before", status: .accepted)
+        container.mainContext.insert(friend)
         friend.currentStatusTitle = "勉強"
         friend.currentStatusIcon = "book.fill"
         friend.currentStatusColorHex = "#4F8BFF"

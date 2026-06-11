@@ -4,6 +4,8 @@ import SwiftData
 @MainActor
 enum CloudFriendShareSnapshotApplier {
     static func apply(_ snapshot: CloudFriendShareSnapshot, to friend: Friend) {
+        // await 跨ぎでCloudKitインポート/重複統合に消されたモデルへ書くとクラッシュするため弾く。
+        guard friend.modelContext != nil, !friend.isDeleted else { return }
         friend.displayName = snapshot.ownerDisplayName
         friend.handle = "@\(snapshot.ownerUsername)"
         friend.currentStatusTitle = snapshot.currentStatusTitle
@@ -23,6 +25,7 @@ enum CloudFriendShareSnapshotApplier {
     }
 
     static func clearCachedShare(from friend: Friend) {
+        guard friend.modelContext != nil, !friend.isDeleted else { return }
         friend.currentStatusTitle = ""
         friend.currentStatusIcon = "circle.dashed"
         friend.currentStatusColorHex = "#8E8E93"

@@ -107,57 +107,46 @@ final class CloudFriendShareRefreshCoordinator {
             let acceptedFriends = friends.filter { $0.status == .accepted && !$0.userRecordID.isEmpty }
             guard !acceptedFriends.isEmpty else { return }
 
-            let visibilityPresets = try context.fetch(FetchDescriptor<VisibilityPreset>(
-                sortBy: [SortDescriptor(\.sortOrder)]
-            ))
-            let chapters = try context.fetch(FetchDescriptor<Chapter>(
-                sortBy: [SortDescriptor(\.startTime)]
-            ))
-            let planBlocks = try context.fetch(FetchDescriptor<PlanBlock>(
-                sortBy: [SortDescriptor(\.startTime)]
-            ))
             let now = Date()
             let acceptedFriendIDs = Set(acceptedFriends.map(\.id))
+            // SwiftDataモデルを await 跨ぎで保持しない（同期が生きた今、await中のCloudKitインポートで
+            // モデルが無効化されてクラッシュする。実機で観測）。ここではIDだけ控える。
+            let targets = acceptedFriends.map { (friendID: $0.id, userRecordID: $0.userRecordID, username: cloudUsername(from: $0)) }
 
-            for friend in acceptedFriends {
+            for target in targets {
                 do {
                     try await cloudSocialStore.validateCanPublishOwnShare(
-                        targetUserRecordName: friend.userRecordID,
+                        targetUserRecordName: target.userRecordID,
                         status: .accepted
                     )
-                    let snapshot = outgoingShareSnapshot(
-                        for: friend,
+                    // 同期ブロック: 都度フェッチ→即プレーン値化。await 以降は値型のみ持ち越す。
+                    guard let prepared = prepareOutgoingShare(
+                        friendID: target.friendID,
                         ownUsername: ownUsername,
                         ownDisplayName: ownDisplayName,
                         acceptedFriendIDs: acceptedFriendIDs,
-                        visibilityPresets: visibilityPresets,
-                        chapters: chapters,
                         modelContext: context,
                         now: now
-                    )
-                    let result = try await cloudShareStore.upsertOutgoingShare(snapshot: snapshot)
+                    ) else { continue }
+                    let result = try await cloudShareStore.upsertOutgoingShare(snapshot: prepared.snapshot)
                     if let shareURL = result.shareURL {
                         _ = try await cloudSocialStore.updateOwnConsentShareURL(
-                            targetUserRecordName: friend.userRecordID,
+                            targetUserRecordName: target.userRecordID,
                             ownUsername: ownUsername,
-                            targetUsername: cloudUsername(from: friend),
+                            targetUsername: target.username,
                             ownDisplayName: ownDisplayName,
                             shareURL: shareURL,
                             status: .accepted
                         )
                     }
                     await publishSharedItems(
-                        for: friend,
+                        targetUserRecordName: target.userRecordID,
+                        items: prepared.items,
                         rootResult: result,
-                        acceptedFriendIDs: acceptedFriendIDs,
-                        visibilityPresets: visibilityPresets,
-                        chapters: chapters,
-                        planBlocks: planBlocks,
-                        modelContext: context,
-                        now: now
+                        modelContext: context
                     )
                 } catch {
-                    NSLog("Liminalog: skipped publishing friend share for \(friend.userRecordID) on \(reason): \(String(describing: error))")
+                    NSLog("Liminalog: skipped publishing friend share for \(target.userRecordID) on \(reason): \(String(describing: error))")
                 }
             }
         } catch {
@@ -399,6 +388,8 @@ final class CloudFriendShareRefreshCoordinator {
         modelContext: ModelContext,
         stateStore: FriendSharePublishStateStore
     ) {
+        // ゾーンfetchの await 中に重複統合などで友達モデルが消えた場合は何もしない（次回refreshで回収）。
+        guard friend.modelContext != nil, !friend.isDeleted else { return }
         let recordStore = FriendSharedRecordStore(modelContext: modelContext)
         var changedPlans: [FriendSharedPlanSnapshot] = []
         var changedChapters: [FriendSharedActivitySnapshot] = []
@@ -468,25 +459,37 @@ final class CloudFriendShareRefreshCoordinator {
         )
     }
 
-    /// docs/20 §2.1: 可視アイテムの全量と公開台帳を突合し、差分だけを個別レコードへ送る。
-    private func publishSharedItems(
-        for friend: Friend,
-        rootResult: CloudFriendShareUpsertResult,
+    /// 同期ブロックで、モデルからステータススナップショットと公開アイテム（全てプレーン値）を組み立てる。
+    /// 戻り値以降は SwiftData モデルへ触れずに済む。
+    private func prepareOutgoingShare(
+        friendID: UUID,
+        ownUsername: String,
+        ownDisplayName: String,
         acceptedFriendIDs: Set<UUID>,
-        visibilityPresets: [VisibilityPreset],
-        chapters: [Chapter],
-        planBlocks: [PlanBlock],
         modelContext: ModelContext,
         now: Date
-    ) async {
-        let stateStore = FriendSharePublishStateStore(modelContext: modelContext)
-        let target = friend.userRecordID
+    ) -> (snapshot: CloudFriendShareSnapshot, items: CloudFriendShareSnapshotBuilder.SharedItems)? {
+        guard let friend = ((try? modelContext.fetch(
+            FetchDescriptor<Friend>(predicate: #Predicate { $0.id == friendID })
+        )) ?? []).first else { return nil }
+        guard let visibilityPresets = try? modelContext.fetch(FetchDescriptor<VisibilityPreset>(
+            sortBy: [SortDescriptor(\.sortOrder)]
+        )), let chapters = try? modelContext.fetch(FetchDescriptor<Chapter>(
+            sortBy: [SortDescriptor(\.startTime)]
+        )), let planBlocks = try? modelContext.fetch(FetchDescriptor<PlanBlock>(
+            sortBy: [SortDescriptor(\.startTime)]
+        )) else { return nil }
 
-        if rootResult.didCreateRoot {
-            // ルートを作り直した場合、既存アイテムの parent が切れているため全量を再公開する。
-            stateStore.clearPublishedItems(targetUserRecordName: target)
-        }
-
+        let snapshot = outgoingShareSnapshot(
+            for: friend,
+            ownUsername: ownUsername,
+            ownDisplayName: ownDisplayName,
+            acceptedFriendIDs: acceptedFriendIDs,
+            visibilityPresets: visibilityPresets,
+            chapters: chapters,
+            modelContext: modelContext,
+            now: now
+        )
         let items = CloudFriendShareSnapshotBuilder.sharedItems(
             for: friend,
             visibilityPresets: visibilityPresets,
@@ -495,6 +498,23 @@ final class CloudFriendShareRefreshCoordinator {
             acceptedFriendIDs: acceptedFriendIDs,
             now: now
         )
+        return (snapshot, items)
+    }
+
+    /// docs/20 §2.1: 可視アイテムの全量と公開台帳を突合し、差分だけを個別レコードへ送る。
+    /// `items` はプレーン値（await 跨ぎ安全）。
+    private func publishSharedItems(
+        targetUserRecordName target: String,
+        items: CloudFriendShareSnapshotBuilder.SharedItems,
+        rootResult: CloudFriendShareUpsertResult,
+        modelContext: ModelContext
+    ) async {
+        let stateStore = FriendSharePublishStateStore(modelContext: modelContext)
+
+        if rootResult.didCreateRoot {
+            // ルートを作り直した場合、既存アイテムの parent が切れているため全量を再公開する。
+            stateStore.clearPublishedItems(targetUserRecordName: target)
+        }
 
         let desiredPlanFingerprints = Dictionary(
             items.plans.map { ($0.id, FriendSharePublishDiffPolicy.fingerprint($0)) },

@@ -100,9 +100,16 @@ struct StartChapterIntent: AppIntent, LiveActivityIntent {
             return
         }
         await LiveActivityManager.shared.update(
-            activeChapter: activeChapter,
+            chapterSnapshot: LiveActivityChapterSnapshot(activeChapter: activeChapter),
             categorySetName: surface.categorySetName,
-            categories: surface.categories
+            islandCategories: surface.categories.prefix(CategorySet.slotCount).map {
+                LiminalogActivityAttributes.IslandCategory(
+                    id: $0.id,
+                    name: $0.name,
+                    colorHex: $0.colorHex,
+                    icon: $0.icon
+                )
+            }
         )
     }
 
