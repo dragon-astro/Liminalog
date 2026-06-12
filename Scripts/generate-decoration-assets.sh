@@ -9,7 +9,7 @@
 # ルール（詳細は decoration-masters/README.md）:
 #   - マスターは decoration-masters/Cards|Frames に原寸のまま置く（リサイズ禁止）
 #   - imageset 内の PNG は本スクリプトの生成物。手で編集しない
-#   - 出荷解像度: Cards=幅1280px / Frames=512x512px（表示サイズ@3xに余裕を持たせた値）
+#   - 出荷解像度: Cards=幅1280px / Frames=1024x1024px
 #   - imageset が無いマスターは Contents.json ごと新規作成する
 
 set -eu
@@ -19,7 +19,7 @@ cd "$(dirname "$0")/.."
 MASTERS_DIR="decoration-masters"
 ASSETS_DIR="Liminalog/Assets.xcassets/ProfileDecorations"
 CARD_TARGET_WIDTH=1280
-FRAME_TARGET_WIDTH=512
+FRAME_TARGET_WIDTH=1024
 FILTER="${1:-}"
 
 write_contents_json() {

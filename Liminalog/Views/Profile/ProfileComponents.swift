@@ -1499,10 +1499,10 @@ struct EarnedEmblemFrame: View {
     private var metal: AngularGradient {
         let stops: [Color]
         switch t {
-        case 1: stops = ["#9AA6BC", "#EAF1FB", "#B6C3D8", "#FFFFFF", "#9AA6BC"].map(Color.init(hex:))
-        case 2: stops = ["#A6A6B2", "#F3ECE0", "#CFC9BE", "#FFFFFF", "#A6A6B2"].map(Color.init(hex:))
-        case 3: stops = ["#B89A5A", "#FBEEC8", "#D9BE78", "#FFF8E4", "#C2A668"].map(Color.init(hex:))
-        default: stops = ["#A9772A", "#FFE6A6", "#E4B458", "#FFF7DC", "#B98430"].map(Color.init(hex:))
+        case 1: stops = ["#9AA6BC", "#EAF1FB", "#B6C3D8", "#FFFFFF", "#9AA6BC"].map { Color(hex: $0) }
+        case 2: stops = ["#A6A6B2", "#F3ECE0", "#CFC9BE", "#FFFFFF", "#A6A6B2"].map { Color(hex: $0) }
+        case 3: stops = ["#B89A5A", "#FBEEC8", "#D9BE78", "#FFF8E4", "#C2A668"].map { Color(hex: $0) }
+        default: stops = ["#A9772A", "#FFE6A6", "#E4B458", "#FFF7DC", "#B98430"].map { Color(hex: $0) }
         }
         return AngularGradient(colors: stops, center: .center, angle: .degrees(-90))
     }

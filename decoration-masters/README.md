@@ -15,7 +15,7 @@
 | フォルダ | 内容 | マスター解像度 | 出荷解像度 | 命名 |
 |---|---|---|---|---|
 | `Cards/` | プロフィールカードのパネル背景 | 2048×1365 | 幅1280px | `profile_card_<id>_panel.png` |
-| `Frames/` | アイコンフレーム | 1024×1024 | 512×512 | `profile_frame_<id>.png` |
+| `Frames/` | アイコンフレーム | 1024×1024 | 1024×1024 | `profile_frame_<id>.png` |
 
 - ファイル名は imageset 名・アセット名と完全一致させる（コード側は
   [ProfileDecorations.swift](../Liminalog/Views/Profile/ProfileDecorations.swift) の

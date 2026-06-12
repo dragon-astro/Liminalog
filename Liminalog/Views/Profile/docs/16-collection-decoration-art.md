@@ -55,6 +55,19 @@
 - `artifacts/collection-decoration-concepts/luxury-levels/luxury-level-board-01.png`
   - 豪華度の段階比較として有用。
   - 1列目は低めランク、2列目は現時点の最上級くらい。今後さらに上位を追加する余地は残す。
+- `artifacts/collection-decoration-concepts/generated-assets/earned-free-quality-v3-2026-06-11/earned-free-quality-target-board-v3.png`
+  - 2026-06-11時点の無料獲得フレーム再生成ターゲット。4カテゴリ x 5ランクのボードとして、参照画像の章点サイズ・発光量・ランク差をかなり保てている。
+  - 実装用に切り出して使うのは禁止。個別生成時の品質基準として使う。
+- `artifacts/collection-decoration-concepts/generated-assets/earned-free-quality-v3-2026-06-11/BOARD_TO_SINGLE_PROMPT_KNOWLEDGE.md`
+  - ボードを切り出さず、個別生成でボードセルを忠実再現するための中心ナレッジ。
+  - 後続セッションへ渡す時は「似た案を作る」ではなく「該当セルが単体で高解像度生成されたように再現する」と指示する。
+  - ボードはインスピレーションではなく visual contract。単体生成では silhouette / rim footprint / node scale / ornament density / palette / glow strength / rank weight を固定する。
+- `artifacts/collection-decoration-concepts/generated-assets/earned-free-quality-v3-2026-06-11/references/rhythm-platinum-approved-chromakey-reference.png`
+  - C: 時刻/Rhythm の最上位フレームで、ボードの再現度を単体生成に近い形で保てた良い参照。
+  - 課題は右下に情報が固まること。全体の発光・章点・残照弧の質感は維持し、右下の弧/ノードだけを分散させる。
+- `artifacts/collection-decoration-concepts/generated-assets/earned-free-quality-v3-2026-06-11/PARTIAL_WINS.md`
+  - 部分的に良い候補を捨てず、かつ丸ごと誤採用しないための記録場所。
+  - 良い弧・章点・色関係・密度だけを次回プロンプトに採取し、最終素材は必ず単体生成し直す。
 
 ### 生成プロンプトの方向
 
@@ -72,6 +85,23 @@ gentle app glow,
 not overly luxurious,
 not dusty,
 not childish clipart
+```
+
+無料獲得フレーム（達成メダル/抽象光輪）で良かった方向の核：
+
+```text
+abstract luminous earned medal profile icon frames,
+faithfully preserve the reference board structure and rank progression,
+open avatar center,
+solid readable frame body with controlled glow,
+large but restrained medal nodes and four-point star/diamond ornaments,
+rank 4 and 5 must visibly gain density, arcs, dots, and ceremonial points,
+multiple Liminalog time-of-day palettes, not all purple,
+not flat script-like line art,
+not a simple vector redraw,
+not a thick jewelry band,
+not natural flowers/leaves/clouds,
+chroma-key source on flat #00ff00 for extraction
 ```
 
 植物系なら：
@@ -108,7 +138,7 @@ avoid dusty gray-green, beige dominance, bright primary yellow, neon green, heav
 
 ユーザー確認で、SwiftUI Path で再現した装飾は「生成した画像」ではなく、求める質感から外れると判断された。以後、フレーム/カード装飾の本体は**生成PNGアセット**を使う。
 
-> ⚠️ **2026-06 更新（§11.4）**：この「生成PNG優先・ベクターはフォールバック」は**旧・全有機モチーフ前提**。獲得フレームを「達成メダル（金属/幾何）」へ転換したため、**獲得はベクター主（`EarnedEmblemFrame`）へ反転**した。本節は**プレミアム（自然作品）にのみ適用**。詳細は §11。
+> ⚠️ **2026-06-11 更新（§11.4）**：獲得フレームもプレミアムも、装飾本体は**生成PNGアセット**を正とする。ここで分けるべきなのは「ベクター vs 生成」ではなく、**原寸マスター（`decoration-masters/`）と配信用縮小アセット（`Assets.xcassets`）**。ベクターは欠損時・検討時のフォールバックに留める。
 
 - フレーム画像：`Liminalog/Assets.xcassets/ProfileDecorations/Frames/profile_frame_*.imageset`
 - カード画像：`Liminalog/Assets.xcassets/ProfileDecorations/Cards/profile_card_*.imageset`
@@ -124,10 +154,10 @@ avoid dusty gray-green, beige dominance, bright primary yellow, neon green, heav
 - `ProfileIconFrameStyle.artworkAssetName` / `ProfileCardStyle.artworkAssetName` の画像を優先表示する。
 - ベクター装飾は欠損時のフォールバックに留める。
 - カードは右上アイコンで差を出さず、生成カードの縁・角・内側模様で差を出す。
-- 解像度基準は **フレーム 1024x1024px**、**カードは横2048px以上**。
+- 原寸マスターの解像度基準は **フレーム 1024x1024px**、**カードは横2048px以上**。
 - フレームは **1アイテムにつき1枚の単体生成画像**を使う。小さいスプライトシートから切り出して拡大する運用は禁止。
-- 生成時は `#00ff00` の単色クロマキー背景にし、`process_icon_frame.py <frame_id> <source.png>` で透明化・1024正規化・asset catalog反映まで行う。
-- 2026-06-06時点で全21個のフレームを単体生成から1024化済み。`audit_icon_frames.py` で `OK 21 / BAD 0` を確認する。
+- 生成時は `#00ff00` の単色クロマキー背景にし、透過化後の1024px原寸マスターを `decoration-masters/Frames/` に置く。`Assets.xcassets` へ直接PNGを置かない。
+- 配信用アセットは `Scripts/generate-decoration-assets.sh` でマスターから生成する。現行の出荷解像度はフレーム1024px、カード幅1280px。
 - 直近の指摘として、植物系に寄りすぎないこと。今後の追加・差し替えでも、空気/水/霜/糸/天文図/金継ぎ/漆/陶器/潮硝子/時刻軌道/オーロラ/プリズム/雪/熱/控えめな月桂光のように、ジャンルを分散させる。
 
 ---
@@ -386,14 +416,14 @@ Important comparison: <e.g. silver must not be visually thinner than bronze>.
 - **liminal ガードレール（最重要）**：Duolingo的なギラギラ生産性バッジに**しない**。洗練された発光メダル。密度でなく精度・対称・余白で報酬感を出す（§3）。
 - **違和感を出さない具体ルール**（実装知見）：月桂は放射状の棘でなく**接線方向に寝かせて冠**にする／浮いた星でなく頂点の**台座付きクレスト宝石**／計器っぽい目盛でなく**低コントラストの彫り**／色グローは薄く締めて**金属を主役**に。
 
-### 11.4 生成手段の分岐（★重要）
+### 11.4 生成手段とマスター管理（★重要）
 
-§0.2 で「全ティア生成PNG優先・ベクターはフォールバック」としたが、**それは旧・全有機モチーフ前提**。獲得をメダル/幾何へ変えた今、**獲得はベクター主・生成フォールバックへ反転**する。
+獲得をメダル/幾何へ変えた後も、**獲得/プレミアムのどちらも装飾本体は生成PNGアセット**を正とする。SwiftUIベクターは検討用または欠損時のフォールバックであり、最終品質の基準ではない。
 
-- **獲得＝ベクター（パラメトリック系）が正**。理由：①ティアの金属 escalation を変数で制御＝**落差が保証**され「365日のが10日より地味」事故が起きない ②`tintHex` 入力でテーマ/明暗に自動追従 ③20個が同じ作図文法＝**ランクシステムに見える** ④将来のデータ駆動モーション（買えない自慢）はコードでしか作れない ⑤精密な描画は**AI安売り感ゼロ**。
-  - 現状の実装：[`EarnedEmblemFrame`](../ProfileComponents.swift)（金属 escalation・二重環・接線月桂・放射光・クレスト宝石）。`ProfileIconFrameView` が獲得idをこのベクターへルーティング（生成PNGは温存・バイパス）。
-- **プレミアム＝画像生成が正**（有機的リッチさが要る。固定見た目でテーマ追従不要）。"生きてる層"は生成PNGの上に Canvas/シェーダで重ねる。
-- **もし Codex に獲得をPNG生成させる場合**でも本節の語彙を厳守：金属メダル・金escalation・ティア格差・**自然モチーフ禁止**・プレミアムに金メダル語彙を混ぜない。
+- **獲得＝生成PNGの達成メダル/抽象光輪**。参照ボードのような、発光する同心弧・章点・ノード・ランク差を持つ「金で買えない勲章」にする。自然モチーフは禁止。
+- **プレミアム＝生成PNGの自然/大気作品**。有機的リッチさ、固定の決め打ちアート、必要に応じて"生きてる層"をCanvas/シェーダで重ねる。
+- **実装管理はマスター/配信用分離**。原寸マスターは `decoration-masters/Frames/`（1024px）/ `decoration-masters/Cards/`（2048px級）へ置き、`Scripts/generate-decoration-assets.sh` で `Assets.xcassets` の配信用縮小版を生成する。`Assets.xcassets/ProfileDecorations/**/*.png` は直接編集しない。
+- Codex に獲得を生成させる場合は、本節の語彙を厳守：達成メダル・抽象光輪・ティア格差・章点/ノード・**自然モチーフ禁止**・プレミアムに金メダル語彙を混ぜない。
 
 ### 11.5 既存アセットの被り解消（差し替え方針）
 

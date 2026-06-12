@@ -139,6 +139,7 @@ enum ProfileIconFrameCatalog {
         ProfileIconFrameStyle(id: "snow_crest", title: "雪冠", systemImage: "snowflake", primaryHex: "#D8ECFF", secondaryHex: "#7DD3FC", lineWidth: 3),
         ProfileIconFrameStyle(id: "chrono_orbit", title: "時環", systemImage: "timer", primaryHex: "#7DD3FC", secondaryHex: "#FFE3A3", lineWidth: 3),
         ProfileIconFrameStyle(id: "lacquer_vein", title: "漆脈", systemImage: "seal.fill", primaryHex: "#FFC98A", secondaryHex: "#D946EF", lineWidth: 3),
+        ProfileIconFrameStyle(id: "twilight_orbit", title: "薄明軌", systemImage: "sparkles", primaryHex: "#C9A7FF", secondaryHex: "#FFC98A", lineWidth: 4),
         ProfileIconFrameStyle(id: "horizon_wreath", title: "水平花", systemImage: "sunrise.fill", primaryHex: "#FFB3C7", secondaryHex: "#7DD3FC", lineWidth: 4)
     ]
     static let visibleItems: [ProfileIconFrameStyle] = [noneItem, defaultItem] + freeItems
