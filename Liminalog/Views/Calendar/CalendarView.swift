@@ -143,6 +143,10 @@ struct CalendarView: View {
             .onChange(of: storedOverlayFriendIDs) { _, _ in
                 reloadVisibleData()
             }
+            .onReceive(NotificationCenter.default.publisher(for: CloudFriendShareRefreshCoordinator.sharedRecordsDidChange)) { notification in
+                guard shouldReloadForSharedRecordChange(notification) else { return }
+                reloadVisibleData(forSharedRecordChange: notification)
+            }
         }
     }
 
@@ -384,6 +388,34 @@ struct CalendarView: View {
     private func reloadVisibleData() {
         pageDataByMonth.removeAll()
         ensureData(around: scrolledOffset ?? offset(forMonth: visibleMonth))
+    }
+
+    private func reloadVisibleData(forSharedRecordChange notification: Notification) {
+        let change = SharedRecordChangeNotification(notification)
+        let currentOffset = scrolledOffset ?? offset(forMonth: visibleMonth)
+        let plan = FriendCalendarCacheInvalidationPolicy.plan(
+            for: change,
+            anchorMonth: anchorMonth,
+            currentOffset: currentOffset,
+            calendar: calendar
+        )
+        if plan.shouldClearAll {
+            reloadVisibleData()
+            return
+        }
+        for month in plan.monthsToRemove {
+            pageDataByMonth.removeValue(forKey: month)
+        }
+        if plan.shouldEnsureVisibleData {
+            ensureData(around: currentOffset)
+        }
+    }
+
+    private func shouldReloadForSharedRecordChange(_ notification: Notification) -> Bool {
+        guard !selectedOverlayFriendIDs.isEmpty else { return false }
+        let change = SharedRecordChangeNotification(notification)
+        guard let friendID = change.friendID else { return true }
+        return selectedOverlayFriendIDs.contains(friendID)
     }
 
     /// 指定オフセット周辺（±1）の月データを未計算なら計算してキャッシュする。

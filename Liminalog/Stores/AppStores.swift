@@ -52,4 +52,9 @@ final class AppStores {
     func bootstrap() -> ChapterStore {
         bootstrapStore.bootstrap()
     }
+
+    @discardableResult
+    func bootstrapWithStoreReadinessRetry() async -> ChapterStore {
+        await bootstrapStore.bootstrapWithStoreReadinessRetry()
+    }
 }

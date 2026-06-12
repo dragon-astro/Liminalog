@@ -43,13 +43,25 @@ final class ChapterStore {
         )
     }
 
-    private func markChanged(reloadWidgets: Bool = true) {
+    private func markChanged(
+        reloadWidgets: Bool = true,
+        changedPlanSourceIDs: Set<UUID> = [],
+        changedChapterSourceIDs: Set<UUID> = [],
+        requiresFullSharePublish: Bool = true,
+        requestCloudFriendShareRefresh: Bool = true
+    ) {
         contentRevision &+= 1
 
         if reloadWidgets && ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil {
             WidgetCenter.shared.reloadAllTimelines()
         }
-        CloudFriendShareRefreshCoordinator.requestRefresh(reason: "chapter store changed")
+        guard requestCloudFriendShareRefresh else { return }
+        CloudFriendShareRefreshCoordinator.requestRefresh(
+            reason: "chapter store changed",
+            changedPlanSourceIDs: changedPlanSourceIDs,
+            changedChapterSourceIDs: changedChapterSourceIDs,
+            requiresFullPublish: requiresFullSharePublish
+        )
     }
 
     private func reloadRecordingGridWidget() {
@@ -288,7 +300,15 @@ final class ChapterStore {
 
         guard saveModelContext(action: "chapter start") else { return false }
         cacheActiveCategoryID(result.activeChapter?.category?.id)
-        markChanged(reloadWidgets: false)
+        var changedChapterIDs = Set(activeChapters.map(\.id))
+        if let activeID = result.activeChapter?.id {
+            changedChapterIDs.insert(activeID)
+        }
+        markChanged(
+            reloadWidgets: false,
+            changedChapterSourceIDs: changedChapterIDs,
+            requiresFullSharePublish: false
+        )
         reloadRecordingGridWidget()
         updateLiveActivity(categorySet: categorySet)
         return true
@@ -323,7 +343,7 @@ final class ChapterStore {
         chapter.updatedAt = clock.now
         modelContext.insert(chapter)
         guard saveModelContext(action: "chapter add") else { return false }
-        markChanged()
+        markChanged(changedChapterSourceIDs: [chapter.id], requiresFullSharePublish: false)
         updateLiveActivity()
         return true
     }
@@ -331,10 +351,17 @@ final class ChapterStore {
     @discardableResult
     func endActiveChapter() -> Bool {
         let now = clock.now
-        guard closeActiveChapters(at: now) else { return false }
+        guard let actives = activeChaptersIfAvailable(), !actives.isEmpty else { return false }
+        for active in actives {
+            active.endTime = now
+            active.updatedAt = now
+        }
         guard saveModelContext(action: "active chapter end") else { return false }
         cacheActiveCategoryID(nil)
-        markChanged()
+        markChanged(
+            changedChapterSourceIDs: Set(actives.map(\.id)),
+            requiresFullSharePublish: false
+        )
         updateLiveActivity()
         return true
     }
@@ -387,7 +414,7 @@ final class ChapterStore {
         chapter.updatedAt = clock.now
         guard saveModelContext(action: "chapter update") else { return false }
         syncActiveCategoryCacheFromStore()
-        markChanged()
+        markChanged(changedChapterSourceIDs: [chapter.id], requiresFullSharePublish: false)
         updateLiveActivity()
         return true
     }
@@ -397,7 +424,7 @@ final class ChapterStore {
         chapter.isPublic = isPublic
         chapter.updatedAt = clock.now
         guard saveModelContext(action: "chapter visibility update") else { return false }
-        markChanged()
+        markChanged(changedChapterSourceIDs: [chapter.id], requiresFullSharePublish: false)
         return true
     }
 
@@ -411,17 +438,21 @@ final class ChapterStore {
             chapter.updatedAt = clock.now
         }
         guard saveModelContext(action: "chapter bulk visibility update") else { return false }
-        markChanged()
+        markChanged(
+            changedChapterSourceIDs: Set(chapters.map(\.id)),
+            requiresFullSharePublish: false
+        )
         return true
     }
 
     @discardableResult
     func deleteChapter(_ chapter: Chapter) -> Bool {
         guard !isChapterTimeLocked(chapter, now: clock.now) else { return false }
+        let sourceID = chapter.id
         modelContext.delete(chapter)
         guard saveModelContext(action: "chapter delete") else { return false }
         syncActiveCategoryCacheFromStore()
-        markChanged()
+        markChanged(changedChapterSourceIDs: [sourceID], requiresFullSharePublish: false)
         updateLiveActivity()
         return true
     }
@@ -458,21 +489,21 @@ final class ChapterStore {
             audienceSource: audienceSource,
             hasAudienceSnapshot: hasAudienceSnapshot && audienceResolution.didResolveSnapshot
         ) else { return false }
-        markChanged()
+        markChanged(requestCloudFriendShareRefresh: false)
         return true
     }
 
     @discardableResult
     func savePlanBlock(_ plan: PlanBlock, category: Category?, title: String, startTime: Date, endTime: Date, isAllDay: Bool, isImportant: Bool, note: String?, isPublic: Bool, audienceFriendIDs: [UUID]? = nil, audienceSource: AudienceSource? = nil, hasAudienceSnapshot: Bool? = nil) -> Bool {
         guard planStore.savePlanBlock(plan, category: category, title: title, startTime: startTime, endTime: endTime, isAllDay: isAllDay, isImportant: isImportant, note: note, isPublic: isPublic, audienceFriendIDs: audienceFriendIDs, audienceSource: audienceSource, hasAudienceSnapshot: hasAudienceSnapshot) else { return false }
-        markChanged()
+        markChanged(requestCloudFriendShareRefresh: false)
         return true
     }
 
     @discardableResult
     func deletePlanBlock(_ plan: PlanBlock) -> Bool {
         guard planStore.deletePlanBlock(plan) else { return false }
-        markChanged()
+        markChanged(requestCloudFriendShareRefresh: false)
         return true
     }
 

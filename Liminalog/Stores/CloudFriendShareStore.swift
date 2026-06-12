@@ -120,15 +120,20 @@ final class CloudFriendShareStore {
     private let container: CKContainer
     let privateDatabase: CKDatabase
     let sharedDatabase: CKDatabase
+    private let currentUserResolver: CloudKitCurrentUserRecordResolver
 
-    init(container: CKContainer = CKContainer(identifier: SharedModelContainer.cloudKitContainerID)) {
+    init(
+        container: CKContainer = CKContainer(identifier: SharedModelContainer.cloudKitContainerID),
+        currentUserResolver: CloudKitCurrentUserRecordResolver = .shared
+    ) {
         self.container = container
         self.privateDatabase = container.privateCloudDatabase
         self.sharedDatabase = container.sharedCloudDatabase
+        self.currentUserResolver = currentUserResolver
     }
 
     func upsertOutgoingShare(snapshot: CloudFriendShareSnapshot) async throws -> CloudFriendShareUpsertResult {
-        try await requireAccount()
+        _ = try await currentUserRecordName()
         try await ensureShareZone()
 
         // 楽観ロック衝突（client oplock error / serverRecordChanged）は、相手の承認や
@@ -154,7 +159,7 @@ final class CloudFriendShareStore {
     }
 
     private func performOutgoingUpsert(snapshot: CloudFriendShareSnapshot) async throws -> CloudFriendShareUpsertResult {
-        let ownerUserRecordName = try await fetchCurrentUserRecordID().recordName
+        let ownerUserRecordName = try await currentUserRecordName()
         let rootID = Self.rootRecordID(
             ownerUserRecordName: ownerUserRecordName,
             targetUserRecordName: snapshot.targetUserRecordName
@@ -221,8 +226,7 @@ final class CloudFriendShareStore {
     }
 
     func acceptIncomingShare(url: URL) async throws -> CloudFriendShareSnapshot {
-        try await requireAccount()
-        let currentUserRecordName = try await fetchCurrentUserRecordID().recordName
+        let currentUserRecordName = try await currentUserRecordName()
         let metadata = try await fetchShareMetadata(url: url)
         if metadata.participantStatus == .pending {
             _ = try await accept(metadata: metadata)
@@ -238,8 +242,7 @@ final class CloudFriendShareStore {
     }
 
     func fetchAcceptedIncomingShare(rootRecordName: String) async throws -> CloudFriendShareSnapshot {
-        try await requireAccount()
-        let currentUserRecordName = try await fetchCurrentUserRecordID().recordName
+        let currentUserRecordName = try await currentUserRecordName()
         let recordID = CKRecord.ID(recordName: rootRecordName)
         return try Self.validatedSnapshot(
             from: try await fetchRecord(recordID, from: sharedDatabase),
@@ -267,8 +270,7 @@ final class CloudFriendShareStore {
     }
 
     func revokeOutgoingShare(targetUserRecordName: String) async throws {
-        try await requireAccount()
-        let ownerUserRecordName = try await fetchCurrentUserRecordID().recordName
+        let ownerUserRecordName = try await currentUserRecordName()
         let rootID = Self.rootRecordID(
             ownerUserRecordName: ownerUserRecordName,
             targetUserRecordName: targetUserRecordName
@@ -289,19 +291,13 @@ final class CloudFriendShareStore {
         }
     }
 
-    private func fetchCurrentUserRecordID() async throws -> CKRecord.ID {
-        try await withCheckedThrowingContinuation { continuation in
-            container.fetchUserRecordID { recordID, error in
-                if let error {
-                    continuation.resume(throwing: error)
-                    return
-                }
-                guard let recordID else {
-                    continuation.resume(throwing: CloudFriendShareError.accountUnavailable)
-                    return
-                }
-                continuation.resume(returning: recordID)
-            }
+    private func currentUserRecordName() async throws -> String {
+        do {
+            return try await currentUserResolver.currentUserRecordID().recordName
+        } catch CloudKitCurrentUserRecordError.accountUnavailable {
+            throw CloudFriendShareError.accountUnavailable
+        } catch {
+            throw error
         }
     }
 

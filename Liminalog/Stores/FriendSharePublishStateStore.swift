@@ -8,6 +8,7 @@ import SwiftData
 struct FriendSharePublishStateStore {
     static let planKind = "plan"
     static let chapterKind = "chapter"
+    private static let batchedSourceIDFetchThreshold = 24
 
     private let modelContext: ModelContext
 
@@ -19,6 +20,17 @@ struct FriendSharePublishStateStore {
 
     func publishedFingerprints(targetUserRecordName: String, kind: String) -> [UUID: String] {
         let items = fetchPublishedItems(targetUserRecordName: targetUserRecordName, kind: kind)
+        return Dictionary(items.map { ($0.sourceID, $0.fingerprint) }, uniquingKeysWith: { lhs, _ in lhs })
+    }
+
+    func publishedFingerprints(targetUserRecordName: String, kind: String, sourceIDs: Set<UUID>) -> [UUID: String] {
+        guard !sourceIDs.isEmpty else { return [:] }
+        let items = sourceIDs.count > Self.batchedSourceIDFetchThreshold
+            ? fetchPublishedItems(targetUserRecordName: targetUserRecordName, kind: kind)
+                .filter { sourceIDs.contains($0.sourceID) }
+            : sourceIDs.compactMap { sourceID in
+                fetchPublishedItem(targetUserRecordName: targetUserRecordName, kind: kind, sourceID: sourceID)
+            }
         return Dictionary(items.map { ($0.sourceID, $0.fingerprint) }, uniquingKeysWith: { lhs, _ in lhs })
     }
 
@@ -69,6 +81,18 @@ struct FriendSharePublishStateStore {
                 }
             )
         )) ?? []
+    }
+
+    private func fetchPublishedItem(targetUserRecordName: String, kind: String, sourceID: UUID) -> FriendSharePublishedItem? {
+        var descriptor = FetchDescriptor<FriendSharePublishedItem>(
+            predicate: #Predicate {
+                $0.targetUserRecordName == targetUserRecordName
+                    && $0.kindRawValue == kind
+                    && $0.sourceID == sourceID
+            }
+        )
+        descriptor.fetchLimit = 1
+        return (try? modelContext.fetch(descriptor))?.first
     }
 
     // MARK: - ゾーン変更トークン（受信側）

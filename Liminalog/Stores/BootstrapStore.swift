@@ -22,13 +22,45 @@ final class BootstrapStore {
 
     @discardableResult
     func bootstrap(now: Date = Date()) -> ChapterStore {
+        let result = bootstrapAttempt(now: now)
+        if !result.didRunUserScopedSeeds {
+            NSLog("Liminalog: skipped bootstrap user-scoped seeds because UserSettings could not be fetched")
+        }
+        return chapterStore
+    }
+
+    @discardableResult
+    func bootstrapWithStoreReadinessRetry(
+        now: Date = Date(),
+        retryDelaysNanoseconds: [UInt64] = [
+            150_000_000,
+            350_000_000,
+            750_000_000
+        ]
+    ) async -> ChapterStore {
+        var result = bootstrapAttempt(now: now)
+        for delay in retryDelaysNanoseconds where !result.didRunUserScopedSeeds {
+            NSLog("Liminalog: retrying bootstrap after store readiness fetch failure")
+            try? await Task.sleep(nanoseconds: delay)
+            result = bootstrapAttempt(now: now)
+        }
+
+        if !result.didRunUserScopedSeeds {
+            NSLog("Liminalog: skipped bootstrap user-scoped seeds because UserSettings could not be fetched")
+        }
+        return chapterStore
+    }
+
+    private func bootstrapAttempt(now: Date) -> BootstrapAttemptResult {
         // CloudKitインポートで合流した重複（各端末のシード等）を、シードより先に統合する。
         CloudDuplicateMergeStore(modelContext: modelContext).mergeAll()
+        let didRunUserScopedSeeds: Bool
         if SeedCoordinator.ensureUserSettingsIfAvailable(in: modelContext, now: now) != nil {
             SeedCoordinator.consolidateBuiltInVisibilityPresets(in: modelContext, now: now)
             SeedCoordinator.seedInitialFriendSetsIfNeeded(in: modelContext, now: now)
+            didRunUserScopedSeeds = true
         } else {
-            NSLog("Liminalog: skipped bootstrap user-scoped seeds because UserSettings could not be fetched")
+            didRunUserScopedSeeds = false
         }
         unlockStore.seedMasterItems(now: now)
 
@@ -41,7 +73,11 @@ final class BootstrapStore {
         chapterStore.pruneShortChapters()
         categorySetStore.seedDefaultCategorySetsIfNeeded()
         chapterStore.restoreRecordingStateAfterLaunch()
-        return chapterStore
+        return BootstrapAttemptResult(didRunUserScopedSeeds: didRunUserScopedSeeds)
+    }
+
+    private struct BootstrapAttemptResult {
+        var didRunUserScopedSeeds: Bool
     }
 
     #if DEBUG

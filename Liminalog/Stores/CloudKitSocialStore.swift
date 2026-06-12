@@ -93,18 +93,25 @@ final class CloudKitSocialStore {
 
     private let container: CKContainer
     private let publicDatabase: CKDatabase
+    private let currentUserResolver: CloudKitCurrentUserRecordResolver
 
-    init(container: CKContainer = CKContainer(identifier: SharedModelContainer.cloudKitContainerID)) {
+    init(
+        container: CKContainer = CKContainer(identifier: SharedModelContainer.cloudKitContainerID),
+        currentUserResolver: CloudKitCurrentUserRecordResolver = .shared
+    ) {
         self.container = container
         self.publicDatabase = container.publicCloudDatabase
+        self.currentUserResolver = currentUserResolver
     }
 
     func currentUserRecordName() async throws -> String {
-        let status = try await container.accountStatus()
-        guard status == .available else {
+        do {
+            return try await currentUserResolver.currentUserRecordID().recordName
+        } catch CloudKitCurrentUserRecordError.accountUnavailable {
             throw CloudKitSocialError.accountUnavailable
+        } catch {
+            throw error
         }
-        return try await fetchCurrentUserRecordID().recordName
     }
 
     func registerProfile(username rawUsername: String, displayName: String, appUserID: UUID) async throws -> CloudFriendProfile {
@@ -649,22 +656,6 @@ final class CloudKitSocialStore {
             }
         }
         return nil
-    }
-
-    private func fetchCurrentUserRecordID() async throws -> CKRecord.ID {
-        try await withCheckedThrowingContinuation { continuation in
-            container.fetchUserRecordID { recordID, error in
-                if let error {
-                    continuation.resume(throwing: error)
-                    return
-                }
-                guard let recordID else {
-                    continuation.resume(throwing: CloudKitSocialError.accountUnavailable)
-                    return
-                }
-                continuation.resume(returning: recordID)
-            }
-        }
     }
 
     private func fetchRecord(_ recordID: CKRecord.ID) async throws -> CKRecord {

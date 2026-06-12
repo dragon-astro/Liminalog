@@ -26,7 +26,8 @@ struct FriendsView: View {
     @State private var isRegisteringCloudProfile = false
     @State private var isSendingCloudFriendRequest = false
     @State private var isRefreshingCloudRequests = false
-    @State private var didLoadIncomingCloudRequests = false
+    @State private var loadedCloudRequestsUserRecordName: String?
+    @State private var lastAutomaticCloudRequestAttemptAt: Date?
     @State private var didRegisterCloudKitPushes = false
     @State private var subscribedFriendConsentUserRecordName: String?
     @State private var didSubscribeFriendShares = false
@@ -171,7 +172,7 @@ struct FriendsView: View {
                 handlePendingInviteURL()
             }
             .onReceive(NotificationCenter.default.publisher(for: CloudKitFriendEventBridge.friendConsentDidChange)) { _ in
-                refreshCloudRequests(force: false)
+                refreshCloudRequests(trigger: .event)
             }
             .alert("友達の変更を保存できませんでした", isPresented: saveErrorPresented) {
                 Button("OK", role: .cancel) {
@@ -200,7 +201,7 @@ struct FriendsView: View {
                         .controlSize(.small)
                 } else if hasCloudUsername {
                     Button {
-                        refreshCloudRequests(force: true)
+                        refreshCloudRequests(trigger: .manual)
                     } label: {
                         Image(systemName: "arrow.clockwise")
                             .font(.subheadline.weight(.bold))
@@ -725,15 +726,25 @@ struct FriendsView: View {
     }
 
     private func refreshCloudRequestsIfPossible() {
-        guard hasCloudUsername, !didLoadIncomingCloudRequests else { return }
-        refreshCloudRequests(force: false)
+        refreshCloudRequests(trigger: .automatic)
     }
 
-    private func refreshCloudRequests(force: Bool) {
+    private func refreshCloudRequests(trigger: CloudFriendRequestRefreshTrigger) {
         guard let ownUserRecordName = settings?.cloudUserRecordName, !ownUserRecordName.isEmpty else { return }
+        let now = Date()
+        guard CloudFriendLocalStatePolicy.shouldRefreshCloudRequests(
+            trigger: trigger,
+            currentUserRecordName: ownUserRecordName,
+            loadedUserRecordName: loadedCloudRequestsUserRecordName,
+            lastAutomaticAttemptAt: lastAutomaticCloudRequestAttemptAt,
+            now: now
+        ) else { return }
         if isRefreshingCloudRequests { return }
+        if trigger == .automatic {
+            lastAutomaticCloudRequestAttemptAt = now
+        }
         isRefreshingCloudRequests = true
-        if force {
+        if trigger == .manual {
             cloudErrorText = nil
             cloudStatusText = nil
         }
@@ -766,8 +777,8 @@ struct FriendsView: View {
                         }
                     }
                     if save() {
-                        didLoadIncomingCloudRequests = true
-                        if force {
+                        loadedCloudRequestsUserRecordName = ownUserRecordName
+                        if trigger == .manual {
                             let count = incomingConsents.count + outgoingConsents.count
                             cloudStatusText = count == 0 ? "新しい申請はありません。" : "\(count)件の申請を更新しました。"
                         }
@@ -776,7 +787,7 @@ struct FriendsView: View {
                 }
             } catch {
                 await MainActor.run {
-                    if force {
+                    if trigger == .manual {
                         cloudErrorText = error.localizedDescription
                     }
                     isRefreshingCloudRequests = false
@@ -1014,6 +1025,7 @@ struct FriendsView: View {
 
     private func clearIncomingShareData(for friend: Friend) {
         CloudFriendShareSnapshotApplier.clearCachedShare(from: friend)
+        CloudFriendShareRefreshCoordinator.postSharedRecordsDidChange(friendID: friend.id)
     }
 
     private func publishAcceptedShareIfPossible(to friend: Friend) {
@@ -1694,6 +1706,7 @@ private struct FriendDetailView: View {
             }
             await MainActor.run {
                 CloudFriendShareSnapshotApplier.clearCachedShare(from: friend)
+                CloudFriendShareRefreshCoordinator.postSharedRecordsDidChange(friendID: friend.id)
                 friend.shareURL = nil
                 save()
             }
@@ -1707,6 +1720,7 @@ private struct FriendDetailView: View {
 
     private func clearIncomingShareData() {
         CloudFriendShareSnapshotApplier.clearCachedShare(from: friend)
+        CloudFriendShareRefreshCoordinator.postSharedRecordsDidChange(friendID: friend.id)
     }
 
     private func cloudUsername(from friend: Friend) -> String {
@@ -2201,6 +2215,10 @@ private struct FriendCalendarView: View {
             .onChange(of: scrolledOffset) { _, newValue in
                 handleScroll(to: newValue)
             }
+            .onReceive(NotificationCenter.default.publisher(for: CloudFriendShareRefreshCoordinator.sharedRecordsDidChange)) { notification in
+                guard isSharedRecordChange(for: notification) else { return }
+                reloadVisibleData(forSharedRecordChange: notification)
+            }
         }
         .background(LiminalTheme.canvasGradient)
         .navigationTitle("\(friend.displayName)のカレンダー")
@@ -2290,21 +2308,6 @@ private struct FriendCalendarView: View {
         return (currentYear - 10)...(currentYear + 10)
     }
 
-    private var monthGridDates: [Date] {
-        monthGridDates(for: visibleMonth)
-    }
-
-    private func monthGridDates(for month: Date) -> [Date] {
-        let monthStart = monthStart(for: month)
-        let monthEnd = calendar.date(byAdding: .month, value: 1, to: monthStart) ?? monthStart
-        let dayCount = calendar.dateComponents([.day], from: monthStart, to: monthEnd).day ?? 0
-        let weekdayOffset = calendar.component(.weekday, from: monthStart) - calendar.firstWeekday
-        let normalizedOffset = (weekdayOffset + 7) % 7
-        let gridStart = calendar.date(byAdding: .day, value: -normalizedOffset, to: monthStart) ?? monthStart
-        let weekCount = max(5, min(6, Int(ceil(Double(normalizedOffset + dayCount) / 7.0))))
-        return (0..<(weekCount * 7)).compactMap { calendar.date(byAdding: .day, value: $0, to: gridStart) }
-    }
-
     // MARK: - ページング / データ取得（遅延・月単位キャッシュ）
 
     private func month(forOffset offset: Int) -> Date {
@@ -2341,6 +2344,36 @@ private struct FriendCalendarView: View {
         }
     }
 
+    private func reloadVisibleData() {
+        pageDataByMonth.removeAll()
+        ensureData(around: scrolledOffset ?? offset(forMonth: visibleMonth))
+    }
+
+    private func reloadVisibleData(forSharedRecordChange notification: Notification) {
+        let change = SharedRecordChangeNotification(notification)
+        let currentOffset = scrolledOffset ?? offset(forMonth: visibleMonth)
+        let plan = FriendCalendarCacheInvalidationPolicy.plan(
+            for: change,
+            anchorMonth: anchorMonth,
+            currentOffset: currentOffset,
+            calendar: calendar
+        )
+        if plan.shouldClearAll {
+            reloadVisibleData()
+            return
+        }
+        for month in plan.monthsToRemove {
+            pageDataByMonth.removeValue(forKey: month)
+        }
+        if plan.shouldEnsureVisibleData {
+            ensureData(around: currentOffset)
+        }
+    }
+
+    private func isSharedRecordChange(for notification: Notification) -> Bool {
+        SharedRecordChangeNotification(notification).affects(friendID: friend.id)
+    }
+
     private func cachedPageData(for month: Date) -> CalendarMonthPageData {
         if let cached = pageDataByMonth[monthStart(for: month)] {
             return cached
@@ -2349,56 +2382,13 @@ private struct FriendCalendarView: View {
     }
 
     private func computePageData(for month: Date) -> CalendarMonthPageData {
-        let dates = monthGridDates(for: month)
-        // docs/20: 塊JSONの全件デコードをやめ、月グリッドの範囲だけを個別行キャッシュから引く。
-        let gridStart = calendar.startOfDay(for: dates.first ?? month)
-        let gridEnd = DayBoundary(date: dates.last ?? month, calendar: calendar).dayEnd
-        let allPlans = FriendSharedRecordStore(modelContext: modelContext)
-            .plans(friendID: friend.id, overlapping: gridStart..<gridEnd)
-        var importantPlansByDay: [Date: [CalendarDisplayPlan]] = [:]
-        var scoreSummariesByDay: [Date: CalendarDisplayScore] = [:]
-
-        for date in dates {
-            let dayStart = calendar.startOfDay(for: date)
-            let importantPlans = allPlans
-                .filter { $0.overlaps(day: date) && $0.showsInCalendarAsImportant }
-                .sorted {
-                    if $0.startTime == $1.startTime {
-                        return $0.updatedAt < $1.updatedAt
-                    }
-                    return $0.startTime < $1.startTime
-                }
-                .map(displayPlan(from:))
-            let score = knownScore(on: date)
-            // 重要予定もスコアも無い日はセル側がデフォルト（スコアなし/空）で描くため、計算を省く。
-            guard !importantPlans.isEmpty || score != nil else { continue }
-            if !importantPlans.isEmpty {
-                importantPlansByDay[dayStart] = importantPlans
-            }
-            if let score {
-                scoreSummariesByDay[dayStart] = CalendarDisplayScore(value: score.value, hasData: score.hasSharedData)
-            }
-        }
-
-        return CalendarMonthPageData(
-            dates: dates,
-            visibleMonth: month,
-            importantPlansByDay: importantPlansByDay,
-            scoreSummariesByDay: scoreSummariesByDay,
-            didFailToLoadRecords: false
+        FriendCalendarPageDataBuilder(
+            friendID: friend.id,
+            modelContext: modelContext,
+            calendar: calendar,
+            scoreForDate: knownDisplayScore(on:)
         )
-    }
-
-    private func displayPlan(from plan: FriendSharedPlanSnapshot) -> CalendarDisplayPlan {
-        CalendarDisplayPlan(
-            id: plan.id,
-            title: plan.title,
-            startTime: plan.startTime,
-            endTime: plan.endTime,
-            isAllDay: plan.isAllDay,
-            categoryColorHex: plan.categoryColorHex,
-            createdAt: plan.updatedAt
-        )
+        .pageData(for: month)
     }
 
     private func prepareMonthPicker() {
@@ -2419,6 +2409,11 @@ private struct FriendCalendarView: View {
             return FriendCalendarScore(value: friend.yesterdayScore, hasSharedData: true)
         }
         return nil
+    }
+
+    private func knownDisplayScore(on date: Date) -> CalendarDisplayScore? {
+        guard let score = knownScore(on: date) else { return nil }
+        return CalendarDisplayScore(value: score.value, hasData: score.hasSharedData)
     }
 
     private func monthStart(for date: Date) -> Date {
@@ -2500,6 +2495,7 @@ private struct FriendSharedCalendarDayView: View {
     let friend: Friend?
     @Environment(\.modelContext) private var modelContext
     @State private var date: Date
+    @State private var sharedRecordsVersion = 0
     var plans: [FriendSharedPlanSnapshot]? = nil
     var activities: [FriendSharedActivitySnapshot]? = nil
     var score: FriendCalendarScore? = nil
@@ -2533,6 +2529,7 @@ private struct FriendSharedCalendarDayView: View {
     }
 
     private var resolvedPlans: [FriendSharedPlanSnapshot] {
+        _ = sharedRecordsVersion
         if let plans { return plans }
         guard let friend else { return [] }
         return FriendSharedRecordStore(modelContext: modelContext)
@@ -2540,6 +2537,7 @@ private struct FriendSharedCalendarDayView: View {
     }
 
     private var resolvedActivities: [FriendSharedActivitySnapshot] {
+        _ = sharedRecordsVersion
         if let activities { return activities }
         guard let friend else { return [] }
         return FriendSharedRecordStore(modelContext: modelContext)
@@ -2581,6 +2579,11 @@ private struct FriendSharedCalendarDayView: View {
         .background(LiminalTheme.canvasGradient)
         .modifier(FriendDayNavigationTitleModifier(isEnabled: showsNavigationTitle, title: date.japaneseMonthDayShortWeekday))
         .modifier(FriendDayNavigationGestureModifier(isEnabled: allowsDayNavigation, shiftDay: shiftDay(_:)))
+        .onReceive(NotificationCenter.default.publisher(for: CloudFriendShareRefreshCoordinator.sharedRecordsDidChange)) { notification in
+            guard isSharedRecordChange(for: notification) else { return }
+            guard SharedRecordChangeNotification(notification).affects(day: date) else { return }
+            sharedRecordsVersion += 1
+        }
     }
 
     private var header: some View {
@@ -2633,6 +2636,11 @@ private struct FriendSharedCalendarDayView: View {
 
     private func shiftDay(_ value: Int) {
         date = Calendar.japanese.date(byAdding: .day, value: value, to: date) ?? date
+    }
+
+    private func isSharedRecordChange(for notification: Notification) -> Bool {
+        guard let friend else { return true }
+        return SharedRecordChangeNotification(notification).affects(friendID: friend.id)
     }
 }
 

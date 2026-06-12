@@ -33,6 +33,38 @@ struct FriendShareZoneChanges {
     var didFetchFullZone = false
 }
 
+enum FriendShareZoneChangeFetchRecoveryPolicy {
+    static func fetch(
+        previousToken: CKServerChangeToken?,
+        fetchWithToken: (CKServerChangeToken?) async throws -> FriendShareZoneChanges
+    ) async throws -> FriendShareZoneChanges {
+        try await fetch(
+            previousToken: previousToken,
+            isChangeTokenExpired: { error in
+                guard let error = error as? CKError else { return false }
+                return error.code == .changeTokenExpired
+            },
+            fetchWithToken: fetchWithToken
+        )
+    }
+
+    static func fetch<Token>(
+        previousToken: Token?,
+        isChangeTokenExpired: (Error) -> Bool,
+        fetchWithToken: (Token?) async throws -> FriendShareZoneChanges
+    ) async throws -> FriendShareZoneChanges {
+        do {
+            var changes = try await fetchWithToken(previousToken)
+            changes.didFetchFullZone = previousToken == nil
+            return changes
+        } catch let error where isChangeTokenExpired(error) {
+            var changes = try await fetchWithToken(nil)
+            changes.didFetchFullZone = true
+            return changes
+        }
+    }
+}
+
 extension CloudFriendShareStore {
     private static let modifyChunkSize = 300
 
@@ -262,24 +294,14 @@ extension CloudFriendShareStore {
         ownerUserRecordName: String,
         previousToken: CKServerChangeToken?
     ) async throws -> FriendShareZoneChanges {
-        do {
-            var changes = try await withTransientRetry("friend share zone fetch") {
+        try await FriendShareZoneChangeFetchRecoveryPolicy.fetch(previousToken: previousToken) { token in
+            let label = token == nil ? "friend share zone full fetch" : "friend share zone fetch"
+            return try await withTransientRetry(label) {
                 try await fetchZoneChangesLoop(
                     ownerUserRecordName: ownerUserRecordName,
-                    token: previousToken
+                    token: token
                 )
             }
-            changes.didFetchFullZone = previousToken == nil
-            return changes
-        } catch let error as CKError where error.code == .changeTokenExpired {
-            var changes = try await withTransientRetry("friend share zone full fetch") {
-                try await fetchZoneChangesLoop(
-                    ownerUserRecordName: ownerUserRecordName,
-                    token: nil
-                )
-            }
-            changes.didFetchFullZone = true
-            return changes
         }
     }
 

@@ -16,13 +16,15 @@ struct FriendSharedRecordStore {
     // MARK: - 書き込み（受信反映）
 
     /// 受信した全量スナップショットを正として、友達1人分の行キャッシュを一致させる。
+    @discardableResult
     func reconcile(
         friendID: UUID,
         plans: [FriendSharedPlanSnapshot],
         activities: [FriendSharedActivitySnapshot]
-    ) {
+    ) -> FriendSharedRecordChangeImpact {
         reconcilePlans(friendID: friendID, snapshots: plans)
         reconcileChapters(friendID: friendID, snapshots: activities)
+        return .fullReload
     }
 
     func reconcilePlans(friendID: UUID, snapshots: [FriendSharedPlanSnapshot]) {
@@ -96,13 +98,17 @@ struct FriendSharedRecordStore {
     }
 
     /// ゾーン差分（docs/20 §2.2）の適用。変更分のみ upsert / 削除分のみ delete する。
+    @discardableResult
     func applyChanges(
         friendID: UUID,
         upsertPlans: [FriendSharedPlanSnapshot],
         upsertChapters: [FriendSharedActivitySnapshot],
         deletePlanSourceIDs: Set<UUID>,
         deleteChapterSourceIDs: Set<UUID>
-    ) {
+    ) -> FriendSharedRecordChangeImpact {
+        var impact = FriendSharedRecordChangeImpact()
+        upsertPlans.forEach { impact.add(start: $0.startTime, end: $0.endTime) }
+        upsertChapters.forEach { impact.add(start: $0.startTime, end: $0.endTime) }
         for snapshot in upsertPlans {
             upsertPlan(friendID: friendID, snapshot: snapshot)
         }
@@ -110,17 +116,18 @@ struct FriendSharedRecordStore {
             upsertChapter(friendID: friendID, snapshot: snapshot)
         }
         for sourceID in deletePlanSourceIDs {
-            try? modelContext.delete(
-                model: FriendSharedPlanRecord.self,
-                where: #Predicate { $0.friendID == friendID && $0.sourceID == sourceID }
-            )
+            if let interval = planInterval(friendID: friendID, sourceID: sourceID) {
+                impact.add(interval)
+            }
+            deletePlan(friendID: friendID, sourceID: sourceID)
         }
         for sourceID in deleteChapterSourceIDs {
-            try? modelContext.delete(
-                model: FriendSharedChapterRecord.self,
-                where: #Predicate { $0.friendID == friendID && $0.sourceID == sourceID }
-            )
+            if let interval = chapterInterval(friendID: friendID, sourceID: sourceID) {
+                impact.add(interval)
+            }
+            deleteChapter(friendID: friendID, sourceID: sourceID)
         }
+        return impact
     }
 
     private func upsertPlan(friendID: UUID, snapshot: FriendSharedPlanSnapshot) {
@@ -147,6 +154,42 @@ struct FriendSharedRecordStore {
         } else {
             modelContext.insert(FriendSharedChapterRecord(friendID: friendID, snapshot: snapshot))
         }
+    }
+
+    private func deletePlan(friendID: UUID, sourceID: UUID) {
+        let descriptor = FetchDescriptor<FriendSharedPlanRecord>(
+            predicate: #Predicate { $0.friendID == friendID && $0.sourceID == sourceID }
+        )
+        for record in (try? modelContext.fetch(descriptor)) ?? [] {
+            modelContext.delete(record)
+        }
+    }
+
+    private func deleteChapter(friendID: UUID, sourceID: UUID) {
+        let descriptor = FetchDescriptor<FriendSharedChapterRecord>(
+            predicate: #Predicate { $0.friendID == friendID && $0.sourceID == sourceID }
+        )
+        for record in (try? modelContext.fetch(descriptor)) ?? [] {
+            modelContext.delete(record)
+        }
+    }
+
+    private func planInterval(friendID: UUID, sourceID: UUID) -> DateInterval? {
+        var descriptor = FetchDescriptor<FriendSharedPlanRecord>(
+            predicate: #Predicate { $0.friendID == friendID && $0.sourceID == sourceID }
+        )
+        descriptor.fetchLimit = 1
+        guard let record = (try? modelContext.fetch(descriptor))?.first else { return nil }
+        return FriendSharedRecordChangeImpact.interval(start: record.startTime, end: record.endTime)
+    }
+
+    private func chapterInterval(friendID: UUID, sourceID: UUID) -> DateInterval? {
+        var descriptor = FetchDescriptor<FriendSharedChapterRecord>(
+            predicate: #Predicate { $0.friendID == friendID && $0.sourceID == sourceID }
+        )
+        descriptor.fetchLimit = 1
+        guard let record = (try? modelContext.fetch(descriptor))?.first else { return nil }
+        return FriendSharedRecordChangeImpact.interval(start: record.startTime, end: record.endTime)
     }
 
     /// 友達の重複統合時に、行キャッシュを勝者の friendID へ付け替える（sourceID重複は勝者優先で破棄）。
@@ -271,5 +314,36 @@ struct FriendSharedRecordStore {
         )
         descriptor.includePendingChanges = true
         return ((try? modelContext.fetch(descriptor)) ?? []).map(\.snapshot)
+    }
+}
+
+struct FriendSharedRecordChangeImpact: Equatable {
+    var requiresFullReload = false
+    private(set) var affectedIntervals: [DateInterval] = []
+
+    static let fullReload = FriendSharedRecordChangeImpact(requiresFullReload: true)
+
+    mutating func add(start: Date, end: Date) {
+        guard let interval = Self.interval(start: start, end: end) else { return }
+        add(interval)
+    }
+
+    mutating func add(_ interval: DateInterval) {
+        affectedIntervals.append(interval)
+    }
+
+    mutating func merge(_ other: FriendSharedRecordChangeImpact) {
+        requiresFullReload = requiresFullReload || other.requiresFullReload
+        affectedIntervals.append(contentsOf: other.affectedIntervals)
+    }
+
+    static func interval(start: Date, end: Date) -> DateInterval? {
+        guard start.timeIntervalSinceReferenceDate.isFinite,
+              end.timeIntervalSinceReferenceDate.isFinite
+        else { return nil }
+        if end > start {
+            return DateInterval(start: start, end: end)
+        }
+        return DateInterval(start: start, duration: 1)
     }
 }

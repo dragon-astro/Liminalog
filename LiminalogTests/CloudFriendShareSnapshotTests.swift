@@ -36,6 +36,97 @@ struct CloudFriendShareSnapshotTests {
     }
 }
 
+struct CloudFriendShareRefreshLaneTests {
+    @Test
+    func startsFirstRefreshImmediately() {
+        var lane = CloudFriendShareRefreshLane()
+        let didBegin = lane.begin(request: CloudFriendShareRefreshRequest(reason: "launch"))
+
+        #expect(didBegin)
+        #expect(lane.isInFlight)
+        #expect(lane.queuedRequest == nil)
+    }
+
+    @Test
+    func coalescesRequestsWhileRefreshIsRunning() {
+        var lane = CloudFriendShareRefreshLane()
+        let firstPlanID = UUID()
+        let secondPlanID = UUID()
+        let chapterID = UUID()
+        let didBegin = lane.begin(request: CloudFriendShareRefreshRequest(reason: "launch"))
+        let didBeginSecond = lane.begin(request: CloudFriendShareRefreshRequest(
+            reason: "push-1",
+            changedPlanSourceIDs: [firstPlanID],
+            requiresFullPublish: false
+        ))
+        let didBeginThird = lane.begin(request: CloudFriendShareRefreshRequest(
+            reason: "push-2",
+            changedPlanSourceIDs: [secondPlanID],
+            changedChapterSourceIDs: [chapterID],
+            requiresFullPublish: false
+        ))
+
+        #expect(didBegin)
+        #expect(!didBeginSecond)
+        #expect(!didBeginThird)
+        #expect(lane.isInFlight)
+        #expect(lane.queuedRequest?.reason == "push-2")
+        #expect(lane.queuedRequest?.changedPlanSourceIDs == [firstPlanID, secondPlanID])
+        #expect(lane.queuedRequest?.changedChapterSourceIDs == [chapterID])
+        #expect(lane.queuedRequest?.requiresFullPublish == false)
+    }
+
+    @Test
+    func queuedRequestRunsOnceAfterCurrentOperation() {
+        var lane = CloudFriendShareRefreshLane()
+        let didBegin = lane.begin(request: CloudFriendShareRefreshRequest(reason: "launch"))
+
+        #expect(didBegin)
+        lane.prepareForOperation()
+        let didBeginSecond = lane.begin(request: CloudFriendShareRefreshRequest(reason: "push"))
+
+        #expect(!didBeginSecond)
+        let nextRequest = lane.finishOperation()
+        #expect(nextRequest?.reason == "push")
+        #expect(lane.isInFlight)
+        #expect(lane.queuedRequest == nil)
+    }
+
+    @Test
+    func laneBecomesIdleWhenNoRequestArrivesDuringOperation() {
+        var lane = CloudFriendShareRefreshLane()
+        let didBegin = lane.begin(request: CloudFriendShareRefreshRequest(reason: "launch"))
+
+        #expect(didBegin)
+        lane.prepareForOperation()
+
+        let nextRequest = lane.finishOperation()
+        #expect(nextRequest == nil)
+        #expect(!lane.isInFlight)
+        #expect(lane.queuedRequest == nil)
+    }
+
+    @Test
+    func fullPublishRequestWinsWhenCoalescingWithTargetedRequests() {
+        var lane = CloudFriendShareRefreshLane()
+        let planID = UUID()
+        let didBegin = lane.begin(request: CloudFriendShareRefreshRequest(reason: "targeted"))
+        let didBeginSecond = lane.begin(request: CloudFriendShareRefreshRequest(
+            reason: "plan",
+            changedPlanSourceIDs: [planID],
+            requiresFullPublish: false
+        ))
+        let didBeginThird = lane.begin(request: CloudFriendShareRefreshRequest(reason: "visibility changed"))
+
+        #expect(didBegin)
+        #expect(!didBeginSecond)
+        #expect(!didBeginThird)
+        #expect(lane.queuedRequest?.reason == "visibility changed")
+        #expect(lane.queuedRequest?.changedPlanSourceIDs == [planID])
+        #expect(lane.queuedRequest?.requiresFullPublish == true)
+    }
+}
+
 struct FriendSharedItemRecordPolicyTests {
     private let zoneID = CKRecordZone.ID(zoneName: "LiminalogFriendShares", ownerName: "_owner")
     private let now = Date(timeIntervalSince1970: 1_780_764_000)
@@ -234,6 +325,582 @@ struct FriendSharePublishStateStoreTests {
         #expect(store.publishedFingerprints(targetUserRecordName: "_a", kind: FriendSharePublishStateStore.planKind) == [id: "fp-plan"])
         #expect(store.publishedFingerprints(targetUserRecordName: "_a", kind: FriendSharePublishStateStore.chapterKind) == [id: "fp-chapter"])
         #expect(store.publishedFingerprints(targetUserRecordName: "_b", kind: FriendSharePublishStateStore.planKind).isEmpty)
+    }
+
+    @Test
+    func manifestCanReadOnlyRequestedSourceIDs() throws {
+        let container = try TestModelContainer.make()
+        let store = FriendSharePublishStateStore(modelContext: container.mainContext)
+        let requested = UUID()
+        let untouched = UUID()
+
+        store.applyPublishResult(
+            targetUserRecordName: "_target",
+            kind: FriendSharePublishStateStore.planKind,
+            upserted: [
+                requested: "fp-requested",
+                untouched: "fp-untouched"
+            ],
+            deleted: []
+        )
+        try container.mainContext.save()
+
+        let fingerprints = store.publishedFingerprints(
+            targetUserRecordName: "_target",
+            kind: FriendSharePublishStateStore.planKind,
+            sourceIDs: [requested]
+        )
+        #expect(fingerprints == [requested: "fp-requested"])
+    }
+
+    @Test
+    func manifestCanReadManyRequestedSourceIDsWithoutLeakingOtherTargetsOrKinds() throws {
+        let container = try TestModelContainer.make()
+        let store = FriendSharePublishStateStore(modelContext: container.mainContext)
+        let requestedIDs = (0..<30).map { _ in UUID() }
+        let requested = Dictionary(
+            uniqueKeysWithValues: requestedIDs.enumerated().map { index, id in
+                (id, "fp-\(index)")
+            }
+        )
+        let otherTargetID = requestedIDs[0]
+        let otherKindID = requestedIDs[1]
+
+        store.applyPublishResult(
+            targetUserRecordName: "_target",
+            kind: FriendSharePublishStateStore.planKind,
+            upserted: requested,
+            deleted: []
+        )
+        store.applyPublishResult(
+            targetUserRecordName: "_other",
+            kind: FriendSharePublishStateStore.planKind,
+            upserted: [otherTargetID: "wrong-target"],
+            deleted: []
+        )
+        store.applyPublishResult(
+            targetUserRecordName: "_target",
+            kind: FriendSharePublishStateStore.chapterKind,
+            upserted: [otherKindID: "wrong-kind"],
+            deleted: []
+        )
+        try container.mainContext.save()
+
+        let fingerprints = store.publishedFingerprints(
+            targetUserRecordName: "_target",
+            kind: FriendSharePublishStateStore.planKind,
+            sourceIDs: Set(requestedIDs)
+        )
+        #expect(fingerprints == requested)
+    }
+}
+
+@MainActor
+struct FriendShareZoneChangeApplierTests {
+    private let zoneID = CKRecordZone.ID(zoneName: CloudFriendShareStore.shareZoneName, ownerName: "_owner")
+    private let ownUserRecordName = "_recipient"
+    private let ownerUserRecordName = "_owner"
+    private let now = Date(timeIntervalSince1970: 1_780_764_000)
+
+    @Test
+    func fullZoneFetchReconcilesMissingRowsAndAppliesRootSnapshot() throws {
+        let container = try TestModelContainer.make()
+        let context = container.mainContext
+        let friend = Friend(displayName: "Before", handle: "@before", status: .accepted, shareURL: "https://example.com/share")
+        friend.userRecordID = ownerUserRecordName
+        context.insert(friend)
+        try context.save()
+
+        let stalePlanID = UUID()
+        let keptPlan = FriendSharedPlanSnapshot(
+            title: "Still Shared",
+            startTime: now,
+            endTime: now.addingTimeInterval(3_600),
+            isImportant: true,
+            updatedAt: now
+        )
+        let recordStore = FriendSharedRecordStore(modelContext: context)
+        recordStore.reconcile(
+            friendID: friend.id,
+            plans: [
+                FriendSharedPlanSnapshot(
+                    id: stalePlanID,
+                    title: "Stale Before Full Fetch",
+                    startTime: now.addingTimeInterval(-7_200),
+                    endTime: now.addingTimeInterval(-3_600),
+                    isImportant: true,
+                    updatedAt: now
+                ),
+                keptPlan
+            ],
+            activities: []
+        )
+        try context.save()
+
+        let changes = FriendShareZoneChanges(
+            changedRecords: [
+                rootRecord(
+                    statusTitle: "Live",
+                    mood: "Synced",
+                    todayScore: 91
+                ),
+                planRecord(keptPlan)
+            ],
+            deletedRecordNames: [],
+            changeToken: nil,
+            didFetchFullZone: true
+        )
+
+        let result = try #require(FriendShareZoneChangeApplier().apply(
+            changes,
+            to: friend,
+            ownUserRecordName: ownUserRecordName,
+            modelContext: context,
+            stateStore: FriendSharePublishStateStore(modelContext: context)
+        ))
+        try context.save()
+
+        let plans = recordStore.plans(friendID: friend.id, overlapping: Date.distantPast..<Date.distantFuture)
+        #expect(result.shouldNotify)
+        #expect(result.impact.requiresFullReload)
+        #expect(plans.map(\.id) == [keptPlan.id])
+        #expect(!plans.contains { $0.id == stalePlanID })
+        #expect(friend.displayName == "Live Owner")
+        #expect(friend.handle == "@liveowner")
+        #expect(friend.currentStatusTitle == "Live")
+        #expect(friend.currentMoodText == "Synced")
+        #expect(friend.todayScore == 91)
+    }
+
+    @Test
+    func incrementalRootChangeNotifiesTodayAndYesterdayWithoutFullReload() throws {
+        let container = try TestModelContainer.make()
+        let context = container.mainContext
+        let friend = Friend(displayName: "Before", handle: "@before", status: .accepted)
+        friend.userRecordID = ownerUserRecordName
+        context.insert(friend)
+        try context.save()
+
+        let changes = FriendShareZoneChanges(
+            changedRecords: [
+                rootRecord(
+                    statusTitle: "Focus",
+                    mood: "",
+                    todayScore: 77
+                )
+            ],
+            deletedRecordNames: [],
+            changeToken: nil,
+            didFetchFullZone: false
+        )
+
+        let result = try #require(FriendShareZoneChangeApplier().apply(
+            changes,
+            to: friend,
+            ownUserRecordName: ownUserRecordName,
+            modelContext: context,
+            stateStore: FriendSharePublishStateStore(modelContext: context)
+        ))
+
+        #expect(result.shouldNotify)
+        #expect(!result.impact.requiresFullReload)
+        #expect(!result.impact.affectedIntervals.isEmpty)
+        #expect(friend.currentStatusTitle == "Focus")
+        #expect(friend.todayScore == 77)
+    }
+
+    private var rootRecordID: CKRecord.ID {
+        CKRecord.ID(recordName: "friend-share:\(ownerUserRecordName):\(ownUserRecordName)", zoneID: zoneID)
+    }
+
+    private func rootRecord(
+        statusTitle: String,
+        mood: String,
+        todayScore: Double
+    ) -> CKRecord {
+        let record = CKRecord(
+            recordType: CloudFriendShareStore.rootRecordType,
+            recordID: rootRecordID
+        )
+        let snapshot = CloudFriendShareSnapshot(
+            ownerUsername: "liveowner",
+            ownerDisplayName: "Live Owner",
+            targetUserRecordName: ownUserRecordName,
+            currentStatusTitle: statusTitle,
+            currentStatusIcon: statusTitle.isEmpty ? "circle.dashed" : "bolt.fill",
+            currentStatusColorHex: statusTitle.isEmpty ? "#8E8E93" : "#2F80ED",
+            currentMoodText: mood,
+            todayScore: todayScore,
+            yesterdayScore: 66,
+            weekScore: 70,
+            monthScore: 72,
+            yearScore: 74,
+            streakCount: 4,
+            updatedAt: now
+        )
+        record["ownerUsername"] = snapshot.ownerUsername as CKRecordValue
+        record["ownerDisplayName"] = snapshot.ownerDisplayName as CKRecordValue
+        record["targetUserRecordName"] = snapshot.targetUserRecordName as CKRecordValue
+        record["currentStatusTitle"] = snapshot.currentStatusTitle as CKRecordValue
+        record["currentStatusIcon"] = snapshot.currentStatusIcon as CKRecordValue
+        record["currentStatusColorHex"] = snapshot.currentStatusColorHex as CKRecordValue
+        record["currentMoodText"] = snapshot.currentMoodText as CKRecordValue
+        record["todayScore"] = snapshot.todayScore as CKRecordValue
+        record["yesterdayScore"] = snapshot.yesterdayScore as CKRecordValue
+        record["weekScore"] = snapshot.weekScore as CKRecordValue
+        record["monthScore"] = snapshot.monthScore as CKRecordValue
+        record["yearScore"] = snapshot.yearScore as CKRecordValue
+        record["streakCount"] = snapshot.streakCount as CKRecordValue
+        record["updatedAt"] = snapshot.updatedAt as CKRecordValue
+        return record
+    }
+
+    private func planRecord(_ snapshot: FriendSharedPlanSnapshot) -> CKRecord {
+        let record = CKRecord(
+            recordType: FriendSharedItemRecordPolicy.planRecordType,
+            recordID: CKRecord.ID(
+                recordName: FriendSharedItemRecordPolicy.planRecordName(
+                    targetUserRecordName: ownUserRecordName,
+                    sourceID: snapshot.id
+                ),
+                zoneID: zoneID
+            )
+        )
+        FriendSharedItemRecordPolicy.apply(snapshot, to: record, parentRecordID: rootRecordID)
+        return record
+    }
+}
+
+struct FriendShareZoneChangeFetchRecoveryPolicyTests {
+    @Test
+    func successfulFetchWithoutPreviousTokenIsMarkedFullZone() async throws {
+        var requestedTokens: [CKServerChangeToken?] = []
+
+        let changes = try await FriendShareZoneChangeFetchRecoveryPolicy.fetch(previousToken: nil) { token in
+            requestedTokens.append(token)
+            return FriendShareZoneChanges(changedRecords: [], deletedRecordNames: ["deleted-plan"], changeToken: nil)
+        }
+
+        #expect(requestedTokens.count == 1)
+        #expect(requestedTokens[0] == nil)
+        #expect(changes.didFetchFullZone)
+        #expect(changes.deletedRecordNames == ["deleted-plan"])
+    }
+
+    @Test
+    func changeTokenExpiredRetriesWithNilTokenAndMarksFullZone() async throws {
+        var requestedTokens: [String?] = []
+
+        let changes = try await FriendShareZoneChangeFetchRecoveryPolicy.fetch(
+            previousToken: "stale-token",
+            isChangeTokenExpired: { error in
+                guard case FetchRecoveryTestError.changeTokenExpired = error else { return false }
+                return true
+            }
+        ) { token in
+            requestedTokens.append(token)
+            if requestedTokens.count == 1 {
+                throw FetchRecoveryTestError.changeTokenExpired
+            }
+            return FriendShareZoneChanges(changedRecords: [], deletedRecordNames: ["after-recovery"], changeToken: nil)
+        }
+
+        #expect(requestedTokens.count == 2)
+        #expect(requestedTokens[0] == "stale-token")
+        #expect(requestedTokens[1] == nil)
+        #expect(changes.didFetchFullZone)
+        #expect(changes.deletedRecordNames == ["after-recovery"])
+    }
+
+    @Test
+    func nonTokenExpiredErrorDoesNotRetry() async throws {
+        var attemptCount = 0
+
+        do {
+            _ = try await FriendShareZoneChangeFetchRecoveryPolicy.fetch(previousToken: nil) { _ in
+                attemptCount += 1
+                throw CKError(.networkUnavailable)
+            }
+            Issue.record("Expected non-token CloudKit error to be rethrown.")
+        } catch let error as CKError {
+            #expect(error.code == .networkUnavailable)
+        }
+
+        #expect(attemptCount == 1)
+    }
+
+    private enum FetchRecoveryTestError: Error {
+        case changeTokenExpired
+    }
+}
+
+@MainActor
+struct FriendSharedRecordChangeImpactTests {
+    @Test
+    func applyChangesReportsUpsertAndDeleteIntervals() throws {
+        let container = try TestModelContainer.make()
+        let store = FriendSharedRecordStore(modelContext: container.mainContext)
+        let friendID = UUID()
+        let deletedID = UUID()
+        let upsertedID = UUID()
+        let deletedStart = Date(timeIntervalSince1970: 1_780_764_000)
+        let upsertedStart = deletedStart.addingTimeInterval(86_400)
+
+        store.reconcile(
+            friendID: friendID,
+            plans: [
+                FriendSharedPlanSnapshot(
+                    id: deletedID,
+                    title: "消える予定",
+                    startTime: deletedStart,
+                    endTime: deletedStart.addingTimeInterval(3_600),
+                    updatedAt: deletedStart
+                )
+            ],
+            activities: []
+        )
+        try container.mainContext.save()
+
+        let impact = store.applyChanges(
+            friendID: friendID,
+            upsertPlans: [
+                FriendSharedPlanSnapshot(
+                    id: upsertedID,
+                    title: "増える予定",
+                    startTime: upsertedStart,
+                    endTime: upsertedStart.addingTimeInterval(1_800),
+                    updatedAt: upsertedStart
+                )
+            ],
+            upsertChapters: [],
+            deletePlanSourceIDs: [deletedID],
+            deleteChapterSourceIDs: []
+        )
+
+        #expect(!impact.requiresFullReload)
+        #expect(impact.affectedIntervals.contains(DateInterval(start: deletedStart, end: deletedStart.addingTimeInterval(3_600))))
+        #expect(impact.affectedIntervals.contains(DateInterval(start: upsertedStart, end: upsertedStart.addingTimeInterval(1_800))))
+    }
+
+    @Test
+    func notificationScopesCalendarPageMonthsAndDays() throws {
+        let friendID = UUID()
+        let start = try #require(Calendar.japanese.date(from: DateComponents(year: 2026, month: 6, day: 30, hour: 23)))
+        let end = try #require(Calendar.japanese.date(from: DateComponents(year: 2026, month: 7, day: 1, hour: 1)))
+        let notification = Notification(
+            name: CloudFriendShareRefreshCoordinator.sharedRecordsDidChange,
+            userInfo: [
+                CloudFriendShareRefreshCoordinator.sharedRecordsDidChangeFriendIDKey: friendID.uuidString,
+                CloudFriendShareRefreshCoordinator.sharedRecordsDidChangeRequiresFullReloadKey: false,
+                CloudFriendShareRefreshCoordinator.sharedRecordsDidChangeAffectedStartDatesKey: [start],
+                CloudFriendShareRefreshCoordinator.sharedRecordsDidChangeAffectedEndDatesKey: [end]
+            ]
+        )
+
+        let change = SharedRecordChangeNotification(notification)
+        let affectedMonths = try #require(change.affectedCalendarPageMonths())
+        let may = try #require(Calendar.japanese.date(from: DateComponents(year: 2026, month: 5, day: 1)))
+        let june = try #require(Calendar.japanese.date(from: DateComponents(year: 2026, month: 6, day: 1)))
+        let july = try #require(Calendar.japanese.date(from: DateComponents(year: 2026, month: 7, day: 1)))
+        let august = try #require(Calendar.japanese.date(from: DateComponents(year: 2026, month: 8, day: 1)))
+
+        #expect(change.affects(friendID: friendID))
+        #expect(change.affects(day: start))
+        #expect(change.affects(day: end))
+        #expect(affectedMonths.isSuperset(of: [may, june, july, august]))
+    }
+
+    @Test
+    func notificationEndingAtMidnightDoesNotInvalidateNextDay() throws {
+        let friendID = UUID()
+        let start = try #require(Calendar.japanese.date(from: DateComponents(year: 2026, month: 6, day: 30, hour: 22)))
+        let end = try #require(Calendar.japanese.date(from: DateComponents(year: 2026, month: 7, day: 1)))
+        let notification = Notification(
+            name: CloudFriendShareRefreshCoordinator.sharedRecordsDidChange,
+            userInfo: [
+                CloudFriendShareRefreshCoordinator.sharedRecordsDidChangeFriendIDKey: friendID.uuidString,
+                CloudFriendShareRefreshCoordinator.sharedRecordsDidChangeRequiresFullReloadKey: false,
+                CloudFriendShareRefreshCoordinator.sharedRecordsDidChangeAffectedStartDatesKey: [start],
+                CloudFriendShareRefreshCoordinator.sharedRecordsDidChangeAffectedEndDatesKey: [end]
+            ]
+        )
+
+        let change = SharedRecordChangeNotification(notification)
+        let june30 = try #require(Calendar.japanese.date(from: DateComponents(year: 2026, month: 6, day: 30, hour: 12)))
+        let july1 = try #require(Calendar.japanese.date(from: DateComponents(year: 2026, month: 7, day: 1, hour: 12)))
+        let affectedMonths = try #require(change.affectedCalendarPageMonths())
+        let may = try #require(Calendar.japanese.date(from: DateComponents(year: 2026, month: 5, day: 1)))
+        let june = try #require(Calendar.japanese.date(from: DateComponents(year: 2026, month: 6, day: 1)))
+        let july = try #require(Calendar.japanese.date(from: DateComponents(year: 2026, month: 7, day: 1)))
+
+        #expect(change.affects(day: june30))
+        #expect(!change.affects(day: july1))
+        #expect(affectedMonths == Set([may, june, july]))
+    }
+
+    @Test
+    func fullReloadNotificationInvalidatesAllCalendarPagesForOnlyThatFriend() throws {
+        let friendID = UUID()
+        let otherFriendID = UUID()
+        let start = try #require(Calendar.japanese.date(from: DateComponents(year: 2026, month: 6, day: 15, hour: 9)))
+        let end = try #require(Calendar.japanese.date(from: DateComponents(year: 2026, month: 6, day: 15, hour: 10)))
+        let notification = Notification(
+            name: CloudFriendShareRefreshCoordinator.sharedRecordsDidChange,
+            userInfo: [
+                CloudFriendShareRefreshCoordinator.sharedRecordsDidChangeFriendIDKey: friendID.uuidString,
+                CloudFriendShareRefreshCoordinator.sharedRecordsDidChangeRequiresFullReloadKey: true,
+                CloudFriendShareRefreshCoordinator.sharedRecordsDidChangeAffectedStartDatesKey: [start],
+                CloudFriendShareRefreshCoordinator.sharedRecordsDidChangeAffectedEndDatesKey: [end]
+            ]
+        )
+
+        let change = SharedRecordChangeNotification(notification)
+        #expect(change.requiresFullReload)
+        #expect(change.affects(friendID: friendID))
+        #expect(!change.affects(friendID: otherFriendID))
+        #expect(change.affects(day: start))
+        #expect(change.affectedCalendarPageMonths() == nil)
+    }
+
+    @Test
+    @MainActor
+    func postSharedRecordsDidChangeHelperPostsFullReloadForFriend() throws {
+        let friendID = UUID()
+        let otherFriendID = UUID()
+        let center = NotificationCenter.default
+        var received: Notification?
+        let observer = center.addObserver(
+            forName: CloudFriendShareRefreshCoordinator.sharedRecordsDidChange,
+            object: nil,
+            queue: nil
+        ) { notification in
+            received = notification
+        }
+        defer {
+            center.removeObserver(observer)
+        }
+
+        CloudFriendShareRefreshCoordinator.postSharedRecordsDidChange(friendID: friendID)
+
+        let change = SharedRecordChangeNotification(try #require(received))
+        #expect(change.requiresFullReload)
+        #expect(change.affects(friendID: friendID))
+        #expect(!change.affects(friendID: otherFriendID))
+        #expect(change.affectedCalendarPageMonths() == nil)
+    }
+
+    @Test
+    func friendCalendarInvalidationPlanClearsAllOnFullReload() throws {
+        let notification = Notification(
+            name: CloudFriendShareRefreshCoordinator.sharedRecordsDidChange,
+            userInfo: [
+                CloudFriendShareRefreshCoordinator.sharedRecordsDidChangeRequiresFullReloadKey: true
+            ]
+        )
+        let anchorMonth = try #require(Calendar.japanese.date(from: DateComponents(year: 2026, month: 6, day: 1)))
+
+        let plan = FriendCalendarCacheInvalidationPolicy.plan(
+            for: SharedRecordChangeNotification(notification),
+            anchorMonth: anchorMonth,
+            currentOffset: 0
+        )
+
+        #expect(plan.shouldClearAll)
+        #expect(plan.monthsToRemove.isEmpty)
+        #expect(plan.shouldEnsureVisibleData)
+    }
+
+    @Test
+    func friendCalendarInvalidationPlanRefillsVisibleAffectedMonths() throws {
+        let anchorMonth = try #require(Calendar.japanese.date(from: DateComponents(year: 2026, month: 6, day: 1)))
+        let start = try #require(Calendar.japanese.date(from: DateComponents(year: 2026, month: 6, day: 15, hour: 9)))
+        let end = try #require(Calendar.japanese.date(from: DateComponents(year: 2026, month: 6, day: 15, hour: 10)))
+        let notification = partialChangeNotification(start: start, end: end)
+        let may = try #require(Calendar.japanese.date(from: DateComponents(year: 2026, month: 5, day: 1)))
+        let june = try #require(Calendar.japanese.date(from: DateComponents(year: 2026, month: 6, day: 1)))
+        let july = try #require(Calendar.japanese.date(from: DateComponents(year: 2026, month: 7, day: 1)))
+
+        let plan = FriendCalendarCacheInvalidationPolicy.plan(
+            for: SharedRecordChangeNotification(notification),
+            anchorMonth: anchorMonth,
+            currentOffset: 0
+        )
+
+        #expect(!plan.shouldClearAll)
+        #expect(plan.monthsToRemove == Set([may, june, july]))
+        #expect(plan.shouldEnsureVisibleData)
+    }
+
+    @Test
+    func friendCalendarInvalidationPlanDoesNotRefillOffscreenAffectedMonths() throws {
+        let anchorMonth = try #require(Calendar.japanese.date(from: DateComponents(year: 2026, month: 6, day: 1)))
+        let start = try #require(Calendar.japanese.date(from: DateComponents(year: 2026, month: 12, day: 15, hour: 9)))
+        let end = try #require(Calendar.japanese.date(from: DateComponents(year: 2026, month: 12, day: 15, hour: 10)))
+        let notification = partialChangeNotification(start: start, end: end)
+        let november = try #require(Calendar.japanese.date(from: DateComponents(year: 2026, month: 11, day: 1)))
+        let december = try #require(Calendar.japanese.date(from: DateComponents(year: 2026, month: 12, day: 1)))
+        let january = try #require(Calendar.japanese.date(from: DateComponents(year: 2027, month: 1, day: 1)))
+
+        let plan = FriendCalendarCacheInvalidationPolicy.plan(
+            for: SharedRecordChangeNotification(notification),
+            anchorMonth: anchorMonth,
+            currentOffset: 0
+        )
+
+        #expect(!plan.shouldClearAll)
+        #expect(plan.monthsToRemove == Set([november, december, january]))
+        #expect(!plan.shouldEnsureVisibleData)
+    }
+
+    @Test
+    func friendCalendarInvalidationPlanUsesCurrentOffsetForVisibleMonths() throws {
+        let anchorMonth = try #require(Calendar.japanese.date(from: DateComponents(year: 2026, month: 6, day: 1)))
+        let start = try #require(Calendar.japanese.date(from: DateComponents(year: 2026, month: 12, day: 15, hour: 9)))
+        let end = try #require(Calendar.japanese.date(from: DateComponents(year: 2026, month: 12, day: 15, hour: 10)))
+        let notification = partialChangeNotification(start: start, end: end)
+        let november = try #require(Calendar.japanese.date(from: DateComponents(year: 2026, month: 11, day: 1)))
+        let december = try #require(Calendar.japanese.date(from: DateComponents(year: 2026, month: 12, day: 1)))
+        let january = try #require(Calendar.japanese.date(from: DateComponents(year: 2027, month: 1, day: 1)))
+
+        let plan = FriendCalendarCacheInvalidationPolicy.plan(
+            for: SharedRecordChangeNotification(notification),
+            anchorMonth: anchorMonth,
+            currentOffset: 6
+        )
+
+        #expect(!plan.shouldClearAll)
+        #expect(plan.monthsToRemove == Set([november, december, january]))
+        #expect(plan.shouldEnsureVisibleData)
+    }
+
+    @Test
+    func friendCalendarInvalidationPlanNoopsWhenPartialChangeHasNoIntervals() throws {
+        let anchorMonth = try #require(Calendar.japanese.date(from: DateComponents(year: 2026, month: 6, day: 1)))
+        let notification = Notification(
+            name: CloudFriendShareRefreshCoordinator.sharedRecordsDidChange,
+            userInfo: [
+                CloudFriendShareRefreshCoordinator.sharedRecordsDidChangeRequiresFullReloadKey: false
+            ]
+        )
+
+        let plan = FriendCalendarCacheInvalidationPolicy.plan(
+            for: SharedRecordChangeNotification(notification),
+            anchorMonth: anchorMonth,
+            currentOffset: 0
+        )
+
+        #expect(plan == .noOp)
+    }
+
+    private func partialChangeNotification(start: Date, end: Date) -> Notification {
+        Notification(
+            name: CloudFriendShareRefreshCoordinator.sharedRecordsDidChange,
+            userInfo: [
+                CloudFriendShareRefreshCoordinator.sharedRecordsDidChangeRequiresFullReloadKey: false,
+                CloudFriendShareRefreshCoordinator.sharedRecordsDidChangeAffectedStartDatesKey: [start],
+                CloudFriendShareRefreshCoordinator.sharedRecordsDidChangeAffectedEndDatesKey: [end]
+            ]
+        )
     }
 }
 

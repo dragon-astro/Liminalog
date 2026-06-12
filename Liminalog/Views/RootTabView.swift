@@ -107,7 +107,7 @@ struct RootTabView: View {
             .task {
                 guard appStores == nil else { return }
                 let initializedStores = AppStores(modelContext: modelContext)
-                let initializedStore = initializedStores.bootstrap()
+                let initializedStore = await initializedStores.bootstrapWithStoreReadinessRetry()
                 #if DEBUG
                 let seedRequest = PreviewSupport.runtimeSeedRequest()
                 if seedRequest.shouldSeedPreviewPlans {

@@ -96,7 +96,7 @@ final class PlanStore {
         plan.hasAudienceSnapshot = hasAudienceSnapshot
         plan.updatedAt = clock.now
         modelContext.insert(plan)
-        return saveChanges("plan add")
+        return saveChanges("plan add", changedPlanSourceID: plan.id)
     }
 
     @discardableResult
@@ -137,14 +137,15 @@ final class PlanStore {
             plan.hasAudienceSnapshot = hasAudienceSnapshot
         }
         plan.updatedAt = clock.now
-        return saveChanges("plan update")
+        return saveChanges("plan update", changedPlanSourceID: plan.id)
     }
 
     @discardableResult
     func deletePlanBlock(_ plan: PlanBlock) -> Bool {
         guard !isScheduleLocked(plan) else { return false }
+        let sourceID = plan.id
         modelContext.delete(plan)
-        return saveChanges("plan delete")
+        return saveChanges("plan delete", changedPlanSourceID: sourceID)
     }
 
     private func normalizedTitle(_ title: String, category: Category?) -> String {
@@ -152,9 +153,14 @@ final class PlanStore {
         return trimmed.isEmpty ? (category?.name ?? "予定") : trimmed
     }
 
-    private func saveChanges(_ action: String) -> Bool {
+    private func saveChanges(_ action: String, changedPlanSourceID: UUID) -> Bool {
         do {
             try modelContext.save()
+            CloudFriendShareRefreshCoordinator.requestRefresh(
+                reason: action,
+                changedPlanSourceIDs: [changedPlanSourceID],
+                requiresFullPublish: false
+            )
             return true
         } catch {
             NSLog("Liminalog: failed to save \(action): \(String(describing: error))")

@@ -230,7 +230,11 @@ struct CategoryAudiencePickerSheet: View {
 
         do {
             try modelContext.save()
-            CloudFriendShareRefreshCoordinator.requestRefresh(reason: "past plan audience changed")
+            CloudFriendShareRefreshCoordinator.requestRefresh(
+                reason: "past plan audience changed",
+                changedPlanSourceIDs: Set(pastPlansInCategory.map(\.id)),
+                requiresFullPublish: false
+            )
             dismiss()
         } catch {
             NSLog("Liminalog: failed to apply audience to past plans: \(String(describing: error))")

@@ -78,16 +78,16 @@
   既存の `LocalCache` ModelConfiguration（`cloudKitDatabase: .none`、`CalendarEventCache` と同居）に置く。
   別コンテナ不要。消えても再同期で復元できる純粋な派生キャッシュ。
 
-### 7.2 実装済み（受信側の土台＋二重書き）
+### 7.2 実装済み（受信側の個別行キャッシュ土台）
 | 部品 | 役割 |
 |---|---|
 | `Models/FriendSharedRecord.swift` | `FriendSharedPlanRecord` / `FriendSharedChapterRecord`（@Model・`#Index(friendID, startTime)`・snapshot相互変換） |
 | `Stores/FriendSharedRecordReconcilePolicy.swift` | sourceID突合の純ロジック（insert/update/delete、updatedAt比較、重複除去）。CloudKit差分同期になってもそのまま使える |
 | `Stores/FriendSharedRecordStore.swift` | reconcile（全量正の一致化）・範囲クエリ（overlapping）・deleteAll・purge |
-| `CloudFriendShareSnapshotApplier` | 塊JSON反映と同時に個別行へも**二重書き**。`clearCachedShare` で行も削除 |
+| `CloudFriendShareSnapshotApplier` | ステータス専用 root snapshot を `Friend` へ反映。`clearCachedShare` でステータスと個別行キャッシュを削除 |
 | `CloudFriendShareRefreshCoordinator` | リフレッシュ末尾で孤児行をpurge |
 | スキーマ | `localCacheSchema` / `schema` / `LiminalogSchemaV1` / `TestModelContainer` に追加（軽量マイグレーションで追加されるだけ） |
-| テスト | `FriendSharedRecordStoreTests`（policy 3件＋store 4件、applier二重書き含む） |
+| テスト | `FriendSharedRecordStoreTests`（policy / store / clearCachedShare / 大容量範囲クエリ） |
 
 ### 7.3 残り（着手順）
 1. [Claude] UIの範囲クエリ移行 → **完了（2026-06-10・段階2）**。置換済み:
@@ -100,7 +100,7 @@
 2. [Codex→Claude] CloudKit輸送層の個別レコード化（§2.1）→ **実装完了（2026-06-11・段階3）**
 3. [Codex→Claude] 受信の差分同期（§2.2）→ **実装完了（2026-06-11・段階3）**
 4. [両者] 塊JSON撤去 → **完了（2026-06-11・段階3）**
-5. **二台実機での反復検証（共有・差分・削除・可視性）— 未実施・リリース前必須**。§5の通り友達正式リリースの更新に同梱が安全。`CloudKitLiveDeviceSmokeTests` と docs/18 のランブックを使うこと。
+5. **二台実機での反復検証（共有・差分・削除・可視性）— 自動E2Eは完了**。2026-06-12 に `CloudKitLiveDeviceSmokeTests` の二台E2E run `codex-20260612D/E/F/G` で初回共有、baseline token 後の更新/追加/削除、公開範囲OFF相当のroot赤字化＋子レコードtombstone、full fetch reconcile、cleanup まで確認済み。run G は iPhone 13=recipient / iPhone 16=owner で再実行し、初回 accept/fetch 89.51秒、差分取得 1.72秒、redaction/tombstone差分 2.26秒、保存済みtoken破棄→1回full fetch→replacement token保存→reconcile 87.62秒で成功。通常差分は1〜2秒台まで軽量化済みだが、初回共有とtoken喪失後の復旧full fetchは90秒級。大容量modifyはiPhone 13実機で360件 publish 5.20秒 / delete 12.45秒。Gate23 で `CKError.changeTokenExpired` 注入時に保存済みtokenからnil full fetchへ落ちるapp側fallbackも固定済み。可視性の手動UI確認、意図的 `changeTokenExpired` の実CloudKit再現はリリース前の最終確認として継続する。
 
 ---
 
@@ -117,16 +117,37 @@
 ### 8.2 主な新規ファイル
 `FriendSharedItemRecordPolicy` / `FriendSharePublishDiffPolicy` / `FriendSharePublishStateStore` / `FriendShareSyncState`（@Model×2） / `CloudFriendShareItemTransport`（store拡張）
 
-### 8.3 実機検証の状況（2026-06-11 実機2台で実施）
+### 8.3 実機検証の状況（2026-06-11〜12 実機2台で実施）
 | 項目 | 状態 |
 |---|---|
-| 1. `parent` 参照付き子レコードの保存・削除（階層構造） | ✅ ライブスモークテスト `testSharedItemRecordsRoundTripOnRealCloudKit` がiPhone 13実機+実CloudKitでパス。**参加者から見えるかの最終確認は2台E2Eで** |
+| 1. `parent` 参照付き子レコードの保存・削除（階層構造） | ✅ ライブスモークテスト `testSharedItemRecordsRoundTripOnRealCloudKit` がiPhone 13実機+実CloudKitでパス。二台E2Eでも recipient が共有ゾーンから SharedPlan/SharedChapter を取得できることを確認。2026-06-12 Gate22 で最新差分後も iPhone 16 実機 3.98秒 / iPhone 13 実機 3.72秒で再成功 |
 | 4. 新レコード型のスキーマ自動作成 | ✅ 同テストで確認（development環境） |
-| 2. ゾーン差分・トークン失効 / 3. 初回接続 / 5. 大量初回公開 | ⏳ 2台E2Eで確認（両端末のユーザーID再確定後に実施） |
+| 2. ゾーン差分 | ✅ 二台E2E run `codex-20260612B/C/D/E/F/G` で baseline token 後の更新・追加・削除を差分取得し、recipient の行キャッシュへ反映確認。run D では差分取得 2.52秒、公開範囲OFF相当の赤字化/tombstone差分 2.10秒。run E では差分取得 2.28秒、redaction/tombstone差分 1.31秒。run G では差分取得 1.72秒、redaction/tombstone差分 2.26秒 |
+| 3. 初回接続 | ✅ 二台E2E run `codex-20260612A/B/C/D/E/F/G` で recipient announce → owner share publish → recipient accept/fetch が成功。run D の初回 accept/fetch は 90.54秒、run E は 91.52秒、run G は 89.51秒 |
+| 5. 大量初回公開 | ✅ 送信側は sourceID 指定時でもルート新規作成時に fullSharedItems へフォールバックする実装へ変更。Release build / full sim test / 実機2台E2Eで通常初回公開は確認済み。2026-06-12 に iPhone 13 実機 `testBulkSharedItemModifyPerformanceOnRealCloudKit` で 240 plans + 120 chapters（360 child records）の publish 5.20秒 / delete 12.45秒 / テスト全体19.38秒で成功 |
+| トークン失効 | 🟡 `changeTokenExpired` は全件取得 + `reconcile` へフォールバックする実装済み。`FriendSharedRecordStoreTests.fullZoneReconcileAfterExpiredTokenDeletesMissingRows` で full fetch 後に欠落した行が tombstone なしでも削除され、フルリロード通知になることを確認済み。`FriendSharedRecordChangeImpactTests.fullReloadNotificationInvalidatesAllCalendarPagesForOnlyThatFriend` で対象友達だけ全カレンダーページ再読込へ落ちることも固定済み。2026-06-12 の二台E2E run `codex-20260612D/E/F/G` では、owner が削除済みの shared item を recipient が shared zone full fetch（tokenなし）+ reconcile でローカルから回収することを実CloudKitで確認。run G では保存済み token を明示的に破棄し、1回のfull fetchで replacement token を保存し直すアプリ側復旧パスも実CloudKitで確認（87.62秒）。さらに production の `CloudFriendShareRefreshCoordinator` が呼ぶ適用処理を `FriendShareZoneChangeApplier` に切り出し、fullZone fetch が欠落行を削除し root snapshot も反映すること、root 差分だけならfull reloadではなく今日/昨日範囲通知になることをテスト化。iPhone 16 / iPhone 13 実機で `FriendShareZoneChangeApplierTests` 2件が成功。Gate23 では `FriendShareZoneChangeFetchRecoveryPolicy` を追加し、保存済みtokenで `changeTokenExpired` 相当のエラーを受けた時にnil tokenで1回だけfull fetchへ落ち、非token系CKErrorではretryしないことを `FriendShareZoneChangeFetchRecoveryPolicyTests` 3件で固定。Simulator / iPhone 16 / iPhone 13 実機で成功。意図的 `changeTokenExpired` の実CloudKit再現は未実施 |
+| 可視性 | ✅ 二台E2E run `codex-20260612C/D/E/F/G` で公開範囲OFF相当の root 赤字化（status/mood/score/streak を空/0）と shared item tombstone を recipient が差分取得し、行キャッシュから削除されることを確認。2026-06-12 に `devicectl` で iPhone 13 / iPhone 16 の両方へアプリを前面起動し、起動後プロセス生存も確認。友達カレンダーの目視操作確認は継続 |
 
-### 8.4 実機検証で見つかった重大バグ（修正済み）
+### 8.4 ローカル表示キャッシュ検証（2026-06-12）
+- `FriendSharedRecordStoreTests.rangeQueriesStayScopedWithLargeHistory` を追加。対象友達の予定1,200件＋実績1,200件＋別友達の予定1,200件（計3,600行）をLocalCacheへ投入し、カレンダーグリッド相当の42日範囲だけを取得する。
+- 結果: 42 plans + 42 chapters を 0.016秒で取得、`FriendSharedRecordStoreTests` 全9件は 1.014秒で成功。2026-06-12 に `FriendCalendarPageDataBuilder` を切り出し、同じ3,600行級LocalCacheから友達カレンダー月ページを生成する回帰テストも追加。iPhone 13実機では月ページ生成 0.0101秒、iPhone 16実機では 0.0058秒で成功。別友達・範囲外履歴を混ぜず、表示側が全履歴をメモリへ載せない前提を回帰テスト化済み。
+- 共有停止・ブロック・共有URL失効などで `clearCachedShare` した場合も、`CloudFriendShareRefreshCoordinator.sharedRecordsDidChange` を full reload として投げる。これにより、友達がまだフィルタ選択中でも月カレンダーのキャッシュが古い行を表示し続けない。Friends画面の手動クリア経路も同じ通知ヘルパーを使うように揃えた。`FriendSharedRecordChangeImpactTests.notificationEndingAtMidnightDoesNotInvalidateNextDay` と `postSharedRecordsDidChangeHelperPostsFullReloadForFriend` を追加し、月初0:00終端の境界で翌日を誤って汚さないこと、UI経路用ヘルパーが対象友達だけのfull reload通知になることを固定。さらに `FriendCalendarCacheInvalidationPolicy` を切り出し、full reload / 見えている月だけ即再取得 / 遠い月はキャッシュ削除だけ、という画面キャッシュ無効化判断をテスト可能にした。`CalendarView` の友達overlay更新も同じpolicyへ統一し、アンカー月から離れた月を表示中でも現在オフセット基準で再補充する回帰テストを追加。2026-06-12 に iPhone 13 実機で `FriendSharedRecordChangeImpactTests` 10件、`FriendSharedRecordStoreTests` 10件が成功し、大容量範囲クエリは3,600行から42 plans + 42 chaptersを0.0027秒、友達カレンダー月ページ生成は3,600行から35 important plansを0.0101秒で完了。iPhone 16 実機でも同20件が成功し、大容量範囲クエリは0.0018秒、月ページ生成は0.0058秒。Release build Gate16 も成功済み。
+- 受信した zone changes の適用は `FriendShareZoneChangeApplier` へ切り出し、`CloudFriendShareRefreshCoordinator` から同じ経路を呼ぶ。fullZone fetch は差分適用ではなく reconcile で欠落行を削除し、root record も同時に Friend へ反映する。incremental root change はfull reloadにせず、今日/昨日の表示範囲だけを通知する。2026-06-12 に iPhone 16 / iPhone 13 実機で `FriendShareZoneChangeApplierTests` 2件が成功。
+- 既存カレンダー共有アプリとの照合: iCloud Calendar は private/public 共有、read-only/edit 権限、共有更新通知を持つ（Apple Support: https://support.apple.com/guide/icloud/share-a-calendar-mm6b1a9479/icloud）。Google Calendar も free/busy・詳細表示・編集・共有管理の段階権限と共有停止を持つ（Google Calendar Help: https://support.google.com/calendar/answer/37082）。Liminalog では編集権限は持たせず「閲覧+公開範囲制御」に寄せる代わりに、非公開化・共有停止・削除が受信側のローカル行と画面キャッシュから確実に消えることをリリース条件にする。
+- 新ビルド初回起動時に、ストア準備/マイグレーション中の最初の数フェッチが "couldn't be opened" で失敗する可能性への対策として、アプリ本体の初回 `bootstrap` だけ `bootstrapWithStoreReadinessRetry` を使う。通常の同期 `bootstrap` は維持し、UserSettings fetch が失敗した場合のみ 150ms / 350ms / 750ms の短い再試行を行う。2026-06-12 に simulator `BootstrapStoreTests` 3件、iPhone 16 実機で `BootstrapStoreTests` + `FriendSharedRecordChangeImpactTests` 12件、Release build が成功。
+- CloudKitの現在ユーザーID取得は `CloudKitCurrentUserRecordResolver` へ集約し、`CloudKitSocialStore` と `CloudFriendShareStore` で共有する。これにより同一プロセス中の `accountStatus()` + `fetchUserRecordID()` 多重往復を避けつつ、`Notification.Name.CKAccountChanged` でキャッシュを破棄する。2026-06-12 に iPhone 16 実機で `CloudKitCurrentUserRecordResolverTests` 3件、実CloudKit smoke `testRealDeviceCanReachCloudKitFriendInfrastructure` 1件（3.297秒）が成功し、Release build Gate12 も警告なしで成功。
+- 2026-06-12 Gate22 で、最新差分後の実CloudKit smoke を iPhone 16 / iPhone 13 の両方で再実行。`testRealDeviceCanReachCloudKitFriendInfrastructure` は iPhone 16 2.04秒 / iPhone 13 2.58秒、`testSharedItemRecordsRoundTripOnRealCloudKit` は iPhone 16 3.98秒 / iPhone 13 3.72秒で成功。Release build Gate22、Simulator full test 289件、`git diff --check` と合わせて、CloudKit到達・parent付き子レコード保存削除・広い回帰テストは最新差分で通過済み。
+- 2026-06-12 Gate23 で、zone change fetch のtoken失効fallbackを `FriendShareZoneChangeFetchRecoveryPolicy` として切り出した。保存済みtokenで失効した場合はnil tokenのfull fetchへ落ち、成功時は `didFetchFullZone` を立てる。非token系 `CKError` はretryせず呼び出し元へ返す。`FriendShareZoneChangeFetchRecoveryPolicyTests` 3件を Simulator、iPhone 16実機、iPhone 13実機で成功確認。実CloudKitサーバーから自然発生する `changeTokenExpired` 自体の強制再現は未実施のまま。
+- `FriendsView` の友達申請refreshは `CloudFriendLocalStatePolicy.shouldRefreshCloudRequests` へ判断を集約し、自動refreshは同一ユーザーでは一度だけ、失敗直後の再表示は120秒抑制、push通知/手動更新は即時にした。2026-06-12 に iPhone 16 実機で `CloudFriendLocalStatePolicyTests` 9件が成功し、Release build Gate13 も成功。
+- アプリ起動/復帰時の送信側full publishは `CloudFriendLocalStatePolicy.shouldScheduleOutgoingLifecycleShareRefresh` で10分クールダウンし、通常の予定/実績保存から来る明示refreshは `cloudFriendShare.pendingOutgoingRefresh` マーカーで次回起動/復帰でも必ず拾う。これにより「画面復帰だけで全履歴fetch + CloudKit差分照合」が連発しない一方、直前にアプリが落ちた変更は失わない。2026-06-12 に iPhone 13実機で `CloudFriendLocalStatePolicyTests` 12件、実CloudKit smoke 1件（1.989秒）、Release build Gate16、`git diff --check` が成功。
+
+### 8.5 2026-06-12 実機E2Eで追加検出・修正した問題
+1. **recipient から owner 作成の public marker へ書けない**: E2E補助レコードの設計ミス。baseline token は recipient 自身が作った marker に保存するよう修正。
+2. **差分削除後に SwiftData 行キャッシュへ即時反映されないケース**: `ModelContext.delete(model:where:)` 後、同じ context 内の既存インスタンスが直後の fetch に残るケースを実機E2Eで検出。削除対象を fetch して `modelContext.delete(record)` する方式へ変更し、チャプター削除の回帰テストを追加。
+
+### 8.6 実機検証で見つかった重大バグ（修正済み）
 1. **CloudKit同期コンテナが実機で一度もロードできていなかった**: `FriendCategoryMapping.friend` リレーションに inverse が無く、`NSPersistentCloudKitContainer` がロード拒否（"CloudKit integration requires that all relationships have an inverse"）→ 常にローカルフォールバックで動作していた。`Friend.categoryMappings` に inverse を追加して解消。**昨日入れた起動時フォールバック告知がこの問題を可視化した**
 2. **CloudKit同期モデルのプロパティ削除は禁止**: 段階3で `Friend.sharedPlansJSON` 等を物理削除したが、CloudKit統合スキーマは追記専用。未使用のまま残置する形に修正（コメントで読み書き禁止を明示）
 3. **migrationPlan（ステージ0）は開発中は配線しない**: V1のモデル構成が変わるたびにハッシュ不一致でロード拒否される。リリース時スキーマ固定の時点で配線し直す（`SharedModelContainer` にコメント）
 4. CloudKit `zoneBusy` はサーバー指定の待ち時間でリトライ（`CloudKitTransientRetryPolicy`）
-5. 既知の軽微事象: 新ビルド初回起動時、ストアのマイグレーション中に最初の数フェッチが "couldn't be opened" で失敗することがある（次回起動で解消）。リリース前に bootstrap のリトライ検討
+5. 新ビルド初回起動時、ストアのマイグレーション中に最初の数フェッチが "couldn't be opened" で失敗することがある問題は、アプリ本体の初回 `bootstrapWithStoreReadinessRetry` で短く再試行するように緩和済み。通常の同期 `bootstrap` はWidget/Intent等の既存経路向けに維持する。
