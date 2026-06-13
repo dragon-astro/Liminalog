@@ -237,8 +237,8 @@ enum SeedCoordinator {
             // 共有アイテムは個別行キャッシュへ直接シードする（本番は CloudKit のゾーン差分が書く）。
             recordStore.reconcile(
                 friendID: target.id,
-                plans: seed.plans,
-                activities: seed.activities
+                plans: nonOverlappingSharedPlans(seed.plans),
+                activities: nonOverlappingSharedActivities(seed.activities)
             )
         }
         saveChanges(context, action: "debug friends")
@@ -266,7 +266,7 @@ enum SeedCoordinator {
                 yearScore: 82,
                 streakCount: 12,
                 iconFrameID: "clear_air",
-                streakIconID: "spark",
+                streakIconID: "yellow_flame",
                 cardStyleID: "free_leaf_corner_panel",
                 sharedPlans: mikaSharedPlans(now: now),
                 sharedActivities: mikaSharedActivities(now: now),
@@ -292,7 +292,7 @@ enum SeedCoordinator {
                 yearScore: 77,
                 streakCount: 5,
                 iconFrameID: "wisteria_loop",
-                streakIconID: "sun",
+                streakIconID: "orange_flame",
                 cardStyleID: "free_thread_border_panel",
                 sharedPlans: soraSharedPlans(now: now),
                 sharedActivities: soraSharedActivities(now: now),
@@ -318,7 +318,7 @@ enum SeedCoordinator {
                 yearScore: 74,
                 streakCount: 2,
                 iconFrameID: "ripple_ring",
-                streakIconID: "bolt",
+                streakIconID: "flame",
                 cardStyleID: "free_dawn_horizon_panel",
                 sharedPlans: renSharedPlans(now: now),
                 sharedActivities: renSharedActivities(now: now),
@@ -575,6 +575,36 @@ enum SeedCoordinator {
             updatedAt: now
         )
     }
+
+    private static func nonOverlappingSharedPlans(_ plans: [FriendSharedPlanSnapshot]) -> [FriendSharedPlanSnapshot] {
+        var result: [FriendSharedPlanSnapshot] = []
+        var timedEndByDay: [Date: Date] = [:]
+        for plan in plans.sorted(by: { $0.startTime < $1.startTime }) {
+            guard !plan.isAllDay else {
+                result.append(plan)
+                continue
+            }
+            let day = Calendar.japanese.startOfDay(for: plan.startTime)
+            let previousEnd = timedEndByDay[day]
+            if let previousEnd, plan.startTime < previousEnd { continue }
+            result.append(plan)
+            timedEndByDay[day] = max(previousEnd ?? plan.endTime, plan.endTime)
+        }
+        return result
+    }
+
+    private static func nonOverlappingSharedActivities(_ activities: [FriendSharedActivitySnapshot]) -> [FriendSharedActivitySnapshot] {
+        var result: [FriendSharedActivitySnapshot] = []
+        var endByDay: [Date: Date] = [:]
+        for activity in activities.sorted(by: { $0.startTime < $1.startTime }) {
+            let day = Calendar.japanese.startOfDay(for: activity.startTime)
+            let previousEnd = endByDay[day]
+            if let previousEnd, activity.startTime < previousEnd { continue }
+            result.append(activity)
+            endByDay[day] = max(previousEnd ?? activity.endTime, activity.endTime)
+        }
+        return result
+    }
     #endif
 
     private static func merge(_ duplicate: UserSettings, into primary: UserSettings) {
@@ -625,8 +655,27 @@ enum SeedCoordinator {
         if primary.dashboardHiddenCardKeys.isEmpty {
             primary.dashboardHiddenCardKeys = duplicate.dashboardHiddenCardKeys
         }
+        mergeScoreLedger(from: duplicate, into: primary)
         primary.showCalendarOverlay = primary.showCalendarOverlay || duplicate.showCalendarOverlay
         primary.defaultVisibility = newer(primary: primary, duplicate: duplicate).defaultVisibility
+    }
+
+    private static func mergeScoreLedger(from duplicate: UserSettings, into primary: UserSettings) {
+        guard duplicate.isFinalizedScoreLedgerInitialized else { return }
+        if !primary.isFinalizedScoreLedgerInitialized {
+            primary.finalizedCumulativeScore = duplicate.finalizedCumulativeScore
+            primary.finalizedScoreReconciledThroughDayStart = duplicate.finalizedScoreReconciledThroughDayStart
+            primary.isFinalizedScoreLedgerInitialized = true
+            return
+        }
+
+        if let duplicateThrough = duplicate.finalizedScoreReconciledThroughDayStart,
+           (primary.finalizedScoreReconciledThroughDayStart ?? Date.distantPast) < duplicateThrough {
+            primary.finalizedCumulativeScore = max(primary.finalizedCumulativeScore, duplicate.finalizedCumulativeScore)
+            primary.finalizedScoreReconciledThroughDayStart = duplicateThrough
+        } else {
+            primary.finalizedCumulativeScore = max(primary.finalizedCumulativeScore, duplicate.finalizedCumulativeScore)
+        }
     }
 
     private static func newer(primary: UserSettings, duplicate: UserSettings) -> UserSettings {

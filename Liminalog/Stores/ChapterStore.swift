@@ -47,6 +47,7 @@ final class ChapterStore {
         reloadWidgets: Bool = true,
         changedPlanSourceIDs: Set<UUID> = [],
         changedChapterSourceIDs: Set<UUID> = [],
+        changedScoreDayStarts: Set<Date> = [],
         requiresFullSharePublish: Bool = true,
         requestCloudFriendShareRefresh: Bool = true
     ) {
@@ -60,6 +61,7 @@ final class ChapterStore {
             reason: "chapter store changed",
             changedPlanSourceIDs: changedPlanSourceIDs,
             changedChapterSourceIDs: changedChapterSourceIDs,
+            changedScoreDayStarts: changedScoreDayStarts,
             requiresFullPublish: requiresFullSharePublish
         )
     }
@@ -90,6 +92,20 @@ final class ChapterStore {
               let value = UserDefaults(suiteName: Self.appGroupID)?.string(forKey: Self.enabledCategorySetCacheKey)
         else { return nil }
         return UUID(uuidString: value)
+    }
+
+    private func affectedScoreDayStarts(start: Date, end: Date) -> Set<Date> {
+        var result: Set<Date> = []
+        let calendar = Calendar.japanese
+        var cursor = calendar.startOfDay(for: start)
+        let endReference = end > start ? end.addingTimeInterval(-0.001) : start
+        let last = calendar.startOfDay(for: endReference)
+        while cursor <= last {
+            result.insert(cursor)
+            guard let next = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
+            cursor = next
+        }
+        return result
     }
 
     private func publishRecordingSurfaceSnapshot(categorySet: CategorySet? = nil) -> RecordingSurfaceSnapshot? {
@@ -199,6 +215,26 @@ final class ChapterStore {
         planStore.canCreate(startTime: startTime, isAllDay: isAllDay, now: now)
     }
 
+    func canCreatePlan(
+        startTime: Date,
+        endTime: Date,
+        isAllDay: Bool = false,
+        excluding planID: UUID? = nil,
+        now: Date = Date()
+    ) -> Bool {
+        planStore.canCreate(
+            startTime: startTime,
+            endTime: endTime,
+            isAllDay: isAllDay,
+            excluding: planID,
+            now: now
+        )
+    }
+
+    func hasTimedPlanOverlap(startTime: Date, endTime: Date, excluding planID: UUID? = nil) -> Bool {
+        planStore.hasTimedPlanOverlap(startTime: startTime, endTime: endTime, excluding: planID)
+    }
+
     func isChapterTimeLocked(_ chapter: Chapter, now: Date = Date()) -> Bool {
         let today = DayBoundary(date: now)
         let effectiveEnd = chapter.endTime ?? now
@@ -304,9 +340,13 @@ final class ChapterStore {
         if let activeID = result.activeChapter?.id {
             changedChapterIDs.insert(activeID)
         }
+        let changedScoreDayStarts = Set((activeChapters + [result.activeChapter].compactMap { $0 }).flatMap {
+            affectedScoreDayStarts(start: $0.startTime, end: $0.endTime ?? now)
+        })
         markChanged(
             reloadWidgets: false,
             changedChapterSourceIDs: changedChapterIDs,
+            changedScoreDayStarts: changedScoreDayStarts,
             requiresFullSharePublish: false
         )
         reloadRecordingGridWidget()
@@ -343,7 +383,11 @@ final class ChapterStore {
         chapter.updatedAt = clock.now
         modelContext.insert(chapter)
         guard saveModelContext(action: "chapter add") else { return false }
-        markChanged(changedChapterSourceIDs: [chapter.id], requiresFullSharePublish: false)
+        markChanged(
+            changedChapterSourceIDs: [chapter.id],
+            changedScoreDayStarts: affectedScoreDayStarts(start: chapter.startTime, end: chapter.endTime ?? clock.now),
+            requiresFullSharePublish: false
+        )
         updateLiveActivity()
         return true
     }
@@ -360,6 +404,7 @@ final class ChapterStore {
         cacheActiveCategoryID(nil)
         markChanged(
             changedChapterSourceIDs: Set(actives.map(\.id)),
+            changedScoreDayStarts: Set(actives.flatMap { affectedScoreDayStarts(start: $0.startTime, end: $0.endTime ?? now) }),
             requiresFullSharePublish: false
         )
         updateLiveActivity()
@@ -382,6 +427,7 @@ final class ChapterStore {
         audienceSource: AudienceSource? = nil,
         hasAudienceSnapshot: Bool? = nil
     ) -> Bool {
+        var changedScoreDayStarts = affectedScoreDayStarts(start: chapter.startTime, end: chapter.endTime ?? clock.now)
         if isChapterTimeLocked(chapter, now: clock.now) {
             // 前日以前の実績はスコア公平性のため、時間とカテゴリを固定する。
             // 振り返り用のメモ/場所/公開設定だけ後から編集可能。
@@ -397,6 +443,7 @@ final class ChapterStore {
             chapter.startTime = startTime
             chapter.endTime = endTime
             chapter.category = category
+            changedScoreDayStarts.formUnion(affectedScoreDayStarts(start: startTime, end: endTime ?? clock.now))
         }
         chapter.note = note.flatMap { $0.isEmpty ? nil : $0 }
         chapter.mood = mood
@@ -414,7 +461,11 @@ final class ChapterStore {
         chapter.updatedAt = clock.now
         guard saveModelContext(action: "chapter update") else { return false }
         syncActiveCategoryCacheFromStore()
-        markChanged(changedChapterSourceIDs: [chapter.id], requiresFullSharePublish: false)
+        markChanged(
+            changedChapterSourceIDs: [chapter.id],
+            changedScoreDayStarts: changedScoreDayStarts,
+            requiresFullSharePublish: false
+        )
         updateLiveActivity()
         return true
     }
@@ -449,10 +500,15 @@ final class ChapterStore {
     func deleteChapter(_ chapter: Chapter) -> Bool {
         guard !isChapterTimeLocked(chapter, now: clock.now) else { return false }
         let sourceID = chapter.id
+        let changedScoreDayStarts = affectedScoreDayStarts(start: chapter.startTime, end: chapter.endTime ?? clock.now)
         modelContext.delete(chapter)
         guard saveModelContext(action: "chapter delete") else { return false }
         syncActiveCategoryCacheFromStore()
-        markChanged(changedChapterSourceIDs: [sourceID], requiresFullSharePublish: false)
+        markChanged(
+            changedChapterSourceIDs: [sourceID],
+            changedScoreDayStarts: changedScoreDayStarts,
+            requiresFullSharePublish: false
+        )
         updateLiveActivity()
         return true
     }

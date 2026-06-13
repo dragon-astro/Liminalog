@@ -106,25 +106,73 @@ final class CategorySetStore {
             NSLog("Liminalog: skipped default category set seed because category sets could not be fetched")
             return didChange
         }
-        guard existingSets.isEmpty else { return didChange }
-
         guard let categories = categoryStore.allCategoriesIfAvailable() else {
             NSLog("Liminalog: skipped default category set seed because categories could not be fetched")
             return didChange
         }
-        guard !categories.isEmpty else {
+        guard categories.count >= CategorySet.slotCount else {
             NSLog("Liminalog: skipped default category set seed because no categories were available")
             return didChange
         }
-        let byName = Dictionary(uniqueKeysWithValues: categories.map { ($0.name, $0) })
-        let weekdayNames: [String?] = ["勉強", "仕事", "移動", "休憩", "睡眠", "趣味", nil, nil]
-        let weekdaySlots = weekdayNames.map { name in name.flatMap { byName[$0]?.id } }
-        let holidayNames: [String?] = ["睡眠", "趣味", "休憩", "勉強", "移動", nil, nil, nil]
-        let holidaySlots = holidayNames.map { name in name.flatMap { byName[$0]?.id } }
+        let byName = categories.reduce(into: [String: Category]()) { result, category in
+            result[category.name, default: category] = category
+        }
+        var sets = existingSets
+        var didUpdateSets = false
 
-        modelContext.insert(CategorySet(name: "平日", sortOrder: 0, slots: weekdaySlots, isDefault: true))
-        modelContext.insert(CategorySet(name: "休日", sortOrder: 1, slots: holidaySlots, isDefault: true))
+        didUpdateSets = ensureDefaultCategorySet(
+            named: "平日",
+            sortOrder: 0,
+            slotNames: ["勉強", "仕事", "移動", "休憩", "自由時間", "家事", "趣味", "睡眠"],
+            categoriesByName: byName,
+            sets: &sets
+        ) || didUpdateSets
+        didUpdateSets = ensureDefaultCategorySet(
+            named: "休日",
+            sortOrder: 1,
+            slotNames: ["睡眠", "自由時間", "趣味", "休憩", "家事", "移動", "勉強", "仕事"],
+            categoriesByName: byName,
+            sets: &sets
+        ) || didUpdateSets
+
+        guard didUpdateSets else { return didChange }
         return saveChanges("default category set seed") || didChange
+    }
+
+    @discardableResult
+    private func ensureDefaultCategorySet(
+        named name: String,
+        sortOrder: Int,
+        slotNames: [String],
+        categoriesByName: [String: Category],
+        sets: inout [CategorySet]
+    ) -> Bool {
+        let slots = CategorySet.normalize(slotNames.map { categoriesByName[$0]?.id })
+        guard slots.count == CategorySet.slotCount,
+              slots.allSatisfy({ $0 != nil })
+        else { return false }
+
+        if let existing = sets.first(where: { $0.name == name }) {
+            var didChange = false
+            if existing.isDefault && CategorySet.normalize(existing.slots) != slots && existing.filledCount < CategorySet.slotCount {
+                existing.slots = slots
+                didChange = true
+            }
+            if existing.isDefault != true {
+                existing.isDefault = true
+                didChange = true
+            }
+            if existing.sortOrder != sortOrder {
+                existing.sortOrder = sortOrder
+                didChange = true
+            }
+            return didChange
+        }
+
+        let set = CategorySet(name: name, sortOrder: sortOrder, slots: slots, isDefault: true)
+        modelContext.insert(set)
+        sets.append(set)
+        return true
     }
 
     private func saveChanges(_ action: String) -> Bool {

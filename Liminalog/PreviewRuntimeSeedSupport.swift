@@ -62,7 +62,9 @@ extension PreviewSupport {
         let debugSeedPlans = seedPlans.filter(Self.isDebugPreviewPlan)
         let hasCurrentSeedVersion = UserDefaults.standard.integer(forKey: previewPlanSeedVersionKey) >= currentPreviewPlanSeedVersion
 
-        if hasCurrentSeedVersion && monthHasCompleteShowcasePlans(debugSeedPlans, in: seedInterval, calendar: calendar) {
+        if hasCurrentSeedVersion,
+           monthHasCompleteShowcasePlans(debugSeedPlans, in: seedInterval, calendar: calendar),
+           !hasTimedPlanOverlap(debugSeedPlans) {
             return didBootstrapCategories
         }
 
@@ -134,7 +136,10 @@ extension PreviewSupport {
             forKey: devSampleChapterSeedAnchorDayKey
         ) == todayKey
 
-        if hasCurrentSeedVersion && hasCurrentAnchorDay && !existingDebugChapters.isEmpty {
+        if hasCurrentSeedVersion,
+           hasCurrentAnchorDay,
+           !existingDebugChapters.isEmpty,
+           !hasChapterOverlap(existingDebugChapters, now: now) {
             return didBootstrapCategories
         }
 
@@ -194,10 +199,10 @@ extension PreviewSupport {
     }
 
     private static var previewPlanSeedVersionKey: String { "LiminalogPreviewPlanSeedVersion" }
-    private static var currentPreviewPlanSeedVersion: Int { 8 }
+    private static var currentPreviewPlanSeedVersion: Int { 9 }
     private static var devSampleChapterSeedVersionKey: String { "LiminalogDevSampleChapterSeedVersion" }
     private static var devSampleChapterSeedAnchorDayKey: String { "LiminalogDevSampleChapterSeedAnchorDay" }
-    private static var currentDevSampleChapterSeedVersion: Int { 4 }
+    private static var currentDevSampleChapterSeedVersion: Int { 5 }
     private static var debugDevChapterMarker: String { "liminalog.debug.dev-chapter" }
 
     private static func isDebugPreviewPlan(_ plan: PlanBlock) -> Bool {
@@ -317,6 +322,20 @@ extension PreviewSupport {
             $0.isImportant && $0.isAllDay && $0.endTime.timeIntervalSince($0.startTime) >= 2 * 24 * 60 * 60
         }
         return hasTimedImportant && hasMultiDayImportant
+    }
+
+    private static func hasTimedPlanOverlap(_ plans: [PlanBlock]) -> Bool {
+        let sorted = plans
+            .filter { !$0.isAllDay && $0.endTime > $0.startTime }
+            .sorted { $0.startTime < $1.startTime }
+        var previousEnd: Date?
+        for plan in sorted {
+            if let previousEnd, plan.startTime < previousEnd {
+                return true
+            }
+            previousEnd = max(previousEnd ?? plan.endTime, plan.endTime)
+        }
+        return false
     }
 
     private struct DemoPlanSegment {
@@ -492,6 +511,24 @@ extension PreviewSupport {
         var mood: String?
         var location: String?
         var isPublic: Bool
+    }
+
+    private static func hasChapterOverlap(_ chapters: [Chapter], now: Date) -> Bool {
+        let sorted = chapters
+            .compactMap { chapter -> (start: Date, end: Date)? in
+                let end = chapter.endTime ?? now
+                guard end > chapter.startTime else { return nil }
+                return (chapter.startTime, end)
+            }
+            .sorted { $0.start < $1.start }
+        var previousEnd: Date?
+        for chapter in sorted {
+            if let previousEnd, chapter.start < previousEnd {
+                return true
+            }
+            previousEnd = max(previousEnd ?? chapter.end, chapter.end)
+        }
+        return false
     }
 
     private static func insertDevSleepChapters(

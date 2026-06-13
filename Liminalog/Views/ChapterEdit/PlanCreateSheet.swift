@@ -81,7 +81,10 @@ struct PlanCreateSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("キャンセル") { dismiss() }
+                    Button("キャンセル") {
+                        LiminalHaptics.lightImpact(intensity: 0.45)
+                        dismiss()
+                    }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("保存") { save() }
@@ -104,6 +107,15 @@ struct PlanCreateSheet: View {
             .onChange(of: selectedCategory?.id) { _, _ in
                 guard didInitializeAudience, audienceSource == .categoryDefaultSnapshot else { return }
                 resetAudienceToCategoryDefault()
+            }
+            .onChange(of: isImportant) { _, _ in
+                LiminalHaptics.selection()
+            }
+            .onChange(of: isAllDay) { _, _ in
+                LiminalHaptics.selection()
+            }
+            .onChange(of: isPublic) { _, _ in
+                LiminalHaptics.selection()
             }
             .onChange(of: startTime) { _, newValue in
                 guard isAllDay else { return }
@@ -194,7 +206,10 @@ struct PlanCreateSheet: View {
         PlanEditorCard(tint: selectedTint) {
             VStack(alignment: .leading, spacing: 10) {
                 PlanEditorSectionHeader(title: "予定名", systemImage: "text.cursor", tint: selectedTint)
-                TextField("例: ゼミ発表", text: $title)
+                TextField(text: $title) {
+                    Text(planTitlePlaceholder)
+                        .foregroundStyle(LiminalTheme.tertiaryText)
+                }
                     .font(.headline)
                     .padding(.horizontal, 12)
                     .frame(minHeight: 46)
@@ -203,8 +218,8 @@ struct PlanCreateSheet: View {
 
                 if !isScheduleLocked && title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     PlanEditorStatusLabel(
-                        text: "予定名を入力してください。",
-                        systemImage: "text.cursor",
+                        text: "未入力の場合は「\(fallbackPlanTitle)」として登録します。",
+                        systemImage: "sparkles",
                         tint: .secondary
                     )
                 }
@@ -218,6 +233,7 @@ struct PlanCreateSheet: View {
                 PlanEditorSectionHeader(title: "カテゴリ", systemImage: "square.grid.2x2.fill", tint: selectedTint)
 
                 Button {
+                    LiminalHaptics.openSheet()
                     showingCategoryPicker = true
                 } label: {
                     HStack(spacing: 12) {
@@ -314,6 +330,7 @@ struct PlanCreateSheet: View {
 
                 if isPublic {
                     Button {
+                        LiminalHaptics.openSheet()
                         showingAudiencePicker = true
                         audienceSource = .custom
                     } label: {
@@ -329,6 +346,7 @@ struct PlanCreateSheet: View {
                     .buttonStyle(.plain)
 
                     Button {
+                        LiminalHaptics.selection()
                         resetAudienceToCategoryDefault()
                     } label: {
                         Label("カテゴリ既定値に戻す", systemImage: "arrow.counterclockwise")
@@ -351,6 +369,7 @@ struct PlanCreateSheet: View {
                 )
             } else {
                 Button(role: .destructive) {
+                    LiminalHaptics.warning()
                     showDeleteConfirm = true
                 } label: {
                     Label("予定を削除", systemImage: "trash.fill")
@@ -369,17 +388,17 @@ struct PlanCreateSheet: View {
                 systemImage: "lock.fill",
                 tint: .secondary
             )
-        } else if !canPlaceSchedule {
-            PlanEditorStatusLabel(
-                text: "予定は明日以降の日付にだけ追加できます。",
-                systemImage: "lock.fill",
-                tint: .secondary
-            )
         } else if let timeValidationMessage {
             PlanEditorStatusLabel(
                 text: timeValidationMessage,
                 systemImage: "exclamationmark.triangle.fill",
                 tint: .orange
+            )
+        } else if !canPlaceSchedule {
+            PlanEditorStatusLabel(
+                text: "予定は明日以降の日付にだけ追加できます。",
+                systemImage: "lock.fill",
+                tint: .secondary
             )
         }
     }
@@ -397,8 +416,7 @@ struct PlanCreateSheet: View {
     }
 
     private var previewTitle: String {
-        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? (editingPlan == nil ? "新しい予定" : "予定") : trimmed
+        resolvedPlanTitle
     }
 
     private var previewTimeText: String {
@@ -422,7 +440,6 @@ struct PlanCreateSheet: View {
         if isScheduleLocked {
             return true
         }
-        let titleOK = !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         let timeOK: Bool
         if isAllDay {
             let calendar = Calendar.current
@@ -430,7 +447,21 @@ struct PlanCreateSheet: View {
         } else {
             timeOK = endTime > startTime
         }
-        return titleOK && timeOK && canPlaceSchedule
+        return timeOK && canPlaceSchedule
+    }
+
+    private var planTitlePlaceholder: String {
+        fallbackPlanTitle
+    }
+
+    private var fallbackPlanTitle: String {
+        let categoryName = selectedCategory?.name.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return categoryName.isEmpty ? "予定" : categoryName
+    }
+
+    private var resolvedPlanTitle: String {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? fallbackPlanTitle : trimmed
     }
 
     private var timeValidationMessage: String? {
@@ -441,6 +472,8 @@ struct PlanCreateSheet: View {
             }
         } else if endTime <= startTime {
             return "終了時刻は開始時刻より後にしてください。"
+        } else if store.hasTimedPlanOverlap(startTime: startTime, endTime: endTime, excluding: editingPlan?.id) {
+            return "既存の予定と時間が重なっています。"
         }
         return nil
     }
@@ -450,7 +483,20 @@ struct PlanCreateSheet: View {
     }
 
     private var canPlaceSchedule: Bool {
-        store.canCreatePlan(startTime: startTime, isAllDay: isAllDay)
+        store.canCreatePlan(
+            startTime: startTime,
+            endTime: resolvedEndTime,
+            isAllDay: isAllDay,
+            excluding: editingPlan?.id
+        )
+    }
+
+    private var resolvedEndTime: Date {
+        guard isAllDay else { return endTime }
+        let calendar = Calendar.current
+        let dayStart = calendar.startOfDay(for: startTime)
+        let inclusiveEndDay = max(calendar.startOfDay(for: allDayEndDate), dayStart)
+        return calendar.date(byAdding: .day, value: 1, to: inclusiveEndDay) ?? dayStart.addingTimeInterval(24 * 60 * 60)
     }
 
     private func resetAudienceToCategoryDefault() {
@@ -464,7 +510,7 @@ struct PlanCreateSheet: View {
 
     private func save() {
         errorTitle = "保存できませんでした"
-        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let planTitle = resolvedPlanTitle
         let calendar = Calendar.current
         let resolvedStart: Date
         let resolvedEnd: Date
@@ -482,7 +528,7 @@ struct PlanCreateSheet: View {
             didSave = store.savePlanBlock(
                 editingPlan,
                 category: selectedCategory,
-                title: trimmedTitle,
+                title: planTitle,
                 startTime: resolvedStart,
                 endTime: resolvedEnd,
                 isAllDay: isAllDay,
@@ -496,7 +542,7 @@ struct PlanCreateSheet: View {
         } else {
             didSave = store.addPlanBlock(
                 category: selectedCategory,
-                title: trimmedTitle,
+                title: planTitle,
                 startTime: resolvedStart,
                 endTime: resolvedEnd,
                 isAllDay: isAllDay,
@@ -509,8 +555,10 @@ struct PlanCreateSheet: View {
             )
         }
         if didSave {
+            LiminalHaptics.commit()
             dismiss()
         } else {
+            LiminalHaptics.failure()
             saveError = "予定を保存できませんでした。時間をおいてもう一度試してください。"
         }
     }
@@ -519,9 +567,11 @@ struct PlanCreateSheet: View {
         guard let editingPlan else { return }
         errorTitle = "削除できませんでした"
         guard store.deletePlanBlock(editingPlan) else {
+            LiminalHaptics.failure()
             saveError = "予定を削除できませんでした。時間をおいてもう一度試してください。"
             return
         }
+        LiminalHaptics.commit()
         dismiss()
     }
 
@@ -651,6 +701,7 @@ struct PlanCategoryPickerSheet: View {
                             let category = displayedSlots[index]
                             Button {
                                 if let category {
+                                    LiminalHaptics.selection()
                                     selectedCategory = category
                                     dismiss()
                                 }
