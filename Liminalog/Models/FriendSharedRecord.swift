@@ -121,3 +121,53 @@ final class FriendSharedChapterRecord {
         )
     }
 }
+
+/// 友達から共有された日別スコアの個別行キャッシュ。
+/// 予定/実績から受信側で毎回再計算せず、送信側で確定した軽量な値だけを読む。
+@Model
+final class FriendSharedScoreRecord {
+    #Index<FriendSharedScoreRecord>([\.friendID, \.dayStart])
+
+    var friendID: UUID = UUID()
+    /// 日付から決まる安定ID。upsert・削除同期の突合キー。
+    var sourceID: UUID = UUID()
+    var dayStart: Date = Date.distantPast
+    var dayIdentifier: String = ""
+    var score: Int = 0
+    var plannedDuration: TimeInterval = 0
+    var recordedDuration: TimeInterval = 0
+    var hasData: Bool = false
+    var updatedAt: Date = Date()
+
+    init() {}
+
+    convenience init(friendID: UUID, snapshot: FriendSharedDailyScoreSnapshot) {
+        self.init()
+        self.friendID = friendID
+        self.sourceID = snapshot.id
+        apply(snapshot)
+    }
+
+    func apply(_ snapshot: FriendSharedDailyScoreSnapshot) {
+        dayStart = snapshot.dayStart
+        dayIdentifier = snapshot.dayIdentifier
+        score = snapshot.score
+        plannedDuration = snapshot.plannedDuration
+        recordedDuration = snapshot.recordedDuration
+        hasData = snapshot.hasData
+        updatedAt = snapshot.updatedAt
+    }
+
+    var snapshot: FriendSharedDailyScoreSnapshot {
+        FriendSharedDailyScoreSnapshot(
+            id: sourceID,
+            dayStart: dayStart,
+            dayIdentifier: dayIdentifier,
+            score: score,
+            plannedDuration: plannedDuration,
+            recordedDuration: recordedDuration,
+            hasData: hasData,
+            updatedAt: updatedAt
+        )
+    }
+}

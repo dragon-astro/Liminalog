@@ -4,10 +4,11 @@ struct CloudFriendShareRefreshRequest: Equatable {
     var reason: String
     var changedPlanSourceIDs: Set<UUID> = []
     var changedChapterSourceIDs: Set<UUID> = []
+    var changedScoreDayStarts: Set<Date> = []
     var requiresFullPublish = true
 
     var isTargetedPublish: Bool {
-        !requiresFullPublish && (!changedPlanSourceIDs.isEmpty || !changedChapterSourceIDs.isEmpty)
+        !requiresFullPublish && (!changedPlanSourceIDs.isEmpty || !changedChapterSourceIDs.isEmpty || !changedScoreDayStarts.isEmpty)
     }
 
     mutating func merge(_ other: CloudFriendShareRefreshRequest) {
@@ -15,6 +16,7 @@ struct CloudFriendShareRefreshRequest: Equatable {
         requiresFullPublish = requiresFullPublish || other.requiresFullPublish
         changedPlanSourceIDs.formUnion(other.changedPlanSourceIDs)
         changedChapterSourceIDs.formUnion(other.changedChapterSourceIDs)
+        changedScoreDayStarts.formUnion(other.changedScoreDayStarts)
     }
 }
 

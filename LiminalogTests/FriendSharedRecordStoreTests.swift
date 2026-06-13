@@ -282,8 +282,163 @@ struct FriendSharedRecordStoreTests {
         #expect(pageData.dates.count == 35 || pageData.dates.count == 42)
         #expect(importantPlanCount == pageData.dates.count)
         #expect(pageData.importantPlansByDay.values.flatMap { $0 }.allSatisfy { $0.title.hasPrefix("対象重要") })
-        #expect(pageData.scoreSummariesByDay.isEmpty)
+        #expect(pageData.scoreSummariesByDay.count == pageData.dates.count)
+        #expect(pageData.scoreSummariesByDay.values.allSatisfy { $0.kind == .score && !$0.hasData })
         #expect(elapsed < 1.0)
+    }
+
+    @Test("友達カレンダーは通常予定や実績だけの日も共有データありとして表示する")
+    func calendarPageDataMarksSharedDaysWithoutImportantPlans() throws {
+        let container = try TestModelContainer.make()
+        let context = container.mainContext
+        let friendID = UUID()
+        let otherFriendID = UUID()
+        let dayStart = Calendar.japanese.startOfDay(for: base)
+
+        context.insert(FriendSharedPlanRecord(
+            friendID: friendID,
+            snapshot: makePlanSnapshot(
+                title: "通常予定",
+                start: 10 * 3_600,
+                end: 11 * 3_600
+            )
+        ))
+        context.insert(FriendSharedChapterRecord(
+            friendID: friendID,
+            snapshot: makeActivitySnapshot(
+                title: "共有実績",
+                start: 12 * 3_600,
+                end: 13 * 3_600
+            )
+        ))
+        context.insert(FriendSharedPlanRecord(
+            friendID: otherFriendID,
+            snapshot: FriendSharedPlanSnapshot(
+                title: "他人の重要予定",
+                startTime: base.addingTimeInterval(10 * 3_600),
+                endTime: base.addingTimeInterval(11 * 3_600),
+                isImportant: true,
+                updatedAt: base
+            )
+        ))
+        try context.save()
+
+        let month = Calendar.japanese.date(from: Calendar.japanese.dateComponents([.year, .month], from: base)) ?? base
+        let pageData = FriendCalendarPageDataBuilder(friendID: friendID, modelContext: context)
+            .pageData(for: month)
+
+        #expect(pageData.importantPlansByDay[dayStart]?.isEmpty ?? true)
+        #expect(pageData.scoreSummariesByDay[dayStart]?.kind == .sharedData)
+        #expect(pageData.scoreSummariesByDay[dayStart]?.hasData == true)
+        #expect(pageData.importantPlansByDay.values.flatMap { $0 }.allSatisfy { $0.title != "他人の重要予定" })
+    }
+
+    @Test("友達カレンダーは予定だけの日をアクセントリングではなくスコアなしとして表示する")
+    func calendarPageDataMarksPlanOnlyDaysAsNoScore() throws {
+        let container = try TestModelContainer.make()
+        let context = container.mainContext
+        let friendID = UUID()
+        let dayStart = Calendar.japanese.startOfDay(for: base)
+
+        context.insert(FriendSharedPlanRecord(
+            friendID: friendID,
+            snapshot: makePlanSnapshot(
+                title: "通常予定",
+                start: 10 * 3_600,
+                end: 11 * 3_600
+            )
+        ))
+        try context.save()
+
+        let month = Calendar.japanese.date(from: Calendar.japanese.dateComponents([.year, .month], from: base)) ?? base
+        let pageData = FriendCalendarPageDataBuilder(friendID: friendID, modelContext: context)
+            .pageData(for: month)
+
+        #expect(pageData.scoreSummariesByDay[dayStart]?.kind == .score)
+        #expect(pageData.scoreSummariesByDay[dayStart]?.hasData == false)
+    }
+
+    @Test("友達カレンダーは共有済み日別スコアを予定実績の再計算より優先して表示する")
+    func calendarPageDataUsesSharedDailyScores() throws {
+        let container = try TestModelContainer.make()
+        let context = container.mainContext
+        let friendID = UUID()
+        let dayStart = Calendar.japanese.startOfDay(for: base)
+        let dayIdentifier = DailyCardSnapshot.dayIdentifier(for: dayStart, calendar: .japanese)
+
+        context.insert(FriendSharedPlanRecord(
+            friendID: friendID,
+            snapshot: makePlanSnapshot(
+                title: "通常予定",
+                start: 10 * 3_600,
+                end: 11 * 3_600
+            )
+        ))
+        context.insert(FriendSharedScoreRecord(
+            friendID: friendID,
+            snapshot: FriendSharedDailyScoreSnapshot(
+                dayStart: dayStart,
+                dayIdentifier: dayIdentifier,
+                score: 87,
+                plannedDuration: 3_600,
+                recordedDuration: 3_400,
+                hasData: true,
+                updatedAt: base
+            )
+        ))
+        try context.save()
+
+        let month = Calendar.japanese.date(from: Calendar.japanese.dateComponents([.year, .month], from: base)) ?? base
+        let pageData = FriendCalendarPageDataBuilder(friendID: friendID, modelContext: context)
+            .pageData(for: month)
+
+        #expect(pageData.scoreSummariesByDay[dayStart]?.kind == .score)
+        #expect(pageData.scoreSummariesByDay[dayStart]?.value == 87)
+        #expect(pageData.scoreSummariesByDay[dayStart]?.hasData == true)
+    }
+
+    @Test("友達共有スコア行は差分upsert/deleteで日単位に反映される")
+    func sharedScoreRowsApplyIncrementalChanges() throws {
+        let container = try TestModelContainer.make()
+        let store = FriendSharedRecordStore(modelContext: container.mainContext)
+        let friendID = UUID()
+        let dayStart = Calendar.japanese.startOfDay(for: base)
+        let score = FriendSharedDailyScoreSnapshot(
+            dayStart: dayStart,
+            dayIdentifier: DailyCardSnapshot.dayIdentifier(for: dayStart, calendar: .japanese),
+            score: 91,
+            plannedDuration: 3_600,
+            recordedDuration: 3_600,
+            hasData: true,
+            updatedAt: base
+        )
+        let range = dayStart..<Calendar.japanese.date(byAdding: .day, value: 1, to: dayStart)!
+
+        var impact = store.applyChanges(
+            friendID: friendID,
+            upsertPlans: [],
+            upsertChapters: [],
+            upsertScores: [score],
+            deletePlanSourceIDs: [],
+            deleteChapterSourceIDs: []
+        )
+        try container.mainContext.save()
+
+        #expect(store.scores(friendID: friendID, overlapping: range).map(\.score) == [91])
+        #expect(impact.affectedIntervals.contains { $0.start == dayStart })
+
+        impact = store.applyChanges(
+            friendID: friendID,
+            upsertPlans: [],
+            upsertChapters: [],
+            deletePlanSourceIDs: [],
+            deleteChapterSourceIDs: [],
+            deleteScoreSourceIDs: [score.id]
+        )
+        try container.mainContext.save()
+
+        #expect(store.scores(friendID: friendID, overlapping: range).isEmpty)
+        #expect(impact.affectedIntervals.contains { $0.start == dayStart })
     }
 
     @Test("deleteAll と purge で行が消える")
@@ -377,6 +532,135 @@ struct FriendSharedRecordStoreTests {
         let titles = store.plans(friendID: friendID, overlapping: allRange).map(\.title)
         #expect(titles == ["更新された予定", "追加された予定"])
         #expect(store.chapters(friendID: friendID, overlapping: allRange).map(\.title) == ["追加された実績"])
+    }
+
+    @Test("ゾーン差分の upsert は既存の重複行を1件へ畳む")
+    func applyZoneChangesCompactsDuplicateRows() throws {
+        let container = try TestModelContainer.make()
+        let context = container.mainContext
+        let store = FriendSharedRecordStore(modelContext: context)
+        let friendID = UUID()
+        let planID = UUID()
+        let chapterID = UUID()
+
+        context.insert(FriendSharedPlanRecord(
+            friendID: friendID,
+            snapshot: makePlanSnapshot(id: planID, title: "古い予定", start: 0, end: 3600, updatedAt: 0)
+        ))
+        context.insert(FriendSharedPlanRecord(
+            friendID: friendID,
+            snapshot: makePlanSnapshot(id: planID, title: "重複予定", start: 0, end: 3600, updatedAt: 60)
+        ))
+        context.insert(FriendSharedChapterRecord(
+            friendID: friendID,
+            snapshot: makeActivitySnapshot(id: chapterID, title: "古い実績", start: 0, end: 1800)
+        ))
+        context.insert(FriendSharedChapterRecord(
+            friendID: friendID,
+            snapshot: makeActivitySnapshot(id: chapterID, title: "重複実績", start: 0, end: 1800)
+        ))
+        try context.save()
+
+        store.applyChanges(
+            friendID: friendID,
+            upsertPlans: [makePlanSnapshot(id: planID, title: "更新予定", start: 0, end: 3600, updatedAt: 120)],
+            upsertChapters: [makeActivitySnapshot(id: chapterID, title: "更新実績", start: 0, end: 1800)],
+            deletePlanSourceIDs: [],
+            deleteChapterSourceIDs: []
+        )
+        try context.save()
+
+        let range = base.addingTimeInterval(-60)..<base.addingTimeInterval(4_000)
+        #expect(store.plans(friendID: friendID, overlapping: range).map(\.title) == ["更新予定"])
+        #expect(store.chapters(friendID: friendID, overlapping: range).map(\.title) == ["更新実績"])
+    }
+
+    @Test("ゾーン差分の同一バッチ内に同じ sourceID が複数回来ても最新1件に畳む")
+    func applyZoneChangesDeduplicatesRepeatedUpsertsInSameBatch() throws {
+        let container = try TestModelContainer.make()
+        let store = FriendSharedRecordStore(modelContext: container.mainContext)
+        let friendID = UUID()
+        let planID = UUID()
+        let chapterID = UUID()
+        let allRange = base.addingTimeInterval(-86_400)..<base.addingTimeInterval(86_400)
+
+        store.applyChanges(
+            friendID: friendID,
+            upsertPlans: [
+                makePlanSnapshot(id: planID, title: "古い差分予定", start: 0, end: 3600, updatedAt: 0),
+                makePlanSnapshot(id: planID, title: "最新差分予定", start: 0, end: 3600, updatedAt: 120)
+            ],
+            upsertChapters: [
+                makeActivitySnapshot(id: chapterID, title: "古い差分実績", start: 0, end: 1800),
+                makeActivitySnapshot(id: chapterID, title: "最新差分実績", start: 0, end: 1800)
+            ],
+            deletePlanSourceIDs: [],
+            deleteChapterSourceIDs: []
+        )
+        try container.mainContext.save()
+
+        #expect(store.plans(friendID: friendID, overlapping: allRange).map(\.title) == ["最新差分予定"])
+        #expect(store.chapters(friendID: friendID, overlapping: allRange).map(\.title) == ["古い差分実績"])
+    }
+
+    @Test("別 sourceID で残った同一表示の共有予定は表示クエリで1件に畳む")
+    func displayQueriesCollapseSemanticDuplicatePlans() throws {
+        let container = try TestModelContainer.make()
+        let context = container.mainContext
+        let store = FriendSharedRecordStore(modelContext: context)
+        let friendID = UUID()
+        let range = base.addingTimeInterval(-60)..<base.addingTimeInterval(4_000)
+
+        context.insert(FriendSharedPlanRecord(
+            friendID: friendID,
+            snapshot: makePlanSnapshot(id: UUID(), title: "同じ予定", start: 0, end: 3600, updatedAt: 0)
+        ))
+        context.insert(FriendSharedPlanRecord(
+            friendID: friendID,
+            snapshot: makePlanSnapshot(id: UUID(), title: "同じ予定", start: 0, end: 3600, updatedAt: 60)
+        ))
+        try context.save()
+
+        let plans = store.plans(friendID: friendID, overlapping: range)
+        #expect(plans.map(\.title) == ["同じ予定"])
+    }
+
+    @Test("別 sourceID の時間重なりは受信キャッシュで欠落させない")
+    func displayQueriesKeepDistinctOverlappingSharedItems() throws {
+        let container = try TestModelContainer.make()
+        let context = container.mainContext
+        let store = FriendSharedRecordStore(modelContext: context)
+        let friendID = UUID()
+        let range = base.addingTimeInterval(-60)..<base.addingTimeInterval(8_000)
+
+        context.insert(FriendSharedPlanRecord(
+            friendID: friendID,
+            snapshot: makePlanSnapshot(id: UUID(), title: "先の予定", start: 0, end: 3_600, updatedAt: 60)
+        ))
+        context.insert(FriendSharedPlanRecord(
+            friendID: friendID,
+            snapshot: makePlanSnapshot(id: UUID(), title: "重なる予定", start: 1_800, end: 5_400, updatedAt: 120)
+        ))
+        context.insert(FriendSharedPlanRecord(
+            friendID: friendID,
+            snapshot: makePlanSnapshot(id: UUID(), title: "隣接予定", start: 3_600, end: 7_200, updatedAt: 0)
+        ))
+        context.insert(FriendSharedChapterRecord(
+            friendID: friendID,
+            snapshot: makeActivitySnapshot(id: UUID(), title: "先の実績", start: 0, end: 1_800)
+        ))
+        context.insert(FriendSharedChapterRecord(
+            friendID: friendID,
+            snapshot: makeActivitySnapshot(id: UUID(), title: "重なる実績", start: 900, end: 2_700)
+        ))
+        context.insert(FriendSharedChapterRecord(
+            friendID: friendID,
+            snapshot: makeActivitySnapshot(id: UUID(), title: "隣接実績", start: 1_800, end: 3_600)
+        ))
+        try context.save()
+
+        #expect(store.plans(friendID: friendID, overlapping: range).map(\.title) == ["先の予定", "重なる予定", "隣接予定"])
+        #expect(store.chapters(friendID: friendID, overlapping: range).map(\.title) == ["先の実績", "重なる実績", "隣接実績"])
     }
 
     @Test("ゾーン差分の applyChanges でチャプター削除が即時反映される")

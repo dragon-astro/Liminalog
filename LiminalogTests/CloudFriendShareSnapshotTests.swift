@@ -17,6 +17,13 @@ struct CloudFriendShareSnapshotTests {
             currentStatusColorHex: "#34C759",
             currentMoodText: "落ち着いた",
             currentStatusStartedAt: now,
+            profileBio: "朝に強いログ",
+            profileImageData: Data([0x10, 0x20, 0x30]),
+            profileAccentColorHex: "#FF9F0A",
+            profileBadgeID: "planner",
+            profileIconFrameID: "sunset_ring",
+            profileStreakIconID: "spark",
+            profileCardStyleID: "generated_evening",
             todayScore: 82,
             yesterdayScore: 77,
             weekScore: 69,
@@ -33,6 +40,42 @@ struct CloudFriendShareSnapshotTests {
         let decoded = try decoder.decode(CloudFriendShareSnapshot.self, from: try encoder.encode(snapshot))
 
         #expect(decoded == snapshot)
+    }
+
+    @Test
+    func legacyStatusSnapshotDecodesWithDefaultProfileDecoration() throws {
+        let json = """
+        {
+          "ownerUsername": "ryu",
+          "ownerDisplayName": "Ryu",
+          "targetUserRecordName": "_target",
+          "currentStatusTitle": "Reading",
+          "currentStatusIcon": "book.fill",
+          "currentStatusColorHex": "#34C759",
+          "currentMoodText": "calm",
+          "currentStatusStartedAt": "2026-06-13T00:00:00Z",
+          "todayScore": 82,
+          "yesterdayScore": 77,
+          "weekScore": 69,
+          "monthScore": 71,
+          "yearScore": 73,
+          "streakCount": 12,
+          "updatedAt": "2026-06-13T00:30:00Z"
+        }
+        """
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let decoded = try decoder.decode(CloudFriendShareSnapshot.self, from: Data(json.utf8))
+
+        #expect(decoded.profileAccentColorHex == "#2F80ED")
+        #expect(decoded.profileBadgeID == "starter")
+        #expect(decoded.profileIconFrameID == "clear_air")
+        #expect(decoded.profileStreakIconID == "flame")
+        #expect(decoded.profileCardStyleID == "quiet_sky")
+        #expect(decoded.profileBio.isEmpty)
+        #expect(decoded.profileImageData == nil)
+        #expect(decoded.cumulativeScore == 0)
     }
 }
 
@@ -393,6 +436,69 @@ struct FriendSharePublishStateStoreTests {
         )
         #expect(fingerprints == requested)
     }
+
+    @Test
+    func manifestApplyResultCompactsDuplicateSourceRows() throws {
+        let container = try TestModelContainer.make()
+        let context = container.mainContext
+        let store = FriendSharePublishStateStore(modelContext: context)
+        let sourceID = UUID()
+
+        context.insert(FriendSharePublishedItem(
+            targetUserRecordName: "_target",
+            kindRawValue: FriendSharePublishStateStore.planKind,
+            sourceID: sourceID,
+            fingerprint: "stale-a"
+        ))
+        context.insert(FriendSharePublishedItem(
+            targetUserRecordName: "_target",
+            kindRawValue: FriendSharePublishStateStore.planKind,
+            sourceID: sourceID,
+            fingerprint: "stale-b"
+        ))
+        try context.save()
+
+        store.applyPublishResult(
+            targetUserRecordName: "_target",
+            kind: FriendSharePublishStateStore.planKind,
+            upserted: [sourceID: "fresh"],
+            deleted: []
+        )
+        try context.save()
+
+        let planKind = FriendSharePublishStateStore.planKind
+        let records = try context.fetch(FetchDescriptor<FriendSharePublishedItem>(
+            predicate: #Predicate {
+                $0.targetUserRecordName == "_target"
+                    && $0.kindRawValue == planKind
+                    && $0.sourceID == sourceID
+            }
+        ))
+        #expect(records.count == 1)
+        #expect(records.first?.fingerprint == "fresh")
+    }
+
+    @Test
+    func zoneSyncStateWritesCompactDuplicateOwners() throws {
+        let container = try TestModelContainer.make()
+        let context = container.mainContext
+        let store = FriendSharePublishStateStore(modelContext: context)
+        let oldState = FriendShareZoneSyncState(ownerUserRecordName: "_owner")
+        oldState.updatedAt = Date(timeIntervalSince1970: 1)
+        let newState = FriendShareZoneSyncState(ownerUserRecordName: "_owner")
+        newState.updatedAt = Date(timeIntervalSince1970: 2)
+        context.insert(oldState)
+        context.insert(newState)
+        try context.save()
+
+        store.setChangeToken(nil, ownerUserRecordName: "_owner")
+        try context.save()
+
+        let states = try context.fetch(FetchDescriptor<FriendShareZoneSyncState>(
+            predicate: #Predicate { $0.ownerUserRecordName == "_owner" }
+        ))
+        #expect(states.count == 1)
+    }
 }
 
 @MainActor
@@ -530,6 +636,13 @@ struct FriendShareZoneChangeApplierTests {
             currentStatusIcon: statusTitle.isEmpty ? "circle.dashed" : "bolt.fill",
             currentStatusColorHex: statusTitle.isEmpty ? "#8E8E93" : "#2F80ED",
             currentMoodText: mood,
+            profileBio: "夜に強いログ",
+            profileImageData: Data([0x10, 0x20, 0x30]),
+            profileAccentColorHex: "#FF9F0A",
+            profileBadgeID: "planner",
+            profileIconFrameID: "sunset_ring",
+            profileStreakIconID: "spark",
+            profileCardStyleID: "generated_evening",
             todayScore: todayScore,
             yesterdayScore: 66,
             weekScore: 70,
@@ -545,6 +658,13 @@ struct FriendShareZoneChangeApplierTests {
         record["currentStatusIcon"] = snapshot.currentStatusIcon as CKRecordValue
         record["currentStatusColorHex"] = snapshot.currentStatusColorHex as CKRecordValue
         record["currentMoodText"] = snapshot.currentMoodText as CKRecordValue
+        record["profileBio"] = snapshot.profileBio as CKRecordValue
+        record["profileImageData"] = snapshot.profileImageData as CKRecordValue?
+        record["profileAccentColorHex"] = snapshot.profileAccentColorHex as CKRecordValue
+        record["profileBadgeID"] = snapshot.profileBadgeID as CKRecordValue
+        record["profileIconFrameID"] = snapshot.profileIconFrameID as CKRecordValue
+        record["profileStreakIconID"] = snapshot.profileStreakIconID as CKRecordValue
+        record["profileCardStyleID"] = snapshot.profileCardStyleID as CKRecordValue
         record["todayScore"] = snapshot.todayScore as CKRecordValue
         record["yesterdayScore"] = snapshot.yesterdayScore as CKRecordValue
         record["weekScore"] = snapshot.weekScore as CKRecordValue
@@ -945,5 +1065,28 @@ struct CloudKitTransientRetryPolicyTests {
     func clampsExcessiveRetryAfter() {
         let error = makeCKError(.requestRateLimited, retryAfter: 600)
         #expect(CloudKitTransientRetryPolicy.retryDelay(after: error, attempt: 1) == 30)
+    }
+}
+
+struct CloudFriendShareOperationTimeoutPolicyTests {
+    @Test
+    func keepsSharedZoneIncrementalFetchLongerThanStandardOperations() {
+        #expect(CloudFriendShareOperationTimeoutPolicy.standardOperation == 12)
+        #expect(
+            CloudFriendShareOperationTimeoutPolicy.incomingShareAccept
+                > CloudFriendShareOperationTimeoutPolicy.standardOperation
+        )
+        #expect(
+            CloudFriendShareOperationTimeoutPolicy.sharedZoneFetchTimeout(hasPreviousToken: true)
+                > CloudFriendShareOperationTimeoutPolicy.standardOperation
+        )
+    }
+
+    @Test
+    func allowsFullSharedZoneFetchToCoverRealDeviceRecoveryFetches() {
+        #expect(
+            CloudFriendShareOperationTimeoutPolicy.sharedZoneFetchTimeout(hasPreviousToken: false)
+                >= 150
+        )
     }
 }

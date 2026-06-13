@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import SwiftData
 
@@ -30,6 +31,7 @@ final class Friend {
     var displayName: String = ""
     var handle: String = ""
     var bio: String?
+    var profileImageData: Data?
     var avatarSystemImage: String = "person.crop.circle.fill"
     var accentColorHex: String = "#2F80ED"
     var profileBadgeID: String = "starter"
@@ -52,6 +54,9 @@ final class Friend {
     var weekScore: Double = 0
     var monthScore: Double = 0
     var yearScore: Double = 0
+    /// 友達の累積スコア（365日窓・Lv表示用）。共有スナップショット由来。永続化はCloudKitスキーマ固定後に扱う。
+    @Transient
+    var cumulativeScore: Int = 0
     /// 旧・塊JSON方式の名残。CloudKit同期スキーマは追記専用（プロパティ削除は既存ストアを壊す）ため、
     /// 未使用のまま残置している。読み書きしないこと。個別行キャッシュ（FriendSharedRecord）が後継。
     var sharedPlansJSON: String = "[]"
@@ -92,6 +97,7 @@ final class Friend {
         self.displayName = displayName
         self.handle = handle
         self.bio = nil
+        self.profileImageData = nil
         self.avatarSystemImage = avatarSystemImage
         self.accentColorHex = accentColorHex
         self.profileBadgeID = "starter"
@@ -335,6 +341,68 @@ struct FriendSharedActivitySnapshot: Codable, Identifiable, Hashable {
     }
 }
 
+struct FriendSharedDailyScoreSnapshot: Codable, Identifiable, Hashable {
+    var id: UUID
+    var dayStart: Date
+    var dayIdentifier: String
+    var score: Int
+    var plannedDuration: TimeInterval
+    var recordedDuration: TimeInterval
+    var hasData: Bool
+    var updatedAt: Date
+
+    init(
+        id: UUID? = nil,
+        dayStart: Date,
+        dayIdentifier: String,
+        score: Int,
+        plannedDuration: TimeInterval,
+        recordedDuration: TimeInterval,
+        hasData: Bool,
+        updatedAt: Date = Date()
+    ) {
+        self.dayStart = dayStart
+        self.dayIdentifier = dayIdentifier
+        self.id = id ?? Self.stableID(for: dayIdentifier)
+        self.score = score
+        self.plannedDuration = plannedDuration
+        self.recordedDuration = recordedDuration
+        self.hasData = hasData
+        self.updatedAt = updatedAt
+    }
+
+    init(summary: ScoreSummary, calendar: Calendar = .japanese, updatedAt: Date = Date()) {
+        let dayStart = calendar.startOfDay(for: summary.date)
+        let dayIdentifier = DailyCardSnapshot.dayIdentifier(for: dayStart, calendar: calendar)
+        self.init(
+            dayStart: dayStart,
+            dayIdentifier: dayIdentifier,
+            score: Int(summary.totalScore.rounded()),
+            plannedDuration: summary.plannedDuration,
+            recordedDuration: summary.recordedDuration,
+            hasData: summary.plannedDuration > 0,
+            updatedAt: updatedAt
+        )
+    }
+
+    static func sourceID(for dayStart: Date, calendar: Calendar = .japanese) -> UUID {
+        stableID(for: DailyCardSnapshot.dayIdentifier(for: calendar.startOfDay(for: dayStart), calendar: calendar))
+    }
+
+    private static func stableID(for dayIdentifier: String) -> UUID {
+        let digest = SHA256.hash(data: Data("friend-shared-score:\(dayIdentifier)".utf8))
+        let hex = digest.map { String(format: "%02x", $0) }.joined()
+        let first32 = String(hex.prefix(32))
+        let part1 = String(first32.prefix(8))
+        let part2 = String(first32.dropFirst(8).prefix(4))
+        let part3 = String(first32.dropFirst(12).prefix(4))
+        let part4 = String(first32.dropFirst(16).prefix(4))
+        let part5 = String(first32.dropFirst(20).prefix(12))
+        let formatted = "\(part1)-\(part2)-\(part3)-\(part4)-\(part5)"
+        return UUID(uuidString: formatted) ?? UUID()
+    }
+}
+
 private struct FriendSharingVisibilityPolicy {
     private static let redactedPlanTitle = "予定あり"
     private static let redactedPlanCategoryColorHex = "#8E8E93"
@@ -501,10 +569,19 @@ struct FriendInvitePayload: Equatable {
 
     let code: String
     let displayName: String
+    let username: String?
 
-    init(code: String, displayName: String) {
+    init(code: String, displayName: String, username: String? = nil) {
         self.code = Self.normalizedCode(code)
         self.displayName = displayName
+        self.username = username.flatMap(UserIDNormalizer.normalizedValue)
+    }
+
+    init(username: String, displayName: String) {
+        let normalizedUsername = UserIDNormalizer.normalizedValue(username) ?? Self.normalizedCode(username).lowercased()
+        self.code = Self.normalizedCode(normalizedUsername)
+        self.displayName = displayName
+        self.username = normalizedUsername
     }
 
     init?(url: URL) {
@@ -517,7 +594,8 @@ struct FriendInvitePayload: Equatable {
         else { return nil }
 
         let name = components.queryItems?.first(where: { $0.name == "name" })?.value ?? "Liminalogユーザー"
-        self.init(code: code, displayName: name)
+        let username = components.queryItems?.first(where: { $0.name == "username" })?.value
+        self.init(code: code, displayName: name, username: username)
     }
 
     init?(text: String) {
@@ -536,13 +614,17 @@ struct FriendInvitePayload: Equatable {
     }
 
     var url: URL {
-        var components = URLComponents()
-        components.scheme = Self.scheme
-        components.host = Self.host
-        components.queryItems = [
+        var queryItems = [
             URLQueryItem(name: "code", value: code),
             URLQueryItem(name: "name", value: displayName)
         ]
+        if let username {
+            queryItems.append(URLQueryItem(name: "username", value: username))
+        }
+        var components = URLComponents()
+        components.scheme = Self.scheme
+        components.host = Self.host
+        components.queryItems = queryItems
         return components.url!
     }
 

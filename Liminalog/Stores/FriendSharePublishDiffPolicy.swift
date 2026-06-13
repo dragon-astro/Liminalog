@@ -40,6 +40,10 @@ enum FriendSharePublishDiffPolicy {
         stableFingerprint(of: snapshot)
     }
 
+    static func fingerprint(_ snapshot: FriendSharedDailyScoreSnapshot) -> String {
+        stableFingerprint(of: snapshot)
+    }
+
     private static func stableFingerprint<Value: Encodable>(of value: Value) -> String {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]

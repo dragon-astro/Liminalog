@@ -20,5 +20,9 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LIMINALOG_LIVE_E2E_RUN_ID</key>
 	<string>$(LIMINALOG_LIVE_E2E_RUN_ID)</string>
+	<key>LIMINALOG_DUMP_CLOUD_FRIENDS</key>
+	<string>$(LIMINALOG_DUMP_CLOUD_FRIENDS)</string>
+	<key>LIMINALOG_DUMP_CLOUD_FRIENDS_FAIL</key>
+	<string>$(LIMINALOG_DUMP_CLOUD_FRIENDS_FAIL)</string>
 </dict>
 </plist>

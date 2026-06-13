@@ -8,6 +8,7 @@ import SwiftData
 struct FriendSharePublishStateStore {
     static let planKind = "plan"
     static let chapterKind = "chapter"
+    static let scoreKind = "score"
     private static let batchedSourceIDFetchThreshold = 24
 
     private let modelContext: ModelContext
@@ -19,7 +20,7 @@ struct FriendSharePublishStateStore {
     // MARK: - 公開台帳（オーナー側）
 
     func publishedFingerprints(targetUserRecordName: String, kind: String) -> [UUID: String] {
-        let items = fetchPublishedItems(targetUserRecordName: targetUserRecordName, kind: kind)
+        let items = compactPublishedItems(fetchPublishedItems(targetUserRecordName: targetUserRecordName, kind: kind))
         return Dictionary(items.map { ($0.sourceID, $0.fingerprint) }, uniquingKeysWith: { lhs, _ in lhs })
     }
 
@@ -31,7 +32,7 @@ struct FriendSharePublishStateStore {
             : sourceIDs.compactMap { sourceID in
                 fetchPublishedItem(targetUserRecordName: targetUserRecordName, kind: kind, sourceID: sourceID)
             }
-        return Dictionary(items.map { ($0.sourceID, $0.fingerprint) }, uniquingKeysWith: { lhs, _ in lhs })
+        return Dictionary(compactPublishedItems(items).map { ($0.sourceID, $0.fingerprint) }, uniquingKeysWith: { lhs, _ in lhs })
     }
 
     /// CloudKit への送信が成功した分だけ台帳へ反映する。
@@ -42,7 +43,7 @@ struct FriendSharePublishStateStore {
         deleted: Set<UUID>
     ) {
         guard !upserted.isEmpty || !deleted.isEmpty else { return }
-        let existing = fetchPublishedItems(targetUserRecordName: targetUserRecordName, kind: kind)
+        let existing = compactPublishedItems(fetchPublishedItems(targetUserRecordName: targetUserRecordName, kind: kind))
         let existingBySourceID = Dictionary(
             existing.map { ($0.sourceID, $0) },
             uniquingKeysWith: { lhs, _ in lhs }
@@ -84,15 +85,14 @@ struct FriendSharePublishStateStore {
     }
 
     private func fetchPublishedItem(targetUserRecordName: String, kind: String, sourceID: UUID) -> FriendSharePublishedItem? {
-        var descriptor = FetchDescriptor<FriendSharePublishedItem>(
+        let descriptor = FetchDescriptor<FriendSharePublishedItem>(
             predicate: #Predicate {
                 $0.targetUserRecordName == targetUserRecordName
                     && $0.kindRawValue == kind
                     && $0.sourceID == sourceID
             }
         )
-        descriptor.fetchLimit = 1
-        return (try? modelContext.fetch(descriptor))?.first
+        return compactPublishedItems((try? modelContext.fetch(descriptor)) ?? []).first
     }
 
     // MARK: - ゾーン変更トークン（受信側）
@@ -125,10 +125,49 @@ struct FriendSharePublishStateStore {
     }
 
     private func fetchSyncState(ownerUserRecordName: String) -> FriendShareZoneSyncState? {
-        var descriptor = FetchDescriptor<FriendShareZoneSyncState>(
+        let descriptor = FetchDescriptor<FriendShareZoneSyncState>(
             predicate: #Predicate { $0.ownerUserRecordName == ownerUserRecordName }
         )
-        descriptor.fetchLimit = 1
-        return (try? modelContext.fetch(descriptor))?.first
+        return compactSyncStates((try? modelContext.fetch(descriptor)) ?? []).first
     }
+
+    private func compactPublishedItems(_ items: [FriendSharePublishedItem]) -> [FriendSharePublishedItem] {
+        var keptByKey: [FriendSharePublishedItemKey: FriendSharePublishedItem] = [:]
+        for item in items {
+            let key = FriendSharePublishedItemKey(
+                targetUserRecordName: item.targetUserRecordName,
+                kindRawValue: item.kindRawValue,
+                sourceID: item.sourceID
+            )
+            if keptByKey[key] != nil {
+                modelContext.delete(item)
+                continue
+            }
+            keptByKey[key] = item
+        }
+        return Array(keptByKey.values)
+    }
+
+    private func compactSyncStates(_ states: [FriendShareZoneSyncState]) -> [FriendShareZoneSyncState] {
+        var keptByOwner: [String: FriendShareZoneSyncState] = [:]
+        for state in states {
+            if let kept = keptByOwner[state.ownerUserRecordName] {
+                if state.updatedAt > kept.updatedAt {
+                    modelContext.delete(kept)
+                    keptByOwner[state.ownerUserRecordName] = state
+                } else {
+                    modelContext.delete(state)
+                }
+            } else {
+                keptByOwner[state.ownerUserRecordName] = state
+            }
+        }
+        return Array(keptByOwner.values)
+    }
+}
+
+private struct FriendSharePublishedItemKey: Hashable {
+    let targetUserRecordName: String
+    let kindRawValue: String
+    let sourceID: UUID
 }

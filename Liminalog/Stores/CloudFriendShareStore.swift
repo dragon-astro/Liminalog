@@ -12,12 +12,21 @@ struct CloudFriendShareSnapshot: Codable, Equatable {
     var currentStatusColorHex: String
     var currentMoodText: String
     var currentStatusStartedAt: Date?
+    var profileBio: String
+    var profileImageData: Data?
+    var profileAccentColorHex: String
+    var profileBadgeID: String
+    var profileIconFrameID: String
+    var profileStreakIconID: String
+    var profileCardStyleID: String
     var todayScore: Double
     var yesterdayScore: Double
     var weekScore: Double
     var monthScore: Double
     var yearScore: Double
     var streakCount: Int
+    /// 累積スコア（365日窓）。友達側のLv表示に使う。旧クライアントのレコードには無いため復号時は0扱い。
+    var cumulativeScore: Int
     var updatedAt: Date
 
     init(
@@ -29,12 +38,20 @@ struct CloudFriendShareSnapshot: Codable, Equatable {
         currentStatusColorHex: String = "#8E8E93",
         currentMoodText: String = "",
         currentStatusStartedAt: Date? = nil,
+        profileBio: String = "",
+        profileImageData: Data? = nil,
+        profileAccentColorHex: String = "#2F80ED",
+        profileBadgeID: String = "starter",
+        profileIconFrameID: String = "clear_air",
+        profileStreakIconID: String = "flame",
+        profileCardStyleID: String = "quiet_sky",
         todayScore: Double = 0,
         yesterdayScore: Double = 0,
         weekScore: Double = 0,
         monthScore: Double = 0,
         yearScore: Double = 0,
         streakCount: Int = 0,
+        cumulativeScore: Int = 0,
         updatedAt: Date = Date()
     ) {
         self.ownerUsername = ownerUsername
@@ -45,13 +62,76 @@ struct CloudFriendShareSnapshot: Codable, Equatable {
         self.currentStatusColorHex = currentStatusColorHex
         self.currentMoodText = currentMoodText
         self.currentStatusStartedAt = currentStatusStartedAt
+        self.profileBio = profileBio
+        self.profileImageData = profileImageData
+        self.profileAccentColorHex = profileAccentColorHex
+        self.profileBadgeID = profileBadgeID
+        self.profileIconFrameID = profileIconFrameID
+        self.profileStreakIconID = profileStreakIconID
+        self.profileCardStyleID = profileCardStyleID
         self.todayScore = todayScore
         self.yesterdayScore = yesterdayScore
         self.weekScore = weekScore
         self.monthScore = monthScore
         self.yearScore = yearScore
         self.streakCount = streakCount
+        self.cumulativeScore = cumulativeScore
         self.updatedAt = updatedAt
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case ownerUsername
+        case ownerDisplayName
+        case targetUserRecordName
+        case currentStatusTitle
+        case currentStatusIcon
+        case currentStatusColorHex
+        case currentMoodText
+        case currentStatusStartedAt
+        case profileBio
+        case profileImageData
+        case profileAccentColorHex
+        case profileBadgeID
+        case profileIconFrameID
+        case profileStreakIconID
+        case profileCardStyleID
+        case todayScore
+        case yesterdayScore
+        case weekScore
+        case monthScore
+        case yearScore
+        case streakCount
+        case cumulativeScore
+        case updatedAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            ownerUsername: try container.decode(String.self, forKey: .ownerUsername),
+            ownerDisplayName: try container.decode(String.self, forKey: .ownerDisplayName),
+            targetUserRecordName: try container.decode(String.self, forKey: .targetUserRecordName),
+            currentStatusTitle: try container.decode(String.self, forKey: .currentStatusTitle),
+            currentStatusIcon: try container.decode(String.self, forKey: .currentStatusIcon),
+            currentStatusColorHex: try container.decode(String.self, forKey: .currentStatusColorHex),
+            currentMoodText: try container.decode(String.self, forKey: .currentMoodText),
+            currentStatusStartedAt: try container.decodeIfPresent(Date.self, forKey: .currentStatusStartedAt),
+            profileBio: try container.decodeIfPresent(String.self, forKey: .profileBio) ?? "",
+            profileImageData: try container.decodeIfPresent(Data.self, forKey: .profileImageData),
+            profileAccentColorHex: try container.decodeIfPresent(String.self, forKey: .profileAccentColorHex) ?? "#2F80ED",
+            profileBadgeID: try container.decodeIfPresent(String.self, forKey: .profileBadgeID) ?? "starter",
+            profileIconFrameID: try container.decodeIfPresent(String.self, forKey: .profileIconFrameID) ?? "clear_air",
+            profileStreakIconID: try container.decodeIfPresent(String.self, forKey: .profileStreakIconID) ?? "flame",
+            profileCardStyleID: try container.decodeIfPresent(String.self, forKey: .profileCardStyleID) ?? "quiet_sky",
+            todayScore: try container.decode(Double.self, forKey: .todayScore),
+            yesterdayScore: try container.decode(Double.self, forKey: .yesterdayScore),
+            weekScore: try container.decode(Double.self, forKey: .weekScore),
+            monthScore: try container.decode(Double.self, forKey: .monthScore),
+            yearScore: try container.decode(Double.self, forKey: .yearScore),
+            streakCount: try container.decode(Int.self, forKey: .streakCount),
+            cumulativeScore: try container.decodeIfPresent(Int.self, forKey: .cumulativeScore) ?? 0,
+            updatedAt: try container.decode(Date.self, forKey: .updatedAt)
+        )
     }
 }
 
@@ -108,12 +188,20 @@ final class CloudFriendShareStore {
         static let currentStatusColorHex = "currentStatusColorHex"
         static let currentMoodText = "currentMoodText"
         static let currentStatusStartedAt = "currentStatusStartedAt"
+        static let profileBio = "profileBio"
+        static let profileImageData = "profileImageData"
+        static let profileAccentColorHex = "profileAccentColorHex"
+        static let profileBadgeID = "profileBadgeID"
+        static let profileIconFrameID = "profileIconFrameID"
+        static let profileStreakIconID = "profileStreakIconID"
+        static let profileCardStyleID = "profileCardStyleID"
         static let todayScore = "todayScore"
         static let yesterdayScore = "yesterdayScore"
         static let weekScore = "weekScore"
         static let monthScore = "monthScore"
         static let yearScore = "yearScore"
         static let streakCount = "streakCount"
+        static let cumulativeScore = "cumulativeScore"
         static let updatedAt = "updatedAt"
     }
 
@@ -537,12 +625,20 @@ final class CloudFriendShareStore {
         record[Field.currentStatusColorHex] = snapshot.currentStatusColorHex as CKRecordValue
         record[Field.currentMoodText] = snapshot.currentMoodText as CKRecordValue
         record[Field.currentStatusStartedAt] = snapshot.currentStatusStartedAt as CKRecordValue?
+        record[Field.profileBio] = snapshot.profileBio as CKRecordValue
+        record[Field.profileImageData] = snapshot.profileImageData as CKRecordValue?
+        record[Field.profileAccentColorHex] = snapshot.profileAccentColorHex as CKRecordValue
+        record[Field.profileBadgeID] = snapshot.profileBadgeID as CKRecordValue
+        record[Field.profileIconFrameID] = snapshot.profileIconFrameID as CKRecordValue
+        record[Field.profileStreakIconID] = snapshot.profileStreakIconID as CKRecordValue
+        record[Field.profileCardStyleID] = snapshot.profileCardStyleID as CKRecordValue
         record[Field.todayScore] = snapshot.todayScore as CKRecordValue
         record[Field.yesterdayScore] = snapshot.yesterdayScore as CKRecordValue
         record[Field.weekScore] = snapshot.weekScore as CKRecordValue
         record[Field.monthScore] = snapshot.monthScore as CKRecordValue
         record[Field.yearScore] = snapshot.yearScore as CKRecordValue
         record[Field.streakCount] = snapshot.streakCount as CKRecordValue
+        record[Field.cumulativeScore] = snapshot.cumulativeScore as CKRecordValue
         record[Field.updatedAt] = snapshot.updatedAt as CKRecordValue
     }
 
@@ -574,12 +670,21 @@ final class CloudFriendShareStore {
             currentStatusColorHex: currentStatusColorHex,
             currentMoodText: currentMoodText,
             currentStatusStartedAt: record[Field.currentStatusStartedAt] as? Date,
+            profileBio: record[Field.profileBio] as? String ?? "",
+            profileImageData: record[Field.profileImageData] as? Data,
+            profileAccentColorHex: record[Field.profileAccentColorHex] as? String ?? "#2F80ED",
+            profileBadgeID: record[Field.profileBadgeID] as? String ?? "starter",
+            profileIconFrameID: record[Field.profileIconFrameID] as? String ?? "clear_air",
+            profileStreakIconID: record[Field.profileStreakIconID] as? String ?? "flame",
+            profileCardStyleID: record[Field.profileCardStyleID] as? String ?? "quiet_sky",
             todayScore: todayScore,
             yesterdayScore: yesterdayScore,
             weekScore: weekScore,
             monthScore: monthScore,
             yearScore: yearScore,
             streakCount: streakCount,
+            // 旧クライアントが書いたレコードにはフィールドが無いので必須にしない
+            cumulativeScore: record[Field.cumulativeScore] as? Int ?? 0,
             updatedAt: updatedAt
         )
     }

@@ -20,6 +20,7 @@ struct FriendShareZoneChangeApplier {
         let recordStore = FriendSharedRecordStore(modelContext: modelContext)
         var changedPlans: [FriendSharedPlanSnapshot] = []
         var changedChapters: [FriendSharedActivitySnapshot] = []
+        var changedScores: [FriendSharedDailyScoreSnapshot] = []
         var didChangeRoot = false
 
         for record in changes.changedRecords {
@@ -27,6 +28,8 @@ struct FriendShareZoneChangeApplier {
                 changedPlans.append(plan)
             } else if let activity = FriendSharedItemRecordPolicy.activitySnapshot(from: record) {
                 changedChapters.append(activity)
+            } else if let score = FriendSharedItemRecordPolicy.scoreSnapshot(from: record) {
+                changedScores.append(score)
             } else if record.recordType == CloudFriendShareStore.rootRecordType {
                 if let snapshot = try? CloudFriendShareStore.incomingStatusSnapshot(
                     from: record,
@@ -40,17 +43,26 @@ struct FriendShareZoneChangeApplier {
 
         let impact: FriendSharedRecordChangeImpact
         if changes.didFetchFullZone {
-            impact = recordStore.reconcile(friendID: friend.id, plans: changedPlans, activities: changedChapters)
+            impact = recordStore.reconcile(
+                friendID: friend.id,
+                plans: changedPlans,
+                activities: changedChapters,
+                scores: changedScores
+            )
         } else {
             var partialImpact = recordStore.applyChanges(
                 friendID: friend.id,
                 upsertPlans: changedPlans,
                 upsertChapters: changedChapters,
+                upsertScores: changedScores,
                 deletePlanSourceIDs: Set(
                     changes.deletedRecordNames.compactMap(FriendSharedItemRecordPolicy.planSourceID(fromRecordName:))
                 ),
                 deleteChapterSourceIDs: Set(
                     changes.deletedRecordNames.compactMap(FriendSharedItemRecordPolicy.chapterSourceID(fromRecordName:))
+                ),
+                deleteScoreSourceIDs: Set(
+                    changes.deletedRecordNames.compactMap(FriendSharedItemRecordPolicy.scoreSourceID(fromRecordName:))
                 )
             )
             if didChangeRoot {

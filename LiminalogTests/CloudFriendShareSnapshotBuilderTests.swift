@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import UIKit
 @testable import Liminalog
 
 struct CloudFriendShareSnapshotBuilderTests {
@@ -25,6 +26,13 @@ struct CloudFriendShareSnapshotBuilderTests {
             for: friend,
             ownUsername: "owner",
             ownDisplayName: "Owner",
+            ownProfileBio: "朝に強いログ",
+            ownProfileImageData: Self.sampleProfileImageData(),
+            ownProfileAccentColorHex: "#FF9F0A",
+            ownProfileBadgeID: "planner",
+            ownProfileIconFrameID: "sunset_ring",
+            ownProfileStreakIconID: "spark",
+            ownProfileCardStyleID: "generated_evening",
             visibilityPresets: [preset],
             chapters: [chapter],
             acceptedFriendIDs: [friend.id],
@@ -51,7 +59,7 @@ struct CloudFriendShareSnapshotBuilderTests {
     }
 
     @Test
-    func presetRedactsPlanAndMoodDetailsInSharedItems() {
+    func presetRedactsPlanAndMoodDetailsInSharedItems() throws {
         let now = Date(timeIntervalSince1970: 1_780_764_000)
         let category = Category(name: "病院", colorHex: "#EB5757", icon: "cross.case.fill")
         let friend = Friend(displayName: "A", handle: "@friend", status: .accepted)
@@ -81,12 +89,20 @@ struct CloudFriendShareSnapshotBuilderTests {
             for: friend,
             ownUsername: "owner",
             ownDisplayName: "Owner",
+            ownProfileBio: "朝に強いログ",
+            ownProfileImageData: Self.sampleProfileImageData(),
+            ownProfileAccentColorHex: "#FF9F0A",
+            ownProfileBadgeID: "planner",
+            ownProfileIconFrameID: "sunset_ring",
+            ownProfileStreakIconID: "spark",
+            ownProfileCardStyleID: "generated_evening",
             visibilityPresets: [preset],
             chapters: [chapter],
             acceptedFriendIDs: [friend.id],
             now: now,
             scoreProvider: { _ in 42 },
-            streakProvider: { 7 }
+            streakProvider: { 7 },
+            cumulativeScoreProvider: { 4_321 }
         )
         let items = CloudFriendShareSnapshotBuilder.sharedItems(
             for: friend,
@@ -99,8 +115,18 @@ struct CloudFriendShareSnapshotBuilderTests {
 
         #expect(snapshot.currentStatusTitle == "病院")
         #expect(snapshot.currentMoodText.isEmpty)
+        #expect(snapshot.profileBio == "朝に強いログ")
+        let profileImageData = try #require(snapshot.profileImageData)
+        #expect(profileImageData.count <= ProfileImageShareEncoder.maxByteCount)
+        #expect(UIImage(data: profileImageData) != nil)
+        #expect(snapshot.profileAccentColorHex == "#FF9F0A")
+        #expect(snapshot.profileBadgeID == "planner")
+        #expect(snapshot.profileIconFrameID == "sunset_ring")
+        #expect(snapshot.profileStreakIconID == "spark")
+        #expect(snapshot.profileCardStyleID == "generated_evening")
         #expect(snapshot.todayScore == 42)
         #expect(snapshot.streakCount == 7)
+        #expect(snapshot.cumulativeScore == 4_321)
         #expect(items.plans.map(\.title) == ["予定あり"])
         #expect(items.plans.first?.categoryID == nil)
         #expect(items.activities.first?.note == nil)
@@ -149,6 +175,56 @@ struct CloudFriendShareSnapshotBuilderTests {
 
         #expect(selectedItems.plans.map(\.title) == ["限定予定"])
         #expect(otherItems.plans.isEmpty)
+    }
+
+    @Test
+    func sharedItemsDropOverlappingPlansAndActivitiesBeforePublishing() {
+        let now = Date(timeIntervalSince1970: 1_780_764_000)
+        let category = Category(name: "勉強", colorHex: "#4F8BFF", icon: "book.fill")
+        let friend = Friend(displayName: "A", handle: "@friend", status: .accepted)
+        friend.userRecordID = "_friend"
+        let preset = VisibilityPreset(name: "詳細")
+        friend.visibilityPresetID = preset.id
+
+        let firstPlan = PlanBlock(
+            category: category,
+            title: "先の予定",
+            startTime: now,
+            endTime: now.addingTimeInterval(3_600),
+            isPublic: true
+        )
+        let overlappingPlan = PlanBlock(
+            category: category,
+            title: "重なる予定",
+            startTime: now.addingTimeInterval(1_800),
+            endTime: now.addingTimeInterval(5_400),
+            isPublic: true
+        )
+        let touchingPlan = PlanBlock(
+            category: category,
+            title: "隣接予定",
+            startTime: now.addingTimeInterval(3_600),
+            endTime: now.addingTimeInterval(7_200),
+            isPublic: true
+        )
+        let firstChapter = Chapter(category: category, startTime: now)
+        firstChapter.endTime = now.addingTimeInterval(1_800)
+        let overlappingChapter = Chapter(category: category, startTime: now.addingTimeInterval(900))
+        overlappingChapter.endTime = now.addingTimeInterval(2_700)
+        let touchingChapter = Chapter(category: category, startTime: now.addingTimeInterval(1_800))
+        touchingChapter.endTime = now.addingTimeInterval(3_600)
+
+        let items = CloudFriendShareSnapshotBuilder.sharedItems(
+            for: friend,
+            visibilityPresets: [preset],
+            chapters: [firstChapter, overlappingChapter, touchingChapter],
+            planBlocks: [firstPlan, overlappingPlan, touchingPlan],
+            acceptedFriendIDs: [friend.id],
+            now: now
+        )
+
+        #expect(items.plans.map(\.title) == ["先の予定", "隣接予定"])
+        #expect(items.activities.map(\.id) == [firstChapter.id, touchingChapter.id])
     }
 
     @Test
@@ -233,5 +309,16 @@ struct CloudFriendShareSnapshotBuilderTests {
         #expect(snapshot.currentStatusTitle.isEmpty)
         #expect(items.plans.isEmpty)
         #expect(items.activities.isEmpty)
+    }
+
+    private static func sampleProfileImageData() -> Data {
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: 640, height: 640))
+        let image = renderer.image { context in
+            UIColor.systemBlue.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 640, height: 640))
+            UIColor.systemYellow.setFill()
+            context.cgContext.fillEllipse(in: CGRect(x: 120, y: 120, width: 400, height: 400))
+        }
+        return image.jpegData(compressionQuality: 0.95) ?? Data()
     }
 }

@@ -20,12 +20,20 @@ struct CloudFriendShareSnapshotApplierTests {
             currentStatusColorHex: "#4F8BFF",
             currentMoodText: "集中",
             currentStatusStartedAt: now.addingTimeInterval(-1_800),
+            profileBio: "朝型の人",
+            profileImageData: Data([0x10, 0x20, 0x30]),
+            profileAccentColorHex: "#FF9F0A",
+            profileBadgeID: "planner",
+            profileIconFrameID: "sunset_ring",
+            profileStreakIconID: "spark",
+            profileCardStyleID: "generated_evening",
             todayScore: 88,
             yesterdayScore: 70,
             weekScore: 66,
             monthScore: 55,
             yearScore: 44,
             streakCount: 12,
+            cumulativeScore: 4_321,
             updatedAt: now
         )
 
@@ -38,12 +46,20 @@ struct CloudFriendShareSnapshotApplierTests {
         #expect(friend.currentStatusColorHex == "#4F8BFF")
         #expect(friend.currentMoodText == "集中")
         #expect(friend.currentStatusStartedAt == now.addingTimeInterval(-1_800))
+        #expect(friend.bio == "朝型の人")
+        #expect(friend.profileImageData == Data([0x10, 0x20, 0x30]))
+        #expect(friend.accentColorHex == "#FF9F0A")
+        #expect(friend.profileBadgeID == "planner")
+        #expect(friend.profileIconFrameID == "sunset_ring")
+        #expect(friend.profileStreakIconID == "spark")
+        #expect(friend.profileCardStyleID == "generated_evening")
         #expect(friend.todayScore == 88)
         #expect(friend.yesterdayScore == 70)
         #expect(friend.weekScore == 66)
         #expect(friend.monthScore == 55)
         #expect(friend.yearScore == 44)
         #expect(friend.streakCount == 12)
+        #expect(friend.cumulativeScore == 4_321)
         #expect(friend.lastSeenAt == now)
     }
 
@@ -59,12 +75,15 @@ struct CloudFriendShareSnapshotApplierTests {
         friend.currentMoodText = "集中"
         friend.currentStatusStartedAt = now.addingTimeInterval(-1_800)
         friend.currentStatusUpdatedAt = now
+        friend.bio = "朝型の人"
+        friend.profileImageData = Data([0x10, 0x20, 0x30])
         friend.todayScore = 88
         friend.yesterdayScore = 70
         friend.weekScore = 66
         friend.monthScore = 55
         friend.yearScore = 44
         friend.streakCount = 12
+        friend.cumulativeScore = 4_321
         friend.lastSeenAt = now
 
         CloudFriendShareSnapshotApplier.clearCachedShare(from: friend)
@@ -75,12 +94,15 @@ struct CloudFriendShareSnapshotApplierTests {
         #expect(friend.currentMoodText.isEmpty)
         #expect(friend.currentStatusStartedAt == nil)
         #expect(friend.currentStatusUpdatedAt == nil)
+        #expect(friend.bio == nil)
+        #expect(friend.profileImageData == nil)
         #expect(friend.todayScore == 0)
         #expect(friend.yesterdayScore == 0)
         #expect(friend.weekScore == 0)
         #expect(friend.monthScore == 0)
         #expect(friend.yearScore == 0)
         #expect(friend.streakCount == 0)
+        #expect(friend.cumulativeScore == 0)
         #expect(friend.lastSeenAt == nil)
     }
 }

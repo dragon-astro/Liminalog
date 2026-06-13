@@ -14,6 +14,21 @@ struct FriendInvitePayloadTests {
 
         #expect(decoded.code == "ABC123")
         #expect(decoded.displayName == "Ryu")
+        #expect(decoded.username == nil)
+    }
+
+    @Test
+    func cloudUsernameInviteURLRoundTrips() throws {
+        let payload = FriendInvitePayload(
+            username: "ryu.log-01",
+            displayName: "Ryu"
+        )
+
+        let decoded = try #require(FriendInvitePayload(url: payload.url))
+
+        #expect(decoded.code == "RYU.LOG01")
+        #expect(decoded.displayName == "Ryu")
+        #expect(decoded.username == "ryu.log-01")
     }
 
     @Test

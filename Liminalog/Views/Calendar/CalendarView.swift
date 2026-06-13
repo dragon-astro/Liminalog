@@ -47,6 +47,7 @@ struct CalendarView: View {
                                 weekdayColor: weekdayColor(_:),
                                 pageData: cachedPageData(for: month(forOffset: offset)),
                                 onOpenDay: { date, planID in
+                                    LiminalHaptics.openSheet()
                                     selectedDay = CalendarDayPresentation(date: date, planID: planID)
                                 }
                             )
@@ -153,6 +154,7 @@ struct CalendarView: View {
     private var calendarTopBar: some View {
         ZStack {
             Button {
+                LiminalHaptics.openSheet()
                 prepareMonthPicker()
                 showingMonthPicker = true
             } label: {
@@ -182,6 +184,7 @@ struct CalendarView: View {
 
             HStack {
                 Button {
+                    LiminalHaptics.openSheet()
                     showingCalendarSettings = true
                 } label: {
                     Image(systemName: "gearshape")
@@ -195,6 +198,7 @@ struct CalendarView: View {
 
                 HStack(spacing: 4) {
                     Button {
+                        LiminalHaptics.openSheet()
                         showingCalendarFilter = true
                     } label: {
                         Image(systemName: isCalendarFilterActive ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
@@ -206,6 +210,7 @@ struct CalendarView: View {
                     .accessibilityLabel("カレンダー表示フィルタ")
 
                     Button {
+                        LiminalHaptics.openSheet()
                         showingCalendarSearch = true
                     } label: {
                         Image(systemName: "magnifyingglass")
@@ -474,6 +479,7 @@ struct CalendarView: View {
                 return visibleCategoryIDs.contains(categoryID)
             }
             : plansInGrid
+        let deduplicatedVisiblePlansInGrid = deduplicatedCalendarPlans(visiblePlansInGrid)
 
         let lookbackStart = calendar.date(byAdding: .day, value: -14, to: gridStart) ?? gridStart
         let chapterDescriptor = FetchDescriptor<Chapter>(
@@ -526,7 +532,7 @@ struct CalendarView: View {
 
         for date in dates {
             let boundary = DayBoundary(date: date, calendar: calendar)
-            let dayPlans = visiblePlansInGrid.filter { $0.startTime < boundary.dayEnd && $0.endTime > boundary.dayStart }
+            let dayPlans = deduplicatedVisiblePlansInGrid.filter { $0.startTime < boundary.dayEnd && $0.endTime > boundary.dayStart }
             let dayChapters = chaptersInGrid.filter {
                 $0.startTime < boundary.dayEnd && ($0.endTime ?? now) > boundary.dayStart
             }
@@ -586,6 +592,42 @@ struct CalendarView: View {
         return lhs.startTime < rhs.startTime
     }
 
+    private func deduplicatedCalendarPlans(_ plans: [PlanBlock]) -> [PlanBlock] {
+        var seenKeys: Set<String> = []
+        return plans.filter { plan in
+            seenKeys.insert(calendarDuplicateKey(for: plan)).inserted
+        }
+    }
+
+    private func calendarDuplicateKey(for plan: PlanBlock) -> String {
+        if let sourceEventID = plan.sourceEventID?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !sourceEventID.isEmpty {
+            return "source:\(sourceEventID)"
+        }
+        let categoryKey = plan.category.map {
+            "\($0.isDefault ? "default" : "custom"):\(normalizedCalendarText($0.name))"
+        } ?? "none"
+        let note = plan.note.map(normalizedCalendarText) ?? ""
+        return [
+            "manual",
+            categoryKey,
+            normalizedCalendarText(plan.title),
+            calendarMinuteKey(plan.startTime),
+            calendarMinuteKey(plan.endTime),
+            plan.isAllDay ? "all-day" : "timed",
+            note
+        ].joined(separator: "|")
+    }
+
+    private func normalizedCalendarText(_ value: String) -> String {
+        value.trimmingCharacters(in: .whitespacesAndNewlines)
+            .folding(options: [.caseInsensitive, .widthInsensitive], locale: .current)
+    }
+
+    private func calendarMinuteKey(_ date: Date) -> String {
+        String(Int((date.timeIntervalSinceReferenceDate / 60).rounded()))
+    }
+
     private func monthStart(for date: Date) -> Date {
         calendar.date(from: calendar.dateComponents([.year, .month], from: date)) ?? date
     }
@@ -643,6 +685,7 @@ private struct CalendarDayPagerSheet: View {
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 Button {
+                    LiminalHaptics.lightImpact(intensity: 0.45)
                     dismiss()
                 } label: {
                     Label("戻る", systemImage: "chevron.left")
@@ -652,6 +695,7 @@ private struct CalendarDayPagerSheet: View {
                 HStack(spacing: 14) {
                     dayVisibilityMenu
                     Button {
+                        LiminalHaptics.openSheet()
                         preparePlanCreation()
                     } label: {
                         Image(systemName: "plus")
@@ -720,9 +764,11 @@ private struct CalendarDayPagerSheet: View {
                 }
                 Button {
                     guard store.setChaptersVisibility(visibleDayChapters, isPublic: true) else {
+                        LiminalHaptics.failure()
                         operationError = "公開設定を変更できませんでした。時間をおいてもう一度試してください。"
                         return
                     }
+                    LiminalHaptics.selection()
                 } label: {
                     Label("すべて公開", systemImage: "eye")
                 }
@@ -730,9 +776,11 @@ private struct CalendarDayPagerSheet: View {
 
                 Button {
                     guard store.setChaptersVisibility(visibleDayChapters, isPublic: false) else {
+                        LiminalHaptics.failure()
                         operationError = "公開設定を変更できませんでした。時間をおいてもう一度試してください。"
                         return
                     }
+                    LiminalHaptics.selection()
                 } label: {
                     Label("すべて非公開", systemImage: "eye.slash")
                 }
@@ -857,6 +905,10 @@ struct CalendarFilterSheet: View {
                     }
                 }
                 .pickerStyle(.segmented)
+                .onChange(of: selectedTab) { oldTab, newTab in
+                    guard oldTab != newTab else { return }
+                    LiminalHaptics.selection()
+                }
                 .padding(.horizontal, 20)
                 .padding(.top, 12)
                 .padding(.bottom, 8)
@@ -954,6 +1006,7 @@ private struct CalendarCategoryFilterList: View {
 
             Section {
                 Button("すべて表示に戻す") {
+                    LiminalHaptics.selection()
                     onReset()
                 }
                 .disabled(!isResetEnabled)
@@ -992,6 +1045,7 @@ private struct CalendarFriendFilterList: View {
 
             Section {
                 Button("すべて表示に戻す") {
+                    LiminalHaptics.selection()
                     onReset()
                 }
                 .disabled(!isResetEnabled)
@@ -1008,7 +1062,10 @@ private struct CalendarCategoryFilterRow: View {
     var body: some View {
         Toggle(isOn: Binding(
             get: { isSelected },
-            set: { _ in onToggle() }
+            set: { _ in
+                LiminalHaptics.selection()
+                onToggle()
+            }
         )) {
             HStack(spacing: 12) {
                 ZStack {
@@ -1035,7 +1092,10 @@ private struct CalendarFriendFilterRow: View {
     var body: some View {
         Toggle(isOn: Binding(
             get: { isSelected },
-            set: { _ in onToggle() }
+            set: { _ in
+                LiminalHaptics.selection()
+                onToggle()
+            }
         )) {
             HStack(spacing: 12) {
                 ZStack {
@@ -1493,10 +1553,12 @@ private struct CalendarPlanSearchSheet: View {
                                         .id(plan.id)
                                         .contentShape(Rectangle())
                                         .onTapGesture {
+                                            LiminalHaptics.openSheet()
                                             onOpenDay(plan)
                                         }
                                         .contextMenu {
                                             Button {
+                                                LiminalHaptics.openSheet()
                                                 editingPlan = plan
                                             } label: {
                                                 Label("編集", systemImage: "pencil")
@@ -1564,6 +1626,7 @@ private struct CalendarPlanSearchSheet: View {
 
             if !query.isEmpty {
                 Button {
+                    LiminalHaptics.selection()
                     query = ""
                 } label: {
                     Image(systemName: "xmark.circle.fill")
@@ -1668,7 +1731,10 @@ private struct CalendarPlanSearchRow: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            Button(action: onEdit) {
+            Button {
+                LiminalHaptics.openSheet()
+                onEdit()
+            } label: {
                 Image(systemName: "pencil")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(LiminalTheme.secondaryText)
@@ -1815,17 +1881,39 @@ struct CalendarWeekdayHeader: View {
 }
 
 struct CalendarDisplayScore: Hashable {
+    enum Kind: Hashable {
+        case score
+        case sharedData
+    }
+
     let value: Double
     let hasData: Bool
+    let kind: Kind
 
-    init(value: Double, hasData: Bool) {
+    init(value: Double, hasData: Bool, kind: Kind = .score) {
         self.value = value
         self.hasData = hasData
+        self.kind = kind
     }
 
     init(summary: ScoreSummary) {
         self.value = summary.totalScore
         self.hasData = summary.plannedDuration > 0
+        self.kind = .score
+    }
+
+    init(sharedScore: FriendSharedDailyScoreSnapshot) {
+        self.value = Double(sharedScore.score)
+        self.hasData = sharedScore.hasData
+        self.kind = .score
+    }
+
+    static var sharedDataMarker: CalendarDisplayScore {
+        CalendarDisplayScore(value: 0, hasData: true, kind: .sharedData)
+    }
+
+    static var emptyScoreMarker: CalendarDisplayScore {
+        CalendarDisplayScore(value: 0, hasData: false)
     }
 }
 
@@ -2334,15 +2422,24 @@ private struct CalendarScoreBadge: View {
     }
 
     private var scoreProgress: Double {
-        min(max(summary.value / 100, 0), 1)
+        if summary.kind == .sharedData {
+            return 1
+        }
+        return min(max(summary.value / 100, 0), 1)
     }
 
     private var accessibilityText: String {
         guard summary.hasData else { return "スコアなし" }
+        if summary.kind == .sharedData {
+            return "共有データあり"
+        }
         return "スコア \(Int(summary.value.rounded()))"
     }
 
     private var scoreColor: Color {
+        if summary.kind == .sharedData {
+            return LiminalTheme.accent
+        }
         guard summary.hasData else {
             return .secondary
         }

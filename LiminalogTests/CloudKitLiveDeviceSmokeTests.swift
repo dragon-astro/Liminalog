@@ -36,6 +36,18 @@ final class CloudKitLiveDeviceSmokeTests: XCTestCase {
                 .first
         }
 
+        static func flag(_ key: String) -> Bool {
+            [
+                ProcessInfo.processInfo.environment[key],
+                Bundle(for: CloudKitLiveDeviceSmokeTests.self).object(forInfoDictionaryKey: key) as? String,
+                Bundle.main.object(forInfoDictionaryKey: key) as? String
+            ]
+                .compactMap(normalizedRunID)
+                .contains { value in
+                    ["1", "true", "yes"].contains(value.lowercased())
+                }
+        }
+
         nonisolated static func normalizedRunID(_ rawValue: String?) -> String? {
             guard let value = rawValue?.trimmingCharacters(in: .whitespacesAndNewlines),
                   !value.isEmpty,
@@ -96,9 +108,20 @@ final class CloudKitLiveDeviceSmokeTests: XCTestCase {
             endTime: now,
             updatedAt: now
         )
+        let dayStart = Calendar.japanese.startOfDay(for: now)
+        let score = FriendSharedDailyScoreSnapshot(
+            dayStart: dayStart,
+            dayIdentifier: DailyCardSnapshot.dayIdentifier(for: dayStart, calendar: .japanese),
+            score: 82,
+            plannedDuration: 3_600,
+            recordedDuration: 3_200,
+            hasData: true,
+            updatedAt: now
+        )
         let request = FriendShareItemModifyRequest(
             upsertPlans: [plan],
-            upsertChapters: [chapter]
+            upsertChapters: [chapter],
+            upsertScores: [score]
         )
         let outcome = await store.modifySharedItems(
             targetUserRecordName: smokeTarget,
@@ -110,6 +133,7 @@ final class CloudKitLiveDeviceSmokeTests: XCTestCase {
         }
         XCTAssertEqual(outcome.appliedPlanUpserts, [plan.id])
         XCTAssertEqual(outcome.appliedChapterUpserts, [chapter.id])
+        XCTAssertEqual(outcome.appliedScoreUpserts, [score.id])
 
         // 後片付け: アイテム削除 → ルート削除
         let cleanup = await store.modifySharedItems(
@@ -117,11 +141,13 @@ final class CloudKitLiveDeviceSmokeTests: XCTestCase {
             rootRecordID: result.rootRecordID,
             request: FriendShareItemModifyRequest(
                 deletePlanSourceIDs: [plan.id],
-                deleteChapterSourceIDs: [chapter.id]
+                deleteChapterSourceIDs: [chapter.id],
+                deleteScoreSourceIDs: [score.id]
             )
         )
         XCTAssertNil(cleanup.failure)
         XCTAssertEqual(cleanup.appliedPlanDeletes, [plan.id])
+        XCTAssertEqual(cleanup.appliedScoreDeletes, [score.id])
         try await store.deleteOutgoingShareRootForSmokeTest(rootRecordID: result.rootRecordID)
         _ = ownRecordName
 #endif
@@ -224,6 +250,34 @@ final class CloudKitLiveDeviceSmokeTests: XCTestCase {
             XCTFail("A random smoke-test username should not resolve to a CloudKit profile.")
         } catch CloudKitSocialError.profileNotFound {
             // Expected: the public database is reachable and returns a normal not-found result.
+        }
+#endif
+    }
+
+    func testDumpCloudFriendConsentStateForDiagnostics() async throws {
+#if targetEnvironment(simulator)
+        throw XCTSkip("Cloud friend diagnostics require a signed app on a real iOS device.")
+#else
+        guard LiveE2E.flag("LIMINALOG_DUMP_CLOUD_FRIENDS") else {
+            throw XCTSkip("Set LIMINALOG_DUMP_CLOUD_FRIENDS=1 to dump CloudKit friend consent state.")
+        }
+        let store = CloudKitSocialStore()
+        let ownRecordName = try await store.currentUserRecordName()
+        let incoming = try await store.incomingConsents(forOwnUserRecordName: ownRecordName)
+        let outgoing = try await store.outgoingConsents(forOwnUserRecordName: ownRecordName)
+        var dumpLines = [
+            "LiminalogConsentDump own=\(ownRecordName) incoming=\(incoming.count) outgoing=\(outgoing.count)"
+        ]
+        for consent in incoming {
+            dumpLines.append("LiminalogConsentDump incoming owner=\(consent.ownerUserRecordName) target=\(consent.targetUserRecordName) ownerUsername=\(consent.ownerUsername) targetUsername=\(consent.targetUsername) status=\(consent.status.rawValue) hasShareURL=\(consent.shareURL != nil)")
+        }
+        for consent in outgoing {
+            dumpLines.append("LiminalogConsentDump outgoing owner=\(consent.ownerUserRecordName) target=\(consent.targetUserRecordName) ownerUsername=\(consent.ownerUsername) targetUsername=\(consent.targetUsername) status=\(consent.status.rawValue) hasShareURL=\(consent.shareURL != nil)")
+        }
+        let dump = dumpLines.joined(separator: "\n")
+        NSLog("%@", dump)
+        if LiveE2E.flag("LIMINALOG_DUMP_CLOUD_FRIENDS_FAIL") {
+            XCTFail(dump)
         }
 #endif
     }

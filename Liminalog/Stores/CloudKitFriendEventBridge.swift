@@ -47,10 +47,15 @@ final class LiminalogAppDelegate: NSObject, UIApplicationDelegate {
             return
         }
 
-        NotificationCenter.default.post(
-            name: CloudKitFriendEventBridge.notificationName(for: event),
-            object: nil
-        )
+        if application.applicationState == .active {
+            NotificationCenter.default.post(
+                name: CloudKitFriendEventBridge.notificationName(for: event),
+                object: nil
+            )
+            completionHandler(.newData)
+            return
+        }
+
         guard let cloudFriendRemoteNotificationHandler else {
             completionHandler(.newData)
             return

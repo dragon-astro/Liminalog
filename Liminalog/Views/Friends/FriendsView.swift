@@ -1,5 +1,6 @@
 import SwiftData
 import SwiftUI
+import UIKit
 
 struct FriendsView: View {
     @Environment(\.modelContext) private var modelContext
@@ -28,9 +29,13 @@ struct FriendsView: View {
     @State private var isRefreshingCloudRequests = false
     @State private var loadedCloudRequestsUserRecordName: String?
     @State private var lastAutomaticCloudRequestAttemptAt: Date?
+    @State private var pendingAutomaticCloudRequestTask: Task<Void, Never>?
     @State private var didRegisterCloudKitPushes = false
     @State private var subscribedFriendConsentUserRecordName: String?
     @State private var didSubscribeFriendShares = false
+    #if DEBUG
+    @State private var didHandleDebugFriendCalendarLaunch = false
+    #endif
 
     private let cloudSocialStore = CloudKitSocialStore()
     private let cloudShareStore = CloudFriendShareStore()
@@ -64,9 +69,12 @@ struct FriendsView: View {
         ProfileCardStyleCatalog.item(for: settings?.profileCardStyleID)
     }
 
-    private var ownInvitePayload: FriendInvitePayload {
-        FriendInvitePayload(
-            code: FriendInvitePayload.code(from: settings?.id ?? UUID()),
+    private var ownInvitePayload: FriendInvitePayload? {
+        guard let username = settings?.cloudUsernameNormalized.trimmingCharacters(in: .whitespacesAndNewlines),
+              !username.isEmpty
+        else { return nil }
+        return FriendInvitePayload(
+            username: username,
             displayName: ownDisplayName
         )
     }
@@ -137,11 +145,20 @@ struct FriendsView: View {
             }) {
                 FriendAddSheet(
                     initialText: inviteInitialText,
+                    hasCloudUsername: hasCloudUsername,
+                    userIDText: $friendSearchUserID,
+                    isSendingCloudFriendRequest: isSendingCloudFriendRequest,
+                    onSubmitUserID: {
+                        LiminalHaptics.primaryAction()
+                        sendCloudFriendRequest()
+                    },
                     onSubmitInvite: addFriendFromInvite
                 )
             }
             .sheet(isPresented: $isShowingProfileShare) {
-                ProfileShareSheet(payload: ownInvitePayload)
+                if let ownInvitePayload {
+                    ProfileShareSheet(payload: ownInvitePayload)
+                }
             }
             .sheet(isPresented: $isShowingRankingDetail) {
                 FriendRankingListSheet(
@@ -154,25 +171,33 @@ struct FriendsView: View {
                 )
             }
             .task {
-                ensureUserSettings()
+                let ensuredSettings = ensureUserSettings()
                 if desiredUserID.isEmpty {
-                    desiredUserID = settings?.cloudUsernameNormalized ?? ""
+                    desiredUserID = (ensuredSettings ?? settings)?.cloudUsernameNormalized ?? ""
                 }
                 handlePendingInviteURL()
                 registerForCloudKitPushesIfPossible()
-                ensureFriendConsentSubscriptionIfPossible()
-                ensureFriendShareSubscriptionIfPossible()
-                refreshCloudRequestsIfPossible()
+                scheduleAutomaticCloudRequestsRefresh()
                 clock.start()
+                #if DEBUG
+                openDebugFriendCalendarIfRequested()
+                #endif
             }
             .onDisappear {
+                pendingAutomaticCloudRequestTask?.cancel()
+                pendingAutomaticCloudRequestTask = nil
                 clock.stop()
             }
+            #if DEBUG
+            .onChange(of: friends.count) { _, _ in
+                openDebugFriendCalendarIfRequested()
+            }
+            #endif
             .onChange(of: pendingInviteURL) { _, _ in
                 handlePendingInviteURL()
             }
             .onReceive(NotificationCenter.default.publisher(for: CloudKitFriendEventBridge.friendConsentDidChange)) { _ in
-                refreshCloudRequests(trigger: .event)
+                scheduleAutomaticCloudRequestsRefresh(delay: 6)
             }
             .alert("友達の変更を保存できませんでした", isPresented: saveErrorPresented) {
                 Button("OK", role: .cancel) {
@@ -184,128 +209,171 @@ struct FriendsView: View {
         }
     }
 
+    @ViewBuilder
     private var cloudIdentitySection: some View {
+        if hasCloudUsername {
+            compactCloudIdentitySection
+        } else {
+            cloudUsernameRegistrationSection
+        }
+    }
+
+    private var compactCloudIdentitySection: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 10) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("@\(settings?.cloudUsernameNormalized ?? "")")
+                        .font(.subheadline.monospaced().weight(.bold))
+                        .foregroundStyle(LiminalTheme.text)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.78)
                     Text("ユーザーID")
-                        .font(.headline.weight(.bold))
-                    Text(cloudIdentityDescription)
-                        .font(.caption)
+                        .font(.caption2.weight(.semibold))
                         .foregroundStyle(LiminalTheme.secondaryText)
-                        .fixedSize(horizontal: false, vertical: true)
                 }
-                Spacer()
-                if isRefreshingCloudRequests {
-                    ProgressView()
-                        .controlSize(.small)
-                } else if hasCloudUsername {
-                    Button {
+
+                Spacer(minLength: 8)
+
+                Button {
+                    LiminalHaptics.openSheet()
+                    inviteInitialText = ""
+                    isShowingAddFriend = true
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.headline.weight(.bold))
+                        .frame(width: 34, height: 34)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(LiminalTheme.text)
+                .background(LiminalTheme.elevated, in: Circle())
+                .accessibilityLabel("友達を追加")
+
+                Button {
+                    if !isRefreshingCloudRequests {
+                        LiminalHaptics.selection()
                         refreshCloudRequests(trigger: .manual)
-                    } label: {
+                    }
+                } label: {
+                    if isRefreshingCloudRequests {
+                        ProgressView()
+                            .controlSize(.small)
+                            .frame(width: 34, height: 34)
+                    } else {
                         Image(systemName: "arrow.clockwise")
                             .font(.subheadline.weight(.bold))
-                    }
-                    .buttonStyle(.bordered)
-                    .accessibilityLabel("友達申請を更新")
-                }
-            }
-
-            if hasCloudUsername {
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack(spacing: 8) {
-                        Text("@\(settings?.cloudUsernameNormalized ?? "")")
-                            .font(.headline.monospaced().weight(.bold))
-                            .foregroundStyle(LiminalTheme.accent)
-                        Spacer()
-                        Text("変更不可")
-                            .font(.caption.weight(.bold))
-                            .foregroundStyle(LiminalTheme.secondaryText)
-                    }
-
-                    HStack(spacing: 10) {
-                        TextField("友達のユーザーID", text: $friendSearchUserID)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
-                            .font(.body.monospaced())
-                            .padding(12)
-                            .background(
-                                RoundedRectangle(cornerRadius: 14)
-                                    .fill(LiminalTheme.elevated)
-                            )
-
-                        Button {
-                            sendCloudFriendRequest()
-                        } label: {
-                            if isSendingCloudFriendRequest {
-                                ProgressView()
-                                    .controlSize(.small)
-                            } else {
-                                Image(systemName: "person.badge.plus")
-                                    .font(.headline.weight(.bold))
-                            }
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .disabled(isSendingCloudFriendRequest || UserIDNormalizer.normalizedValue(friendSearchUserID) == nil)
-                        .accessibilityLabel("ユーザーIDで友達申請")
+                            .frame(width: 34, height: 34)
                     }
                 }
-            } else {
-                VStack(alignment: .leading, spacing: 10) {
-                    TextField("4〜20文字の半角英数字と _ . -", text: $desiredUserID)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .font(.body.monospaced())
-                        .padding(12)
-                        .background(
-                            RoundedRectangle(cornerRadius: 14)
-                                .fill(LiminalTheme.elevated)
-                        )
-
-                    Button {
-                        registerCloudUsername()
-                    } label: {
-                        if isRegisteringCloudProfile {
-                            ProgressView()
-                                .controlSize(.small)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 12)
-                        } else {
-                            Label("このIDで確定", systemImage: "checkmark.seal.fill")
-                                .font(.headline.weight(.semibold))
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 12)
-                        }
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(isRegisteringCloudProfile || UserIDNormalizer.normalizedValue(desiredUserID) == nil)
-                }
+                .buttonStyle(.plain)
+                .foregroundStyle(LiminalTheme.text)
+                .background(LiminalTheme.elevated, in: Circle())
+                .disabled(isRefreshingCloudRequests)
+                .accessibilityLabel(isRefreshingCloudRequests ? "友達申請を更新中" : "友達申請を更新")
             }
 
-            if let cloudStatusText {
-                Text(cloudStatusText)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(LiminalTheme.secondaryText)
-            }
-
-            if let cloudErrorText {
-                Text(cloudErrorText)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.red)
-            }
+            cloudIdentityFeedback
         }
-        .padding(18)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
         .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(LiminalTheme.surface)
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(LiminalTheme.surface.opacity(0.78))
         )
-        .onChange(of: desiredUserID) { _, _ in
-            cloudErrorText = nil
-            cloudStatusText = nil
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(LiminalTheme.divider.opacity(0.5), lineWidth: 1)
         }
         .onChange(of: friendSearchUserID) { _, _ in
             cloudErrorText = nil
             cloudStatusText = nil
+        }
+    }
+
+    private var cloudUsernameRegistrationSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("ユーザーID未設定")
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(LiminalTheme.text)
+                    Text("一度決めると変更不可")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(LiminalTheme.secondaryText)
+                }
+
+                Spacer(minLength: 8)
+
+                if isRegisteringCloudProfile {
+                    ProgressView()
+                        .controlSize(.small)
+                        .frame(width: 34, height: 34)
+                }
+            }
+
+            HStack(spacing: 10) {
+                TextField("4〜20文字のID", text: $desiredUserID)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .font(.body.monospaced())
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 11)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(LiminalTheme.elevated)
+                    )
+
+                Button {
+                    LiminalHaptics.primaryAction()
+                    registerCloudUsername()
+                } label: {
+                    Image(systemName: "checkmark")
+                        .font(.headline.weight(.bold))
+                        .frame(width: 34, height: 34)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.white)
+                .background(LiminalTheme.accent, in: Circle())
+                .disabled(isRegisteringCloudProfile || UserIDNormalizer.normalizedValue(desiredUserID) == nil)
+                .opacity((isRegisteringCloudProfile || UserIDNormalizer.normalizedValue(desiredUserID) == nil) ? 0.45 : 1)
+                .accessibilityLabel("このIDで確定")
+            }
+
+            if !desiredUserID.isEmpty && UserIDNormalizer.normalizedValue(desiredUserID) == nil {
+                Text("半角英小文字・数字・ _ . - が使えます。")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(LiminalTheme.secondaryText)
+            }
+
+            cloudIdentityFeedback
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(LiminalTheme.surface.opacity(0.78))
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(LiminalTheme.divider.opacity(0.5), lineWidth: 1)
+        }
+        .onChange(of: desiredUserID) { _, _ in
+            cloudErrorText = nil
+            cloudStatusText = nil
+        }
+    }
+
+    @ViewBuilder
+    private var cloudIdentityFeedback: some View {
+        if let cloudStatusText {
+            Text(cloudStatusText)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(LiminalTheme.secondaryText)
+        }
+
+        if let cloudErrorText {
+            Text(cloudErrorText)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.red)
         }
     }
 
@@ -358,7 +426,12 @@ struct FriendsView: View {
             }
 
             Button {
-                isShowingProfileShare = true
+                LiminalHaptics.openSheet()
+                if ownInvitePayload != nil {
+                    isShowingProfileShare = true
+                } else {
+                    cloudErrorText = CloudKitSocialError.ownProfileMissing.localizedDescription
+                }
             } label: {
                 Label("プロフィールを共有", systemImage: "square.and.arrow.up")
                     .font(.headline.weight(.semibold))
@@ -373,6 +446,7 @@ struct FriendsView: View {
             .buttonStyle(.plain)
 
             Button {
+                LiminalHaptics.openSheet()
                 inviteInitialText = ""
                 isShowingAddFriend = true
             } label: {
@@ -396,6 +470,7 @@ struct FriendsView: View {
                 SectionTitle(title: "昨日のランキング", count: yesterdayRankingEntries.count)
                 Spacer()
                 Button {
+                    LiminalHaptics.openSheet()
                     rankingDetailPeriod = .day
                     rankingAnchorDate = Calendar.current.date(byAdding: .day, value: -1, to: clock.now) ?? clock.now
                     isShowingRankingDetail = true
@@ -420,6 +495,7 @@ struct FriendsView: View {
                     ForEach(yesterdayRankingEntries) { entry in
                         Button {
                             if let friend = entry.friend {
+                                LiminalHaptics.openSheet()
                                 selectedFriend = friend
                             }
                         } label: {
@@ -441,6 +517,7 @@ struct FriendsView: View {
             VStack(spacing: 10) {
                 ForEach(acceptedFriends) { friend in
                     Button {
+                        LiminalHaptics.openSheet()
                         selectedFriend = friend
                     } label: {
                         FriendRow(friend: friend)
@@ -473,6 +550,7 @@ struct FriendsView: View {
             rank: 0,
             name: ownDisplayName,
             imageName: activeChapter?.category?.icon ?? "person.fill",
+            imageData: settings?.profileImageData,
             tint: ownVisualAccentColor,
             score: selfScore(for: period, anchorDate: anchorDate),
             status: "自分",
@@ -487,6 +565,7 @@ struct FriendsView: View {
                 rank: 0,
                 name: friend.displayName,
                 imageName: friend.avatarSystemImage,
+                imageData: friend.profileImageData,
                 tint: Color(hex: friend.accentColorHex),
                 score: friend.score(for: period),
                 status: friend.currentStatusTitle.isEmpty ? "オフライン" : friend.currentStatusTitle,
@@ -547,9 +626,45 @@ struct FriendsView: View {
         return Calendar.japanese.dateInterval(of: component, for: date) ?? DateInterval(start: boundary.dayStart, end: boundary.dayEnd)
     }
 
+    #if DEBUG
+    private func openDebugFriendCalendarIfRequested() {
+        guard !didHandleDebugFriendCalendarLaunch,
+              let targetName = FriendDebugLaunchAutomation.targetFriendName
+        else { return }
+
+        if let friend = FriendDebugLaunchAutomation.matchingFriend(in: acceptedFriends, targetName: targetName) {
+            didHandleDebugFriendCalendarLaunch = true
+            print("LiminalogUITestMetric debugOpenFriendDetail friend=\(friend.displayName)")
+            selectedFriend = friend
+            return
+        }
+
+        Task { @MainActor in
+            for _ in 0..<10 {
+                try? await Task.sleep(nanoseconds: 150_000_000)
+                guard !didHandleDebugFriendCalendarLaunch else { return }
+                if let friend = FriendDebugLaunchAutomation.matchingFriend(in: acceptedFriends, targetName: targetName) {
+                    didHandleDebugFriendCalendarLaunch = true
+                    print("LiminalogUITestMetric debugOpenFriendDetail friend=\(friend.displayName)")
+                    selectedFriend = friend
+                    return
+                }
+            }
+            if !didHandleDebugFriendCalendarLaunch {
+                didHandleDebugFriendCalendarLaunch = true
+                print("LiminalogUITestMetric debugOpenFriendDetail friendNotFound target=\(targetName)")
+            }
+        }
+    }
+    #endif
+
     private func addFriendFromInvite(_ payload: FriendInvitePayload) -> FriendInviteSubmitResult {
-        guard payload.code != ownInvitePayload.code else {
+        if let ownInvitePayload, payload.code == ownInvitePayload.code {
             return .failure("自分の招待です")
+        }
+
+        if let username = payload.username {
+            return addCloudFriendFromInvite(username, payload: payload)
         }
 
         if let existing = friends.first(where: { FriendInvitePayload.normalizedCode($0.inviteCode) == payload.code }) {
@@ -574,6 +689,27 @@ struct FriendsView: View {
         guard save() else {
             return .failure("保存できませんでした")
         }
+        return .success
+    }
+
+    private func addCloudFriendFromInvite(_ username: String, payload: FriendInvitePayload) -> FriendInviteSubmitResult {
+        guard let ownUsername = settings?.cloudUsernameNormalized, !ownUsername.isEmpty else {
+            return .failure(CloudKitSocialError.ownProfileMissing.localizedDescription)
+        }
+        guard username != ownUsername else {
+            return .failure("自分の招待です")
+        }
+        if CloudFriendLocalStatePolicy.shouldRejectOutgoingRequest(
+            existingStatus: localCloudFriendStatus(matchingUsername: username)
+        ) {
+            return .failure(CloudKitSocialError.requestBlocked.localizedDescription)
+        }
+        if isSendingCloudFriendRequest {
+            return .failure("送信中です")
+        }
+
+        friendSearchUserID = username
+        sendCloudFriendRequest(to: username)
         return .success
     }
 
@@ -619,10 +755,12 @@ struct FriendsView: View {
         friend.acceptedAt = Date()
         friend.updatedAt = Date()
         friend.lastSeenAt = Date()
-        if friend.visibilityPresetID == nil {
+        if !isValidVisibilityPresetID(friend.visibilityPresetID) {
             friend.visibilityPresetID = defaultVisibilityPresetID
         }
-        save()
+        if save() {
+            LiminalHaptics.commit()
+        }
     }
 
     private func registerCloudUsername() {
@@ -651,6 +789,7 @@ struct FriendsView: View {
                     targetSettings.cloudUsernameRegisteredAt = Date()
                     targetSettings.updatedAt = Date()
                     if save() {
+                        LiminalHaptics.commit()
                         cloudStatusText = "@\(profile.username) を確定しました。"
                         friendSearchUserID = ""
                         registerForCloudKitPushesIfPossible()
@@ -661,6 +800,7 @@ struct FriendsView: View {
                 }
             } catch {
                 await MainActor.run {
+                    LiminalHaptics.failure()
                     cloudErrorText = error.localizedDescription
                     isRegisteringCloudProfile = false
                 }
@@ -668,13 +808,14 @@ struct FriendsView: View {
         }
     }
 
-    private func sendCloudFriendRequest() {
+    private func sendCloudFriendRequest(to targetUserID: String? = nil) {
         guard let ownUsername = settings?.cloudUsernameNormalized, !ownUsername.isEmpty else {
             cloudErrorText = CloudKitSocialError.ownProfileMissing.localizedDescription
             return
         }
+        let targetUserID = targetUserID ?? friendSearchUserID
         if CloudFriendLocalStatePolicy.shouldRejectOutgoingRequest(
-            existingStatus: localCloudFriendStatus(matchingUsername: friendSearchUserID)
+            existingStatus: localCloudFriendStatus(matchingUsername: targetUserID)
         ) {
             cloudErrorText = CloudKitSocialError.requestBlocked.localizedDescription
             return
@@ -687,13 +828,14 @@ struct FriendsView: View {
         Task {
             do {
                 let result = try await cloudSocialStore.sendFriendRequest(
-                    to: friendSearchUserID,
+                    to: targetUserID,
                     fromOwnUsername: ownUsername,
                     ownDisplayName: ownDisplayName
                 )
                 let friend = upsertCloudFriend(profile: result.profile, status: result.status)
                 applyIncomingShareURL(result.incomingShareURL, to: friend, status: result.status)
                 if save() {
+                    LiminalHaptics.commit()
                     selectedFriend = result.status == .accepted ? friend : nil
                     cloudStatusText = result.status == .accepted
                         ? "@\(result.profile.username) と友達になりました。"
@@ -711,6 +853,7 @@ struct FriendsView: View {
                 }
             } catch {
                 await MainActor.run {
+                    LiminalHaptics.failure()
                     cloudErrorText = error.localizedDescription
                     isSendingCloudFriendRequest = false
                 }
@@ -727,6 +870,16 @@ struct FriendsView: View {
 
     private func refreshCloudRequestsIfPossible() {
         refreshCloudRequests(trigger: .automatic)
+    }
+
+    private func scheduleAutomaticCloudRequestsRefresh(delay: TimeInterval = 8) {
+        pendingAutomaticCloudRequestTask?.cancel()
+        pendingAutomaticCloudRequestTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: UInt64(max(0, delay) * 1_000_000_000))
+            guard !Task.isCancelled else { return }
+            refreshCloudRequestsIfPossible()
+            pendingAutomaticCloudRequestTask = nil
+        }
     }
 
     private func refreshCloudRequests(trigger: CloudFriendRequestRefreshTrigger) {
@@ -873,7 +1026,7 @@ struct FriendsView: View {
             friend.shareURL = nil
             clearIncomingShareData(for: friend)
         }
-        if friend.visibilityPresetID == nil {
+        if !isValidVisibilityPresetID(friend.visibilityPresetID) {
             friend.visibilityPresetID = defaultVisibilityPresetID
         }
         return friend
@@ -925,7 +1078,7 @@ struct FriendsView: View {
             friend.acceptedAt = friend.acceptedAt ?? Date()
             friend.lastSeenAt = Date()
         }
-        if friend.visibilityPresetID == nil {
+        if !isValidVisibilityPresetID(friend.visibilityPresetID) {
             friend.visibilityPresetID = defaultVisibilityPresetID
         }
         return friend
@@ -1006,6 +1159,13 @@ struct FriendsView: View {
             for: friend,
             ownUsername: ownUsername,
             ownDisplayName: ownDisplayName,
+            ownProfileBio: settings?.profileBio ?? "",
+            ownProfileImageData: settings?.profileImageData,
+            ownProfileAccentColorHex: settings?.profileAccentColorHex ?? "#2F80ED",
+            ownProfileBadgeID: settings?.profileBadgeID ?? "starter",
+            ownProfileIconFrameID: settings?.profileIconFrameID ?? "clear_air",
+            ownProfileStreakIconID: settings?.profileStreakIconID ?? "flame",
+            ownProfileCardStyleID: settings?.profileCardStyleID ?? "quiet_sky",
             visibilityPresets: visibilityPresets,
             chapters: chapters,
             acceptedFriendIDs: acceptedFriendIDs,
@@ -1015,6 +1175,9 @@ struct FriendsView: View {
             },
             streakProvider: {
                 ScoreStore(modelContext: modelContext).streakCount(endingAt: now)
+            },
+            cumulativeScoreProvider: {
+                ScoreSnapshotLoader.cumulativeScore(modelContext: modelContext, now: now)
             }
         )
     }
@@ -1077,10 +1240,17 @@ struct FriendsView: View {
             ?? visibilityPresets.first { $0.name == "控えめ" }?.id
     }
 
+    private func isValidVisibilityPresetID(_ id: UUID?) -> Bool {
+        guard let id else { return false }
+        return visibilityPresets.contains { $0.id == id }
+    }
+
     private func delete(_ friend: Friend) {
         guard !friend.userRecordID.isEmpty else {
             modelContext.delete(friend)
-            save()
+            if save() {
+                LiminalHaptics.warning()
+            }
             return
         }
         Task {
@@ -1088,10 +1258,13 @@ struct FriendsView: View {
                 try await stopCloudSharing(with: friend, block: false)
                 await MainActor.run {
                     modelContext.delete(friend)
-                    save()
+                    if save() {
+                        LiminalHaptics.warning()
+                    }
                 }
             } catch {
                 await MainActor.run {
+                    LiminalHaptics.failure()
                     cloudErrorText = "友達共有の停止に失敗しました: \(error.localizedDescription)"
                 }
             }
@@ -1106,16 +1279,22 @@ struct FriendsView: View {
         } catch {
             NSLog("Liminalog: failed to save Friend changes: \(String(describing: error))")
             modelContext.rollback()
+            LiminalHaptics.failure()
             saveError = "時間をおいてもう一度試してください。"
             return false
         }
     }
 
-    private func ensureUserSettings() {
-        guard settingsList.isEmpty else { return }
-        let settings = UserSettings()
-        modelContext.insert(settings)
-        save()
+    private func ensureUserSettings() -> UserSettings? {
+        if let settings {
+            return settings
+        }
+        guard settingsList.isEmpty else { return nil }
+        guard let created = SeedCoordinator.ensureUserSettingsIfAvailable(in: modelContext) else {
+            NSLog("Liminalog: skipped FriendsView UserSettings initialization because the store is not ready")
+            return nil
+        }
+        return created
     }
 
     private func handlePendingInviteURL() {
@@ -1229,6 +1408,7 @@ private struct RankingCard: View {
     private var rankingAvatar: some View {
         DecoratedFriendAvatar(
             systemImage: entry.imageName,
+            imageData: entry.imageData,
             tint: entry.tint,
             frameStyle: entry.iconFrame,
             size: 30
@@ -1459,6 +1639,7 @@ private struct FriendAvatar: View {
     var body: some View {
         DecoratedFriendAvatar(
             systemImage: friend.avatarSystemImage,
+            imageData: friend.profileImageData,
             tint: Color(hex: friend.accentColorHex),
             frameStyle: friend.iconFrameStyle,
             size: size
@@ -1468,6 +1649,7 @@ private struct FriendAvatar: View {
 
 private struct DecoratedFriendAvatar: View {
     let systemImage: String
+    let imageData: Data?
     let tint: Color
     let frameStyle: ProfileIconFrameStyle
     let size: CGFloat
@@ -1477,9 +1659,17 @@ private struct DecoratedFriendAvatar: View {
             Circle()
                 .fill(tint.opacity(0.18))
                 .frame(width: size, height: size)
-            Image(systemName: systemImage)
-                .font(.system(size: size * 0.43, weight: .bold))
-                .foregroundStyle(tint)
+            if let imageData, let image = UIImage(data: imageData) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: size, height: size)
+                    .clipShape(Circle())
+            } else {
+                Image(systemName: systemImage)
+                    .font(.system(size: size * 0.43, weight: .bold))
+                    .foregroundStyle(tint)
+            }
 
             ProfileIconFrameView(style: frameStyle, accentColor: tint, size: size + max(7, size * 0.16))
         }
@@ -1511,6 +1701,9 @@ private struct FriendDetailView: View {
     @State private var showingBlockConfirmation = false
     @State private var showingDeleteConfirmation = false
     @State private var saveError: String?
+    #if DEBUG
+    @State private var didHandleDebugCalendarLaunch = false
+    #endif
 
     private let cloudSocialStore = CloudKitSocialStore()
     private let cloudShareStore = CloudFriendShareStore()
@@ -1532,23 +1725,62 @@ private struct FriendDetailView: View {
         FriendBadgeDisplayCatalog.item(for: friend.profileBadgeID)
     }
 
+    private var profileBadge: ProfileBadgeModel {
+        badge.profileBadge
+    }
+
+    private var friendProfileBio: String {
+        let bio = friend.bio?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !bio.isEmpty { return bio }
+
+        let mood = friend.currentMoodText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !mood.isEmpty { return mood }
+
+        return ""
+    }
+
+    private var friendLevel: Int? {
+        friend.cumulativeScore > 0 ? LiminalLevel.level(forScore: friend.cumulativeScore) : nil
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                FriendProfileHero(
-                    friend: friend,
-                    badge: badge,
-                    onCalendar: { isShowingCalendar = true },
+                ProfileHero(
+                    displayName: friend.displayName,
+                    userID: friend.handle,
+                    bio: friendProfileBio,
+                    imageData: friend.profileImageData,
+                    accentColor: accentColor,
+                    equippedBadge: profileBadge,
+                    iconFrame: friend.iconFrameStyle,
+                    cardStyle: friend.cardStyle,
+                    showsActions: false,
+                    emptyBioText: "プロフィールはまだありません",
+                    level: friendLevel,
+                    onEdit: {},
+                    onShare: {}
+                )
+                .padding(.bottom, friend.cardStyle.hasGeneratedArtwork ? -36 : 0)
+
+                FriendProfileQuickActions(
+                    isFavorite: friend.isFavorite,
+                    onCalendar: {
+                        LiminalHaptics.openSheet()
+                        isShowingCalendar = true
+                    },
                     onFavorite: {
                         friend.isFavorite.toggle()
                         friend.updatedAt = Date()
-                        save()
+                        if save() {
+                            LiminalHaptics.selection()
+                        }
                     }
                 )
 
                 FriendProfileStatsRow(friend: friend)
 
-                statusCard
+                currentStatusSection
                 sharingSettingsCard
                 FriendProfileCollectionSection(friend: friend, badge: badge)
                 controls
@@ -1563,24 +1795,33 @@ private struct FriendDetailView: View {
         .navigationDestination(isPresented: $isShowingCalendar) {
             FriendCalendarView(friend: friend)
         }
+        #if DEBUG
+        .task {
+            openDebugCalendarIfRequested()
+        }
+        #endif
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     Button {
                         friend.isFavorite.toggle()
                         friend.updatedAt = Date()
-                        save()
+                        if save() {
+                            LiminalHaptics.selection()
+                        }
                     } label: {
                         Label(friend.isFavorite ? "お気に入りを外す" : "お気に入り", systemImage: friend.isFavorite ? "star.slash" : "star")
                     }
 
                     Button(role: .destructive) {
+                        LiminalHaptics.warning()
                         showingBlockConfirmation = true
                     } label: {
                         Label("ブロック", systemImage: "hand.raised")
                     }
 
                     Button(role: .destructive) {
+                        LiminalHaptics.warning()
                         showingDeleteConfirmation = true
                     } label: {
                         Label("削除", systemImage: "trash")
@@ -1626,12 +1867,30 @@ private struct FriendDetailView: View {
         }
     }
 
+    #if DEBUG
+    private func openDebugCalendarIfRequested() {
+        guard !didHandleDebugCalendarLaunch,
+              let targetName = FriendDebugLaunchAutomation.targetFriendName,
+              FriendDebugLaunchAutomation.matches(friend, targetName: targetName)
+        else { return }
+
+        didHandleDebugCalendarLaunch = true
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 250_000_000)
+            print("LiminalogUITestMetric debugOpenFriendCalendar friend=\(friend.displayName)")
+            isShowingCalendar = true
+        }
+    }
+    #endif
+
     private func blockFriend() {
         guard !friend.userRecordID.isEmpty else {
             friend.status = .blocked
             friend.blockedAt = Date()
             friend.updatedAt = Date()
-            save()
+            if save() {
+                LiminalHaptics.warning()
+            }
             return
         }
         Task {
@@ -1643,10 +1902,13 @@ private struct FriendDetailView: View {
                     friend.shareURL = nil
                     clearIncomingShareData()
                     friend.updatedAt = Date()
-                    save()
+                    if save() {
+                        LiminalHaptics.warning()
+                    }
                 }
             } catch {
                 await MainActor.run {
+                    LiminalHaptics.failure()
                     saveError = "友達共有の停止に失敗しました: \(error.localizedDescription)"
                 }
             }
@@ -1657,6 +1919,7 @@ private struct FriendDetailView: View {
         guard !friend.userRecordID.isEmpty else {
             modelContext.delete(friend)
             guard save() else { return }
+            LiminalHaptics.warning()
             dismiss()
             return
         }
@@ -1666,10 +1929,12 @@ private struct FriendDetailView: View {
                 await MainActor.run {
                     modelContext.delete(friend)
                     guard save() else { return }
+                    LiminalHaptics.warning()
                     dismiss()
                 }
             } catch {
                 await MainActor.run {
+                    LiminalHaptics.failure()
                     saveError = "友達共有の停止に失敗しました: \(error.localizedDescription)"
                 }
             }
@@ -1731,43 +1996,49 @@ private struct FriendDetailView: View {
             ?? friend.userRecordID
     }
 
-    private var statusCard: some View {
-        HStack(spacing: 13) {
+    private var currentStatusSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("現在のステータス")
+                .font(.headline)
+                .foregroundStyle(LiminalTheme.text)
+
             let statusColor = Color.cachedDisplayHex(friend.currentStatusColorHex)
-            ZStack {
-                Circle()
-                    .fill(statusColor.opacity(0.18))
-                Image(systemName: friend.currentStatusIcon)
-                    .font(.title3.weight(.bold))
-                    .foregroundStyle(statusColor)
-            }
-            .frame(width: 50, height: 50)
+            HStack(spacing: 13) {
+                ZStack {
+                    Circle()
+                        .fill(statusColor.opacity(0.18))
+                    Image(systemName: friend.currentStatusIcon)
+                        .font(.title3.weight(.bold))
+                        .foregroundStyle(statusColor)
+                }
+                .frame(width: 50, height: 50)
 
-            VStack(alignment: .leading, spacing: 5) {
-                Text(friend.currentStatusTitle.isEmpty ? "オフライン" : friend.currentStatusTitle)
-                    .font(.headline.weight(.bold))
-                Text(friend.lastSeenAt?.japaneseShortDateTime ?? "まだ記録なし")
-                    .font(.caption)
-                    .foregroundStyle(LiminalTheme.secondaryText)
-            }
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(friend.currentStatusTitle.isEmpty ? "オフライン" : friend.currentStatusTitle)
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(LiminalTheme.text)
+                    Text(friend.lastSeenAt?.japaneseShortDateTime ?? "まだ記録なし")
+                        .font(.caption)
+                        .foregroundStyle(LiminalTheme.secondaryText)
+                }
 
-            Spacer()
+                Spacer(minLength: 0)
+            }
+            .overlay(alignment: .topTrailing) {
+                statusColor.opacity(0.22)
+                    .frame(width: 34, height: 4)
+                    .clipShape(Capsule())
+                    .padding(.top, 2)
+            }
         }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 18)
-                .fill(Color.cachedDisplayHex(friend.currentStatusColorHex).opacity(0.1))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 18)
-                .stroke(Color.cachedDisplayHex(friend.currentStatusColorHex).opacity(0.22), lineWidth: 1)
-        )
+        .liminalSectionCard(cornerRadius: 8, padding: 14)
     }
 
     private var controls: some View {
         VStack(spacing: 10) {
             if friend.status == .pendingIncoming {
                 Button {
+                    LiminalHaptics.primaryAction()
                     acceptFriend()
                 } label: {
                     Label("承認", systemImage: "checkmark.circle.fill")
@@ -1807,6 +2078,7 @@ private struct FriendDetailView: View {
                 }
             } catch {
                 await MainActor.run {
+                    LiminalHaptics.failure()
                     saveError = "友達申請を承認できませんでした: \(error.localizedDescription)"
                 }
             }
@@ -1818,10 +2090,12 @@ private struct FriendDetailView: View {
         friend.acceptedAt = Date()
         friend.updatedAt = Date()
         friend.lastSeenAt = Date()
-        if friend.visibilityPresetID == nil {
+        if !isValidVisibilityPresetID(friend.visibilityPresetID) {
             friend.visibilityPresetID = defaultVisibilityPresetID
         }
-        save()
+        if save() {
+            LiminalHaptics.commit()
+        }
     }
 
     private var sharingSettingsCard: some View {
@@ -1888,11 +2162,12 @@ private struct FriendDetailView: View {
 
     private var visibilityPresetSelection: Binding<UUID?> {
         Binding {
-            friend.visibilityPresetID ?? defaultVisibilityPresetID
+            isValidVisibilityPresetID(friend.visibilityPresetID) ? friend.visibilityPresetID : defaultVisibilityPresetID
         } set: { id in
             friend.visibilityPresetID = id
             friend.updatedAt = Date()
             if save() {
+                LiminalHaptics.selection()
                 onSharingSettingsChanged(friend)
             }
         }
@@ -1901,6 +2176,11 @@ private struct FriendDetailView: View {
     private var defaultVisibilityPresetID: UUID? {
         visibilityPresets.first { $0.builtInKey == "acquaintances" }?.id
             ?? visibilityPresets.first { $0.name == "控えめ" }?.id
+    }
+
+    private func isValidVisibilityPresetID(_ id: UUID?) -> Bool {
+        guard let id else { return false }
+        return visibilityPresets.contains { $0.id == id }
     }
 
     private func categoryAudienceBinding(_ category: Category) -> Binding<Bool> {
@@ -1919,6 +2199,7 @@ private struct FriendDetailView: View {
                 appendUniqueFriendID(friend.id, to: &category.defaultAudienceExcludedFriendIDs)
             }
             if save() {
+                LiminalHaptics.selection()
                 onSharingSettingsChanged(friend)
             }
         }
@@ -1937,6 +2218,7 @@ private struct FriendDetailView: View {
         } catch {
             NSLog("Liminalog: failed to save Friend detail changes: \(String(describing: error))")
             modelContext.rollback()
+            LiminalHaptics.failure()
             saveError = "時間をおいてもう一度試してください。"
             return false
         }
@@ -1958,6 +2240,55 @@ private struct FriendDetailView: View {
     }
 }
 
+private struct FriendProfileQuickActions: View {
+    let isFavorite: Bool
+    let onCalendar: () -> Void
+    let onFavorite: () -> Void
+
+    var body: some View {
+        HStack(spacing: 10) {
+            actionButton(
+                title: "カレンダー",
+                systemImage: "calendar",
+                tint: LiminalTheme.accent,
+                action: onCalendar
+            )
+            actionButton(
+                title: isFavorite ? "お気に入り中" : "お気に入り",
+                systemImage: isFavorite ? "star.fill" : "star",
+                tint: LiminalTheme.reward,
+                action: onFavorite
+            )
+        }
+    }
+
+    private func actionButton(
+        title: String,
+        systemImage: String,
+        tint: Color,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: systemImage)
+                    .font(.subheadline.weight(.semibold))
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .foregroundStyle(tint)
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .background(LiminalTheme.surface, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(tint.opacity(0.2), lineWidth: 1)
+            }
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 private struct FriendProfileHero: View {
     let friend: Friend
     let badge: FriendBadgeDisplay
@@ -1974,16 +2305,59 @@ private struct FriendProfileHero: View {
         return friend.bio?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false ? friend.bio ?? "" : "近況はまだありません"
     }
 
+    private var formattedUserID: String? {
+        let rawID = friend.handle.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !rawID.isEmpty else { return nil }
+        return rawID.hasPrefix("@") ? rawID : "@\(rawID)"
+    }
+
     var body: some View {
-        HStack(alignment: .top, spacing: 14) {
-            FriendAvatar(friend: friend, size: 92)
+        let usesGeneratedArtwork = friend.cardStyle.hasGeneratedArtwork
+        let contentHorizontalPadding: CGFloat = usesGeneratedArtwork ? 42 : 18
+        let contentTopPadding: CGFloat = usesGeneratedArtwork ? 30 : 28
+        let contentBottomPadding: CGFloat = usesGeneratedArtwork ? 36 : 28
+        let minCardHeight: CGFloat = usesGeneratedArtwork ? 258 : 196
+        let photoSize: CGFloat = usesGeneratedArtwork ? 88 : 92
+        let photoOuterSize: CGFloat = photoSize + max(7, photoSize * 0.16)
+
+        HStack(alignment: .top, spacing: usesGeneratedArtwork ? 10 : 14) {
+            VStack(spacing: 8) {
+                FriendAvatar(friend: friend, size: photoSize)
+
+                HStack(spacing: 9) {
+                    FriendProfileActionButton(systemImage: "calendar", label: "カレンダー", isOnGeneratedArtwork: usesGeneratedArtwork, action: onCalendar)
+                    FriendProfileActionButton(systemImage: friend.isFavorite ? "star.fill" : "star", label: "お気に入り", isOnGeneratedArtwork: usesGeneratedArtwork, action: onFavorite)
+                }
+                .foregroundStyle(friend.cardStyle.textColor)
+            }
+            .frame(width: max(photoOuterSize, 78), alignment: .top)
 
             VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 7) {
+                if let formattedUserID {
+                    Text(formattedUserID)
+                        .font(.caption.weight(.semibold))
+                        .friendGeneratedCardReadableText(enabled: usesGeneratedArtwork, fallback: friend.cardStyle.secondaryTextColor)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.84)
+                        .opacity(0.82)
+                        .accessibilityLabel("ユーザーID \(formattedUserID)")
+                }
+
+                HStack(alignment: .firstTextBaseline, spacing: 7) {
                     Text(friend.displayName)
                         .font(.title2.weight(.bold))
+                        .friendGeneratedCardReadableText(enabled: usesGeneratedArtwork, fallback: friend.cardStyle.textColor)
                         .lineLimit(2)
                         .minimumScaleFactor(0.82)
+
+                    // 累積スコア未受信（旧クライアント/共有オフ）の間は出さない
+                    if friend.cumulativeScore > 0 {
+                        Text("Lv.\(LiminalLevel.level(forScore: friend.cumulativeScore))")
+                            .font(.caption.weight(.semibold))
+                            .friendGeneratedCardReadableText(enabled: usesGeneratedArtwork, fallback: friend.cardStyle.secondaryTextColor)
+                            .opacity(0.85)
+                            .accessibilityLabel("レベル\(LiminalLevel.level(forScore: friend.cumulativeScore))")
+                    }
 
                     if friend.isFavorite {
                         Image(systemName: "star.fill")
@@ -1991,59 +2365,84 @@ private struct FriendProfileHero: View {
                             .foregroundStyle(LiminalTheme.reward)
                     }
                 }
-                .padding(.trailing, 76)
+                .padding(.trailing, 4)
 
                 FriendBadgePill(badge: badge)
+                    .frame(height: 23, alignment: .leading)
 
                 Text(moodText)
                     .font(.subheadline)
-                    .foregroundStyle(LiminalTheme.secondaryText)
+                    .friendGeneratedCardReadableText(enabled: usesGeneratedArtwork, fallback: friend.cardStyle.secondaryTextColor)
                     .lineLimit(2)
                     .frame(minHeight: 42, alignment: .topLeading)
             }
+            .padding(.top, usesGeneratedArtwork ? 16 : 0)
+            .padding(.trailing, usesGeneratedArtwork ? 20 : 0)
             .frame(maxWidth: .infinity, alignment: .leading)
             .layoutPriority(1)
+
+            Spacer(minLength: 0)
         }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 28)
+        .padding(.horizontal, contentHorizontalPadding)
+        .padding(.top, contentTopPadding)
+        .padding(.bottom, contentBottomPadding)
+        .frame(maxWidth: .infinity, minHeight: minCardHeight, alignment: .topLeading)
         .background {
             FriendCardBackground(cardStyle: friend.cardStyle, accentColor: accentColor, cornerRadius: 8)
-                .overlay {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .stroke(friend.cardStyle.borderColor(accentColor: accentColor), lineWidth: friend.cardStyle.borderWidth)
-                }
         }
-        .overlay(alignment: .topTrailing) {
-            HStack(spacing: 8) {
-                FriendProfileActionButton(systemImage: "calendar", label: "カレンダー", action: onCalendar)
-                FriendProfileActionButton(systemImage: friend.isFavorite ? "star.fill" : "star", label: "お気に入り", action: onFavorite)
-            }
-            .padding(.top, 18)
-            .padding(.trailing, 18)
-            .zIndex(2)
-        }
+        .padding(.horizontal, usesGeneratedArtwork ? -6 : 0)
     }
 }
 
 private struct FriendProfileActionButton: View {
     let systemImage: String
     let label: String
+    let isOnGeneratedArtwork: Bool
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: systemImage)
-                .font(.footnote.weight(.semibold))
-                .frame(width: 30, height: 30)
-                .liminalGlassFill(in: Circle())
-                .overlay {
-                    Circle()
-                        .stroke(LiminalTheme.divider.opacity(0.5), lineWidth: 1)
-                }
-                .contentShape(Circle())
+            if isOnGeneratedArtwork {
+                Image(systemName: systemImage)
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 30, height: 30)
+                    .background {
+                        Circle()
+                            .fill(.black.opacity(0.26))
+                            .overlay {
+                                Circle()
+                                    .stroke(.white.opacity(0.34), lineWidth: 1)
+                            }
+                    }
+                    .shadow(color: .black.opacity(0.24), radius: 8, y: 4)
+            } else {
+                Image(systemName: systemImage)
+                    .font(.footnote.weight(.semibold))
+                    .frame(width: 30, height: 30)
+                    .liminalGlassFill(in: Circle())
+                    .overlay {
+                        Circle()
+                            .stroke(LiminalTheme.divider.opacity(0.5), lineWidth: 1)
+                    }
+            }
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func friendGeneratedCardReadableText(enabled: Bool, fallback: Color) -> some View {
+        if enabled {
+            self
+                .foregroundStyle(.white)
+                .blendMode(.difference)
+        } else {
+            self
+                .foregroundStyle(fallback)
+        }
     }
 }
 
@@ -2082,8 +2481,8 @@ private struct FriendProfileCollectionSection: View {
     let badge: FriendBadgeDisplay
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("装備とコレクション")
+        VStack(alignment: .leading, spacing: 10) {
+            Text("装備中")
                 .font(.headline)
 
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
@@ -2101,6 +2500,17 @@ private struct FriendBadgeDisplay {
     let title: String
     let systemImage: String
     let tintHex: String
+
+    var profileBadge: ProfileBadgeModel {
+        ProfileBadgeModel(
+            id: id,
+            title: title,
+            systemImage: systemImage,
+            tint: tintHex,
+            isUnlocked: true,
+            progressText: ""
+        )
+    }
 }
 
 private enum FriendBadgeDisplayCatalog {
@@ -2210,7 +2620,7 @@ private struct FriendCalendarView: View {
             .scrollIndicators(.hidden)
             .frame(maxHeight: .infinity, alignment: .top)
             .onAppear {
-                ensureData(around: scrolledOffset ?? 0)
+                handleCalendarAppear()
             }
             .onChange(of: scrolledOffset) { _, newValue in
                 handleScroll(to: newValue)
@@ -2218,6 +2628,9 @@ private struct FriendCalendarView: View {
             .onReceive(NotificationCenter.default.publisher(for: CloudFriendShareRefreshCoordinator.sharedRecordsDidChange)) { notification in
                 guard isSharedRecordChange(for: notification) else { return }
                 reloadVisibleData(forSharedRecordChange: notification)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+                reloadAfterForeground()
             }
         }
         .background(LiminalTheme.canvasGradient)
@@ -2299,7 +2712,8 @@ private struct FriendCalendarView: View {
             .accessibilityLabel("友達の予定を検索")
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 14)
+        .padding(.top, 8)
+        .padding(.bottom, 10)
         .background(LiminalTheme.surface)
     }
 
@@ -2344,9 +2758,33 @@ private struct FriendCalendarView: View {
         }
     }
 
+    private func handleCalendarAppear() {
+        #if DEBUG
+        let startedAt = Date()
+        let targetOffset = scrolledOffset ?? 0
+        ensureData(around: targetOffset)
+        if FriendDebugLaunchAutomation.shouldEmitCalendarMetric(for: friend) {
+            let month = monthStart(for: month(forOffset: targetOffset))
+            let pageData = pageDataByMonth[month] ?? computePageData(for: month)
+            let importantPlanCount = pageData.importantPlansByDay.values.reduce(0) { $0 + $1.count }
+            let sharedDataDayCount = pageData.scoreSummariesByDay.count
+            let elapsed = Date().timeIntervalSince(startedAt)
+            print(
+                "LiminalogUITestMetric friendCalendarReady friend=\(friend.displayName) month=\(month.japaneseYearMonth) importantPlans=\(importantPlanCount) sharedDays=\(sharedDataDayCount) cachedMonths=\(pageDataByMonth.count) elapsed=\(elapsed)"
+            )
+        }
+        #else
+        ensureData(around: scrolledOffset ?? 0)
+        #endif
+    }
+
     private func reloadVisibleData() {
         pageDataByMonth.removeAll()
         ensureData(around: scrolledOffset ?? offset(forMonth: visibleMonth))
+    }
+
+    private func reloadAfterForeground() {
+        reloadVisibleData()
     }
 
     private func reloadVisibleData(forSharedRecordChange notification: Notification) {
@@ -2428,6 +2866,53 @@ private struct FriendCalendarView: View {
         }
     }
 }
+
+#if DEBUG
+private enum FriendDebugLaunchAutomation {
+    private static let argumentKey = "-LiminalogDebugOpenFriendCalendar"
+    private static let environmentKey = "LiminalogDebugOpenFriendCalendar"
+
+    static var targetFriendName: String? {
+        if let value = ProcessInfo.processInfo.environment[environmentKey],
+           !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return value
+        }
+
+        let arguments = ProcessInfo.processInfo.arguments
+        guard
+            let flagIndex = arguments.firstIndex(of: argumentKey),
+            arguments.indices.contains(arguments.index(after: flagIndex))
+        else {
+            return nil
+        }
+
+        let value = arguments[arguments.index(after: flagIndex)].trimmingCharacters(in: .whitespacesAndNewlines)
+        return value.isEmpty ? nil : value
+    }
+
+    static func matchingFriend(in friends: [Friend], targetName: String) -> Friend? {
+        friends.first { matches($0, targetName: targetName) }
+    }
+
+    static func matches(_ friend: Friend, targetName: String) -> Bool {
+        let normalizedTarget = targetName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !normalizedTarget.isEmpty else { return false }
+        if normalizedTarget == "first" { return true }
+        let normalizedHandle = friend.handle
+            .trimmingCharacters(in: CharacterSet(charactersIn: "@"))
+            .lowercased()
+        let targetWithoutAt = normalizedTarget.trimmingCharacters(in: CharacterSet(charactersIn: "@"))
+        return friend.displayName.lowercased() == normalizedTarget
+            || normalizedHandle == targetWithoutAt
+            || friend.userRecordID.lowercased() == normalizedTarget
+    }
+
+    static func shouldEmitCalendarMetric(for friend: Friend) -> Bool {
+        guard let targetFriendName else { return false }
+        return matches(friend, targetName: targetFriendName)
+    }
+}
+#endif
 
 private struct FriendCalendarScore {
     let value: Double
@@ -2547,6 +3032,14 @@ private struct FriendSharedCalendarDayView: View {
     private var resolvedScore: FriendCalendarScore? {
         if let score { return score }
         guard let friend else { return nil }
+        let sharedScores = FriendSharedRecordStore(modelContext: modelContext)
+            .scores(friendID: friend.id, overlapping: dayRange)
+        if let sharedScore = sharedScores.first {
+            return FriendCalendarScore(
+                value: Double(sharedScore.score),
+                hasSharedData: sharedScore.hasData
+            )
+        }
         let calendar = Calendar.japanese
         if calendar.isDateInToday(date) {
             return FriendCalendarScore(value: friend.todayScore, hasSharedData: true)
@@ -2602,7 +3095,7 @@ private struct FriendSharedCalendarDayView: View {
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(LiminalTheme.secondaryText)
             Spacer()
-            Text(resolvedScore.map { "\(Int($0.value.rounded()))" } ?? "-")
+            Text(resolvedScore.flatMap { $0.hasSharedData ? "\(Int($0.value.rounded()))" : nil } ?? "-")
                 .font(.system(size: 46, weight: .bold, design: .rounded))
                 .foregroundStyle(tint)
                 .monospacedDigit()
@@ -2927,6 +3420,10 @@ private struct FriendSharedPlanSearchRow: View {
 private struct FriendAddSheet: View {
     @Environment(\.dismiss) private var dismiss
 
+    let hasCloudUsername: Bool
+    @Binding var userIDText: String
+    let isSendingCloudFriendRequest: Bool
+    let onSubmitUserID: () -> Void
     let onSubmitInvite: (FriendInvitePayload) -> FriendInviteSubmitResult
 
     @State private var receivedText: String
@@ -2934,8 +3431,16 @@ private struct FriendAddSheet: View {
 
     init(
         initialText: String,
+        hasCloudUsername: Bool,
+        userIDText: Binding<String>,
+        isSendingCloudFriendRequest: Bool,
+        onSubmitUserID: @escaping () -> Void,
         onSubmitInvite: @escaping (FriendInvitePayload) -> FriendInviteSubmitResult
     ) {
+        self.hasCloudUsername = hasCloudUsername
+        self._userIDText = userIDText
+        self.isSendingCloudFriendRequest = isSendingCloudFriendRequest
+        self.onSubmitUserID = onSubmitUserID
         self.onSubmitInvite = onSubmitInvite
         self._receivedText = State(initialValue: initialText)
     }
@@ -2944,12 +3449,16 @@ private struct FriendAddSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
+                    if hasCloudUsername {
+                        userIDSearchCard
+                    }
+
                     receiveCard
                 }
                 .padding(18)
             }
             .background(LiminalTheme.canvasGradient)
-            .navigationTitle("招待を受け取る")
+            .navigationTitle("友達を追加")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -2959,6 +3468,51 @@ private struct FriendAddSheet: View {
                 }
             }
         }
+    }
+
+    private var userIDSearchCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("ユーザーIDで探す")
+                .font(.headline.weight(.bold))
+
+            HStack(spacing: 10) {
+                TextField("友達のユーザーID", text: $userIDText)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .font(.body.monospaced())
+                    .padding(13)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14)
+                            .fill(LiminalTheme.elevated)
+                    )
+
+                Button {
+                    onSubmitUserID()
+                    dismiss()
+                } label: {
+                    if isSendingCloudFriendRequest {
+                        ProgressView()
+                            .controlSize(.small)
+                    } else {
+                        Image(systemName: "person.badge.plus")
+                            .font(.headline.weight(.bold))
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(isSendingCloudFriendRequest || UserIDNormalizer.normalizedValue(userIDText) == nil)
+                .accessibilityLabel("ユーザーIDで友達申請")
+            }
+
+            Text(userIDInputHint)
+                .font(.caption)
+                .foregroundStyle(LiminalTheme.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(18)
+        .background(
+            RoundedRectangle(cornerRadius: 20)
+                .fill(LiminalTheme.surface)
+        )
     }
 
     private var receiveCard: some View {
@@ -3038,6 +3592,17 @@ private struct FriendAddSheet: View {
             return "Liminalogの招待リンクかコードを入力してください。"
         }
         return "この招待を追加できます。"
+    }
+
+    private var userIDInputHint: String {
+        let trimmed = userIDText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            return "相手のユーザーIDを入力して申請できます。"
+        }
+        if UserIDNormalizer.normalizedValue(userIDText) == nil {
+            return "4〜20文字の半角英数字と _ . - が使えます。"
+        }
+        return "このIDに友達申請できます。"
     }
 }
 
@@ -3187,6 +3752,7 @@ private struct FriendRankingListRow: View {
 
             DecoratedFriendAvatar(
                 systemImage: entry.imageName,
+                imageData: entry.imageData,
                 tint: entry.tint,
                 frameStyle: entry.iconFrame,
                 size: 38
@@ -3261,6 +3827,7 @@ private struct FriendRankingEntry: Identifiable {
     let rank: Int
     let name: String
     let imageName: String
+    let imageData: Data?
     let tint: Color
     let score: Double
     let status: String
@@ -3274,6 +3841,7 @@ private struct FriendRankingEntry: Identifiable {
             rank: rank,
             name: name,
             imageName: imageName,
+            imageData: imageData,
             tint: tint,
             score: score,
             status: status,

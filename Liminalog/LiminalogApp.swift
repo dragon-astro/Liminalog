@@ -9,6 +9,7 @@ struct LiminalogApp: App {
     @Environment(\.scenePhase) private var scenePhase
     @State private var cloudFriendShareRefreshCoordinator: CloudFriendShareRefreshCoordinator?
     @State private var lastLifecycleOutgoingShareRefreshAt: Date?
+    @State private var pendingLifecycleCloudMaintenanceTask: Task<Void, Never>?
     private static let lastLifecycleOutgoingShareRefreshDefaultsKey = "cloudFriendShare.lastLifecycleOutgoingRefreshAt"
 
     private let modelContainer: ModelContainer = {
@@ -23,6 +24,7 @@ struct LiminalogApp: App {
             RootTabView()
                 .task {
                     guard cloudFriendShareRefreshCoordinator == nil else { return }
+                    await waitForModelStoreReadiness(reason: "app launch")
                     let coordinator = CloudFriendShareRefreshCoordinator(modelContainer: modelContainer)
                     cloudFriendShareRefreshCoordinator = coordinator
                     lastLifecycleOutgoingShareRefreshAt = Self.storedLifecycleOutgoingShareRefreshAt()
@@ -33,16 +35,12 @@ struct LiminalogApp: App {
                         )
                     }
                     registerForRemoteNotificationsIfCloudFriendsEnabled()
-                    await coordinator.ensureSubscriptionsIfPossible(reason: "app launch")
-                    scheduleCloudFriendRefresh(reason: "app launch")
+                    scheduleLifecycleCloudMaintenance(reason: "app launch", delay: 25)
                 }
                 .onChange(of: scenePhase) { _, phase in
                     guard phase == .active else { return }
                     registerForRemoteNotificationsIfCloudFriendsEnabled()
-                    Task {
-                        await cloudFriendShareRefreshCoordinator?.ensureSubscriptionsIfPossible(reason: "scene active")
-                        scheduleCloudFriendRefresh(reason: "scene active")
-                    }
+                    scheduleLifecycleCloudMaintenance(reason: "scene active", delay: 20)
                 }
                 .onReceive(NotificationCenter.default.publisher(for: CloudFriendShareRefreshCoordinator.refreshRequested)) { notification in
                     let reason = notification.userInfo?[CloudFriendShareRefreshCoordinator.refreshReasonKey] as? String ?? "unknown"
@@ -52,19 +50,23 @@ struct LiminalogApp: App {
                     let changedChapterSourceIDs = Self.uuidSet(
                         from: notification.userInfo?[CloudFriendShareRefreshCoordinator.changedChapterSourceIDsKey]
                     )
+                    let changedScoreDayStarts = Self.dateSet(
+                        from: notification.userInfo?[CloudFriendShareRefreshCoordinator.changedScoreDayStartsKey]
+                    )
                     let requiresFullPublish = notification.userInfo?[CloudFriendShareRefreshCoordinator.requiresFullPublishKey] as? Bool ?? true
                     cloudFriendShareRefreshCoordinator?.scheduleRefresh(
                         reason: reason,
                         changedPlanSourceIDs: changedPlanSourceIDs,
                         changedChapterSourceIDs: changedChapterSourceIDs,
+                        changedScoreDayStarts: changedScoreDayStarts,
                         requiresFullPublish: requiresFullPublish
                     )
                 }
                 .onReceive(NotificationCenter.default.publisher(for: CloudKitFriendEventBridge.friendShareDidChange)) { _ in
-                    cloudFriendShareRefreshCoordinator?.scheduleIncomingRefresh(reason: "friend share push")
+                    scheduleLifecycleCloudMaintenance(reason: "friend share push", delay: 10)
                 }
                 .onReceive(NotificationCenter.default.publisher(for: CloudKitFriendEventBridge.friendConsentDidChange)) { _ in
-                    cloudFriendShareRefreshCoordinator?.scheduleConsentRefresh(reason: "friend consent push")
+                    scheduleLifecycleCloudMaintenance(reason: "friend consent push", delay: 10)
                 }
         }
         .modelContainer(modelContainer)
@@ -76,10 +78,42 @@ struct LiminalogApp: App {
             guard let settings = try context.fetch(FetchDescriptor<UserSettings>(
                 sortBy: [SortDescriptor(\.createdAt)]
             )).first else { return }
-            guard !settings.cloudUsernameNormalized.isEmpty else { return }
+            let hasRegisteredProfile = !settings.cloudUsernameNormalized.isEmpty
+                || !settings.cloudUserRecordName.isEmpty
+            let hasAcceptedCloudFriend = ((try? context.fetch(FetchDescriptor<Friend>())) ?? []).contains {
+                $0.status == .accepted && !$0.userRecordID.isEmpty
+            }
+            guard hasRegisteredProfile || hasAcceptedCloudFriend else { return }
             UIApplication.shared.registerForRemoteNotifications()
         } catch {
             NSLog("Liminalog: failed to check CloudKit friend push registration state: \(String(describing: error))")
+        }
+    }
+
+    private func waitForModelStoreReadiness(reason: String) async {
+        let delays: [UInt64] = [
+            150_000_000,
+            350_000_000,
+            750_000_000,
+            1_500_000_000
+        ]
+
+        if modelStoreIsReadable() { return }
+        for delay in delays {
+            try? await Task.sleep(nanoseconds: delay)
+            if modelStoreIsReadable() { return }
+        }
+        NSLog("Liminalog: Cloud friend sync starting before store readiness after retries (\(reason))")
+    }
+
+    private func modelStoreIsReadable() -> Bool {
+        do {
+            var descriptor = FetchDescriptor<UserSettings>()
+            descriptor.fetchLimit = 1
+            _ = try modelContainer.mainContext.fetch(descriptor)
+            return true
+        } catch {
+            return false
         }
     }
 
@@ -87,6 +121,18 @@ struct LiminalogApp: App {
         cloudFriendShareRefreshCoordinator?.scheduleConsentRefresh(reason: reason)
         cloudFriendShareRefreshCoordinator?.scheduleIncomingRefresh(reason: reason)
         scheduleOutgoingLifecycleShareRefresh(reason: reason)
+    }
+
+    private func scheduleLifecycleCloudMaintenance(reason: String, delay: TimeInterval) {
+        pendingLifecycleCloudMaintenanceTask?.cancel()
+        pendingLifecycleCloudMaintenanceTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: Self.nanoseconds(for: delay))
+            guard !Task.isCancelled else { return }
+            await cloudFriendShareRefreshCoordinator?.ensureSubscriptionsIfPossible(reason: reason)
+            guard !Task.isCancelled else { return }
+            scheduleCloudFriendRefresh(reason: reason)
+            pendingLifecycleCloudMaintenanceTask = nil
+        }
     }
 
     private func scheduleOutgoingLifecycleShareRefresh(reason: String) {
@@ -106,7 +152,16 @@ struct LiminalogApp: App {
         return Set(strings.compactMap(UUID.init(uuidString:)))
     }
 
+    private static func dateSet(from value: Any?) -> Set<Date> {
+        guard let intervals = value as? [TimeInterval] else { return [] }
+        return Set(intervals.map { Date(timeIntervalSince1970: $0) })
+    }
+
     private static func storedLifecycleOutgoingShareRefreshAt() -> Date? {
         UserDefaults.standard.object(forKey: lastLifecycleOutgoingShareRefreshDefaultsKey) as? Date
+    }
+
+    private static func nanoseconds(for seconds: TimeInterval) -> UInt64 {
+        UInt64(max(0, seconds) * 1_000_000_000)
     }
 }

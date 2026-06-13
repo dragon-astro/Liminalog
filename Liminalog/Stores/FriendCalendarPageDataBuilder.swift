@@ -12,15 +12,23 @@ struct FriendCalendarPageDataBuilder {
         let dates = Self.monthGridDates(for: month, calendar: calendar)
         let gridStart = calendar.startOfDay(for: dates.first ?? month)
         let gridEnd = DayBoundary(date: dates.last ?? month, calendar: calendar).dayEnd
-        let allPlans = FriendSharedRecordStore(modelContext: modelContext)
-            .plans(friendID: friendID, overlapping: gridStart..<gridEnd)
+        let recordStore = FriendSharedRecordStore(modelContext: modelContext)
+        let allPlans = recordStore.plans(friendID: friendID, overlapping: gridStart..<gridEnd)
+        let allActivities = recordStore.chapters(friendID: friendID, overlapping: gridStart..<gridEnd)
+        let scoresByDay = Dictionary(
+            recordStore.scores(friendID: friendID, overlapping: gridStart..<gridEnd)
+                .map { (calendar.startOfDay(for: $0.dayStart), CalendarDisplayScore(sharedScore: $0)) },
+            uniquingKeysWith: { lhs, rhs in lhs.hasData == rhs.hasData ? lhs : rhs }
+        )
         var importantPlansByDay: [Date: [CalendarDisplayPlan]] = [:]
         var scoreSummariesByDay: [Date: CalendarDisplayScore] = [:]
 
         for date in dates {
             let dayStart = calendar.startOfDay(for: date)
-            let importantPlans = allPlans
-                .filter { $0.overlaps(day: date) && $0.showsInCalendarAsImportant }
+            let dayPlans = allPlans.filter { $0.overlaps(day: date) }
+            let hasSharedActivity = allActivities.contains { $0.overlaps(day: date) }
+            let importantPlans = dayPlans
+                .filter(\.showsInCalendarAsImportant)
                 .sorted {
                     if $0.startTime == $1.startTime {
                         return $0.updatedAt < $1.updatedAt
@@ -28,7 +36,9 @@ struct FriendCalendarPageDataBuilder {
                     return $0.startTime < $1.startTime
                 }
                 .map(displayPlan(from:))
-            let score = scoreForDate(date)
+            let score = scoresByDay[dayStart]
+                ?? scoreForDate(date)
+                ?? fallbackScore(dayPlans: dayPlans, hasSharedActivity: hasSharedActivity)
             if importantPlans.isEmpty && score == nil { continue }
             if !importantPlans.isEmpty {
                 importantPlansByDay[dayStart] = importantPlans
@@ -72,5 +82,18 @@ struct FriendCalendarPageDataBuilder {
             categoryColorHex: plan.categoryColorHex,
             createdAt: plan.updatedAt
         )
+    }
+
+    private func fallbackScore(
+        dayPlans: [FriendSharedPlanSnapshot],
+        hasSharedActivity: Bool
+    ) -> CalendarDisplayScore? {
+        if hasSharedActivity {
+            return .sharedDataMarker
+        }
+        if !dayPlans.isEmpty {
+            return .emptyScoreMarker
+        }
+        return nil
     }
 }

@@ -2,6 +2,52 @@ import CloudKit
 import Foundation
 import SwiftData
 
+private struct CloudFriendShareTimeoutError: LocalizedError {
+    let operation: String
+    let seconds: TimeInterval
+
+    var errorDescription: String? {
+        "Timed out while waiting for \(operation) after \(seconds)s."
+    }
+}
+
+enum CloudFriendShareOperationTimeoutPolicy {
+    static let standardOperation: TimeInterval = 12
+    static let incomingShareAccept: TimeInterval = 120
+    static let sharedZoneIncrementalFetch: TimeInterval = 45
+    static let sharedZoneFullFetch: TimeInterval = 180
+
+    static func sharedZoneFetchTimeout(hasPreviousToken: Bool) -> TimeInterval {
+        hasPreviousToken ? sharedZoneIncrementalFetch : sharedZoneFullFetch
+    }
+}
+
+private struct IncomingShareSyncPayload {
+    let acceptedSnapshot: CloudFriendShareSnapshot?
+    let changes: FriendShareZoneChanges
+    let clearsPreviousChangeToken: Bool
+}
+
+private final class CloudFriendShareTimeoutBox<Value>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var didResume = false
+    private let continuation: CheckedContinuation<Value, Error>
+
+    init(_ continuation: CheckedContinuation<Value, Error>) {
+        self.continuation = continuation
+    }
+
+    @discardableResult
+    func resume(with result: Result<Value, Error>) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard !didResume else { return false }
+        didResume = true
+        continuation.resume(with: result)
+        return true
+    }
+}
+
 @MainActor
 final class CloudFriendShareRefreshCoordinator {
     static let refreshRequested = Notification.Name("LiminalogCloudFriendShareRefreshRequested")
@@ -10,6 +56,7 @@ final class CloudFriendShareRefreshCoordinator {
     static let refreshReasonKey = "reason"
     static let changedPlanSourceIDsKey = "changedPlanSourceIDs"
     static let changedChapterSourceIDsKey = "changedChapterSourceIDs"
+    static let changedScoreDayStartsKey = "changedScoreDayStarts"
     static let requiresFullPublishKey = "requiresFullPublish"
     static let sharedRecordsDidChangeFriendIDKey = "friendID"
     static let sharedRecordsDidChangeRequiresFullReloadKey = "requiresFullReload"
@@ -26,6 +73,8 @@ final class CloudFriendShareRefreshCoordinator {
     private var outgoingRefreshLane = CloudFriendShareRefreshLane()
     private var incomingRefreshLane = CloudFriendShareRefreshLane()
     private var consentRefreshLane = CloudFriendShareRefreshLane()
+    private var incomingSharePayloadTasks: [String: Task<IncomingShareSyncPayload, Error>] = [:]
+    private let cloudOperationTimeoutSeconds = CloudFriendShareOperationTimeoutPolicy.standardOperation
 
     init(
         modelContainer: ModelContainer,
@@ -41,11 +90,12 @@ final class CloudFriendShareRefreshCoordinator {
         reason: String,
         changedPlanSourceIDs: Set<UUID> = [],
         changedChapterSourceIDs: Set<UUID> = [],
+        changedScoreDayStarts: Set<Date> = [],
         requiresFullPublish: Bool? = nil
     ) {
         guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
         markPendingOutgoingRefresh()
-        let shouldPublishFull = requiresFullPublish ?? (changedPlanSourceIDs.isEmpty && changedChapterSourceIDs.isEmpty)
+        let shouldPublishFull = requiresFullPublish ?? (changedPlanSourceIDs.isEmpty && changedChapterSourceIDs.isEmpty && changedScoreDayStarts.isEmpty)
         NotificationCenter.default.post(
             name: refreshRequested,
             object: nil,
@@ -53,6 +103,7 @@ final class CloudFriendShareRefreshCoordinator {
                 refreshReasonKey: reason,
                 changedPlanSourceIDsKey: changedPlanSourceIDs.map(\.uuidString),
                 changedChapterSourceIDsKey: changedChapterSourceIDs.map(\.uuidString),
+                changedScoreDayStartsKey: changedScoreDayStarts.map(\.timeIntervalSince1970),
                 requiresFullPublishKey: shouldPublishFull
             ]
         )
@@ -78,6 +129,16 @@ final class CloudFriendShareRefreshCoordinator {
         postSharedRecordsDidChange(friendID: friendID, impact: .fullReload)
     }
 
+    static func postSharedRecordsDidChange() {
+        NotificationCenter.default.post(
+            name: sharedRecordsDidChange,
+            object: nil,
+            userInfo: [
+                sharedRecordsDidChangeRequiresFullReloadKey: true
+            ]
+        )
+    }
+
     static func postSharedRecordsDidChange(friendID: UUID, impact: FriendSharedRecordChangeImpact) {
         NotificationCenter.default.post(
             name: sharedRecordsDidChange,
@@ -95,6 +156,7 @@ final class CloudFriendShareRefreshCoordinator {
         reason: String,
         changedPlanSourceIDs: Set<UUID> = [],
         changedChapterSourceIDs: Set<UUID> = [],
+        changedScoreDayStarts: Set<Date> = [],
         requiresFullPublish: Bool = true
     ) {
         guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
@@ -102,6 +164,7 @@ final class CloudFriendShareRefreshCoordinator {
             reason: reason,
             changedPlanSourceIDs: changedPlanSourceIDs,
             changedChapterSourceIDs: changedChapterSourceIDs,
+            changedScoreDayStarts: changedScoreDayStarts,
             requiresFullPublish: requiresFullPublish
         )
         pendingOutgoingTask?.cancel()
@@ -138,10 +201,14 @@ final class CloudFriendShareRefreshCoordinator {
             guard let settings = try context.fetch(FetchDescriptor<UserSettings>(
                 sortBy: [SortDescriptor(\.createdAt)]
             )).first else { return }
-            guard !settings.cloudUserRecordName.isEmpty else { return }
+            guard let ownUserRecordName = await ensureCloudUserRecordName(
+                for: settings,
+                modelContext: context,
+                reason: reason
+            ) else { return }
 
             try await cloudSocialStore.ensureConsentSubscriptions(
-                forOwnUserRecordName: settings.cloudUserRecordName
+                forOwnUserRecordName: ownUserRecordName
             )
             try await cloudShareStore.ensureIncomingShareSubscription()
         } catch {
@@ -210,6 +277,13 @@ final class CloudFriendShareRefreshCoordinator {
             let ownUsername = settings.cloudUsernameNormalized
             guard !ownUsername.isEmpty else { return }
             let ownDisplayName = publicDisplayName(settings.profileDisplayName)
+            let ownProfileBio = settings.profileBio
+            let ownProfileImageData = settings.profileImageData
+            let ownProfileAccentColorHex = settings.profileAccentColorHex
+            let ownProfileBadgeID = settings.profileBadgeID
+            let ownProfileIconFrameID = settings.profileIconFrameID
+            let ownProfileStreakIconID = settings.profileStreakIconID
+            let ownProfileCardStyleID = settings.profileCardStyleID
 
             let friends = try context.fetch(FetchDescriptor<Friend>(
                 sortBy: [SortDescriptor(\.displayName)]
@@ -223,6 +297,13 @@ final class CloudFriendShareRefreshCoordinator {
                 acceptedFriends: acceptedFriends,
                 ownUsername: ownUsername,
                 ownDisplayName: ownDisplayName,
+                ownProfileBio: ownProfileBio,
+                ownProfileImageData: ownProfileImageData,
+                ownProfileAccentColorHex: ownProfileAccentColorHex,
+                ownProfileBadgeID: ownProfileBadgeID,
+                ownProfileIconFrameID: ownProfileIconFrameID,
+                ownProfileStreakIconID: ownProfileStreakIconID,
+                ownProfileCardStyleID: ownProfileCardStyleID,
                 acceptedFriendIDs: acceptedFriendIDs,
                 modelContext: context,
                 now: now,
@@ -277,14 +358,22 @@ final class CloudFriendShareRefreshCoordinator {
             guard let settings = try context.fetch(FetchDescriptor<UserSettings>(
                 sortBy: [SortDescriptor(\.createdAt)]
             )).first else { return }
-            guard !settings.cloudUserRecordName.isEmpty else { return }
+            guard let ownUserRecordName = await ensureCloudUserRecordName(
+                for: settings,
+                modelContext: context,
+                reason: reason
+            ) else { return }
 
-            let incomingConsents = try await cloudSocialStore.incomingConsents(
-                forOwnUserRecordName: settings.cloudUserRecordName
-            )
-            let outgoingConsents = try await cloudSocialStore.outgoingConsents(
-                forOwnUserRecordName: settings.cloudUserRecordName
-            )
+            let incomingConsents = try await withCloudFriendTimeout("incoming consents") {
+                try await self.cloudSocialStore.incomingConsents(
+                    forOwnUserRecordName: ownUserRecordName
+                )
+            }
+            let outgoingConsents = try await withCloudFriendTimeout("outgoing consents") {
+                try await self.cloudSocialStore.outgoingConsents(
+                    forOwnUserRecordName: ownUserRecordName
+                )
+            }
             let restorations = CloudFriendConsentRestorePolicy.restorations(
                 incomingConsents: incomingConsents,
                 outgoingConsents: outgoingConsents
@@ -325,7 +414,6 @@ final class CloudFriendShareRefreshCoordinator {
                 return
             }
 
-            let ownUserRecordName = settings.cloudUserRecordName
             // await 跨ぎでモデルを保持しない: ループはプレーン値で回し、書き込み時にIDで取り直す。
             let syncTargets = acceptedFriends.map { friend in
                 (
@@ -369,10 +457,12 @@ final class CloudFriendShareRefreshCoordinator {
                 }
             }
             // docs/20: 削除済み友達の個別行キャッシュを回収する（取りこぼし防止）。
-            let purgedRecordCount = FriendSharedRecordStore(modelContext: context).purgeRecords(
+            let recordStore = FriendSharedRecordStore(modelContext: context)
+            let purgedRecordCount = recordStore.purgeRecords(
                 notBelongingTo: Set(friends.map(\.id))
             )
-            if didUpdateFriends || purgedRecordCount > 0 {
+            let purgedDuplicateRecordCount = recordStore.purgeDuplicateRecords()
+            if didUpdateFriends || purgedRecordCount > 0 || purgedDuplicateRecordCount > 0 {
                 try context.save()
             }
         } catch {
@@ -386,14 +476,22 @@ final class CloudFriendShareRefreshCoordinator {
             guard let settings = try context.fetch(FetchDescriptor<UserSettings>(
                 sortBy: [SortDescriptor(\.createdAt)]
             )).first else { return }
-            guard !settings.cloudUserRecordName.isEmpty else { return }
+            guard let ownUserRecordName = await ensureCloudUserRecordName(
+                for: settings,
+                modelContext: context,
+                reason: reason
+            ) else { return }
 
-            let incomingConsents = try await cloudSocialStore.incomingConsents(
-                forOwnUserRecordName: settings.cloudUserRecordName
-            )
-            let outgoingConsents = try await cloudSocialStore.outgoingConsents(
-                forOwnUserRecordName: settings.cloudUserRecordName
-            )
+            let incomingConsents = try await withCloudFriendTimeout("incoming consents") {
+                try await self.cloudSocialStore.incomingConsents(
+                    forOwnUserRecordName: ownUserRecordName
+                )
+            }
+            let outgoingConsents = try await withCloudFriendTimeout("outgoing consents") {
+                try await self.cloudSocialStore.outgoingConsents(
+                    forOwnUserRecordName: ownUserRecordName
+                )
+            }
 
             let visibilityPresets = try context.fetch(FetchDescriptor<VisibilityPreset>(
                 sortBy: [SortDescriptor(\.sortOrder)]
@@ -454,7 +552,7 @@ final class CloudFriendShareRefreshCoordinator {
                             try await syncIncomingShare(
                                 friend: liveFriend,
                                 shareURL: shareURL,
-                                ownUserRecordName: settings.cloudUserRecordName,
+                                ownUserRecordName: ownUserRecordName,
                                 modelContext: context
                             )
                         } catch {
@@ -511,28 +609,160 @@ final class CloudFriendShareRefreshCoordinator {
     ) async throws {
         let stateStore = FriendSharePublishStateStore(modelContext: modelContext)
         let owner = friend.userRecordID
-        let changes: FriendShareZoneChanges
-        do {
-            changes = try await cloudShareStore.fetchSharedZoneChanges(
-                ownerUserRecordName: owner,
-                previousToken: stateStore.changeToken(ownerUserRecordName: owner)
-            )
-        } catch let error as CKError where error.code == .zoneNotFound || error.code == .userDeletedZone {
-            let snapshot = try await cloudShareStore.acceptIncomingShare(url: shareURL)
+        let payload = try await incomingShareSyncPayload(
+            ownerUserRecordName: owner,
+            shareURL: shareURL,
+            previousToken: stateStore.changeToken(ownerUserRecordName: owner)
+        )
+        if let snapshot = payload.acceptedSnapshot {
             CloudFriendShareSnapshotApplier.apply(snapshot, to: friend)
+        }
+        if payload.clearsPreviousChangeToken {
             stateStore.clearChangeToken(ownerUserRecordName: owner)
-            changes = try await cloudShareStore.fetchSharedZoneChanges(
-                ownerUserRecordName: owner,
-                previousToken: nil
-            )
         }
         applyZoneChanges(
-            changes,
+            payload.changes,
             to: friend,
             ownUserRecordName: ownUserRecordName,
             modelContext: modelContext,
             stateStore: stateStore
         )
+    }
+
+    private func incomingShareSyncPayload(
+        ownerUserRecordName: String,
+        shareURL: URL,
+        previousToken: CKServerChangeToken?
+    ) async throws -> IncomingShareSyncPayload {
+        if let task = incomingSharePayloadTasks[ownerUserRecordName] {
+            return try await task.value
+        }
+
+        let task = Task { @MainActor in
+            try await self.fetchIncomingShareSyncPayload(
+                ownerUserRecordName: ownerUserRecordName,
+                shareURL: shareURL,
+                previousToken: previousToken
+            )
+        }
+        incomingSharePayloadTasks[ownerUserRecordName] = task
+        do {
+            let payload = try await task.value
+            incomingSharePayloadTasks[ownerUserRecordName] = nil
+            return payload
+        } catch {
+            incomingSharePayloadTasks[ownerUserRecordName] = nil
+            throw error
+        }
+    }
+
+    private func fetchIncomingShareSyncPayload(
+        ownerUserRecordName: String,
+        shareURL: URL,
+        previousToken: CKServerChangeToken?
+    ) async throws -> IncomingShareSyncPayload {
+        do {
+            return IncomingShareSyncPayload(
+                acceptedSnapshot: nil,
+                changes: try await fetchSharedZoneChanges(
+                    ownerUserRecordName: ownerUserRecordName,
+                    previousToken: previousToken
+                ),
+                clearsPreviousChangeToken: false
+            )
+        } catch let error as CKError where error.code == .zoneNotFound || error.code == .userDeletedZone {
+            let snapshot = try await withCloudFriendTimeout(
+                "accept incoming share",
+                seconds: CloudFriendShareOperationTimeoutPolicy.incomingShareAccept
+            ) {
+                try await self.cloudShareStore.acceptIncomingShare(url: shareURL)
+            }
+            return IncomingShareSyncPayload(
+                acceptedSnapshot: snapshot,
+                changes: try await fetchSharedZoneChanges(
+                    ownerUserRecordName: ownerUserRecordName,
+                    previousToken: nil
+                ),
+                clearsPreviousChangeToken: true
+            )
+        }
+    }
+
+    private func fetchSharedZoneChanges(
+        ownerUserRecordName: String,
+        previousToken: CKServerChangeToken?
+    ) async throws -> FriendShareZoneChanges {
+        let timeout = CloudFriendShareOperationTimeoutPolicy.sharedZoneFetchTimeout(
+            hasPreviousToken: previousToken != nil
+        )
+        let operation = previousToken == nil ? "shared zone full fetch" : "shared zone changes"
+        return try await withCloudFriendTimeout(operation, seconds: timeout) {
+            try await self.cloudShareStore.fetchSharedZoneChanges(
+                ownerUserRecordName: ownerUserRecordName,
+                previousToken: previousToken
+            )
+        }
+    }
+
+    private func ensureCloudUserRecordName(
+        for settings: UserSettings,
+        modelContext: ModelContext,
+        reason: String
+    ) async -> String? {
+        let storedRecordName = settings.cloudUserRecordName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !storedRecordName.isEmpty {
+            return storedRecordName
+        }
+
+        do {
+            let currentRecordName = try await withCloudFriendTimeout("current user record") {
+                try await self.cloudSocialStore.currentUserRecordName()
+            }
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !currentRecordName.isEmpty else { return nil }
+            settings.cloudUserRecordName = currentRecordName
+            settings.updatedAt = Date()
+            try? modelContext.save()
+            NSLog("Liminalog: repaired missing cloudUserRecordName during friend share refresh (\(reason))")
+            return currentRecordName
+        } catch {
+            NSLog("Liminalog: failed to repair cloudUserRecordName during friend share refresh (\(reason)): \(String(describing: error))")
+            return nil
+        }
+    }
+
+    private func withCloudFriendTimeout<Value>(
+        _ operation: String,
+        seconds: TimeInterval? = nil,
+        perform work: @escaping () async throws -> Value
+    ) async throws -> Value {
+        let timeoutSeconds = seconds ?? cloudOperationTimeoutSeconds
+        return try await withCheckedThrowingContinuation { continuation in
+            let box = CloudFriendShareTimeoutBox(continuation)
+            let operationTask = Task {
+                do {
+                    let value = try await work()
+                    box.resume(with: .success(value))
+                } catch {
+                    box.resume(with: .failure(error))
+                }
+            }
+            Task {
+                let nanoseconds = UInt64(max(timeoutSeconds, 0.1) * 1_000_000_000)
+                try? await Task.sleep(nanoseconds: nanoseconds)
+                let didTimeOut = box.resume(
+                    with: .failure(
+                        CloudFriendShareTimeoutError(
+                            operation: operation,
+                            seconds: timeoutSeconds
+                        )
+                    )
+                )
+                if didTimeOut {
+                    operationTask.cancel()
+                }
+            }
+        }
     }
 
     private func applyZoneChanges(
@@ -563,6 +793,13 @@ final class CloudFriendShareRefreshCoordinator {
         acceptedFriends: [Friend],
         ownUsername: String,
         ownDisplayName: String,
+        ownProfileBio: String,
+        ownProfileImageData: Data?,
+        ownProfileAccentColorHex: String,
+        ownProfileBadgeID: String,
+        ownProfileIconFrameID: String,
+        ownProfileStreakIconID: String,
+        ownProfileCardStyleID: String,
         acceptedFriendIDs: Set<UUID>,
         modelContext: ModelContext,
         now: Date,
@@ -605,23 +842,39 @@ final class CloudFriendShareRefreshCoordinator {
         }
 
         let metrics = selfShareMetrics(modelContext: modelContext, now: now)
+        let dailyScores = sharedDailyScoreSnapshots(
+            request: request,
+            planBlocks: planBlocks,
+            chapters: itemChapters,
+            modelContext: modelContext,
+            now: now
+        )
         return acceptedFriends.map { friend in
             let snapshot = CloudFriendShareSnapshotBuilder.snapshot(
                 for: friend,
                 ownUsername: ownUsername,
                 ownDisplayName: ownDisplayName,
+                ownProfileBio: ownProfileBio,
+                ownProfileImageData: ownProfileImageData,
+                ownProfileAccentColorHex: ownProfileAccentColorHex,
+                ownProfileBadgeID: ownProfileBadgeID,
+                ownProfileIconFrameID: ownProfileIconFrameID,
+                ownProfileStreakIconID: ownProfileStreakIconID,
+                ownProfileCardStyleID: ownProfileCardStyleID,
                 visibilityPresets: visibilityPresets,
                 chapters: snapshotChapters,
                 acceptedFriendIDs: acceptedFriendIDs,
                 now: now,
                 scoreProvider: { metrics.score(for: $0) },
-                streakProvider: { metrics.streakCount }
+                streakProvider: { metrics.streakCount },
+                cumulativeScoreProvider: { metrics.cumulativeScore }
             )
             let items = CloudFriendShareSnapshotBuilder.sharedItems(
                 for: friend,
                 visibilityPresets: visibilityPresets,
                 chapters: itemChapters,
                 planBlocks: planBlocks,
+                dailyScores: dailyScores,
                 acceptedFriendIDs: acceptedFriendIDs,
                 now: now
             )
@@ -648,6 +901,85 @@ final class CloudFriendShareRefreshCoordinator {
             descriptor.fetchLimit = 1
             return (try? modelContext.fetch(descriptor))?.first
         }
+    }
+
+    private func sharedDailyScoreSnapshots(
+        request: CloudFriendShareRefreshRequest,
+        planBlocks: [PlanBlock],
+        chapters: [Chapter],
+        modelContext: ModelContext,
+        now: Date
+    ) -> [FriendSharedDailyScoreSnapshot] {
+        if request.requiresFullPublish {
+            guard let interval = scorePublishInterval(planBlocks: planBlocks, chapters: chapters, now: now) else { return [] }
+            return ScoreSnapshotLoader.summaries(
+                in: interval,
+                modelContext: modelContext,
+                now: now,
+                calendar: .japanese
+            )
+            .filter { $0.plannedDuration > 0 }
+            .map { FriendSharedDailyScoreSnapshot(summary: $0, calendar: .japanese, updatedAt: now) }
+        }
+
+        let dayStarts = targetedScoreDayStarts(
+            request: request,
+            planBlocks: planBlocks,
+            chapters: chapters,
+            now: now
+        )
+        return dayStarts.compactMap { dayStart in
+            let summary = ScoreSnapshotLoader.summary(
+                on: dayStart,
+                modelContext: modelContext,
+                now: now,
+                calendar: .japanese
+            )
+            guard summary.plannedDuration > 0 else { return nil }
+            return FriendSharedDailyScoreSnapshot(summary: summary, calendar: .japanese, updatedAt: now)
+        }
+    }
+
+    private func scorePublishInterval(planBlocks: [PlanBlock], chapters: [Chapter], now: Date) -> DateInterval? {
+        let starts = planBlocks.map(\.startTime) + chapters.map(\.startTime) + [now]
+        guard let earliest = starts.min() else { return nil }
+        let calendar = Calendar.japanese
+        let start = calendar.startOfDay(for: earliest)
+        let todayStart = calendar.startOfDay(for: now)
+        let end = calendar.date(byAdding: .day, value: 1, to: todayStart) ?? todayStart.addingTimeInterval(86_400)
+        guard start < end else { return nil }
+        return DateInterval(start: start, end: end)
+    }
+
+    private func targetedScoreDayStarts(
+        request: CloudFriendShareRefreshRequest,
+        planBlocks: [PlanBlock],
+        chapters: [Chapter],
+        now: Date
+    ) -> Set<Date> {
+        var dayStarts = Set(request.changedScoreDayStarts.map { Calendar.japanese.startOfDay(for: $0) })
+        for plan in planBlocks {
+            dayStarts.formUnion(scoreDayStarts(start: plan.startTime, end: plan.endTime))
+        }
+        for chapter in chapters {
+            dayStarts.formUnion(scoreDayStarts(start: chapter.startTime, end: chapter.endTime ?? now))
+        }
+        dayStarts.insert(Calendar.japanese.startOfDay(for: now))
+        return dayStarts
+    }
+
+    private func scoreDayStarts(start: Date, end: Date) -> Set<Date> {
+        var result: Set<Date> = []
+        let calendar = Calendar.japanese
+        var cursor = calendar.startOfDay(for: start)
+        let endReference = end > start ? end.addingTimeInterval(-0.001) : start
+        let last = calendar.startOfDay(for: endReference)
+        while cursor <= last {
+            result.insert(cursor)
+            guard let next = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
+            cursor = next
+        }
+        return result
     }
 
     private func fetchPlanBlocks(sourceIDs: Set<UUID>, modelContext: ModelContext) -> [PlanBlock] {
@@ -688,11 +1020,21 @@ final class CloudFriendShareRefreshCoordinator {
               ))
         else { return nil }
 
+        let request = CloudFriendShareRefreshRequest(reason: "full shared items", requiresFullPublish: true)
+        let dailyScores = sharedDailyScoreSnapshots(
+            request: request,
+            planBlocks: planBlocks,
+            chapters: chapters,
+            modelContext: modelContext,
+            now: now
+        )
+
         return CloudFriendShareSnapshotBuilder.sharedItems(
             for: friend,
             visibilityPresets: visibilityPresets,
             chapters: chapters,
             planBlocks: planBlocks,
+            dailyScores: dailyScores,
             acceptedFriendIDs: acceptedFriendIDs,
             now: now
         )
@@ -722,6 +1064,10 @@ final class CloudFriendShareRefreshCoordinator {
             items.activities.map { ($0.id, FriendSharePublishDiffPolicy.fingerprint($0)) },
             uniquingKeysWith: { lhs, _ in lhs }
         )
+        let desiredScoreFingerprints = Dictionary(
+            items.scores.map { ($0.id, FriendSharePublishDiffPolicy.fingerprint($0)) },
+            uniquingKeysWith: { lhs, _ in lhs }
+        )
         let publishedPlanFingerprints = request.requiresFullPublish
             ? stateStore.publishedFingerprints(
                 targetUserRecordName: target,
@@ -742,6 +1088,19 @@ final class CloudFriendShareRefreshCoordinator {
                 kind: FriendSharePublishStateStore.chapterKind,
                 sourceIDs: request.changedChapterSourceIDs
             )
+        let changedScoreSourceIDs = Set(request.changedScoreDayStarts.map {
+            FriendSharedDailyScoreSnapshot.sourceID(for: $0)
+        }).union(desiredScoreFingerprints.keys)
+        let publishedScoreFingerprints = request.requiresFullPublish
+            ? stateStore.publishedFingerprints(
+                targetUserRecordName: target,
+                kind: FriendSharePublishStateStore.scoreKind
+            )
+            : stateStore.publishedFingerprints(
+                targetUserRecordName: target,
+                kind: FriendSharePublishStateStore.scoreKind,
+                sourceIDs: changedScoreSourceIDs
+            )
         let planDiff = FriendSharePublishDiffPolicy.plan(
             desired: desiredPlanFingerprints,
             published: publishedPlanFingerprints
@@ -750,11 +1109,17 @@ final class CloudFriendShareRefreshCoordinator {
             desired: desiredChapterFingerprints,
             published: publishedChapterFingerprints
         )
+        let scoreDiff = FriendSharePublishDiffPolicy.plan(
+            desired: desiredScoreFingerprints,
+            published: publishedScoreFingerprints
+        )
         let request = FriendShareItemModifyRequest(
             upsertPlans: items.plans.filter { planDiff.upsertSourceIDs.contains($0.id) },
             upsertChapters: items.activities.filter { chapterDiff.upsertSourceIDs.contains($0.id) },
+            upsertScores: items.scores.filter { scoreDiff.upsertSourceIDs.contains($0.id) },
             deletePlanSourceIDs: planDiff.deleteSourceIDs,
-            deleteChapterSourceIDs: chapterDiff.deleteSourceIDs
+            deleteChapterSourceIDs: chapterDiff.deleteSourceIDs,
+            deleteScoreSourceIDs: scoreDiff.deleteSourceIDs
         )
         guard !request.isEmpty else {
             if rootResult.didCreateRoot {
@@ -780,8 +1145,14 @@ final class CloudFriendShareRefreshCoordinator {
             upserted: desiredChapterFingerprints.filter { outcome.appliedChapterUpserts.contains($0.key) },
             deleted: outcome.appliedChapterDeletes
         )
+        stateStore.applyPublishResult(
+            targetUserRecordName: target,
+            kind: FriendSharePublishStateStore.scoreKind,
+            upserted: desiredScoreFingerprints.filter { outcome.appliedScoreUpserts.contains($0.key) },
+            deleted: outcome.appliedScoreDeletes
+        )
         try? modelContext.save()
-        NSLog("Liminalog: published friend share items for \(target): +\(outcome.appliedPlanUpserts.count + outcome.appliedChapterUpserts.count) upserts, -\(outcome.appliedPlanDeletes.count + outcome.appliedChapterDeletes.count) deletes (requested \(request.upsertPlans.count + request.upsertChapters.count)/\(request.deletePlanSourceIDs.count + request.deleteChapterSourceIDs.count))")
+        NSLog("Liminalog: published friend share items for \(target): +\(outcome.appliedPlanUpserts.count + outcome.appliedChapterUpserts.count + outcome.appliedScoreUpserts.count) upserts, -\(outcome.appliedPlanDeletes.count + outcome.appliedChapterDeletes.count + outcome.appliedScoreDeletes.count) deletes (requested \(request.upsertPlans.count + request.upsertChapters.count + request.upsertScores.count)/\(request.deletePlanSourceIDs.count + request.deleteChapterSourceIDs.count + request.deleteScoreSourceIDs.count))")
         if let failure = outcome.failure {
             NSLog("Liminalog: friend share item publish was partial for \(target): \(String(describing: failure))")
         }
@@ -844,7 +1215,8 @@ final class CloudFriendShareRefreshCoordinator {
             friend.acceptedAt = friend.acceptedAt ?? Date()
             friend.lastSeenAt = Date()
         }
-        if friend.visibilityPresetID == nil {
+        let validPresetIDs = Set(visibilityPresets.map(\.id))
+        if friend.visibilityPresetID.map({ !validPresetIDs.contains($0) }) ?? true {
             friend.visibilityPresetID = defaultVisibilityPresetID(in: visibilityPresets)
         }
         return friend
@@ -886,7 +1258,8 @@ final class CloudFriendShareRefreshCoordinator {
             week: selfScore(for: .week, modelContext: modelContext, now: now),
             month: selfScore(for: .month, modelContext: modelContext, now: now),
             year: selfScore(for: .year, modelContext: modelContext, now: now),
-            streakCount: ScoreStore(modelContext: modelContext).streakCount(endingAt: now)
+            streakCount: ScoreStore(modelContext: modelContext).streakCount(endingAt: now),
+            cumulativeScore: ScoreSnapshotLoader.cumulativeScore(modelContext: modelContext, now: now)
         )
     }
 
@@ -938,6 +1311,7 @@ private struct SelfShareMetrics {
     let month: Double
     let year: Double
     let streakCount: Int
+    let cumulativeScore: Int
 
     func score(for period: FriendScorePeriod) -> Double {
         switch period {

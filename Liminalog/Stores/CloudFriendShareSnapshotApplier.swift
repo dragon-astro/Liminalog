@@ -14,12 +14,20 @@ enum CloudFriendShareSnapshotApplier {
         friend.currentMoodText = snapshot.currentMoodText
         friend.currentStatusStartedAt = snapshot.currentStatusStartedAt
         friend.currentStatusUpdatedAt = snapshot.updatedAt
+        friend.bio = snapshot.profileBio.isEmpty ? nil : snapshot.profileBio
+        friend.profileImageData = snapshot.profileImageData
+        friend.accentColorHex = snapshot.profileAccentColorHex
+        friend.profileBadgeID = snapshot.profileBadgeID
+        friend.profileIconFrameID = snapshot.profileIconFrameID
+        friend.profileStreakIconID = snapshot.profileStreakIconID
+        friend.profileCardStyleID = snapshot.profileCardStyleID
         friend.todayScore = snapshot.todayScore
         friend.yesterdayScore = snapshot.yesterdayScore
         friend.weekScore = snapshot.weekScore
         friend.monthScore = snapshot.monthScore
         friend.yearScore = snapshot.yearScore
         friend.streakCount = snapshot.streakCount
+        friend.cumulativeScore = snapshot.cumulativeScore
         friend.lastSeenAt = snapshot.updatedAt
         friend.updatedAt = Date()
     }
@@ -32,12 +40,15 @@ enum CloudFriendShareSnapshotApplier {
         friend.currentMoodText = ""
         friend.currentStatusStartedAt = nil
         friend.currentStatusUpdatedAt = nil
+        friend.bio = nil
+        friend.profileImageData = nil
         friend.todayScore = 0
         friend.yesterdayScore = 0
         friend.weekScore = 0
         friend.monthScore = 0
         friend.yearScore = 0
         friend.streakCount = 0
+        friend.cumulativeScore = 0
         if let modelContext = friend.modelContext {
             FriendSharedRecordStore(modelContext: modelContext).deleteAll(friendID: friend.id)
         }

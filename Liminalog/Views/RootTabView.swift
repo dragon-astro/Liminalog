@@ -25,6 +25,9 @@ struct RootTabView: View {
     @State private var themeTransitionProgress: CGFloat = 1
     @State private var themeTransitionNonce = 0
     @State private var tabThemeRefreshEpochs: [RootTab: Int] = [:]
+    @State private var lastRemoteChangeDuplicateMergeAt: Date?
+    @State private var pendingRemoteChangeDuplicateMergeTask: Task<Void, Never>?
+    @State private var pendingRemoteChangeRequiresFullMerge = false
     @State private var isShowingStorageFallbackNotice = false
     #if DEBUG
     @AppStorage("debug.unlocks.allowLockedDecorations") private var allowsLockedDecorationTesting = false
@@ -133,32 +136,49 @@ struct RootTabView: View {
                 guard renderedThemeID == nil else { return }
                 renderedThemeID = selectedThemeID
             }
+            .onChange(of: selectedTab) { oldTab, newTab in
+                guard oldTab != newTab else { return }
+                LiminalHaptics.tabSelection()
+            }
             .onChange(of: selectedThemeID) { oldID, newID in
                 startThemeTransition(from: renderedThemeID ?? oldID, to: newID)
             }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active {
                     consumePendingShortcutRoute()
-                    // バックグラウンド中に届いたCloudKitインポートの重複を回収する。
                     if appStores != nil {
-                        CloudDuplicateMergeStore(modelContext: modelContext).mergeAll()
+                        scheduleRemoteChangeDuplicateMerge(
+                            reason: "scene active",
+                            activeDelay: 35,
+                            includeTimelineRecords: false
+                        )
                     }
                 } else {
+                    pendingRemoteChangeDuplicateMergeTask?.cancel()
+                    pendingRemoteChangeDuplicateMergeTask = nil
                     persistAppState(reason: "\(phase)")
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
+                if appStores != nil, pendingRemoteChangeRequiresFullMerge {
+                    runCloudDuplicateMerge(reason: "did enter background", includeTimelineRecords: true)
+                }
                 persistAppState(reason: "did enter background")
             }
-            // CloudKitインポートが届くたび（デバウンス付き）に重複統合を回す。
-            // 起動時だけだと、セッション中に流れ込むインポートの重複が次回起動まで残る。
+            // CloudKitインポートが届いても、ユーザー操作中に全件統合を割り込ませない。
+            // active中は表示に出やすい小さな重複だけ遅延回収し、履歴全体の統合はbackground/長いidleへ逃がす。
             .onReceive(
                 NotificationCenter.default
                     .publisher(for: .NSPersistentStoreRemoteChange)
                     .debounce(for: .seconds(3), scheduler: DispatchQueue.main)
             ) { _ in
                 guard appStores != nil else { return }
-                CloudDuplicateMergeStore(modelContext: modelContext).mergeAll()
+                pendingRemoteChangeRequiresFullMerge = true
+                scheduleRemoteChangeDuplicateMerge(
+                    reason: "remote change",
+                    activeDelay: 45,
+                    includeTimelineRecords: false
+                )
             }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.willTerminateNotification)) { _ in
                 persistAppState(reason: "will terminate")
@@ -244,6 +264,49 @@ struct RootTabView: View {
         for tab in RootTab.allCases where tab != .profile {
             tabThemeRefreshEpochs[tab, default: 0] += 1
         }
+    }
+
+    private func scheduleRemoteChangeDuplicateMerge(
+        reason: String,
+        activeDelay: TimeInterval,
+        includeTimelineRecords: Bool,
+        now: Date = Date()
+    ) {
+        pendingRemoteChangeDuplicateMergeTask?.cancel()
+
+        let minimumInterval: TimeInterval = includeTimelineRecords ? 180 : 90
+        let cooldown = lastRemoteChangeDuplicateMergeAt.map {
+            max(0, minimumInterval - now.timeIntervalSince($0))
+        } ?? 0
+        let delay = max(activeDelay, cooldown)
+
+        pendingRemoteChangeDuplicateMergeTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: nanoseconds(for: delay))
+            guard !Task.isCancelled, appStores != nil else { return }
+            runCloudDuplicateMerge(reason: reason, includeTimelineRecords: includeTimelineRecords)
+            pendingRemoteChangeDuplicateMergeTask = nil
+        }
+    }
+
+    private func runCloudDuplicateMerge(reason: String, includeTimelineRecords: Bool) {
+        let startedAt = Date()
+        let mergeStore = CloudDuplicateMergeStore(modelContext: modelContext)
+        let merged = includeTimelineRecords ? mergeStore.mergeAll() : mergeStore.mergeLightweight()
+        lastRemoteChangeDuplicateMergeAt = Date()
+        if includeTimelineRecords {
+            pendingRemoteChangeRequiresFullMerge = false
+        }
+        if merged > 0 {
+            CloudFriendShareRefreshCoordinator.postSharedRecordsDidChange()
+        }
+        let elapsed = Date().timeIntervalSince(startedAt)
+        if elapsed > 0.08 {
+            NSLog("Liminalog: duplicate merge on \(reason) took \(String(format: "%.3f", elapsed))s")
+        }
+    }
+
+    private func nanoseconds(for seconds: TimeInterval) -> UInt64 {
+        UInt64(max(0, seconds) * 1_000_000_000)
     }
 
     private func persistAppState(reason: String) {

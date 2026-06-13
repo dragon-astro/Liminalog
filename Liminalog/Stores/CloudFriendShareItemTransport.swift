@@ -5,12 +5,14 @@ import Foundation
 struct FriendShareItemModifyRequest {
     var upsertPlans: [FriendSharedPlanSnapshot] = []
     var upsertChapters: [FriendSharedActivitySnapshot] = []
+    var upsertScores: [FriendSharedDailyScoreSnapshot] = []
     var deletePlanSourceIDs: Set<UUID> = []
     var deleteChapterSourceIDs: Set<UUID> = []
+    var deleteScoreSourceIDs: Set<UUID> = []
 
     var isEmpty: Bool {
-        upsertPlans.isEmpty && upsertChapters.isEmpty
-            && deletePlanSourceIDs.isEmpty && deleteChapterSourceIDs.isEmpty
+        upsertPlans.isEmpty && upsertChapters.isEmpty && upsertScores.isEmpty
+            && deletePlanSourceIDs.isEmpty && deleteChapterSourceIDs.isEmpty && deleteScoreSourceIDs.isEmpty
     }
 }
 
@@ -18,8 +20,10 @@ struct FriendShareItemModifyRequest {
 struct FriendShareItemModifyOutcome {
     var appliedPlanUpserts: Set<UUID> = []
     var appliedChapterUpserts: Set<UUID> = []
+    var appliedScoreUpserts: Set<UUID> = []
     var appliedPlanDeletes: Set<UUID> = []
     var appliedChapterDeletes: Set<UUID> = []
+    var appliedScoreDeletes: Set<UUID> = []
     /// 一部チャンクが失敗した場合の最初のエラー（成功分は applied* に入っている）。
     var failure: Error?
 }
@@ -82,7 +86,7 @@ extension CloudFriendShareStore {
         let zoneID = rootRecordID.zoneID
 
         // upsert
-        var saveRecords: [(record: CKRecord, planSourceID: UUID?, chapterSourceID: UUID?)] = []
+        var saveRecords: [(record: CKRecord, planSourceID: UUID?, chapterSourceID: UUID?, scoreSourceID: UUID?)] = []
         for snapshot in request.upsertPlans {
             let recordID = CKRecord.ID(
                 recordName: FriendSharedItemRecordPolicy.planRecordName(
@@ -93,7 +97,7 @@ extension CloudFriendShareStore {
             )
             let record = CKRecord(recordType: FriendSharedItemRecordPolicy.planRecordType, recordID: recordID)
             FriendSharedItemRecordPolicy.apply(snapshot, to: record, parentRecordID: rootRecordID)
-            saveRecords.append((record, snapshot.id, nil))
+            saveRecords.append((record, snapshot.id, nil, nil))
         }
         for snapshot in request.upsertChapters {
             let recordID = CKRecord.ID(
@@ -105,7 +109,19 @@ extension CloudFriendShareStore {
             )
             let record = CKRecord(recordType: FriendSharedItemRecordPolicy.chapterRecordType, recordID: recordID)
             FriendSharedItemRecordPolicy.apply(snapshot, to: record, parentRecordID: rootRecordID)
-            saveRecords.append((record, nil, snapshot.id))
+            saveRecords.append((record, nil, snapshot.id, nil))
+        }
+        for snapshot in request.upsertScores {
+            let recordID = CKRecord.ID(
+                recordName: FriendSharedItemRecordPolicy.scoreRecordName(
+                    targetUserRecordName: targetUserRecordName,
+                    sourceID: snapshot.id
+                ),
+                zoneID: zoneID
+            )
+            let record = CKRecord(recordType: FriendSharedItemRecordPolicy.scoreRecordType, recordID: recordID)
+            FriendSharedItemRecordPolicy.apply(snapshot, to: record, parentRecordID: rootRecordID)
+            saveRecords.append((record, nil, nil, snapshot.id))
         }
 
         for chunk in saveRecords.chunked(into: Self.modifyChunkSize) {
@@ -114,6 +130,7 @@ extension CloudFriendShareStore {
                 for entry in chunk where savedIDs.contains(entry.record.recordID.recordName) {
                     if let planID = entry.planSourceID { outcome.appliedPlanUpserts.insert(planID) }
                     if let chapterID = entry.chapterSourceID { outcome.appliedChapterUpserts.insert(chapterID) }
+                    if let scoreID = entry.scoreSourceID { outcome.appliedScoreUpserts.insert(scoreID) }
                 }
             } catch {
                 outcome.failure = outcome.failure ?? error
@@ -121,7 +138,7 @@ extension CloudFriendShareStore {
         }
 
         // delete
-        var deleteEntries: [(recordID: CKRecord.ID, planSourceID: UUID?, chapterSourceID: UUID?)] = []
+        var deleteEntries: [(recordID: CKRecord.ID, planSourceID: UUID?, chapterSourceID: UUID?, scoreSourceID: UUID?)] = []
         for sourceID in request.deletePlanSourceIDs {
             let recordID = CKRecord.ID(
                 recordName: FriendSharedItemRecordPolicy.planRecordName(
@@ -130,7 +147,7 @@ extension CloudFriendShareStore {
                 ),
                 zoneID: zoneID
             )
-            deleteEntries.append((recordID, sourceID, nil))
+            deleteEntries.append((recordID, sourceID, nil, nil))
         }
         for sourceID in request.deleteChapterSourceIDs {
             let recordID = CKRecord.ID(
@@ -140,7 +157,17 @@ extension CloudFriendShareStore {
                 ),
                 zoneID: zoneID
             )
-            deleteEntries.append((recordID, nil, sourceID))
+            deleteEntries.append((recordID, nil, sourceID, nil))
+        }
+        for sourceID in request.deleteScoreSourceIDs {
+            let recordID = CKRecord.ID(
+                recordName: FriendSharedItemRecordPolicy.scoreRecordName(
+                    targetUserRecordName: targetUserRecordName,
+                    sourceID: sourceID
+                ),
+                zoneID: zoneID
+            )
+            deleteEntries.append((recordID, nil, nil, sourceID))
         }
 
         for chunk in deleteEntries.chunked(into: Self.modifyChunkSize) {
@@ -149,6 +176,7 @@ extension CloudFriendShareStore {
                 for entry in chunk where deletedNames.contains(entry.recordID.recordName) {
                     if let planID = entry.planSourceID { outcome.appliedPlanDeletes.insert(planID) }
                     if let chapterID = entry.chapterSourceID { outcome.appliedChapterDeletes.insert(chapterID) }
+                    if let scoreID = entry.scoreSourceID { outcome.appliedScoreDeletes.insert(scoreID) }
                 }
             } catch {
                 outcome.failure = outcome.failure ?? error
@@ -278,6 +306,13 @@ extension CloudFriendShareStore {
         record["currentStatusIcon"] = snapshot.currentStatusIcon as CKRecordValue
         record["currentStatusColorHex"] = snapshot.currentStatusColorHex as CKRecordValue
         record["currentMoodText"] = snapshot.currentMoodText as CKRecordValue
+        record["profileBio"] = snapshot.profileBio as CKRecordValue
+        record["profileImageData"] = snapshot.profileImageData as CKRecordValue?
+        record["profileAccentColorHex"] = snapshot.profileAccentColorHex as CKRecordValue
+        record["profileBadgeID"] = snapshot.profileBadgeID as CKRecordValue
+        record["profileIconFrameID"] = snapshot.profileIconFrameID as CKRecordValue
+        record["profileStreakIconID"] = snapshot.profileStreakIconID as CKRecordValue
+        record["profileCardStyleID"] = snapshot.profileCardStyleID as CKRecordValue
         record["todayScore"] = snapshot.todayScore as CKRecordValue
         record["yesterdayScore"] = snapshot.yesterdayScore as CKRecordValue
         record["weekScore"] = snapshot.weekScore as CKRecordValue

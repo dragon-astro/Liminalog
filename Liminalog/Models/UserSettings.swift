@@ -27,6 +27,9 @@ final class UserSettings {
     var dashboardCardOrder: [String] = []
     var dashboardHiddenCardKeys: [String] = []
     var didSeedInitialFriendSets: Bool = false
+    var finalizedCumulativeScore: Int = 0
+    var isFinalizedScoreLedgerInitialized: Bool = false
+    var finalizedScoreReconciledThroughDayStart: Date?
     var createdAt: Date = Date()
     var updatedAt: Date = Date()
 

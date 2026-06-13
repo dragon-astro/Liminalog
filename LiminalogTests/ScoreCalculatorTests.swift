@@ -122,4 +122,62 @@ struct ScoreStoreTests {
         // 今日が0でも、昨日・一昨日の連続2日が保たれる。
         #expect(store.streakCount(endingAt: todayNoon) == 2)
     }
+
+    @Test("累積スコアは365日より前の獲得分も含める")
+    func cumulativeScoreIncludesScoresOlderThanOneYear() throws {
+        let calendar = Calendar.liminalogTest
+        let now = try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 13, hour: 12)))
+        let container = try TestModelContainer.make()
+        let context = container.mainContext
+        let category = Category(name: "勉強", colorHex: "#3B82F6")
+        context.insert(category)
+
+        func insertPerfectDay(year: Int, month: Int, day: Int) throws -> (PlanBlock, Chapter) {
+            let start = try #require(calendar.date(from: DateComponents(year: year, month: month, day: day, hour: 9)))
+            let end = try #require(calendar.date(byAdding: .hour, value: 1, to: start))
+            let plan = PlanBlock(category: category, title: "勉強", startTime: start, endTime: end)
+            context.insert(plan)
+            let chapter = Chapter(category: category, startTime: start)
+            chapter.endTime = end
+            context.insert(chapter)
+            return (plan, chapter)
+        }
+
+        let oldDay = try insertPerfectDay(year: 2025, month: 5, day: 1)
+        _ = try insertPerfectDay(year: 2026, month: 6, day: 13)
+        try context.save()
+
+        let cumulativeScore = ScoreSnapshotLoader.cumulativeScore(
+            modelContext: context,
+            now: now,
+            calendar: calendar
+        )
+
+        #expect(cumulativeScore == 200)
+
+        let scoreSnapshots = try context.fetch(FetchDescriptor<DailyScoreSnapshot>())
+        #expect(scoreSnapshots.count == 1)
+        #expect(scoreSnapshots.first?.score == 100)
+        #expect(scoreSnapshots.first?.hasRecord == true)
+        #expect(scoreSnapshots.first?.recordedDuration == 3_600)
+        #expect(scoreSnapshots.first?.categoryIDs == [category.id])
+
+        let settings = try #require(try context.fetch(FetchDescriptor<UserSettings>()).first)
+        #expect(settings.isFinalizedScoreLedgerInitialized)
+        #expect(settings.finalizedCumulativeScore == 100)
+
+        context.delete(oldDay.0)
+        context.delete(oldDay.1)
+        try context.save()
+
+        let scoreAfterSourceChanges = ScoreSnapshotLoader.cumulativeScore(
+            modelContext: context,
+            now: now,
+            calendar: calendar
+        )
+
+        #expect(scoreAfterSourceChanges == 200)
+        #expect(settings.finalizedCumulativeScore == 100)
+        #expect(try context.fetch(FetchDescriptor<DailyScoreSnapshot>()).count == 1)
+    }
 }
