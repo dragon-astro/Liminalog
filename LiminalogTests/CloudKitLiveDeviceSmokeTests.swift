@@ -4,6 +4,41 @@ import XCTest
 @testable import Liminalog
 
 final class CloudKitLiveDeviceSmokeTests: XCTestCase {
+    private struct IncomingShareSyncEvent: Sendable {
+        let friendID: UUID?
+        let ownerUserRecordName: String?
+        let isSyncing: Bool
+        let isInitial: Bool
+        let errorDescription: String?
+    }
+
+    private final class IncomingShareSyncEventRecorder: @unchecked Sendable {
+        private let lock = NSLock()
+        private var storage: [IncomingShareSyncEvent] = []
+
+        var events: [IncomingShareSyncEvent] {
+            lock.lock()
+            defer { lock.unlock() }
+            return storage
+        }
+
+        func append(_ notification: Notification) {
+            let userInfo = notification.userInfo ?? [:]
+            let rawFriendID = userInfo[CloudFriendShareRefreshCoordinator.incomingShareSyncStateFriendIDKey] as? String
+            let rawError = userInfo[CloudFriendShareRefreshCoordinator.incomingShareSyncStateErrorDescriptionKey] as? String
+            let event = IncomingShareSyncEvent(
+                friendID: rawFriendID.flatMap(UUID.init(uuidString:)),
+                ownerUserRecordName: userInfo[CloudFriendShareRefreshCoordinator.incomingShareSyncStateOwnerUserRecordNameKey] as? String,
+                isSyncing: userInfo[CloudFriendShareRefreshCoordinator.incomingShareSyncStateIsSyncingKey] as? Bool ?? false,
+                isInitial: userInfo[CloudFriendShareRefreshCoordinator.incomingShareSyncStateIsInitialKey] as? Bool ?? false,
+                errorDescription: rawError?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false ? rawError : nil
+            )
+            lock.lock()
+            storage.append(event)
+            lock.unlock()
+        }
+    }
+
     private enum LiveE2E {
         static let runIDKey = "LIMINALOG_LIVE_E2E_RUN_ID"
         static let participantRecordType = "LiveCloudKitE2EParticipant"
@@ -279,6 +314,61 @@ final class CloudKitLiveDeviceSmokeTests: XCTestCase {
         if LiveE2E.flag("LIMINALOG_DUMP_CLOUD_FRIENDS_FAIL") {
             XCTFail(dump)
         }
+#endif
+    }
+
+    @MainActor
+    func testLiveIncomingFriendShareRefreshPostsSyncProgress() async throws {
+#if targetEnvironment(simulator)
+        throw XCTSkip("Live CloudKit sync progress test requires a signed app on a real iOS device.")
+#else
+        let socialStore = CloudKitSocialStore()
+        let ownRecordName = try await socialStore.currentUserRecordName()
+        let incoming = try await socialStore.incomingConsents(forOwnUserRecordName: ownRecordName)
+        guard let acceptedIncoming = incoming.first(where: {
+            $0.status == .accepted && !($0.shareURL?.isEmpty ?? true)
+        }) else {
+            throw XCTSkip("No accepted incoming CloudKit friend share is available on this device.")
+        }
+
+        let modelContainer = try TestModelContainer.make()
+        let settings = UserSettings()
+        settings.cloudUserRecordName = ownRecordName
+        modelContainer.mainContext.insert(settings)
+        try modelContainer.mainContext.save()
+
+        let recorder = IncomingShareSyncEventRecorder()
+        let observer = NotificationCenter.default.addObserver(
+            forName: CloudFriendShareRefreshCoordinator.incomingShareSyncStateDidChange,
+            object: nil,
+            queue: nil
+        ) { notification in
+            recorder.append(notification)
+        }
+        defer {
+            NotificationCenter.default.removeObserver(observer)
+        }
+
+        let coordinator = CloudFriendShareRefreshCoordinator(modelContainer: modelContainer)
+        await coordinator.refreshIncomingConsents(reason: "live sync progress smoke")
+
+        let events = recorder.events.filter {
+            $0.ownerUserRecordName == acceptedIncoming.ownerUserRecordName
+        }
+        XCTAssertTrue(events.contains { $0.isSyncing && $0.isInitial }, "Expected an initial sync start event.")
+        XCTAssertTrue(events.contains { !$0.isSyncing && $0.isInitial }, "Expected an initial sync finish event.")
+        XCTAssertFalse(events.contains { $0.errorDescription != nil }, "Sync progress events should not report an error: \(events)")
+
+        let friends = try modelContainer.mainContext.fetch(FetchDescriptor<Friend>())
+        guard let syncedFriend = friends.first(where: { $0.userRecordID == acceptedIncoming.ownerUserRecordName }) else {
+            XCTFail("Expected refreshIncomingConsents to restore the accepted incoming friend.")
+            return
+        }
+        XCTAssertEqual(syncedFriend.status, .accepted)
+        XCTAssertNotNil(
+            FriendSharePublishStateStore(modelContext: modelContainer.mainContext)
+                .changeToken(ownerUserRecordName: acceptedIncoming.ownerUserRecordName)
+        )
 #endif
     }
 
