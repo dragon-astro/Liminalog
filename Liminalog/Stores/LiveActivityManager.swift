@@ -35,6 +35,9 @@ struct LiveActivityChapterSnapshot: Sendable {
 final class LiveActivityManager {
     static let shared = LiveActivityManager()
 
+    private var lastRequestFailureAt: Date?
+    private let requestRetryInterval: TimeInterval = 60
+
     private init() {}
 
     @available(iOS 16.2, *)
@@ -64,6 +67,11 @@ final class LiveActivityManager {
         }
 
         guard state.isRecording else { return }
+        guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
+        if let lastRequestFailureAt,
+           Date().timeIntervalSince(lastRequestFailureAt) < requestRetryInterval {
+            return
+        }
 
         do {
             _ = try Activity<LiminalogActivityAttributes>.request(
@@ -71,7 +79,9 @@ final class LiveActivityManager {
                 content: ActivityContent(state: state, staleDate: nil),
                 pushType: nil
             )
+            lastRequestFailureAt = nil
         } catch {
+            lastRequestFailureAt = Date()
             NSLog("Liminalog: Live Activity request failed: \(String(describing: error))")
         }
     }

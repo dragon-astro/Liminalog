@@ -16,11 +16,57 @@ struct CategoryEditSheet: View {
     @State private var defaultAudienceIncludedFriendIDs: [UUID] = []
     @State private var defaultAudienceExcludedFriendIDs: [UUID] = []
     @State private var showingAudiencePicker = false
+    @State private var showingCustomColorPicker = false
+    @State private var customColorDraft: Color = .blue
     @State private var saveError: String?
     @Query(sort: \FriendSet.sortOrder) private var friendSets: [FriendSet]
     @Query(sort: \Friend.displayName) private var friends: [Friend]
 
-    private let icons = ["book.closed.fill", "briefcase.fill", "sparkles", "cup.and.saucer.fill", "tram.fill", "moon.fill", "fork.knife", "figure.run", "gamecontroller.fill", "music.note", "heart.fill", "paintpalette.fill"]
+    private let icons = [
+        "book.closed.fill",
+        "graduationcap.fill",
+        "pencil.and.outline",
+        "briefcase.fill",
+        "laptopcomputer",
+        "doc.text.fill",
+        "tram.fill",
+        "car.fill",
+        "airplane",
+        "figure.walk",
+        "figure.run",
+        "bicycle",
+        "cup.and.saucer.fill",
+        "takeoutbag.and.cup.and.straw.fill",
+        "moon.fill",
+        "bed.double.fill",
+        "sparkles",
+        "gamecontroller.fill",
+        "music.note",
+        "paintpalette.fill",
+        "camera.fill",
+        "tv.fill",
+        "heart.fill",
+        "cross.case.fill",
+        "house.fill",
+        "washer.fill",
+        "cart.fill",
+        "leaf.fill",
+        "person.2.fill",
+        "dumbbell.fill"
+    ]
+
+    private let colorPresets: [CategoryColorPreset] = [
+        .init(name: "青", hex: "#2F80ED"),
+        .init(name: "紫", hex: "#7C5CFF"),
+        .init(name: "水色", hex: "#2D9CDB"),
+        .init(name: "緑", hex: "#27AE60"),
+        .init(name: "ミント", hex: "#00A896"),
+        .init(name: "黄", hex: "#F2C94C"),
+        .init(name: "橙", hex: "#F2994A"),
+        .init(name: "赤", hex: "#EB5757"),
+        .init(name: "桃", hex: "#D946EF"),
+        .init(name: "グレー", hex: "#607D8B")
+    ]
 
     var isNew: Bool { category == nil }
 
@@ -32,7 +78,47 @@ struct CategoryEditSheet: View {
                 }
 
                 Section("カラー") {
-                    ColorPicker("カテゴリカラー", selection: $color, supportsOpacity: false)
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 5), spacing: 12) {
+                        ForEach(colorPresets) { preset in
+                            Button {
+                                color = Color(hex: preset.hex)
+                            } label: {
+                                ZStack {
+                                    Circle()
+                                        .fill(Color(hex: preset.hex))
+                                        .frame(width: 34, height: 34)
+                                    if isSelectedColor(preset.hex) {
+                                        Image(systemName: "checkmark")
+                                            .font(.caption.weight(.bold))
+                                            .foregroundStyle(Color(hex: preset.hex).liminalContrastingTextColor)
+                                    }
+                                }
+                                .frame(width: 42, height: 42)
+                                .background(
+                                    Circle()
+                                        .stroke(isSelectedColor(preset.hex) ? Color(hex: preset.hex) : LiminalTheme.tertiaryText.opacity(0.22), lineWidth: isSelectedColor(preset.hex) ? 3 : 1)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(preset.name)
+                        }
+
+                        Button {
+                            customColorDraft = color
+                            showingCustomColorPicker = true
+                        } label: {
+                            Image(systemName: "plus")
+                                .font(.headline.weight(.semibold))
+                                .foregroundStyle(LiminalTheme.text)
+                                .frame(width: 34, height: 34)
+                                .background(Circle().fill(LiminalTheme.text.opacity(0.08)))
+                                .frame(width: 42, height: 42)
+                                .background(Circle().stroke(LiminalTheme.tertiaryText.opacity(0.22), lineWidth: 1))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("色を追加")
+                    }
+                    .padding(.vertical, 4)
                 }
 
                 Section("アイコン") {
@@ -136,6 +222,16 @@ struct CategoryEditSheet: View {
                     excludedFriendIDs: $defaultAudienceExcludedFriendIDs
                 )
             }
+            .sheet(isPresented: $showingCustomColorPicker) {
+                CategoryCustomColorSheet(
+                    color: $customColorDraft,
+                    icon: icon,
+                    name: trimmedName.isEmpty ? "カテゴリ名" : trimmedName
+                ) {
+                    color = customColorDraft
+                    showingCustomColorPicker = false
+                }
+            }
             .alert("保存できませんでした", isPresented: saveErrorPresented) {
                 Button("OK") {
                     saveError = nil
@@ -158,6 +254,10 @@ struct CategoryEditSheet: View {
 
     private var trimmedName: String {
         name.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func isSelectedColor(_ hex: String) -> Bool {
+        color.hexString.uppercased() == hex.uppercased()
     }
 
     private var saveErrorPresented: Binding<Bool> {
@@ -204,5 +304,60 @@ struct CategoryEditSheet: View {
             return
         }
         dismiss()
+    }
+}
+
+private struct CategoryColorPreset: Identifiable {
+    var id: String { hex }
+    let name: String
+    let hex: String
+}
+
+private struct CategoryCustomColorSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Binding var color: Color
+    let icon: String
+    let name: String
+    let apply: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("カラー") {
+                    ColorPicker("カテゴリカラー", selection: $color, supportsOpacity: false)
+                }
+
+                Section("プレビュー") {
+                    HStack {
+                        Spacer()
+                        VStack(spacing: 8) {
+                            Circle()
+                                .fill(color)
+                                .frame(width: 48, height: 48)
+                                .overlay {
+                                    Image(systemName: icon)
+                                        .foregroundStyle(color.liminalContrastingTextColor)
+                                }
+                            Text(name)
+                                .font(.caption)
+                                .foregroundStyle(LiminalTheme.secondaryText)
+                        }
+                        Spacer()
+                    }
+                    .padding(.vertical, 8)
+                }
+            }
+            .navigationTitle("色を追加")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("キャンセル") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("追加") { apply() }
+                        .fontWeight(.semibold)
+                }
+            }
+        }
     }
 }

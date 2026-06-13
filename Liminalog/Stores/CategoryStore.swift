@@ -8,10 +8,12 @@ final class CategoryStore {
     private let defaultCategorySpecs: [(name: String, hex: String, icon: String, isSleep: Bool)] = [
         ("勉強", "#2F80ED", "book.closed.fill", false),
         ("仕事", "#6C5CE7", "briefcase.fill", false),
-        ("趣味", "#EB5757", "sparkles", false),
-        ("休憩", "#27AE60", "cup.and.saucer.fill", false),
         ("移動", "#F2994A", "tram.fill", false),
+        ("休憩", "#27AE60", "cup.and.saucer.fill", false),
         ("睡眠", "#9B51E0", "moon.fill", true),
+        ("趣味", "#EB5757", "sparkles", false),
+        ("自由時間", "#F2C94C", "gamecontroller.fill", false),
+        ("家事", "#56CCF2", "house.fill", false)
     ]
 
     init(modelContext: ModelContext) {
@@ -117,7 +119,7 @@ final class CategoryStore {
             NSLog("Liminalog: skipped default category seed because categories could not be fetched")
             return false
         }
-        let existingNames = Set(all.map(\.name))
+        var existingNames = Set(all.map(\.name))
         var didInsert = false
 
         for (index, spec) in defaultCategorySpecs.enumerated() where !existingNames.contains(spec.name) {
@@ -130,6 +132,7 @@ final class CategoryStore {
                 isDailyCardSleepCategory: spec.isSleep
             )
             modelContext.insert(category)
+            existingNames.insert(spec.name)
             didInsert = true
         }
 

@@ -456,6 +456,46 @@ struct ChapterStoreTests {
         #expect(debugPlans.contains { $0.isImportant && $0.isAllDay && $0.title == "読書強化" })
         #expect(debugPlans.contains { $0.isImportant && $0.isAllDay && $0.startTime < monthStart && $0.endTime > monthStart })
         #expect(debugPlans.contains { $0.isImportant && $0.isAllDay && $0.startTime < monthEnd && $0.endTime > monthEnd })
+        #expect(!hasTimedPlanOverlapForTest(debugPlans))
+    }
+
+    @Test("開発用Chapter seedは重なった既存ダミー実績を再生成する")
+    func devSampleChapterSeedRegeneratesOverlappingDebugData() throws {
+        let versionKey = "LiminalogDevSampleChapterSeedVersion"
+        let anchorKey = "LiminalogDevSampleChapterSeedAnchorDay"
+        UserDefaults.standard.removeObject(forKey: versionKey)
+        UserDefaults.standard.removeObject(forKey: anchorKey)
+        defer {
+            UserDefaults.standard.removeObject(forKey: versionKey)
+            UserDefaults.standard.removeObject(forKey: anchorKey)
+        }
+
+        let calendar = Calendar.current
+        let now = try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1, hour: 10, minute: 15)))
+        let container = try TestModelContainer.make()
+        let context = container.mainContext
+        let category = Category(name: "壊れたダミー", colorHex: "#999999")
+        context.insert(category)
+        let first = Chapter(category: category, startTime: try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1, hour: 8))))
+        first.endTime = try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1, hour: 9)))
+        first.photoLocalIdentifier = "liminalog.debug.dev-chapter"
+        let second = Chapter(category: category, startTime: try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1, hour: 8, minute: 30))))
+        second.endTime = try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1, hour: 9, minute: 30)))
+        second.photoLocalIdentifier = "liminalog.debug.dev-chapter"
+        context.insert(first)
+        context.insert(second)
+        try context.save()
+        UserDefaults.standard.set(999, forKey: versionKey)
+        UserDefaults.standard.set("20260601", forKey: anchorKey)
+
+        let store = ChapterStore(modelContext: context, clock: MutableTestClock(now: now))
+        store.seedDevSampleChaptersIfNeeded()
+
+        let debugChapters = try context.fetch(FetchDescriptor<Chapter>())
+            .filter { $0.photoLocalIdentifier == "liminalog.debug.dev-chapter" }
+        #expect(debugChapters.count > 2)
+        #expect(!debugChapters.contains { $0.id == first.id || $0.id == second.id })
+        #expect(!hasChapterOverlapForTest(debugChapters, now: now))
     }
 
     @Test("設定のダミーデータOFFはデモ由来の予定と実績だけを削除する")
@@ -567,5 +607,37 @@ struct ChapterStoreTests {
             }
         }
         return dayEnd.timeIntervalSince(cursor) <= tolerance
+    }
+
+    private func hasTimedPlanOverlapForTest(_ plans: [PlanBlock]) -> Bool {
+        let sorted = plans
+            .filter { !$0.isAllDay && $0.endTime > $0.startTime }
+            .sorted { $0.startTime < $1.startTime }
+        var previousEnd: Date?
+        for plan in sorted {
+            if let previousEnd, plan.startTime < previousEnd {
+                return true
+            }
+            previousEnd = max(previousEnd ?? plan.endTime, plan.endTime)
+        }
+        return false
+    }
+
+    private func hasChapterOverlapForTest(_ chapters: [Chapter], now: Date) -> Bool {
+        let sorted = chapters
+            .compactMap { chapter -> (start: Date, end: Date)? in
+                let end = chapter.endTime ?? now
+                guard end > chapter.startTime else { return nil }
+                return (chapter.startTime, end)
+            }
+            .sorted { $0.start < $1.start }
+        var previousEnd: Date?
+        for chapter in sorted {
+            if let previousEnd, chapter.start < previousEnd {
+                return true
+            }
+            previousEnd = max(previousEnd ?? chapter.end, chapter.end)
+        }
+        return false
     }
 }

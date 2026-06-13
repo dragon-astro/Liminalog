@@ -106,6 +106,7 @@ struct CategoryGrid: View {
             Spacer()
 
             Button {
+                LiminalHaptics.selection()
                 isExpanded.toggle()
             } label: {
                 Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
@@ -136,13 +137,16 @@ struct CategoryGrid: View {
                         isActive: activeID == category.id
                     ) {
                         guard store.startChapter(category: category, categorySet: set) else {
+                            LiminalHaptics.failure()
                             operationError = "時間をおいてもう一度試してください。"
                             return
                         }
+                        LiminalHaptics.commit()
                         activeID = category.id
                     }
                 } else {
                     Button {
+                        LiminalHaptics.openSheet()
                         editingSetFromEmptySlot = set
                     } label: {
                         EmptyGridSlot()

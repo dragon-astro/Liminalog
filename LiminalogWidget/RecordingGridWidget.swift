@@ -44,13 +44,24 @@ private enum RecordingWidgetStore {
             CategorySet.self,
             Chapter.self,
             PlanBlock.self,
+            UnlockItem.self,
             VisibilityPreset.self,
-            UserSettings.self
+            UserSettings.self,
+            Friend.self,
+            FriendSet.self,
+            FriendCategoryMapping.self,
+            DailyCardSnapshot.self
         ])
     }
 
     static var localCacheSchema: Schema {
-        Schema([CalendarEventCache.self])
+        Schema([
+            CalendarEventCache.self,
+            FriendSharedPlanRecord.self,
+            FriendSharedChapterRecord.self,
+            FriendSharePublishedItem.self,
+            FriendShareZoneSyncState.self
+        ])
     }
 
     static var schema: Schema {
@@ -59,9 +70,18 @@ private enum RecordingWidgetStore {
             CategorySet.self,
             Chapter.self,
             PlanBlock.self,
+            UnlockItem.self,
             VisibilityPreset.self,
             UserSettings.self,
-            CalendarEventCache.self
+            Friend.self,
+            FriendSet.self,
+            FriendCategoryMapping.self,
+            DailyCardSnapshot.self,
+            CalendarEventCache.self,
+            FriendSharedPlanRecord.self,
+            FriendSharedChapterRecord.self,
+            FriendSharePublishedItem.self,
+            FriendShareZoneSyncState.self
         ])
     }
 

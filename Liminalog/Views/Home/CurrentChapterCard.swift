@@ -89,9 +89,11 @@ struct CurrentChapterCard: View {
 
                 Button {
                     guard store.endActiveChapter() else {
+                        LiminalHaptics.failure()
                         operationError = "記録を終了できませんでした。時間をおいてもう一度試してください。"
                         return
                     }
+                    LiminalHaptics.commit()
                 } label: {
                     Image(systemName: "stop.fill")
                         .foregroundStyle(category.displayColor)
@@ -102,9 +104,11 @@ struct CurrentChapterCard: View {
 
                 Button {
                     guard store.setChapterVisibility(chapter, isPublic: !chapter.isPublic) else {
+                        LiminalHaptics.failure()
                         operationError = "公開設定を変更できませんでした。時間をおいてもう一度試してください。"
                         return
                     }
+                    LiminalHaptics.selection()
                 } label: {
                     Image(systemName: chapter.isPublic ? "eye" : "eye.slash")
                         .foregroundStyle(LiminalTheme.secondaryText)

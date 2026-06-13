@@ -52,8 +52,6 @@ final class BootstrapStore {
     }
 
     private func bootstrapAttempt(now: Date) -> BootstrapAttemptResult {
-        // CloudKitインポートで合流した重複（各端末のシード等）を、シードより先に統合する。
-        CloudDuplicateMergeStore(modelContext: modelContext).mergeAll()
         let didRunUserScopedSeeds: Bool
         if SeedCoordinator.ensureUserSettingsIfAvailable(in: modelContext, now: now) != nil {
             SeedCoordinator.consolidateBuiltInVisibilityPresets(in: modelContext, now: now)

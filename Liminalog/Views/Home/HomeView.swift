@@ -33,6 +33,7 @@ struct HomeView: View {
     @State private var showingAddSheet = false
     @State private var addSheetStart = Date()
     @State private var clock = TickClock(interval: 60)
+    @State private var pendingLiveActivitySyncTask: Task<Void, Never>?
     @State private var tomorrowHasActionableGap = false
     @State private var didApplyInitialPage = false
 
@@ -73,11 +74,23 @@ struct HomeView: View {
             clock.start()
             applyInitialPage()
             store.seedDefaultCategorySetsIfNeeded()
-            store.syncLiveActivityWithActiveChapter()
+            scheduleLiveActivitySyncAfterAppear()
             refreshTomorrowCoverage()
         }
         .onDisappear {
+            pendingLiveActivitySyncTask?.cancel()
+            pendingLiveActivitySyncTask = nil
             clock.stop()
+        }
+    }
+
+    private func scheduleLiveActivitySyncAfterAppear() {
+        pendingLiveActivitySyncTask?.cancel()
+        pendingLiveActivitySyncTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
+            guard !Task.isCancelled else { return }
+            store.syncLiveActivityWithActiveChapter()
+            pendingLiveActivitySyncTask = nil
         }
     }
 
