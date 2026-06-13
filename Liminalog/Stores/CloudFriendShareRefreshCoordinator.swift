@@ -52,6 +52,7 @@ private final class CloudFriendShareTimeoutBox<Value>: @unchecked Sendable {
 final class CloudFriendShareRefreshCoordinator {
     static let refreshRequested = Notification.Name("LiminalogCloudFriendShareRefreshRequested")
     static let sharedRecordsDidChange = Notification.Name("LiminalogFriendSharedRecordsDidChange")
+    static let incomingShareSyncStateDidChange = Notification.Name("LiminalogIncomingFriendShareSyncStateDidChange")
     static let pendingOutgoingRefreshDefaultsKey = "cloudFriendShare.pendingOutgoingRefresh"
     static let refreshReasonKey = "reason"
     static let changedPlanSourceIDsKey = "changedPlanSourceIDs"
@@ -62,6 +63,12 @@ final class CloudFriendShareRefreshCoordinator {
     static let sharedRecordsDidChangeRequiresFullReloadKey = "requiresFullReload"
     static let sharedRecordsDidChangeAffectedStartDatesKey = "affectedStartDates"
     static let sharedRecordsDidChangeAffectedEndDatesKey = "affectedEndDates"
+    static let incomingShareSyncStateFriendIDKey = "friendID"
+    static let incomingShareSyncStateOwnerUserRecordNameKey = "ownerUserRecordName"
+    static let incomingShareSyncStateIsSyncingKey = "isSyncing"
+    static let incomingShareSyncStateIsInitialKey = "isInitial"
+    static let incomingShareSyncStateErrorDescriptionKey = "errorDescription"
+    static let incomingShareSyncStateUpdatedAtKey = "updatedAt"
     private static let batchedSourceIDFetchThreshold = 24
 
     private let modelContainer: ModelContainer
@@ -148,6 +155,27 @@ final class CloudFriendShareRefreshCoordinator {
                 sharedRecordsDidChangeRequiresFullReloadKey: impact.requiresFullReload,
                 sharedRecordsDidChangeAffectedStartDatesKey: impact.affectedIntervals.map(\.start),
                 sharedRecordsDidChangeAffectedEndDatesKey: impact.affectedIntervals.map(\.end)
+            ]
+        )
+    }
+
+    private static func postIncomingShareSyncState(
+        friendID: UUID,
+        ownerUserRecordName: String,
+        isSyncing: Bool,
+        isInitial: Bool,
+        error: Error? = nil
+    ) {
+        NotificationCenter.default.post(
+            name: incomingShareSyncStateDidChange,
+            object: nil,
+            userInfo: [
+                incomingShareSyncStateFriendIDKey: friendID.uuidString,
+                incomingShareSyncStateOwnerUserRecordNameKey: ownerUserRecordName,
+                incomingShareSyncStateIsSyncingKey: isSyncing,
+                incomingShareSyncStateIsInitialKey: isInitial,
+                incomingShareSyncStateErrorDescriptionKey: error.map { String(describing: $0) } ?? "",
+                incomingShareSyncStateUpdatedAtKey: Date()
             ]
         )
     }
@@ -609,10 +637,54 @@ final class CloudFriendShareRefreshCoordinator {
     ) async throws {
         let stateStore = FriendSharePublishStateStore(modelContext: modelContext)
         let owner = friend.userRecordID
+        let previousToken = stateStore.changeToken(ownerUserRecordName: owner)
+        let isInitialSync = previousToken == nil
+        Self.postIncomingShareSyncState(
+            friendID: friend.id,
+            ownerUserRecordName: owner,
+            isSyncing: true,
+            isInitial: isInitialSync
+        )
+        do {
+            try await syncIncomingShare(
+                friend: friend,
+                shareURL: shareURL,
+                ownUserRecordName: ownUserRecordName,
+                modelContext: modelContext,
+                stateStore: stateStore,
+                previousToken: previousToken
+            )
+            Self.postIncomingShareSyncState(
+                friendID: friend.id,
+                ownerUserRecordName: owner,
+                isSyncing: false,
+                isInitial: isInitialSync
+            )
+        } catch {
+            Self.postIncomingShareSyncState(
+                friendID: friend.id,
+                ownerUserRecordName: owner,
+                isSyncing: false,
+                isInitial: isInitialSync,
+                error: error
+            )
+            throw error
+        }
+    }
+
+    private func syncIncomingShare(
+        friend: Friend,
+        shareURL: URL,
+        ownUserRecordName: String,
+        modelContext: ModelContext,
+        stateStore: FriendSharePublishStateStore,
+        previousToken: CKServerChangeToken?
+    ) async throws {
+        let owner = friend.userRecordID
         let payload = try await incomingShareSyncPayload(
             ownerUserRecordName: owner,
             shareURL: shareURL,
-            previousToken: stateStore.changeToken(ownerUserRecordName: owner)
+            previousToken: previousToken
         )
         if let snapshot = payload.acceptedSnapshot {
             CloudFriendShareSnapshotApplier.apply(snapshot, to: friend)

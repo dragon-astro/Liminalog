@@ -2567,6 +2567,118 @@ private struct FriendScoreCard: View {
     }
 }
 
+private struct FriendCalendarIncomingSyncState {
+    var isSyncing = false
+    var isInitial = true
+    var hasFinishedInitialSync = false
+    var errorDescription: String?
+    var updatedAt: Date?
+
+    var shouldShow: Bool {
+        isSyncing || !hasFinishedInitialSync || errorDescription != nil
+    }
+
+    var title: String {
+        if errorDescription != nil, !isSyncing {
+            return "同期を再試行しています"
+        }
+        if isInitial || !hasFinishedInitialSync {
+            return "過去の予定を同期中"
+        }
+        return "最新の予定を同期中"
+    }
+
+    var message: String {
+        if errorDescription != nil, !isSyncing {
+            return "一部の予定をまだ受信できていません。通信状態を見ながら自動で再試行します。"
+        }
+        if isInitial || !hasFinishedInitialSync {
+            return "年単位の履歴は受信に時間がかかることがあります。表示される予定は同期完了まで増える場合があります。"
+        }
+        return "友達の変更を反映しています。"
+    }
+}
+
+private struct FriendCalendarIncomingSyncNotification {
+    let friendID: UUID?
+    let ownerUserRecordName: String?
+    let isSyncing: Bool
+    let isInitial: Bool
+    let errorDescription: String?
+    let updatedAt: Date?
+
+    init(_ notification: Notification) {
+        let userInfo = notification.userInfo ?? [:]
+        if let rawFriendID = userInfo[CloudFriendShareRefreshCoordinator.incomingShareSyncStateFriendIDKey] as? String {
+            friendID = UUID(uuidString: rawFriendID)
+        } else {
+            friendID = nil
+        }
+        ownerUserRecordName = userInfo[CloudFriendShareRefreshCoordinator.incomingShareSyncStateOwnerUserRecordNameKey] as? String
+        isSyncing = userInfo[CloudFriendShareRefreshCoordinator.incomingShareSyncStateIsSyncingKey] as? Bool ?? false
+        isInitial = userInfo[CloudFriendShareRefreshCoordinator.incomingShareSyncStateIsInitialKey] as? Bool ?? false
+        if let rawError = userInfo[CloudFriendShareRefreshCoordinator.incomingShareSyncStateErrorDescriptionKey] as? String,
+           !rawError.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            errorDescription = rawError
+        } else {
+            errorDescription = nil
+        }
+        updatedAt = userInfo[CloudFriendShareRefreshCoordinator.incomingShareSyncStateUpdatedAtKey] as? Date
+    }
+
+    func affects(friend: Friend) -> Bool {
+        if let friendID, friendID == friend.id {
+            return true
+        }
+        return ownerUserRecordName == friend.userRecordID
+    }
+}
+
+private struct FriendCalendarIncomingSyncBanner: View {
+    let state: FriendCalendarIncomingSyncState
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            if state.errorDescription == nil || state.isSyncing {
+                ProgressView()
+                    .controlSize(.small)
+                    .tint(LiminalTheme.accent)
+                    .frame(width: 20, height: 20)
+                    .padding(.top, 1)
+            } else {
+                Image(systemName: "icloud.and.arrow.down")
+                    .font(.callout.weight(.semibold))
+                    .foregroundStyle(LiminalTheme.accent)
+                    .frame(width: 20, height: 20)
+                    .padding(.top, 1)
+            }
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(state.title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(LiminalTheme.text)
+                Text(state.message)
+                    .font(.caption)
+                    .foregroundStyle(LiminalTheme.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(LiminalTheme.elevated)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(LiminalTheme.divider.opacity(0.72), lineWidth: 1)
+        )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(state.title)。\(state.message)")
+    }
+}
+
 private struct FriendCalendarView: View {
     let friend: Friend
     @Environment(\.modelContext) private var modelContext
@@ -2579,6 +2691,7 @@ private struct FriendCalendarView: View {
     @State private var pickerYear = Calendar.japanese.component(.year, from: Date())
     @State private var pickerMonth = Calendar.japanese.component(.month, from: Date())
     @State private var selectedDay: FriendSharedCalendarTargetDay?
+    @State private var incomingSyncState = FriendCalendarIncomingSyncState()
 
     private let calendar = Calendar.japanese
     private let weekdays = Calendar.japaneseShortWeekdaySymbols
@@ -2592,6 +2705,14 @@ private struct FriendCalendarView: View {
     var body: some View {
         VStack(spacing: 0) {
             calendarTopBar
+
+            if shouldShowIncomingSyncBanner {
+                FriendCalendarIncomingSyncBanner(state: incomingSyncState)
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 8)
+                    .background(LiminalTheme.surface)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
 
             CalendarWeekdayHeader(
                 weekdays: weekdays,
@@ -2621,6 +2742,7 @@ private struct FriendCalendarView: View {
             .frame(maxHeight: .infinity, alignment: .top)
             .onAppear {
                 handleCalendarAppear()
+                refreshIncomingSyncStateFromStore()
             }
             .onChange(of: scrolledOffset) { _, newValue in
                 handleScroll(to: newValue)
@@ -2628,9 +2750,14 @@ private struct FriendCalendarView: View {
             .onReceive(NotificationCenter.default.publisher(for: CloudFriendShareRefreshCoordinator.sharedRecordsDidChange)) { notification in
                 guard isSharedRecordChange(for: notification) else { return }
                 reloadVisibleData(forSharedRecordChange: notification)
+                refreshIncomingSyncStateFromStore()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: CloudFriendShareRefreshCoordinator.incomingShareSyncStateDidChange)) { notification in
+                updateIncomingSyncState(from: notification)
             }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
                 reloadAfterForeground()
+                refreshIncomingSyncStateFromStore()
             }
         }
         .background(LiminalTheme.canvasGradient)
@@ -2722,6 +2849,16 @@ private struct FriendCalendarView: View {
         return (currentYear - 10)...(currentYear + 10)
     }
 
+    private var hasIncomingShare: Bool {
+        friend.status == .accepted
+            && !friend.userRecordID.isEmpty
+            && !(friend.shareURL?.isEmpty ?? true)
+    }
+
+    private var shouldShowIncomingSyncBanner: Bool {
+        hasIncomingShare && incomingSyncState.shouldShow
+    }
+
     // MARK: - ページング / データ取得（遅延・月単位キャッシュ）
 
     private func month(forOffset offset: Int) -> Date {
@@ -2776,6 +2913,35 @@ private struct FriendCalendarView: View {
         #else
         ensureData(around: scrolledOffset ?? 0)
         #endif
+    }
+
+    private func refreshIncomingSyncStateFromStore() {
+        guard hasIncomingShare else {
+            incomingSyncState = FriendCalendarIncomingSyncState()
+            return
+        }
+        let hasChangeToken = FriendSharePublishStateStore(modelContext: modelContext)
+            .changeToken(ownerUserRecordName: friend.userRecordID) != nil
+        incomingSyncState.hasFinishedInitialSync = hasChangeToken
+        if hasChangeToken, !incomingSyncState.isSyncing {
+            incomingSyncState.errorDescription = nil
+        } else if !hasChangeToken {
+            incomingSyncState.isInitial = true
+        }
+    }
+
+    private func updateIncomingSyncState(from notification: Notification) {
+        let change = FriendCalendarIncomingSyncNotification(notification)
+        guard change.affects(friend: friend) else { return }
+        incomingSyncState.isSyncing = change.isSyncing
+        incomingSyncState.isInitial = change.isInitial
+        incomingSyncState.updatedAt = change.updatedAt
+        incomingSyncState.errorDescription = change.errorDescription
+        if change.isSyncing {
+            incomingSyncState.hasFinishedInitialSync = false
+        } else {
+            refreshIncomingSyncStateFromStore()
+        }
     }
 
     private func reloadVisibleData() {
