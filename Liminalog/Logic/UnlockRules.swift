@@ -19,6 +19,9 @@ enum UnlockRequirementKind: String, Codable, CaseIterable, Identifiable {
     case balancedDays
     case focusedDays
     case changeSignalDays
+    /// ひかりのかけら交換（doc 16 §12.0.1）。指標では絶対に自動解放されず、
+    /// ユーザーの交換操作だけが unlockedAt を立てる。
+    case exchange
 
     var id: String { rawValue }
 
@@ -42,6 +45,8 @@ enum UnlockRequirementKind: String, Codable, CaseIterable, Identifiable {
              .recordingHabitDays, .personalBestDays, .returnAfterGapDays, .firstRecordDays,
              .balancedDays, .focusedDays, .changeSignalDays:
             "回"
+        case .exchange:
+            "枚"
         }
     }
 
@@ -83,6 +88,8 @@ enum UnlockRequirementKind: String, Codable, CaseIterable, Identifiable {
             "一点集中の日"
         case .changeSignalDays:
             "変化を作った日"
+        case .exchange:
+            "ひかりのかけら"
         }
     }
 
@@ -103,14 +110,22 @@ enum UnlockRequirementKind: String, Codable, CaseIterable, Identifiable {
             "回"
         case .distinctCategoryCount:
             "種類"
+        case .exchange:
+            "枚"
         }
     }
 
     func requirementText(requiredValue: Int) -> String {
-        "\(conditionTitle) \(requiredValue.formatted())\(progressUnit)"
+        if self == .exchange {
+            return "ひかりのかけら \(requiredValue.formatted())枚と交換"
+        }
+        return "\(conditionTitle) \(requiredValue.formatted())\(progressUnit)"
     }
 
     func progressText(currentValue: Int, requiredValue: Int, progress: Double) -> String {
+        if self == .exchange {
+            return progress >= 1 ? "交換済み" : "交換で入手"
+        }
         let visibleCurrent = min(max(currentValue, 0), max(requiredValue, 0))
         let percent = Int((min(max(progress, 0), 1) * 100).rounded(.down))
         return "\(visibleCurrent.formatted()) / \(requiredValue.formatted())\(progressUnit)・\(percent)%"
@@ -179,6 +194,9 @@ struct UnlockMetrics: Equatable {
             focusedDays
         case .changeSignalDays:
             changeSignalDays
+        case .exchange:
+            // 交換は指標で満たされない（ユーザー操作のみ）
+            0
         }
     }
 }
@@ -254,6 +272,7 @@ enum UnlockCatalog {
     // テーマ/炎は既存軸を維持し、カード/フレーム/バッジだけを新カタログへ置き換える。
     private static let definitions: [UnlockCatalogDefinition] =
         frameDefinitions
+        + personalityFrameDefinitions
         + cardDefinitions
         + badgeDefinitions
         + retainedThemeAndStreakDefinitions
@@ -281,27 +300,50 @@ enum UnlockCatalog {
         .init(key: "frame.free_instrument_platinum_crest", kind: .iconFrame, displayName: "白金冠環", systemImageName: "circle", tintHex: "#F2F4FF", targetID: "free_instrument_platinum_crest", requirement: .init(kind: .planMatchedDays, value: 365))
     ]
 
+    private static let personalityFrameDefinitions: [UnlockCatalogDefinition] = [
+        .init(key: "frame.free_dawn_horizon", kind: .iconFrame, displayName: "暁線", systemImageName: "sunrise.fill", tintHex: "#FFB3C7", targetID: "free_dawn_horizon", requirement: .init(kind: .exchange, value: 1)),
+        .init(key: "frame.free_ripple_border", kind: .iconFrame, displayName: "水縁", systemImageName: "water.waves", tintHex: "#39D5E8", targetID: "free_ripple_border", requirement: .init(kind: .exchange, value: 1)),
+        .init(key: "frame.free_cloud_veil", kind: .iconFrame, displayName: "雲幕", systemImageName: "cloud.fill", tintHex: "#9BDCF8", targetID: "free_cloud_veil", requirement: .init(kind: .exchange, value: 1)),
+        .init(key: "frame.free_leaf_corner", kind: .iconFrame, displayName: "葉隅", systemImageName: "leaf.fill", tintHex: "#5FE0A8", targetID: "free_leaf_corner", requirement: .init(kind: .exchange, value: 1)),
+        .init(key: "frame.free_frost_edge", kind: .iconFrame, displayName: "霜縁", systemImageName: "snowflake", tintHex: "#8AB4FF", targetID: "free_frost_edge", requirement: .init(kind: .exchange, value: 1)),
+        .init(key: "frame.free_thread_border", kind: .iconFrame, displayName: "糸枠", systemImageName: "scribble.variable", tintHex: "#C9A7FF", targetID: "free_thread_border", requirement: .init(kind: .exchange, value: 1)),
+        .init(key: "frame.free_orbit_grid", kind: .iconFrame, displayName: "軌跡線", systemImageName: "scope", tintHex: "#7DD3FC", targetID: "free_orbit_grid", requirement: .init(kind: .exchange, value: 1)),
+        .init(key: "frame.free_rain", kind: .iconFrame, displayName: "雨粒", systemImageName: "cloud.rain.fill", tintHex: "#7DD3FC", targetID: "free_rain", requirement: .init(kind: .exchange, value: 1)),
+        .init(key: "frame.free_candle", kind: .iconFrame, displayName: "灯影", systemImageName: "flame.fill", tintHex: "#FF8A5B", targetID: "free_candle", requirement: .init(kind: .exchange, value: 1)),
+        .init(key: "frame.free_ink", kind: .iconFrame, displayName: "墨縁", systemImageName: "paintbrush.pointed.fill", tintHex: "#A78BFA", targetID: "free_ink", requirement: .init(kind: .exchange, value: 1)),
+        .init(key: "frame.free_aurora_trace", kind: .iconFrame, displayName: "極光線", systemImageName: "sparkles", tintHex: "#5FE0A8", targetID: "free_aurora_trace", requirement: .init(kind: .exchange, value: 1)),
+        .init(key: "frame.free_glass_bead", kind: .iconFrame, displayName: "硝子点", systemImageName: "drop.circle.fill", tintHex: "#39D5E8", targetID: "free_glass_bead", requirement: .init(kind: .exchange, value: 1)),
+        .init(key: "frame.free_linen_stitch", kind: .iconFrame, displayName: "織目", systemImageName: "circle.dashed", tintHex: "#C9A7FF", targetID: "free_linen_stitch", requirement: .init(kind: .exchange, value: 1)),
+        .init(key: "frame.free_constellation", kind: .iconFrame, displayName: "星図線", systemImageName: "scope", tintHex: "#7DD3FC", targetID: "free_constellation", requirement: .init(kind: .exchange, value: 1)),
+        .init(key: "frame.free_wave", kind: .iconFrame, displayName: "波端", systemImageName: "water.waves", tintHex: "#39D5E8", targetID: "free_wave", requirement: .init(kind: .exchange, value: 1)),
+        .init(key: "frame.free_mist", kind: .iconFrame, displayName: "霧面", systemImageName: "circle.dotted", tintHex: "#C9A7FF", targetID: "free_mist", requirement: .init(kind: .exchange, value: 1)),
+        .init(key: "frame.free_petal_corner", kind: .iconFrame, displayName: "花隅", systemImageName: "camera.macro", tintHex: "#FF8FB3", targetID: "free_petal_corner", requirement: .init(kind: .exchange, value: 1)),
+        .init(key: "frame.free_stone_path", kind: .iconFrame, displayName: "石径", systemImageName: "point.topleft.down.curvedto.point.bottomright.up", tintHex: "#5FE0A8", targetID: "free_stone_path", requirement: .init(kind: .exchange, value: 1)),
+        .init(key: "frame.free_sunline", kind: .iconFrame, displayName: "陽線", systemImageName: "sunrise.fill", tintHex: "#FFC98A", targetID: "free_sunline", requirement: .init(kind: .exchange, value: 1)),
+        .init(key: "frame.free_night_bloom", kind: .iconFrame, displayName: "夜花", systemImageName: "camera.macro", tintHex: "#FF8FB3", targetID: "free_night_bloom", requirement: .init(kind: .exchange, value: 1))
+    ]
+
     private static let cardDefinitions: [UnlockCatalogDefinition] = [
-        .init(key: "card.free_dawn_horizon_panel", kind: .cardStyle, displayName: "暁線", systemImageName: "sunrise.fill", tintHex: "#FFB3C7", targetID: "free_dawn_horizon_panel", requirement: .cumulativeScore(450)),
-        .init(key: "card.free_ripple_border_panel", kind: .cardStyle, displayName: "水縁", systemImageName: "water.waves", tintHex: "#39D5E8", targetID: "free_ripple_border_panel", requirement: .cumulativeScore(750)),
-        .init(key: "card.free_cloud_veil_panel", kind: .cardStyle, displayName: "雲幕", systemImageName: "cloud.fill", tintHex: "#9BDCF8", targetID: "free_cloud_veil_panel", requirement: .cumulativeScore(1_050)),
-        .init(key: "card.free_leaf_corner_panel", kind: .cardStyle, displayName: "葉隅", systemImageName: "leaf.fill", tintHex: "#5FE0A8", targetID: "free_leaf_corner_panel", requirement: .cumulativeScore(1_500)),
-        .init(key: "card.free_frost_edge_panel", kind: .cardStyle, displayName: "霜縁", systemImageName: "snowflake", tintHex: "#8AB4FF", targetID: "free_frost_edge_panel", requirement: .cumulativeScore(2_100)),
-        .init(key: "card.free_thread_border_panel", kind: .cardStyle, displayName: "糸枠", systemImageName: "scribble.variable", tintHex: "#C9A7FF", targetID: "free_thread_border_panel", requirement: .cumulativeScore(2_700)),
-        .init(key: "card.free_orbit_grid_panel", kind: .cardStyle, displayName: "軌跡線", systemImageName: "scope", tintHex: "#7DD3FC", targetID: "free_orbit_grid_panel", requirement: .cumulativeScore(3_300)),
-        .init(key: "card.free_rain_panel", kind: .cardStyle, displayName: "雨粒", systemImageName: "cloud.rain.fill", tintHex: "#7DD3FC", targetID: "free_rain_panel", requirement: .cumulativeScore(3_900)),
-        .init(key: "card.free_candle_panel", kind: .cardStyle, displayName: "灯影", systemImageName: "flame.fill", tintHex: "#FF8A5B", targetID: "free_candle_panel", requirement: .cumulativeScore(4_800)),
-        .init(key: "card.free_ink_panel", kind: .cardStyle, displayName: "墨縁", systemImageName: "paintbrush.pointed.fill", tintHex: "#A78BFA", targetID: "free_ink_panel", requirement: .cumulativeScore(5_700)),
-        .init(key: "card.free_aurora_trace_panel", kind: .cardStyle, displayName: "極光線", systemImageName: "sparkles", tintHex: "#5FE0A8", targetID: "free_aurora_trace_panel", requirement: .cumulativeScore(6_600)),
-        .init(key: "card.free_glass_bead_panel", kind: .cardStyle, displayName: "硝子点", systemImageName: "drop.circle.fill", tintHex: "#39D5E8", targetID: "free_glass_bead_panel", requirement: .cumulativeScore(7_800)),
-        .init(key: "card.free_linen_stitch_panel", kind: .cardStyle, displayName: "織目", systemImageName: "circle.dashed", tintHex: "#C9A7FF", targetID: "free_linen_stitch_panel", requirement: .cumulativeScore(9_000)),
-        .init(key: "card.free_constellation_panel", kind: .cardStyle, displayName: "星図線", systemImageName: "scope", tintHex: "#7DD3FC", targetID: "free_constellation_panel", requirement: .cumulativeScore(10_200)),
-        .init(key: "card.free_wave_panel", kind: .cardStyle, displayName: "波端", systemImageName: "water.waves", tintHex: "#39D5E8", targetID: "free_wave_panel", requirement: .cumulativeScore(11_400)),
-        .init(key: "card.free_mist_panel", kind: .cardStyle, displayName: "霧面", systemImageName: "circle.dotted", tintHex: "#C9A7FF", targetID: "free_mist_panel", requirement: .cumulativeScore(13_200)),
-        .init(key: "card.free_petal_corner_panel", kind: .cardStyle, displayName: "花隅", systemImageName: "camera.macro", tintHex: "#FF8FB3", targetID: "free_petal_corner_panel", requirement: .cumulativeScore(15_000)),
-        .init(key: "card.free_stone_path_panel", kind: .cardStyle, displayName: "石径", systemImageName: "point.topleft.down.curvedto.point.bottomright.up", tintHex: "#5FE0A8", targetID: "free_stone_path_panel", requirement: .cumulativeScore(16_800)),
-        .init(key: "card.free_sunline_panel", kind: .cardStyle, displayName: "陽線", systemImageName: "sunrise.fill", tintHex: "#FFC98A", targetID: "free_sunline_panel", requirement: .cumulativeScore(19_200)),
-        .init(key: "card.free_night_bloom_panel", kind: .cardStyle, displayName: "夜花", systemImageName: "camera.macro", tintHex: "#FF8FB3", targetID: "free_night_bloom_panel", requirement: .cumulativeScore(21_600))
+        .init(key: "card.free_dawn_horizon_panel", kind: .cardStyle, displayName: "暁線", systemImageName: "sunrise.fill", tintHex: "#FFB3C7", targetID: "free_dawn_horizon_panel", requirement: .init(kind: .exchange, value: 1)),
+        .init(key: "card.free_ripple_border_panel", kind: .cardStyle, displayName: "水縁", systemImageName: "water.waves", tintHex: "#39D5E8", targetID: "free_ripple_border_panel", requirement: .init(kind: .exchange, value: 1)),
+        .init(key: "card.free_cloud_veil_panel", kind: .cardStyle, displayName: "雲幕", systemImageName: "cloud.fill", tintHex: "#9BDCF8", targetID: "free_cloud_veil_panel", requirement: .init(kind: .exchange, value: 1)),
+        .init(key: "card.free_leaf_corner_panel", kind: .cardStyle, displayName: "葉隅", systemImageName: "leaf.fill", tintHex: "#5FE0A8", targetID: "free_leaf_corner_panel", requirement: .init(kind: .exchange, value: 1)),
+        .init(key: "card.free_frost_edge_panel", kind: .cardStyle, displayName: "霜縁", systemImageName: "snowflake", tintHex: "#8AB4FF", targetID: "free_frost_edge_panel", requirement: .init(kind: .exchange, value: 1)),
+        .init(key: "card.free_thread_border_panel", kind: .cardStyle, displayName: "糸枠", systemImageName: "scribble.variable", tintHex: "#C9A7FF", targetID: "free_thread_border_panel", requirement: .init(kind: .exchange, value: 1)),
+        .init(key: "card.free_orbit_grid_panel", kind: .cardStyle, displayName: "軌跡線", systemImageName: "scope", tintHex: "#7DD3FC", targetID: "free_orbit_grid_panel", requirement: .init(kind: .exchange, value: 1)),
+        .init(key: "card.free_rain_panel", kind: .cardStyle, displayName: "雨粒", systemImageName: "cloud.rain.fill", tintHex: "#7DD3FC", targetID: "free_rain_panel", requirement: .init(kind: .exchange, value: 1)),
+        .init(key: "card.free_candle_panel", kind: .cardStyle, displayName: "灯影", systemImageName: "flame.fill", tintHex: "#FF8A5B", targetID: "free_candle_panel", requirement: .init(kind: .exchange, value: 1)),
+        .init(key: "card.free_ink_panel", kind: .cardStyle, displayName: "墨縁", systemImageName: "paintbrush.pointed.fill", tintHex: "#A78BFA", targetID: "free_ink_panel", requirement: .init(kind: .exchange, value: 1)),
+        .init(key: "card.free_aurora_trace_panel", kind: .cardStyle, displayName: "極光線", systemImageName: "sparkles", tintHex: "#5FE0A8", targetID: "free_aurora_trace_panel", requirement: .init(kind: .exchange, value: 1)),
+        .init(key: "card.free_glass_bead_panel", kind: .cardStyle, displayName: "硝子点", systemImageName: "drop.circle.fill", tintHex: "#39D5E8", targetID: "free_glass_bead_panel", requirement: .init(kind: .exchange, value: 1)),
+        .init(key: "card.free_linen_stitch_panel", kind: .cardStyle, displayName: "織目", systemImageName: "circle.dashed", tintHex: "#C9A7FF", targetID: "free_linen_stitch_panel", requirement: .init(kind: .exchange, value: 1)),
+        .init(key: "card.free_constellation_panel", kind: .cardStyle, displayName: "星図線", systemImageName: "scope", tintHex: "#7DD3FC", targetID: "free_constellation_panel", requirement: .init(kind: .exchange, value: 1)),
+        .init(key: "card.free_wave_panel", kind: .cardStyle, displayName: "波端", systemImageName: "water.waves", tintHex: "#39D5E8", targetID: "free_wave_panel", requirement: .init(kind: .exchange, value: 1)),
+        .init(key: "card.free_mist_panel", kind: .cardStyle, displayName: "霧面", systemImageName: "circle.dotted", tintHex: "#C9A7FF", targetID: "free_mist_panel", requirement: .init(kind: .exchange, value: 1)),
+        .init(key: "card.free_petal_corner_panel", kind: .cardStyle, displayName: "花隅", systemImageName: "camera.macro", tintHex: "#FF8FB3", targetID: "free_petal_corner_panel", requirement: .init(kind: .exchange, value: 1)),
+        .init(key: "card.free_stone_path_panel", kind: .cardStyle, displayName: "石径", systemImageName: "point.topleft.down.curvedto.point.bottomright.up", tintHex: "#5FE0A8", targetID: "free_stone_path_panel", requirement: .init(kind: .exchange, value: 1)),
+        .init(key: "card.free_sunline_panel", kind: .cardStyle, displayName: "陽線", systemImageName: "sunrise.fill", tintHex: "#FFC98A", targetID: "free_sunline_panel", requirement: .init(kind: .exchange, value: 1)),
+        .init(key: "card.free_night_bloom_panel", kind: .cardStyle, displayName: "夜花", systemImageName: "camera.macro", tintHex: "#FF8FB3", targetID: "free_night_bloom_panel", requirement: .init(kind: .exchange, value: 1))
     ]
 
     private static let badgeDefinitions: [UnlockCatalogDefinition] = [
@@ -327,16 +369,17 @@ enum UnlockCatalog {
         .init(key: "badge.change_maker", kind: .nameBadge, displayName: "変化を作る人", systemImageName: "arrow.left.arrow.right.circle.fill", tintHex: "#F2994A", targetID: "change_maker", requirement: .init(kind: .changeSignalDays, value: 10))
     ]
 
+    // 獲得テーマは極光のみ（docs/17 マネタイズ方針：テーマは課金カタログの主力とし、
+    // 無料の入口として1つだけ残す）。暁・茜・朧・残照・月白は課金候補として温存のため
+    // カタログから除外。除外した built-in 行は UnlockStore.removeRetiredBuiltInItems が掃除する。
     private static let retainedThemeAndStreakDefinitions: [UnlockCatalogDefinition] = [
-        .init(key: "streak.gold_flame", kind: .streakIcon, displayName: "金の炎", systemImageName: "flame.fill", tintHex: "#F2C94C", targetID: "bolt", requirement: .init(kind: .streakDays, value: 7)),
+        .init(key: "streak.orange_flame", kind: .streakIcon, displayName: "橙の炎", systemImageName: "flame.fill", tintHex: "#F2994A", targetID: "orange_flame", requirement: .init(kind: .streakDays, value: 3)),
         .init(key: "theme.aurora", kind: .theme, displayName: "極光", systemImageName: "sparkles", tintHex: "#5FE0A8", targetID: "aurora", requirement: .init(kind: .recordedDays, value: 7)),
-        .init(key: "streak.orange_flame", kind: .streakIcon, displayName: "橙の炎", systemImageName: "flame.fill", tintHex: "#F2994A", targetID: "sun", requirement: .init(kind: .streakDays, value: 14)),
-        .init(key: "theme.akatsuki", kind: .theme, displayName: "暁", systemImageName: "sunrise.fill", tintHex: "#9B8CFF", targetID: "akatsuki", requirement: .init(kind: .earlyRecordDays, value: 14)),
-        .init(key: "theme.akane", kind: .theme, displayName: "茜", systemImageName: "sunset.fill", tintHex: "#D9664A", targetID: "akane", requirement: .init(kind: .earlyRecordDays, value: 21)),
-        .init(key: "theme.oboro", kind: .theme, displayName: "朧", systemImageName: "moon.haze.fill", tintHex: "#AEB4DD", targetID: "oboro", requirement: .init(kind: .lateNightRecordDays, value: 14)),
-        .init(key: "streak.purple_flame", kind: .streakIcon, displayName: "紫の炎", systemImageName: "flame.fill", tintHex: "#6C5CE7", targetID: "spark", requirement: .init(kind: .streakDays, value: 30)),
-        .init(key: "theme.zansho", kind: .theme, displayName: "残照", systemImageName: "sunset.circle.fill", tintHex: "#FFC98A", targetID: "zansho", requirement: .init(kind: .recordedHours, value: 200)),
-        .init(key: "theme.tsukishiro", kind: .theme, displayName: "月白", systemImageName: "moon.stars.fill", tintHex: "#D8ECFF", targetID: "tsukishiro", requirement: .init(kind: .streakDays, value: 60))
+        .init(key: "streak.yellow_flame", kind: .streakIcon, displayName: "黄色の炎", systemImageName: "flame.fill", tintHex: "#F2C94C", targetID: "yellow_flame", requirement: .init(kind: .streakDays, value: 7)),
+        .init(key: "streak.lime_flame", kind: .streakIcon, displayName: "黄緑の炎", systemImageName: "flame.fill", tintHex: "#A3E635", targetID: "lime_flame", requirement: .init(kind: .streakDays, value: 14)),
+        .init(key: "streak.green_flame", kind: .streakIcon, displayName: "緑の炎", systemImageName: "flame.fill", tintHex: "#27AE60", targetID: "green_flame", requirement: .init(kind: .streakDays, value: 30)),
+        .init(key: "streak.blue_flame", kind: .streakIcon, displayName: "青い炎", systemImageName: "flame.fill", tintHex: "#2F80ED", targetID: "blue_flame", requirement: .init(kind: .streakDays, value: 60)),
+        .init(key: "streak.purple_flame", kind: .streakIcon, displayName: "紫の炎", systemImageName: "flame.fill", tintHex: "#6C5CE7", targetID: "purple_flame", requirement: .init(kind: .streakDays, value: 90))
     ]
 }
 
@@ -408,7 +451,8 @@ enum UnlockRules {
         items: [UnlockItem]
     ) -> UnlockItem? {
         items
-            .filter { $0.unlockedAt == nil && !isUnlocked($0, metrics: metrics) }
+            // 交換アイテムは「次に解放」の予告対象にしない（ユーザーが選んで交換するもの）
+            .filter { $0.unlockedAt == nil && $0.requirementKind != .exchange && !isUnlocked($0, metrics: metrics) }
             .sorted {
                 let lhsProgress = progress(metrics: metrics, toward: $0)
                 let rhsProgress = progress(metrics: metrics, toward: $1)

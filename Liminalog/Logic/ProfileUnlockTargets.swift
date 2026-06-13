@@ -73,6 +73,8 @@ struct ProfileUnlockTarget: Identifiable, Equatable {
              .recordingHabitDays, .personalBestDays, .returnAfterGapDays, .firstRecordDays,
              .balancedDays, .focusedDays, .changeSignalDays:
             return "あと \(remainingValue.formatted())回"
+        case .exchange:
+            return "かけら\(remainingValue.formatted())枚と交換"
         }
     }
 }
@@ -94,7 +96,8 @@ enum ProfileUnlockTargetCatalog {
         guard limit > 0 else { return [] }
 
         return unlockItems
-            .filter { $0.unlockedAt == nil && !$0.targetID.isEmpty }
+            // 交換アイテムは自動解放の「次の目標」ではないため除外（コレクションで選んで交換）
+            .filter { $0.unlockedAt == nil && !$0.targetID.isEmpty && $0.requirementKind != .exchange }
             .map { item in
                 let currentValue = metrics.value(for: item.requirementKind)
                 return ProfileUnlockTarget(

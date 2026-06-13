@@ -1,8 +1,33 @@
 import SwiftUI
 import UIKit
 
+enum ProfileDisplayNamePolicy {
+    static let maxDisplayUnits = 12
+
+    static func limited(_ rawValue: String) -> String {
+        var usedUnits = 0
+        var result = ""
+
+        for character in rawValue {
+            let units = displayUnits(for: character)
+            guard usedUnits + units <= maxDisplayUnits else { break }
+            result.append(character)
+            usedUnits += units
+        }
+
+        return result
+    }
+
+    private static func displayUnits(for character: Character) -> Int {
+        character.unicodeScalars.allSatisfy { scalar in
+            scalar.isASCII || (0xFF61...0xFF9F).contains(Int(scalar.value))
+        } ? 1 : 2
+    }
+}
+
 struct ProfileHero: View {
     let displayName: String
+    var userID: String? = nil
     let bio: String
     let imageData: Data?
     let accentColor: Color
@@ -10,19 +35,22 @@ struct ProfileHero: View {
     let iconFrame: ProfileIconFrameStyle
     let cardStyle: ProfileCardStyle
     var showsActions: Bool = true
+    var emptyBioText: String = "プロフィールを育てよう"
+    /// 歩んだ距離（累積スコア由来・減らない）。数字のみをさりげなく出す（doc 16 §12.0.1）。
+    var level: Int? = nil
     let onEdit: () -> Void
     let onShare: () -> Void
 
     var body: some View {
         let usesGeneratedArtwork = cardStyle.hasGeneratedArtwork
-        let contentHorizontalPadding: CGFloat = usesGeneratedArtwork ? 42 : 18
-        let contentTopPadding: CGFloat = usesGeneratedArtwork ? 30 : 28
-        let contentBottomPadding: CGFloat = usesGeneratedArtwork ? 36 : 28
-        let minCardHeight: CGFloat = usesGeneratedArtwork ? 258 : 196
-        let photoSize: CGFloat = usesGeneratedArtwork ? 88 : 92
+        let contentHorizontalPadding: CGFloat = usesGeneratedArtwork ? 34 : 18
+        let contentTopPadding: CGFloat = usesGeneratedArtwork ? 24 : 28
+        let contentBottomPadding: CGFloat = usesGeneratedArtwork ? 28 : 28
+        let minCardHeight: CGFloat = usesGeneratedArtwork ? 226 : 196
+        let photoSize: CGFloat = usesGeneratedArtwork ? 82 : 92
         let photoOuterSize: CGFloat = photoSize + 16
 
-        HStack(alignment: .top, spacing: usesGeneratedArtwork ? 10 : 14) {
+        HStack(alignment: .top, spacing: usesGeneratedArtwork ? 12 : 14) {
             VStack(spacing: 8) {
                 ProfilePhotoView(
                     displayName: displayName,
@@ -43,24 +71,44 @@ struct ProfileHero: View {
             .frame(width: max(photoOuterSize, 78), alignment: .top)
 
             VStack(alignment: .leading, spacing: 8) {
-                Text(displayName)
+                if formattedUserID != nil || level != nil {
+                    HStack(alignment: .firstTextBaseline, spacing: 7) {
+                        if let formattedUserID {
+                            Text(formattedUserID)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.84)
+                                .accessibilityLabel("ユーザーID \(formattedUserID)")
+                        }
+
+                        if let level {
+                            Text("Lv.\(level)")
+                                .lineLimit(1)
+                                .accessibilityLabel("レベル\(level)")
+                        }
+                    }
+                    .font(.caption.weight(.semibold))
+                    .profileGeneratedCardReadableText(enabled: usesGeneratedArtwork, fallback: cardStyle.secondaryTextColor)
+                    .opacity(0.82)
+                }
+
+                Text(ProfileDisplayNamePolicy.limited(displayName))
                     .font(.title2.weight(.bold))
                     .profileGeneratedCardReadableText(enabled: usesGeneratedArtwork, fallback: cardStyle.textColor)
-                    .lineLimit(2)
+                    .lineLimit(1)
                     .minimumScaleFactor(0.82)
                     .padding(.trailing, 4)
 
                 EquippedBadgePill(badge: equippedBadge)
                     .frame(height: 23, alignment: .leading)
 
-                Text(bio.isEmpty ? "プロフィールを育てよう" : bio)
+                Text(bio.isEmpty ? emptyBioText : bio)
                     .font(.subheadline)
                     .profileGeneratedCardReadableText(enabled: usesGeneratedArtwork, fallback: cardStyle.secondaryTextColor)
                     .lineLimit(2)
                     .frame(minHeight: 42, alignment: .topLeading)
             }
-            .padding(.top, usesGeneratedArtwork ? 16 : 0)
-            .padding(.trailing, usesGeneratedArtwork ? 20 : 0)
+            .padding(.top, usesGeneratedArtwork ? 10 : 0)
+            .padding(.trailing, usesGeneratedArtwork ? 14 : 0)
             .frame(maxWidth: .infinity, alignment: .leading)
             .layoutPriority(1)
 
@@ -73,8 +121,15 @@ struct ProfileHero: View {
         .background {
             ProfileDecoratedCardBackground(style: cardStyle, accentColor: accentColor, cornerRadius: 8)
         }
-        .padding(.horizontal, usesGeneratedArtwork ? -6 : 0)
+        .padding(.horizontal, usesGeneratedArtwork ? 4 : 0)
         .padding(.top, usesGeneratedArtwork ? 0 : 0)
+    }
+
+    private var formattedUserID: String? {
+        guard let rawID = userID?.trimmingCharacters(in: .whitespacesAndNewlines), !rawID.isEmpty else {
+            return nil
+        }
+        return rawID.hasPrefix("@") ? rawID : "@\(rawID)"
     }
 }
 
@@ -1911,13 +1966,14 @@ struct ProfileStatTile: View {
 
 struct ProfileNextUnlockSection: View {
     let targets: [ProfileUnlockTarget]
+    let fragmentBalance: Int
     let showsGalleryIndicator: Bool
     let onOpenGallery: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("次の解放")
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                Text("コレクション")
                     .font(.headline)
                 Spacer()
                 Button {
@@ -1930,7 +1986,7 @@ struct ProfileNextUnlockSection: View {
                                 .frame(width: 7, height: 7)
                                 .accessibilityHidden(true)
                         }
-                        Text("もっと見る")
+                        Text(fragmentBalance > 0 ? "交換へ" : "見る")
                         Image(systemName: "chevron.right")
                     }
                     .font(.caption.weight(.semibold))
@@ -1939,16 +1995,83 @@ struct ProfileNextUnlockSection: View {
                 .buttonStyle(.plain)
             }
 
-            if targets.isEmpty {
-                ProfileAllUnlockedCard()
-            } else {
-                VStack(spacing: 10) {
-                    ForEach(targets) { target in
-                        ProfileUnlockTargetRow(target: target)
+            ProfileFragmentBalanceCard(
+                balance: fragmentBalance,
+                showsGalleryIndicator: showsGalleryIndicator,
+                onOpenGallery: onOpenGallery
+            )
+
+            if !targets.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("進行中の条件")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(LiminalTheme.secondaryText)
+                    VStack(spacing: 8) {
+                        ForEach(targets) { target in
+                            ProfileUnlockTargetRow(target: target)
+                        }
                     }
                 }
             }
         }
+    }
+}
+
+private struct ProfileFragmentBalanceCard: View {
+    @Environment(\.liminalThemeTransitionProgress) private var themeTransitionProgress
+    let balance: Int
+    let showsGalleryIndicator: Bool
+    let onOpenGallery: () -> Void
+
+    private var hasBalance: Bool {
+        balance > 0
+    }
+
+    var body: some View {
+        let _ = themeTransitionProgress
+        Button(action: onOpenGallery) {
+            HStack(spacing: 12) {
+                ZStack(alignment: .topTrailing) {
+                    Circle()
+                        .fill(LiminalTheme.reward.opacity(0.16))
+                    Image(systemName: "sparkle")
+                        .font(.title3.weight(.bold))
+                        .foregroundStyle(LiminalTheme.reward)
+                    if showsGalleryIndicator {
+                        Circle()
+                            .fill(LiminalTheme.reward)
+                            .frame(width: 8, height: 8)
+                            .offset(x: 1, y: -1)
+                    }
+                }
+                .frame(width: 44, height: 44)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("ひかりのかけら")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(LiminalTheme.text)
+                    Text(hasBalance ? "装飾と交換できます" : "レベルアップで獲得できます")
+                        .font(.caption)
+                        .foregroundStyle(LiminalTheme.secondaryText)
+                }
+
+                Spacer(minLength: 8)
+
+                Text("×\(balance.formatted())")
+                    .font(.headline.monospacedDigit().weight(.bold))
+                    .foregroundStyle(hasBalance ? LiminalTheme.reward : LiminalTheme.secondaryText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+            }
+            .padding(12)
+            .background(LiminalTheme.surface, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke((hasBalance ? LiminalTheme.reward : LiminalTheme.divider).opacity(hasBalance ? 0.36 : 0.65), lineWidth: 1)
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("ひかりのかけら\(balance)個。\(hasBalance ? "装飾と交換できます。" : "レベルアップで獲得できます。")")
     }
 }
 

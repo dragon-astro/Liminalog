@@ -9,7 +9,7 @@ struct EarnedEmblemRenderTests {
     private let outputDir = URL(fileURLWithPath: "/tmp/liminal_mockups")
     private let accent = Color(hex: "#C9A7FF")
 
-    @Test
+    @Test(.disabled("Design review renderer; run manually when refreshing /tmp/liminal_mockups assets."))
     func renderEarnedTiers() throws {
         try? FileManager.default.createDirectory(at: outputDir, withIntermediateDirectories: true)
         try render(scheme: .dark, name: "earned_emblems_dark")
@@ -22,7 +22,7 @@ struct EarnedEmblemRenderTests {
 
         // 生成PNG＋liminalオーラ合成。素材ランク（行）×アーキタイプ（列）で全20種。
         let ids = ProfileIconFrameCatalog.freeItems.map(\.id)
-        let materials: [(String, String)] = [("iron", "鉄"), ("bronze", "銅"), ("silver", "銀"), ("gold", "金"), ("platinum", "白金")]
+        let materials: [(String, String)] = [("iron", "Rank 1"), ("bronze", "Rank 2"), ("silver", "Rank 3"), ("gold", "Rank 4"), ("platinum", "Rank 5")]
 
         let content = VStack(alignment: .leading, spacing: 16) {
             ForEach(materials, id: \.0) { key, label in

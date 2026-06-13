@@ -301,14 +301,14 @@ enum LiminalThemeCatalog {
     }()
 
     /// 解放テーマ（targetID をキーに UnlockCatalog と一致）。順次追加可能。
+    /// 獲得テーマは極光のみ残す（docs/17 マネタイズ方針）。akatsuki/oboro は
+    /// 将来の課金カタログ候補として定義だけ温存し、解放・選択の対象から外す。
     static let unlockedThemesByID: [String: LiminalThemeDefinition] = [
-        aurora.id: aurora,
-        akatsuki.id: akatsuki,
-        oboro.id: oboro
+        aurora.id: aurora
     ]
 
     /// テーマ選択UIに並べる解放テーマ（パレット実装済みのもの）。
-    static let selectableThemes: [LiminalThemeDefinition] = [aurora, akatsuki, oboro]
+    static let selectableThemes: [LiminalThemeDefinition] = [aurora]
 
     /// 初期から使える標準テーマ。systemThemeID はシステム追従として別扱いする。
     static let fixedDefaultThemes: [LiminalThemeDefinition] = [dusk, daybreak]

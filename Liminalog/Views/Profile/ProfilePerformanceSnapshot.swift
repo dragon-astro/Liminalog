@@ -34,14 +34,6 @@ struct ProfilePerformanceSnapshot {
         let end = calendar.date(byAdding: .day, value: 1, to: todayStart) ?? now
         let interval = DateInterval(start: start, end: end)
 
-        let allChaptersDescriptor = FetchDescriptor<Chapter>(sortBy: [SortDescriptor(\.startTime)])
-        let allChapters: [Chapter]
-        do {
-            allChapters = try modelContext.fetch(allChaptersDescriptor)
-        } catch {
-            NSLog("Liminalog: failed to fetch profile chapters: \(String(describing: error))")
-            return nil
-        }
         guard let summaries = ScoreSnapshotLoader.summariesIfAvailable(
             in: interval,
             modelContext: modelContext,
@@ -52,47 +44,38 @@ struct ProfilePerformanceSnapshot {
             return nil
         }
 
-        let dailySnapshotsDescriptor = FetchDescriptor<DailyCardSnapshot>(
-            sortBy: [SortDescriptor(\.dayStart)]
-        )
-        let dailySnapshots: [DailyCardSnapshot]
-        do {
-            dailySnapshots = try modelContext.fetch(dailySnapshotsDescriptor)
-        } catch {
-            NSLog("Liminalog: failed to fetch daily card snapshots for profile unlocks: \(String(describing: error))")
-            return nil
-        }
-
         var streak = 0
         for summary in summaries.reversed() {
             guard summary.plannedDuration > 0, summary.totalScore >= StreakRules.passingScore else { break }
             streak += 1
         }
 
-        let totalEarnedScore = summaries.reduce(0) { $0 + Int($1.totalScore.rounded()) }
-        let recordedDayStarts = Set(allChapters.map { DayBoundary.dayStart(for: $0.startTime, calendar: calendar) })
-        let completedChapters = allChapters.filter { $0.endTime != nil }
-        let earlyRecordDayCount = Set(completedChapters.compactMap { chapter -> Date? in
-            let hour = calendar.component(.hour, from: chapter.startTime)
-            guard (5..<9).contains(hour) else { return nil }
-            return DayBoundary.dayStart(for: chapter.startTime, calendar: calendar)
-        }).count
-        let lateNightRecordDayCount = Set(completedChapters.compactMap { chapter -> Date? in
-            let hour = calendar.component(.hour, from: chapter.startTime)
-            guard hour >= 23 || hour < 3 else { return nil }
-            return DayBoundary.dayStart(for: chapter.startTime, calendar: calendar)
-        }).count
-        let totalRecordedDuration = allChapters.reduce(0) { $0 + max(0, ($1.endTime ?? now).timeIntervalSince($1.startTime)) }
-        let distinctCategoryCount = Set(allChapters.compactMap { $0.category?.id }).count
-        let dailyCardMetrics = DailyCardUnlockMetrics(snapshots: dailySnapshots)
+        let totalEarnedScore = ScoreSnapshotLoader.cumulativeScore(
+            modelContext: modelContext,
+            now: now,
+            calendar: calendar
+        )
+        guard let finalizedSnapshots = finalizedDailyScoreSnapshots(before: todayStart, modelContext: modelContext),
+              let todayStats = todayProfileStats(modelContext: modelContext, now: now, calendar: calendar)
+        else { return nil }
+
+        let recordedDayCount = finalizedSnapshots.filter(\.hasRecord).count + (todayStats.hasRecord ? 1 : 0)
+        let totalRecordedDuration = finalizedSnapshots.reduce(todayStats.recordedDuration) { total, snapshot in
+            total + max(0, snapshot.recordedDuration)
+        }
+        let earlyRecordDayCount = finalizedSnapshots.filter(\.earlyRecordDay).count + (todayStats.earlyRecordDay ? 1 : 0)
+        let lateNightRecordDayCount = finalizedSnapshots.filter(\.lateNightRecordDay).count + (todayStats.lateNightRecordDay ? 1 : 0)
+        var distinctCategoryIDs = Set(finalizedSnapshots.flatMap(\.categoryIDs))
+        distinctCategoryIDs.formUnion(todayStats.categoryIDs)
+        let dailyCardMetrics = DailyCardUnlockMetrics(snapshots: finalizedSnapshots, today: todayStats.cardMetrics)
         let unlockMetrics = UnlockMetrics(
             cumulativeScore: totalEarnedScore,
-            recordedDays: recordedDayStarts.count,
+            recordedDays: recordedDayCount,
             recordedHours: max(0, Int(totalRecordedDuration / 3600)),
             streakDays: streak,
             earlyRecordDays: earlyRecordDayCount,
             lateNightRecordDays: lateNightRecordDayCount,
-            distinctCategoryCount: distinctCategoryCount,
+            distinctCategoryCount: distinctCategoryIDs.count,
             planMatchedDays: dailyCardMetrics.planMatchedDays,
             chargeDays: dailyCardMetrics.chargeDays,
             morningPersonaDays: dailyCardMetrics.morningPersonaDays,
@@ -109,30 +92,113 @@ struct ProfilePerformanceSnapshot {
         return ProfilePerformanceSnapshot(
             totalEarnedScore: totalEarnedScore,
             streakCount: streak,
-            recordedDayCount: recordedDayStarts.count,
+            recordedDayCount: recordedDayCount,
             totalRecordedDuration: totalRecordedDuration,
             earlyRecordDayCount: earlyRecordDayCount,
             lateNightRecordDayCount: lateNightRecordDayCount,
-            distinctCategoryCount: distinctCategoryCount,
+            distinctCategoryCount: distinctCategoryIDs.count,
             unlockMetrics: unlockMetrics
         )
+    }
+
+    @MainActor
+    private static func finalizedDailyScoreSnapshots(
+        before end: Date,
+        modelContext: ModelContext
+    ) -> [DailyScoreSnapshot]? {
+        let descriptor = FetchDescriptor<DailyScoreSnapshot>(
+            predicate: #Predicate { $0.dayStart < end },
+            sortBy: [SortDescriptor(\.dayStart), SortDescriptor(\.updatedAt, order: .reverse)]
+        )
+        do {
+            var seenDayIdentifiers = Set<String>()
+            return try modelContext.fetch(descriptor).filter { snapshot in
+                seenDayIdentifiers.insert(snapshot.dayIdentifier).inserted
+            }
+        } catch {
+            NSLog("Liminalog: failed to fetch profile daily score snapshots: \(String(describing: error))")
+            return nil
+        }
+    }
+
+    @MainActor
+    private static func todayProfileStats(
+        modelContext: ModelContext,
+        now: Date,
+        calendar: Calendar
+    ) -> TodayProfileStats? {
+        let boundary = DayBoundary(date: now, calendar: calendar)
+        let start = boundary.dayStart
+        let end = boundary.dayEnd
+        let descriptor = FetchDescriptor<Chapter>(
+            predicate: #Predicate { $0.startTime < end },
+            sortBy: [SortDescriptor(\.startTime)]
+        )
+        let chapters: [Chapter]
+        do {
+            chapters = try modelContext.fetch(descriptor)
+                .filter { ($0.endTime ?? now) > start }
+        } catch {
+            NSLog("Liminalog: failed to fetch today's profile chapters: \(String(describing: error))")
+            return nil
+        }
+
+        let completedChapters = chapters.filter { $0.endTime != nil }
+        let dayIdentifier = DailyCardSnapshot.dayIdentifier(for: start, calendar: calendar)
+        return TodayProfileStats(
+            hasRecord: !chapters.isEmpty,
+            recordedDuration: chapters.reduce(0) { $0 + max(0, ($1.endTime ?? now).timeIntervalSince($1.startTime)) },
+            earlyRecordDay: completedChapters.contains { chapter in
+                let hour = calendar.component(.hour, from: chapter.startTime)
+                return (5..<9).contains(hour)
+            },
+            lateNightRecordDay: completedChapters.contains { chapter in
+                let hour = calendar.component(.hour, from: chapter.startTime)
+                return hour >= 23 || hour < 3
+            },
+            categoryIDs: Set(chapters.compactMap { $0.category?.id }),
+            cardMetrics: latestDailyCardMetrics(dayIdentifier: dayIdentifier, modelContext: modelContext)
+        )
+    }
+
+    @MainActor
+    private static func latestDailyCardMetrics(
+        dayIdentifier: String,
+        modelContext: ModelContext
+    ) -> DailyCardUnlockMetrics {
+        var descriptor = FetchDescriptor<DailyCardSnapshot>(
+            predicate: #Predicate { $0.dayIdentifier == dayIdentifier },
+            sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
+        )
+        descriptor.fetchLimit = 1
+        do {
+            return DailyCardUnlockMetrics(snapshot: try modelContext.fetch(descriptor).first)
+        } catch {
+            NSLog("Liminalog: failed to fetch today's daily card snapshot for profile unlocks: \(String(describing: error))")
+            return DailyCardUnlockMetrics()
+        }
     }
 }
 
 private struct DailyCardUnlockMetrics {
-    let planMatchedDays: Int
-    let chargeDays: Int
-    let morningPersonaDays: Int
-    let nightPersonaDays: Int
-    let recordingHabitDays: Int
-    let personalBestDays: Int
-    let returnAfterGapDays: Int
-    let firstRecordDays: Int
-    let balancedDays: Int
-    let focusedDays: Int
-    let changeSignalDays: Int
+    var planMatchedDays = 0
+    var chargeDays = 0
+    var morningPersonaDays = 0
+    var nightPersonaDays = 0
+    var recordingHabitDays = 0
+    var personalBestDays = 0
+    var returnAfterGapDays = 0
+    var firstRecordDays = 0
+    var balancedDays = 0
+    var focusedDays = 0
+    var changeSignalDays = 0
 
-    init(snapshots: [DailyCardSnapshot]) {
+    init() {}
+
+    init(snapshot: DailyCardSnapshot?) {
+        guard let snapshot else {
+            return
+        }
         let morningTitles: Set<String> = [
             "朝の短距離走者",
             "早起きコツコツ",
@@ -147,21 +213,42 @@ private struct DailyCardUnlockMetrics {
             "体内時計バグり気味"
         ]
 
-        planMatchedDays = snapshots.filter { $0.personaKind == .planMatched }.count
-        chargeDays = snapshots.filter { $0.personaKind == .chargeDay }.count
-        morningPersonaDays = snapshots.filter { morningTitles.contains($0.title) }.count
-        nightPersonaDays = snapshots.filter { nightTitles.contains($0.title) }.count
-        recordingHabitDays = snapshots.filter { $0.factIDs.contains("habit-streak") }.count
-        personalBestDays = snapshots.filter { $0.factIDs.contains("signal-best") }.count
-        returnAfterGapDays = snapshots.filter { $0.factIDs.contains("signal-gap") }.count
-        firstRecordDays = snapshots.filter { $0.factIDs.contains("signal-first") }.count
-        balancedDays = snapshots.filter { $0.factIDs.contains("composition-split") }.count
-        focusedDays = snapshots.filter { $0.factIDs.contains("composition-focus") }.count
-        changeSignalDays = snapshots.filter { snapshot in
-            let ids = snapshot.factIDs
-            return ids.contains("signal-more") || ids.contains("signal-less")
-        }.count
+        let factIDs = snapshot.factIDs
+        planMatchedDays = snapshot.personaKind == .planMatched ? 1 : 0
+        chargeDays = snapshot.personaKind == .chargeDay ? 1 : 0
+        morningPersonaDays = morningTitles.contains(snapshot.title) ? 1 : 0
+        nightPersonaDays = nightTitles.contains(snapshot.title) ? 1 : 0
+        recordingHabitDays = factIDs.contains("habit-streak") ? 1 : 0
+        personalBestDays = factIDs.contains("signal-best") ? 1 : 0
+        returnAfterGapDays = factIDs.contains("signal-gap") ? 1 : 0
+        firstRecordDays = factIDs.contains("signal-first") ? 1 : 0
+        balancedDays = factIDs.contains("composition-split") ? 1 : 0
+        focusedDays = factIDs.contains("composition-focus") ? 1 : 0
+        changeSignalDays = factIDs.contains("signal-more") || factIDs.contains("signal-less") ? 1 : 0
     }
+
+    init(snapshots: [DailyScoreSnapshot], today: DailyCardUnlockMetrics) {
+        planMatchedDays = snapshots.filter(\.planMatchedDay).count + today.planMatchedDays
+        chargeDays = snapshots.filter(\.chargeDay).count + today.chargeDays
+        morningPersonaDays = snapshots.filter(\.morningPersonaDay).count + today.morningPersonaDays
+        nightPersonaDays = snapshots.filter(\.nightPersonaDay).count + today.nightPersonaDays
+        recordingHabitDays = snapshots.filter(\.recordingHabitDay).count + today.recordingHabitDays
+        personalBestDays = snapshots.filter(\.personalBestDay).count + today.personalBestDays
+        returnAfterGapDays = snapshots.filter(\.returnAfterGapDay).count + today.returnAfterGapDays
+        firstRecordDays = snapshots.filter(\.firstRecordDay).count + today.firstRecordDays
+        balancedDays = snapshots.filter(\.balancedDay).count + today.balancedDays
+        focusedDays = snapshots.filter(\.focusedDay).count + today.focusedDays
+        changeSignalDays = snapshots.filter(\.changeSignalDay).count + today.changeSignalDays
+    }
+}
+
+private struct TodayProfileStats {
+    let hasRecord: Bool
+    let recordedDuration: TimeInterval
+    let earlyRecordDay: Bool
+    let lateNightRecordDay: Bool
+    let categoryIDs: Set<UUID>
+    let cardMetrics: DailyCardUnlockMetrics
 }
 
 private extension DailyCardSnapshot {

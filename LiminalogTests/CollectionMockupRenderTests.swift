@@ -9,7 +9,7 @@ struct CollectionMockupRenderTests {
     private let outputDir = URL(fileURLWithPath: "/tmp/liminal_mockups")
     private let accent = Color(hex: "#C9A7FF")
 
-    @Test
+    @Test(.disabled("Design review renderer; run manually when refreshing /tmp/liminal_mockups assets."))
     func renderRepresentatives() throws {
         try? FileManager.default.createDirectory(at: outputDir, withIntermediateDirectories: true)
         try render(scheme: .dark, name: "collection_dark")

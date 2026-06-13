@@ -19,7 +19,7 @@ struct ProfileDecorationUnlocksTests {
         #expect(unlocks.equippedIconFrameID("locked_frame") == "clear_air")
         #expect(unlocks.equippedIconFrameID("none") == "none")
         #expect(unlocks.equippedStreakIconID("none") == "flame")
-        #expect(unlocks.equippedStreakIconID("spark") == "flame")
+        #expect(unlocks.equippedStreakIconID("purple_flame") == "flame")
         #expect(unlocks.equippedCardStyleID("locked_card") == "quiet_sky")
         #expect(unlocks.equippedCardStyleID("none") == "none")
         #expect(unlocks.themeIsUnlocked("default"))
@@ -34,22 +34,22 @@ struct ProfileDecorationUnlocksTests {
         let now = try #require(Calendar.liminalogTest.date(from: DateComponents(year: 2026, month: 6, day: 1)))
         let planner = try unlockedItem(key: "badge.planner", now: now)
         let ironFrame = try unlockedItem(key: "frame.free_instrument_iron", now: now)
-        let goldFlame = try unlockedItem(key: "streak.gold_flame", now: now)
+        let yellowFlame = try unlockedItem(key: "streak.yellow_flame", now: now)
         let threadCard = try unlockedItem(key: "card.free_thread_border_panel", now: now)
         let lockedPlatinum = try #require(UnlockCatalog.items.first { $0.key == "frame.free_instrument_platinum" }).item()
 
         let unlocks = ProfileDecorationUnlocks(
-            unlockItems: [planner, ironFrame, goldFlame, threadCard, lockedPlatinum]
+            unlockItems: [planner, ironFrame, yellowFlame, threadCard, lockedPlatinum]
         )
 
         #expect(unlocks.badgeIsUnlocked("planner"))
         #expect(unlocks.iconFrameIsUnlocked("free_instrument_iron"))
-        #expect(unlocks.streakIconIsUnlocked("bolt"))
+        #expect(unlocks.streakIconIsUnlocked("yellow_flame"))
         #expect(unlocks.cardStyleIsUnlocked("free_thread_border_panel"))
         #expect(!unlocks.iconFrameIsUnlocked("free_instrument_platinum"))
         #expect(unlocks.equippedBadgeID("planner") == "planner")
         #expect(unlocks.equippedIconFrameID("free_instrument_iron") == "free_instrument_iron")
-        #expect(unlocks.equippedStreakIconID("bolt") == "bolt")
+        #expect(unlocks.equippedStreakIconID("yellow_flame") == "yellow_flame")
         #expect(unlocks.equippedCardStyleID("free_thread_border_panel") == "free_thread_border_panel")
         #expect(unlocks.equippedIconFrameID("free_instrument_platinum") == "clear_air")
     }
@@ -60,7 +60,12 @@ struct ProfileDecorationUnlocksTests {
         let planner = try unlockedItem(key: "badge.planner", now: now)
         let threadCard = try unlockedItem(key: "card.free_thread_border_panel", now: now)
         let auroraTheme = try unlockedItem(key: "theme.aurora", now: now)
-        let futureTheme = try unlockedItem(key: "theme.akane", now: now)
+        // 非表示テーマ（カタログ外）の解放行を模す。掃除前のDBに残っていても通知に出ないこと。
+        let futureTheme = UnlockItem()
+        futureTheme.key = "theme.akane"
+        futureTheme.kindRawValue = UnlockKind.theme.rawValue
+        futureTheme.targetID = "akane"
+        futureTheme.unlockedAt = now
         let settings = UserSettings()
         settings.profileBadgeID = "planner"
         settings.seenUnlockItemKeys = ["card.free_thread_border_panel"]
@@ -121,24 +126,25 @@ struct ProfileUnlockTargetsTests {
         let planner = try unlockedItem(key: "badge.planner", now: now)
         let threadCard = try lockedItem(key: "card.free_thread_border_panel")
         let ironFrame = try lockedItem(key: "frame.free_instrument_iron")
-        let goldFlame = try lockedItem(key: "streak.gold_flame")
+        let yellowFlame = try lockedItem(key: "streak.yellow_flame")
 
         let targets = ProfileUnlockTargetCatalog.targets(
             metrics: UnlockMetrics(cumulativeScore: 800, recordedDays: 2),
-            unlockItems: [ironFrame, goldFlame, planner, threadCard],
+            unlockItems: [ironFrame, yellowFlame, planner, threadCard],
             limit: 2
         )
 
-        #expect(targets.map(\.key) == ["frame.free_instrument_iron", "card.free_thread_border_panel"])
+        // 交換制（.exchange）のカードは「次の目標」から除外され、後続の指標アイテムが繰り上がる
+        #expect(targets.map(\.key) == ["frame.free_instrument_iron", "streak.yellow_flame"])
         #expect(targets[0].remainingValue == 1)
         #expect(targets[0].progressPercent == 66)
         #expect(targets[0].conditionText == "記録日数 3日")
         #expect(targets[0].progressText == "2 / 3日・66%")
         #expect(targets[0].kindTitle == "フレーム")
-        #expect(targets[1].requirementKind == .cumulativeScore)
-        #expect(targets[1].remainingValue == 1_900)
-        #expect(targets[1].remainingText == "あと 1,900pt")
-        #expect(targets[1].progressText == "800 / 2,700pt・29%")
+        #expect(targets[1].requirementKind == .streakDays)
+        #expect(targets[1].remainingValue == 7)
+        #expect(targets[1].remainingText == "あと 7日連続")
+        #expect(targets[1].progressText == "0 / 7日・0%")
     }
 
     @Test
