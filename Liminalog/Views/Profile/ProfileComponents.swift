@@ -1,8 +1,33 @@
 import SwiftUI
 import UIKit
 
+enum ProfileDisplayNamePolicy {
+    static let maxDisplayUnits = 12
+
+    static func limited(_ rawValue: String) -> String {
+        var usedUnits = 0
+        var result = ""
+
+        for character in rawValue {
+            let units = displayUnits(for: character)
+            guard usedUnits + units <= maxDisplayUnits else { break }
+            result.append(character)
+            usedUnits += units
+        }
+
+        return result
+    }
+
+    private static func displayUnits(for character: Character) -> Int {
+        character.unicodeScalars.allSatisfy { scalar in
+            scalar.isASCII || (0xFF61...0xFF9F).contains(Int(scalar.value))
+        } ? 1 : 2
+    }
+}
+
 struct ProfileHero: View {
     let displayName: String
+    var userID: String? = nil
     let bio: String
     let imageData: Data?
     let accentColor: Color
@@ -10,6 +35,8 @@ struct ProfileHero: View {
     let iconFrame: ProfileIconFrameStyle
     let cardStyle: ProfileCardStyle
     var showsActions: Bool = true
+    var emptyBioText: String = "プロフィールを育てよう"
+    var level: Int? = nil
     let onEdit: () -> Void
     let onShare: () -> Void
 
@@ -43,17 +70,37 @@ struct ProfileHero: View {
             .frame(width: max(photoOuterSize, 78), alignment: .top)
 
             VStack(alignment: .leading, spacing: 8) {
-                Text(displayName)
+                if formattedUserID != nil || level != nil {
+                    HStack(alignment: .firstTextBaseline, spacing: 7) {
+                        if let formattedUserID {
+                            Text(formattedUserID)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.84)
+                                .accessibilityLabel("ユーザーID \(formattedUserID)")
+                        }
+
+                        if let level {
+                            Text("Lv.\(level)")
+                                .lineLimit(1)
+                                .accessibilityLabel("レベル\(level)")
+                        }
+                    }
+                    .font(.caption.weight(.semibold))
+                    .profileGeneratedCardReadableText(enabled: usesGeneratedArtwork, fallback: cardStyle.secondaryTextColor)
+                    .opacity(0.82)
+                }
+
+                Text(ProfileDisplayNamePolicy.limited(displayName))
                     .font(.title2.weight(.bold))
                     .profileGeneratedCardReadableText(enabled: usesGeneratedArtwork, fallback: cardStyle.textColor)
-                    .lineLimit(2)
+                    .lineLimit(1)
                     .minimumScaleFactor(0.82)
                     .padding(.trailing, 4)
 
                 EquippedBadgePill(badge: equippedBadge)
                     .frame(height: 23, alignment: .leading)
 
-                Text(bio.isEmpty ? "プロフィールを育てよう" : bio)
+                Text(bio.isEmpty ? emptyBioText : bio)
                     .font(.subheadline)
                     .profileGeneratedCardReadableText(enabled: usesGeneratedArtwork, fallback: cardStyle.secondaryTextColor)
                     .lineLimit(2)
@@ -75,6 +122,13 @@ struct ProfileHero: View {
         }
         .padding(.horizontal, usesGeneratedArtwork ? -6 : 0)
         .padding(.top, usesGeneratedArtwork ? 0 : 0)
+    }
+
+    private var formattedUserID: String? {
+        guard let rawID = userID?.trimmingCharacters(in: .whitespacesAndNewlines), !rawID.isEmpty else {
+            return nil
+        }
+        return rawID.hasPrefix("@") ? rawID : "@\(rawID)"
     }
 }
 
