@@ -88,7 +88,7 @@ struct ProfileIconFrameStyle: Identifiable {
     var artworkAssetName: String { "profile_frame_\(id)" }
 
     var hasGeneratedArtwork: Bool {
-        id != ProfileDecorationUnlocks.noIconFrameID && UIImage(named: artworkAssetName) != nil
+        ProfileIconFrameCatalog.generatedArtworkIDs.contains(id)
     }
 }
 
@@ -96,28 +96,53 @@ enum ProfileIconFrameCatalog {
     static let noneItem = ProfileIconFrameStyle(id: ProfileDecorationUnlocks.noIconFrameID, title: "なし", systemImage: "minus.circle", primaryHex: "#8E879F", secondaryHex: "#8E879F", lineWidth: 0)
     static let defaultID = ProfileDecorationUnlocks.defaultIconFrameID
     static let defaultItem = ProfileIconFrameStyle(id: defaultID, title: "澄空", systemImage: "circle", primaryHex: "#7DD3FC", secondaryHex: "#C9A7FF", lineWidth: 3)
-    static let freeItems: [ProfileIconFrameStyle] = [
-        instrument("iron", title: "鉄の標", primaryHex: "#59606B", secondaryHex: "#8B6BFF", lineWidth: 3),
-        instrument("bronze", title: "銅の標", primaryHex: "#B87545", secondaryHex: "#F0A2A2", lineWidth: 3),
-        instrument("silver", title: "銀の標", primaryHex: "#D8DEE8", secondaryHex: "#39D5E8", lineWidth: 4),
-        instrument("gold", title: "金の標", primaryHex: "#F2C94C", secondaryHex: "#FFB3C7", lineWidth: 4),
-        instrument("platinum", title: "白金の標", primaryHex: "#F2F4FF", secondaryHex: "#8AB4FF", lineWidth: 5),
-        instrument("iron_seal", title: "鉄の印", primaryHex: "#59606B", secondaryHex: "#8B6BFF", lineWidth: 3),
-        instrument("bronze_seal", title: "銅の印", primaryHex: "#B87545", secondaryHex: "#F0A2A2", lineWidth: 3),
-        instrument("silver_seal", title: "銀の印", primaryHex: "#D8DEE8", secondaryHex: "#39D5E8", lineWidth: 4),
-        instrument("gold_seal", title: "金の印", primaryHex: "#F2C94C", secondaryHex: "#FFB3C7", lineWidth: 4),
-        instrument("platinum_seal", title: "白金の印", primaryHex: "#F2F4FF", secondaryHex: "#8AB4FF", lineWidth: 5),
-        instrument("iron_orbit", title: "鉄の軌", primaryHex: "#59606B", secondaryHex: "#8B6BFF", lineWidth: 3),
-        instrument("bronze_orbit", title: "銅の軌", primaryHex: "#B87545", secondaryHex: "#F0A2A2", lineWidth: 3),
-        instrument("silver_orbit", title: "銀の軌", primaryHex: "#D8DEE8", secondaryHex: "#39D5E8", lineWidth: 4),
-        instrument("gold_orbit", title: "金の軌", primaryHex: "#F2C94C", secondaryHex: "#FFB3C7", lineWidth: 4),
-        instrument("platinum_orbit", title: "白金の軌", primaryHex: "#F2F4FF", secondaryHex: "#8AB4FF", lineWidth: 5),
-        instrument("iron_crest", title: "鉄の冠", primaryHex: "#59606B", secondaryHex: "#8B6BFF", lineWidth: 3),
-        instrument("bronze_crest", title: "銅の冠", primaryHex: "#B87545", secondaryHex: "#F0A2A2", lineWidth: 3),
-        instrument("silver_crest", title: "銀の冠", primaryHex: "#D8DEE8", secondaryHex: "#39D5E8", lineWidth: 4),
-        instrument("gold_crest", title: "金の冠", primaryHex: "#F2C94C", secondaryHex: "#FFB3C7", lineWidth: 4),
-        instrument("platinum_crest", title: "白金の冠", primaryHex: "#F2F4FF", secondaryHex: "#8AB4FF", lineWidth: 5)
+    static let instrumentItems: [ProfileIconFrameStyle] = [
+        instrument("iron", primaryHex: "#59606B", secondaryHex: "#8B6BFF", lineWidth: 3),
+        instrument("bronze", primaryHex: "#B87545", secondaryHex: "#F0A2A2", lineWidth: 3),
+        instrument("silver", primaryHex: "#D8DEE8", secondaryHex: "#39D5E8", lineWidth: 4),
+        instrument("gold", primaryHex: "#F2C94C", secondaryHex: "#FFB3C7", lineWidth: 4),
+        instrument("platinum", primaryHex: "#F2F4FF", secondaryHex: "#8AB4FF", lineWidth: 5),
+        instrument("iron_seal", primaryHex: "#59606B", secondaryHex: "#8B6BFF", lineWidth: 3),
+        instrument("bronze_seal", primaryHex: "#B87545", secondaryHex: "#F0A2A2", lineWidth: 3),
+        instrument("silver_seal", primaryHex: "#D8DEE8", secondaryHex: "#39D5E8", lineWidth: 4),
+        instrument("gold_seal", primaryHex: "#F2C94C", secondaryHex: "#FFB3C7", lineWidth: 4),
+        instrument("platinum_seal", primaryHex: "#F2F4FF", secondaryHex: "#8AB4FF", lineWidth: 5),
+        instrument("iron_orbit", primaryHex: "#59606B", secondaryHex: "#8B6BFF", lineWidth: 3),
+        instrument("bronze_orbit", primaryHex: "#B87545", secondaryHex: "#F0A2A2", lineWidth: 3),
+        instrument("silver_orbit", primaryHex: "#D8DEE8", secondaryHex: "#39D5E8", lineWidth: 4),
+        instrument("gold_orbit", primaryHex: "#F2C94C", secondaryHex: "#FFB3C7", lineWidth: 4),
+        instrument("platinum_orbit", primaryHex: "#F2F4FF", secondaryHex: "#8AB4FF", lineWidth: 5),
+        instrument("iron_crest", primaryHex: "#59606B", secondaryHex: "#8B6BFF", lineWidth: 3),
+        instrument("bronze_crest", primaryHex: "#B87545", secondaryHex: "#F0A2A2", lineWidth: 3),
+        instrument("silver_crest", primaryHex: "#D8DEE8", secondaryHex: "#39D5E8", lineWidth: 4),
+        instrument("gold_crest", primaryHex: "#F2C94C", secondaryHex: "#FFB3C7", lineWidth: 4),
+        instrument("platinum_crest", primaryHex: "#F2F4FF", secondaryHex: "#8AB4FF", lineWidth: 5)
     ]
+
+    static let personalityItems: [ProfileIconFrameStyle] = [
+        personality(id: "free_dawn_horizon", title: "暁線", systemImage: "sunrise.fill", primaryHex: "#FFB3C7", secondaryHex: "#FFC98A"),
+        personality(id: "free_ripple_border", title: "水縁", systemImage: "water.waves", primaryHex: "#39D5E8", secondaryHex: "#7DD3FC"),
+        personality(id: "free_cloud_veil", title: "雲幕", systemImage: "cloud.fill", primaryHex: "#9BDCF8", secondaryHex: "#FFB3C7"),
+        personality(id: "free_leaf_corner", title: "葉隅", systemImage: "leaf.fill", primaryHex: "#5FE0A8", secondaryHex: "#C9A7FF"),
+        personality(id: "free_frost_edge", title: "霜縁", systemImage: "snowflake", primaryHex: "#8AB4FF", secondaryHex: "#D8ECFF"),
+        personality(id: "free_thread_border", title: "糸枠", systemImage: "scribble.variable", primaryHex: "#C9A7FF", secondaryHex: "#FFB3C7"),
+        personality(id: "free_orbit_grid", title: "軌跡線", systemImage: "scope", primaryHex: "#7DD3FC", secondaryHex: "#C9A7FF"),
+        personality(id: "free_rain", title: "雨粒", systemImage: "cloud.rain.fill", primaryHex: "#7DD3FC", secondaryHex: "#39D5E8"),
+        personality(id: "free_candle", title: "灯影", systemImage: "flame.fill", primaryHex: "#FF8A5B", secondaryHex: "#FFB3C7"),
+        personality(id: "free_ink", title: "墨縁", systemImage: "paintbrush.pointed.fill", primaryHex: "#A78BFA", secondaryHex: "#C9A7FF"),
+        personality(id: "free_aurora_trace", title: "極光線", systemImage: "sparkles", primaryHex: "#5FE0A8", secondaryHex: "#7DD3FC"),
+        personality(id: "free_glass_bead", title: "硝子点", systemImage: "drop.circle.fill", primaryHex: "#39D5E8", secondaryHex: "#C9A7FF"),
+        personality(id: "free_linen_stitch", title: "織目", systemImage: "circle.dashed", primaryHex: "#C9A7FF", secondaryHex: "#D8CEE8"),
+        personality(id: "free_constellation", title: "星図線", systemImage: "scope", primaryHex: "#7DD3FC", secondaryHex: "#FFE3A3"),
+        personality(id: "free_wave", title: "波端", systemImage: "water.waves", primaryHex: "#39D5E8", secondaryHex: "#8AB4FF"),
+        personality(id: "free_mist", title: "霧面", systemImage: "circle.dotted", primaryHex: "#C9A7FF", secondaryHex: "#D8ECFF"),
+        personality(id: "free_petal_corner", title: "花隅", systemImage: "camera.macro", primaryHex: "#FF8FB3", secondaryHex: "#A78BFA"),
+        personality(id: "free_stone_path", title: "石径", systemImage: "point.topleft.down.curvedto.point.bottomright.up", primaryHex: "#5FE0A8", secondaryHex: "#FFE3A3"),
+        personality(id: "free_sunline", title: "陽線", systemImage: "sunrise.fill", primaryHex: "#FFC98A", secondaryHex: "#FF8FB3"),
+        personality(id: "free_night_bloom", title: "夜花", systemImage: "camera.macro", primaryHex: "#FF8FB3", secondaryHex: "#C9A7FF")
+    ]
+
+    static let freeItems: [ProfileIconFrameStyle] = instrumentItems + personalityItems
 
     static let legacyItems: [ProfileIconFrameStyle] = [
         ProfileIconFrameStyle(id: "cloud_veil", title: "雲間", systemImage: "cloud.fill", primaryHex: "#9BDCF8", secondaryHex: "#FFB3C7", lineWidth: 3),
@@ -144,6 +169,7 @@ enum ProfileIconFrameCatalog {
     ]
     static let visibleItems: [ProfileIconFrameStyle] = [noneItem, defaultItem] + freeItems
     static let items: [ProfileIconFrameStyle] = visibleItems + legacyItems
+    static let generatedArtworkIDs = Set((items.map(\.id)).filter { $0 != ProfileDecorationUnlocks.noIconFrameID })
 
     static func item(for id: String?) -> ProfileIconFrameStyle {
         items.first { $0.id == id } ?? defaultItem
@@ -151,19 +177,58 @@ enum ProfileIconFrameCatalog {
 
     private static func instrument(
         _ suffix: String,
-        title: String,
         primaryHex: String,
         secondaryHex: String,
         lineWidth: CGFloat
     ) -> ProfileIconFrameStyle {
-        ProfileIconFrameStyle(
-            id: "free_instrument_\(suffix)",
-            title: title,
+        let id = "free_instrument_\(suffix)"
+        let category = instrumentCategory(for: id) ?? .ring
+        let rank = instrumentRank(for: id) ?? 1
+        return ProfileIconFrameStyle(
+            id: id,
+            title: "\(category.title) Rank \(rank)",
             systemImage: "circle",
             primaryHex: primaryHex,
             secondaryHex: secondaryHex,
             lineWidth: lineWidth
         )
+    }
+
+    private static func personality(
+        id: String,
+        title: String,
+        systemImage: String,
+        primaryHex: String,
+        secondaryHex: String
+    ) -> ProfileIconFrameStyle {
+        ProfileIconFrameStyle(
+            id: id,
+            title: title,
+            systemImage: systemImage,
+            primaryHex: primaryHex,
+            secondaryHex: secondaryHex,
+            lineWidth: 3
+        )
+    }
+
+    /// 獲得（instrument）フレームの系統。コレクションでは系統ごとに1スタックで表示する。
+    static func instrumentCategory(for id: String?) -> InstrumentFrameCategory? {
+        guard let id, id.hasPrefix("free_instrument_") else { return nil }
+        if id.hasSuffix("_seal") { return .seal }
+        if id.hasSuffix("_orbit") { return .orbit }
+        if id.hasSuffix("_crest") { return .crest }
+        return .ring
+    }
+
+    /// 獲得（instrument）フレームの達成ランク（1〜5）。IDの素材ランクから導く。
+    static func instrumentRank(for id: String?) -> Int? {
+        guard let id, id.hasPrefix("free_instrument_") else { return nil }
+        if id.contains("iron") { return 1 }
+        if id.contains("bronze") { return 2 }
+        if id.contains("silver") { return 3 }
+        if id.contains("gold") { return 4 }
+        if id.contains("platinum") { return 5 }
+        return nil
     }
 
     /// 獲得フレーム（継続で得る `free_*`）のfallback達成ティア。
@@ -177,6 +242,29 @@ enum ProfileIconFrameCatalog {
         if id.contains("gold") { return 4 }
         if id.contains("platinum") { return 4 }
         return nil
+    }
+}
+
+/// 獲得（instrument）フレームの系統。名前は形を説明する語に統一し、ランクは「Rank n」で表す。
+enum InstrumentFrameCategory: String, CaseIterable, Identifiable {
+    case ring
+    case seal
+    case orbit
+    case crest
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .ring:
+            "光の輪"
+        case .seal:
+            "紋章"
+        case .orbit:
+            "星めぐり"
+        case .crest:
+            "かんむり"
+        }
     }
 }
 
@@ -194,9 +282,12 @@ enum ProfileStreakIconCatalog {
     static let items: [ProfileStreakIconStyle] = [
         noneItem,
         defaultItem,
-        ProfileStreakIconStyle(id: "bolt", title: "金の炎", systemImage: "flame.fill", tintHex: "#F2C94C"),
-        ProfileStreakIconStyle(id: "sun", title: "橙の炎", systemImage: "flame.fill", tintHex: "#F2994A"),
-        ProfileStreakIconStyle(id: "spark", title: "紫の炎", systemImage: "flame.fill", tintHex: "#6C5CE7")
+        ProfileStreakIconStyle(id: "orange_flame", title: "橙の炎", systemImage: "flame.fill", tintHex: "#F2994A"),
+        ProfileStreakIconStyle(id: "yellow_flame", title: "黄色の炎", systemImage: "flame.fill", tintHex: "#F2C94C"),
+        ProfileStreakIconStyle(id: "lime_flame", title: "黄緑の炎", systemImage: "flame.fill", tintHex: "#A3E635"),
+        ProfileStreakIconStyle(id: "green_flame", title: "緑の炎", systemImage: "flame.fill", tintHex: "#27AE60"),
+        ProfileStreakIconStyle(id: "blue_flame", title: "青い炎", systemImage: "flame.fill", tintHex: "#2F80ED"),
+        ProfileStreakIconStyle(id: "purple_flame", title: "紫の炎", systemImage: "flame.fill", tintHex: "#6C5CE7")
     ]
     static let equippableItems = items.filter { $0.id != ProfileDecorationUnlocks.noStreakIconID }
 
@@ -267,9 +358,10 @@ struct ProfileCardStyle: Identifiable {
     }
 
     var artworkAssetName: String { "profile_card_\(id)" }
+    var thumbnailAssetName: String { "profile_card_thumb_\(id)" }
 
     var hasGeneratedArtwork: Bool {
-        id != ProfileDecorationUnlocks.noCardStyleID && UIImage(named: artworkAssetName) != nil
+        ProfileCardStyleCatalog.generatedArtworkIDs.contains(id)
     }
 }
 
@@ -308,6 +400,7 @@ enum ProfileCardStyleCatalog {
     ]
     static let visibleItems: [ProfileCardStyle] = [noneItem, defaultItem] + freeItems
     static let items: [ProfileCardStyle] = visibleItems + legacyItems
+    static let generatedArtworkIDs = Set((freeItems + legacyItems).map(\.id))
 
     static func item(for id: String?) -> ProfileCardStyle {
         items.first { $0.id == id } ?? defaultItem

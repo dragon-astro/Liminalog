@@ -9,7 +9,8 @@
 # ルール（詳細は decoration-masters/README.md）:
 #   - マスターは decoration-masters/Cards|Frames に原寸のまま置く（リサイズ禁止）
 #   - imageset 内の PNG は本スクリプトの生成物。手で編集しない
-#   - 出荷解像度: Cards=幅1280px / Frames=1024x1024px
+#   - 出荷解像度: Cards=幅1600px / Frames=1024x1024px
+#   - カードは一覧用サムネイル（幅400px）も同じマスターから生成する
 #   - imageset が無いマスターは Contents.json ごと新規作成する
 
 set -eu
@@ -18,7 +19,8 @@ cd "$(dirname "$0")/.."
 
 MASTERS_DIR="decoration-masters"
 ASSETS_DIR="Liminalog/Assets.xcassets/ProfileDecorations"
-CARD_TARGET_WIDTH=1280
+CARD_TARGET_WIDTH=1600
+CARD_THUMB_TARGET_WIDTH=400
 FRAME_TARGET_WIDTH=1024
 FILTER="${1:-}"
 
@@ -77,6 +79,23 @@ process_group() {
         else
             sips --resampleWidth "$target_width" "$master" --out "$out" > /dev/null
             echo "resized ${master_width}px -> ${target_width}px: $png_name"
+        fi
+
+        if [[ "$group" == "Cards" && "$base" == profile_card_* ]]; then
+            local thumb_base thumb_png thumb_imageset_dir thumb_out
+            thumb_base="profile_card_thumb_${base#profile_card_}"
+            thumb_png="$thumb_base.png"
+            thumb_imageset_dir="$ASSETS_DIR/CardThumbnails/$thumb_base.imageset"
+            thumb_out="$thumb_imageset_dir/$thumb_png"
+
+            if [[ ! -d "$thumb_imageset_dir" ]]; then
+                mkdir -p "$thumb_imageset_dir"
+                write_contents_json "$thumb_imageset_dir" "$thumb_png"
+                echo "created thumbnail imageset: $thumb_imageset_dir"
+            fi
+
+            sips --resampleWidth "$CARD_THUMB_TARGET_WIDTH" "$master" --out "$thumb_out" > /dev/null
+            echo "resized thumbnail -> ${CARD_THUMB_TARGET_WIDTH}px: $thumb_png"
         fi
     done
 }
