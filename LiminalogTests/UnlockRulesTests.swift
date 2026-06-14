@@ -9,12 +9,12 @@ struct UnlockRulesTests {
     func catalogMatchesOneYearReleaseCurve() {
         let items = UnlockCatalog.items
 
-        #expect(items.count == 87)
-        #expect(Set(items.map(\.key)).count == 87)
-        #expect(Set(items.map(\.sortOrder)).count == 87)
+        #expect(items.count == 99)
+        #expect(Set(items.map(\.key)).count == 99)
+        #expect(Set(items.map(\.sortOrder)).count == 99)
         #expect(items.filter { $0.kind == .iconFrame }.count == 40)
         #expect(items.filter { $0.kind == .cardStyle }.count == 20)
-        #expect(items.filter { $0.kind == .nameBadge }.count == 20)
+        #expect(items.filter { $0.kind == .nameBadge }.count == 32)
         #expect(items.filter { $0.kind == .streakIcon }.count == 6)
         #expect(items.filter { $0.kind == .theme }.count == 1)
         #expect(Set(items.map(\.kind)) == Set([.theme, .iconFrame, .nameBadge, .streakIcon, .cardStyle]))
@@ -35,7 +35,13 @@ struct UnlockRulesTests {
             .firstRecordDays,
             .balancedDays,
             .focusedDays,
-            .changeSignalDays
+            .changeSignalDays,
+            .sleepCategoryDays,
+            .workCategoryDays,
+            .studyCategoryDays,
+            .hobbyPlayCategoryDays,
+            .exerciseCategoryDays,
+            .householdCategoryDays
         ]))
     }
 
@@ -77,12 +83,20 @@ struct UnlockRulesTests {
                 firstRecordDays: 12,
                 balancedDays: 5,
                 focusedDays: 5,
-                changeSignalDays: 10
+                changeSignalDays: 10,
+                sleepCategoryDays: 15,
+                workCategoryDays: 15,
+                studyCategoryDays: 15,
+                hobbyPlayCategoryDays: 15,
+                exerciseCategoryDays: 15,
+                householdCategoryDays: 15
             )
         )
-        // 全87件のうち交換制の個性装飾40件は指標で解放されない
-        #expect(allKeys.count == 47)
+        // 全99件のうち交換制の個性装飾40件は指標で解放されない
+        #expect(allKeys.count == 59)
         #expect(allKeys.contains("theme.aurora"))
+        #expect(allKeys.contains("badge.study_habit"))
+        #expect(allKeys.contains("badge.exercise_habit"))
         #expect(!allKeys.contains("card.free_dawn_horizon_panel"))
         #expect(!allKeys.contains("frame.free_dawn_horizon"))
     }
@@ -127,8 +141,8 @@ struct UnlockRulesTests {
         store.seedMasterItems(now: now)
 
         let items = try context.fetch(FetchDescriptor<UnlockItem>())
-        #expect(items.count == 87)
-        #expect(Set(items.map(\.key)).count == 87)
+        #expect(items.count == 99)
+        #expect(Set(items.map(\.key)).count == 99)
         let first = try #require(items.first { $0.key == "frame.free_instrument_iron" })
         #expect(first.kind == .iconFrame)
         #expect(first.requiredCumulativeScore == 420)
@@ -160,7 +174,7 @@ struct UnlockRulesTests {
 
         let items = try context.fetch(FetchDescriptor<UnlockItem>())
         let threadItems = items.filter { $0.key == "card.free_thread_border_panel" }
-        #expect(items.count == 87)
+        #expect(items.count == 99)
         #expect(threadItems.count == 1)
         #expect(threadItems.first?.id == primary.id)
         #expect(threadItems.first?.unlockedAt == olderUnlock)
@@ -186,7 +200,7 @@ struct UnlockRulesTests {
         UnlockStore(modelContext: context).seedMasterItems(now: now)
 
         let items = try context.fetch(FetchDescriptor<UnlockItem>())
-        #expect(items.count == 87)
+        #expect(items.count == 99)
         #expect(!items.contains { $0.key == "badge.first_record" })
     }
 

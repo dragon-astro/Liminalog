@@ -63,7 +63,7 @@ struct UnlockGalleryView: View {
     }
 
     private var selectedFrameID: String {
-        unlocks.equippedIconFrameID(settings?.profileIconFrameID)
+        unlocks.equippedIconFrameID(settings: settings)
     }
 
     private var selectedStreakID: String {
@@ -88,8 +88,7 @@ struct UnlockGalleryView: View {
 
     private var galleryCardStyles: [ProfileCardStyle] {
         Self.galleryCardTargetIDs.isEmpty ? ProfileCardStyleCatalog.visibleItems : ProfileCardStyleCatalog.visibleItems.filter { style in
-            style.id == ProfileDecorationUnlocks.noCardStyleID
-                || style.id == ProfileDecorationUnlocks.defaultCardStyleID
+            style.id == ProfileDecorationUnlocks.defaultCardStyleID
                 || Self.galleryCardTargetIDs.contains(style.id)
         }
     }
@@ -154,6 +153,7 @@ struct UnlockGalleryView: View {
         .navigationBarTitleDisplayMode(.inline)
         .task {
             prepareGalleryState()
+            sanitizeEquippedFrameKeysIfNeeded()
             prepareCurrentTabVisit()
             logDebugReadyIfNeeded(reason: "task")
         }
@@ -228,7 +228,7 @@ struct UnlockGalleryView: View {
             ProgressView(value: selectedTabProgress)
                 .tint(selectedTab.tint)
 
-            if selectedTab == .cards {
+            if showsFragmentBalanceInHeader {
                 HStack(spacing: 6) {
                     Image(systemName: "sparkle")
                         .font(.caption2.weight(.bold))
@@ -245,6 +245,10 @@ struct UnlockGalleryView: View {
         }
         .liminalSectionCard(cornerRadius: 8, padding: 14)
         .opacity(1 + Double(themeTransitionProgress * 0))
+    }
+
+    private var showsFragmentBalanceInHeader: Bool {
+        selectedTab == .frames || selectedTab == .cards
     }
 
     private var tabBar: some View {
@@ -367,6 +371,9 @@ struct UnlockGalleryView: View {
             let isNone = frame.id == ProfileDecorationUnlocks.noIconFrameID
             let isDefault = frame.id == ProfileDecorationUnlocks.defaultIconFrameID
             let isEquipped = selectedFrameID == frame.id
+            let showsFrameNewIndicator = isNone || isDefault
+                ? false
+                : showsNewIndicator(for: item, isUnlocked: isUnlocked, isEquipped: isEquipped)
             UnlockGalleryItemCard(
                 title: frame.title,
                 conditionText: conditionText(for: item, isNone: isNone, isDefault: isDefault),
@@ -374,7 +381,7 @@ struct UnlockGalleryView: View {
                 tint: frame.primaryColor,
                 isUnlocked: isUnlocked,
                 isEquipped: isEquipped,
-                showsNewIndicator: showsNewIndicator(for: item, isUnlocked: isUnlocked, isEquipped: isEquipped),
+                showsNewIndicator: showsFrameNewIndicator,
                 progress: progress(
                     for: item,
                     isDefault: isNone || isDefault,
@@ -382,7 +389,7 @@ struct UnlockGalleryView: View {
                 ),
                 progressText: progressText(for: item, isNone: isNone, isDefault: isDefault, isUnlocked: isUnlocked),
                 actionTitle: "装着",
-                equippedActionTitle: isNone ? "未装備" : "外す",
+                equippedActionTitle: isNone ? "装着中" : "外す",
                 allowsEquippedAction: !isNone,
                 detailPreview: isNone ? nil : {
                     AnyView(
@@ -415,12 +422,10 @@ struct UnlockGalleryView: View {
                 }
             } action: {
                 guard isUnlocked else { return }
-                updateSettings(requestsFriendShareRefresh: true) { settings in
-                    let nextID = isEquipped && !isNone ? ProfileDecorationUnlocks.noIconFrameID : frame.id
-                    settings.profileIconFrameID = nextID
-                    ProfileDecorationUnlocks.markEquippedItem(kind: .iconFrame, targetID: nextID, unlockItems: unlockItems, settings: settings)
-                }
+                let nextID = isEquipped && !isNone ? ProfileDecorationUnlocks.noIconFrameID : frame.id
+                equipFrame(nextID)
             }
+            .id("frame-\(frame.id)-equipped-\(selectedFrameID)")
         }
 
         ForEach(InstrumentFrameCategory.allCases) { category in
@@ -428,7 +433,8 @@ struct UnlockGalleryView: View {
             if !styles.isEmpty {
                 UnlockGalleryFrameStackCard(
                     category: category,
-                    entries: styles.map(frameStackEntry(for:))
+                    entries: styles.map(frameStackEntry(for:)),
+                    equippedFrameID: selectedFrameID
                 )
             }
         }
@@ -447,13 +453,10 @@ struct UnlockGalleryView: View {
             progress: progress(for: item, isDefault: false, isUnlocked: isUnlocked),
             progressText: progressText(for: item, isDefault: false, isUnlocked: isUnlocked),
             showsNewIndicator: showsNewIndicator(for: item, isUnlocked: isUnlocked, isEquipped: isEquipped)
-        ) {
+        ) { shouldUnequip in
             guard isUnlocked else { return }
-            updateSettings(requestsFriendShareRefresh: true) { settings in
-                let nextID = isEquipped ? ProfileDecorationUnlocks.noIconFrameID : frame.id
-                settings.profileIconFrameID = nextID
-                ProfileDecorationUnlocks.markEquippedItem(kind: .iconFrame, targetID: nextID, unlockItems: unlockItems, settings: settings)
-            }
+            let nextID = shouldUnequip ? ProfileDecorationUnlocks.noIconFrameID : frame.id
+            equipFrame(nextID)
         }
     }
 
@@ -512,12 +515,11 @@ struct UnlockGalleryView: View {
         ForEach(galleryCardStyles) { style in
             let item = unlockItem(kind: .cardStyle, targetID: style.id)
             let isUnlocked = unlocks.cardStyleIsUnlocked(style.id)
-            let isNone = style.id == ProfileDecorationUnlocks.noCardStyleID
             let isDefault = style.id == ProfileDecorationUnlocks.defaultCardStyleID
             let isEquipped = selectedCardID == style.id
             UnlockGalleryItemCard(
                 title: style.title,
-                conditionText: conditionText(for: item, isNone: isNone, isDefault: isDefault),
+                conditionText: conditionText(for: item, isDefault: isDefault),
                 systemImage: style.systemImage,
                 tint: style.markColor(accentColor: visualAccentColor),
                 isUnlocked: isUnlocked,
@@ -525,13 +527,13 @@ struct UnlockGalleryView: View {
                 showsNewIndicator: showsNewIndicator(for: item, isUnlocked: isUnlocked, isEquipped: isEquipped),
                 progress: progress(
                     for: item,
-                    isDefault: isNone || isDefault,
+                    isDefault: isDefault,
                     isUnlocked: isUnlocked
                 ),
-                progressText: progressText(for: item, isNone: isNone, isDefault: isDefault, isUnlocked: isUnlocked),
+                progressText: progressText(for: item, isDefault: isDefault, isUnlocked: isUnlocked),
                 actionTitle: "装着",
-                equippedActionTitle: isNone ? "未装備" : "外す",
-                allowsEquippedAction: !isNone,
+                equippedActionTitle: isDefault ? "装着中" : "外す",
+                allowsEquippedAction: !isDefault,
                 detailPreview: {
                     AnyView(
                         ProfileMiniCardStyleView(style: style, accentColor: visualAccentColor)
@@ -549,7 +551,7 @@ struct UnlockGalleryView: View {
             } action: {
                 guard isUnlocked else { return }
                 updateSettings(requestsFriendShareRefresh: true) { settings in
-                    let nextID = isEquipped && !isNone ? ProfileDecorationUnlocks.noCardStyleID : style.id
+                    let nextID = isEquipped && !isDefault ? ProfileDecorationUnlocks.defaultCardStyleID : style.id
                     settings.profileCardStyleID = nextID
                     ProfileDecorationUnlocks.markEquippedItem(kind: .cardStyle, targetID: nextID, unlockItems: unlockItems, settings: settings)
                 }
@@ -705,7 +707,30 @@ struct UnlockGalleryView: View {
             item.unlockedAt != nil,
             !item.key.isEmpty
         else { return false }
+        if isDefaultOrUnequippedItem(item) { return false }
         return !visibleSeenUnlockKeys.contains(item.key)
+    }
+
+    private func isDefaultOrUnequippedItem(_ item: UnlockItem) -> Bool {
+        switch item.kind {
+        case .nameBadge:
+            item.targetID == ProfileDecorationUnlocks.noNameBadgeID
+                || item.targetID == ProfileDecorationUnlocks.defaultNameBadgeID
+        case .iconFrame:
+            item.targetID == ProfileDecorationUnlocks.noIconFrameID
+                || item.targetID == ProfileDecorationUnlocks.defaultIconFrameID
+        case .streakIcon:
+            item.targetID == ProfileDecorationUnlocks.noStreakIconID
+                || item.targetID == ProfileDecorationUnlocks.defaultStreakIconID
+        case .cardStyle:
+            item.targetID == ProfileDecorationUnlocks.noCardStyleID
+                || item.targetID == ProfileDecorationUnlocks.defaultCardStyleID
+        case .theme:
+            item.targetID == ProfileDecorationUnlocks.defaultThemeID
+                || ProfileDecorationUnlocks.fixedDefaultThemeIDs.contains(item.targetID)
+        case .iconSet, .barStyle, .monthArt:
+            false
+        }
     }
 
     private func hasFreshUnlock(in tab: UnlockGalleryTab) -> Bool {
@@ -719,6 +744,37 @@ struct UnlockGalleryView: View {
     private func prepareGalleryState() {
         guard unlockItems.isEmpty else { return }
         _ = UnlockStore(modelContext: modelContext).seedMasterItems()
+    }
+
+    private func sanitizeEquippedFrameKeysIfNeeded() {
+        guard let settings else { return }
+        let originalKeys = settings.equippedUnlockItemKeys
+        let originalFrameID = settings.profileIconFrameID
+        let targetID = unlocks.equippedIconFrameID(settings: settings)
+
+        settings.profileIconFrameID = targetID
+        ProfileDecorationUnlocks.markEquippedItem(
+            kind: .iconFrame,
+            targetID: targetID,
+            unlockItems: unlockItems,
+            settings: settings
+        )
+
+        guard settings.equippedUnlockItemKeys != originalKeys || settings.profileIconFrameID != originalFrameID else { return }
+        settings.updatedAt = Date()
+        do {
+            try modelContext.save()
+        } catch {
+            NSLog("Liminalog: failed to sanitize equipped frame keys: \(String(describing: error))")
+            modelContext.rollback()
+        }
+    }
+
+    private func equipFrame(_ targetID: String) {
+        updateSettings(requestsFriendShareRefresh: true) { settings in
+            settings.profileIconFrameID = targetID
+            ProfileDecorationUnlocks.markEquippedItem(kind: .iconFrame, targetID: targetID, unlockItems: unlockItems, settings: settings)
+        }
     }
 
     private func updateTheme(_ id: String) {
@@ -770,12 +826,13 @@ struct UnlockGalleryView: View {
             .map(\.key)
     }
 
+    @discardableResult
     private func updateSettings(
         showError: Bool = true,
         successFeedback: UnlockGallerySuccessFeedback? = .selection,
         requestsFriendShareRefresh: Bool = false,
         _ update: (UserSettings) -> Void
-    ) {
+    ) -> Bool {
         let target: UserSettings
         if let settings {
             target = settings
@@ -794,6 +851,7 @@ struct UnlockGalleryView: View {
             if showError {
                 playSuccessFeedback(successFeedback)
             }
+            return true
         } catch {
             NSLog("Liminalog: failed to save unlock gallery settings: \(String(describing: error))")
             modelContext.rollback()
@@ -801,6 +859,7 @@ struct UnlockGalleryView: View {
                 LiminalHaptics.failure()
                 saveError = "時間をおいてもう一度試してください。"
             }
+            return false
         }
     }
 
@@ -1108,13 +1167,14 @@ private struct UnlockGalleryFrameStackCard: View {
         let progress: Double
         let progressText: String
         let showsNewIndicator: Bool
-        let equip: () -> Void
+        let equip: (_ shouldUnequip: Bool) -> Void
 
         var id: String { style.id }
     }
 
     let category: InstrumentFrameCategory
     let entries: [Entry]
+    let equippedFrameID: String
 
     @State private var isShowingDetail = false
 
@@ -1128,7 +1188,7 @@ private struct UnlockGalleryFrameStackCard: View {
     }
 
     private var hasEquippedEntry: Bool {
-        entries.contains(where: \.isEquipped)
+        entries.contains { $0.id == equippedFrameID }
     }
 
     var body: some View {
@@ -1142,7 +1202,7 @@ private struct UnlockGalleryFrameStackCard: View {
         .accessibilityLabel("\(category.title)。\(unlockedCount)/\(entries.count)ランク解放済み")
         .accessibilityHint("タップでランク一覧を表示")
         .sheet(isPresented: $isShowingDetail) {
-            UnlockGalleryFrameStackSheet(category: category, entries: entries)
+            UnlockGalleryFrameStackSheet(category: category, entries: entries, equippedFrameID: equippedFrameID)
         }
     }
 
@@ -1234,14 +1294,20 @@ private struct UnlockGalleryFrameStackCard: View {
 private struct UnlockGalleryFrameStackSheet: View {
     let category: InstrumentFrameCategory
     let entries: [UnlockGalleryFrameStackCard.Entry]
+    let equippedFrameID: String
 
     @State private var selectedID: String?
+    @State private var localEquippedFrameID: String?
+
+    private var currentEquippedFrameID: String {
+        localEquippedFrameID ?? equippedFrameID
+    }
 
     private var selectedEntry: UnlockGalleryFrameStackCard.Entry? {
         if let selectedID, let entry = entries.first(where: { $0.id == selectedID }) {
             return entry
         }
-        return entries.first(where: \.isEquipped)
+        return entries.first { $0.id == currentEquippedFrameID }
             ?? entries.last(where: \.isUnlocked)
             ?? entries.first
     }
@@ -1288,7 +1354,11 @@ private struct UnlockGalleryFrameStackSheet: View {
                     )
                 }
 
-                Button(action: entry.equip) {
+                Button {
+                    let shouldUnequip = currentEquippedFrameID == entry.id
+                    localEquippedFrameID = shouldUnequip ? ProfileDecorationUnlocks.noIconFrameID : entry.id
+                    entry.equip(shouldUnequip)
+                } label: {
                     Text(buttonTitle(for: entry))
                         .font(.caption.weight(.bold))
                         .padding(.horizontal, 22)
@@ -1341,7 +1411,7 @@ private struct UnlockGalleryFrameStackSheet: View {
                         }
                     }
                     .overlay(alignment: .topTrailing) {
-                        if entry.isEquipped {
+                        if currentEquippedFrameID == entry.id {
                             Image(systemName: "checkmark.circle.fill")
                                 .font(.system(size: 12, weight: .bold))
                                 .foregroundStyle(LiminalTheme.accent)
@@ -1350,14 +1420,14 @@ private struct UnlockGalleryFrameStackSheet: View {
                     }
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Rank \(entry.rank)。\(entry.isUnlocked ? "解放済み" : "未解放")\(entry.isEquipped ? "・装着中" : "")")
+                .accessibilityLabel("Rank \(entry.rank)。\(entry.isUnlocked ? "解放済み" : "未解放")\(currentEquippedFrameID == entry.id ? "・装着中" : "")")
             }
         }
     }
 
     private func buttonTitle(for entry: UnlockGalleryFrameStackCard.Entry) -> String {
         if !entry.isUnlocked { return "未解放" }
-        return entry.isEquipped ? "外す" : "装着"
+        return currentEquippedFrameID == entry.id ? "外す" : "装着"
     }
 }
 

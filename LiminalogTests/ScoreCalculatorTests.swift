@@ -20,7 +20,7 @@ struct ScoreCalculatorTests {
             category: category,
             startTime: try #require(calendar.date(from: DateComponents(year: 2026, month: 5, day: 28, hour: 9, minute: 5)))
         )
-        chapter.endTime = try #require(calendar.date(from: DateComponents(year: 2026, month: 5, day: 28, hour: 10, minute: 55)))
+        chapter.endTime = calendar.date(from: DateComponents(year: 2026, month: 5, day: 28, hour: 10, minute: 55))
 
         let summary = ScoreCalculator.summary(date: day, plans: [plan], chapters: [chapter], calendar: calendar)
 
@@ -44,7 +44,7 @@ struct ScoreCalculatorTests {
             category: category,
             startTime: try #require(calendar.date(from: DateComponents(year: 2026, month: 5, day: 27, hour: 23, minute: 30)))
         )
-        chapter.endTime = try #require(calendar.date(from: DateComponents(year: 2026, month: 5, day: 28, hour: 1)))
+        chapter.endTime = calendar.date(from: DateComponents(year: 2026, month: 5, day: 28, hour: 1))
 
         let summary = ScoreCalculator.summary(date: day, plans: [plan], chapters: [chapter], calendar: calendar)
 
@@ -74,7 +74,7 @@ struct ScoreStoreTests {
             let end = try #require(calendar.date(byAdding: .hour, value: 1, to: start))
             context.insert(PlanBlock(category: category, title: "勉強", startTime: start, endTime: end))
             let chapter = Chapter(category: category, startTime: start)
-            chapter.endTime = try #require(calendar.date(byAdding: .minute, value: 30, to: start))
+            chapter.endTime = calendar.date(byAdding: .minute, value: 30, to: start)
             context.insert(chapter)
         }
 

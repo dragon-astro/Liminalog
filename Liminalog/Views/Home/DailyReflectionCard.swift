@@ -11,7 +11,7 @@ struct DailyReflectionCard: View {
     let dayBoundary: DayBoundary
     let categoryRows: [(category: Category, duration: TimeInterval)]
     let recordedDuration: TimeInterval
-    let onPlanTomorrow: () -> Void
+    let onPlanTomorrow: (() -> Void)?
     @State private var shareItem: DailyCardShareItem?
 
     private var persona: DailyPersona {
@@ -487,6 +487,7 @@ private struct DailyFactPill: View {
     let value: String
     let suffix: String?
     let systemImage: String
+    private let pillHeight: CGFloat = 64
 
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
@@ -495,6 +496,8 @@ private struct DailyFactPill: View {
                     .font(.caption2.weight(.bold))
                 Text(title)
                     .font(.caption2.weight(.bold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
             }
             .foregroundStyle(LiminalTheme.secondaryText)
 
@@ -508,12 +511,12 @@ private struct DailyFactPill: View {
                     Text(suffix)
                         .font(.caption2.weight(.bold))
                         .foregroundStyle(LiminalTheme.secondaryText)
+                        .lineLimit(1)
                 }
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, minHeight: pillHeight, alignment: .leading)
         .padding(.horizontal, 10)
-        .padding(.vertical, 10)
         .liminalGlassFill(in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .liminalAccentLight(in: RoundedRectangle(cornerRadius: 14, style: .continuous), intensity: 0.26)
     }
@@ -548,7 +551,7 @@ private struct DailyCategoryConstellation: View {
     }
 }
 
-private struct LiminalGrainOverlay: View {
+struct LiminalGrainOverlay: View {
     var body: some View {
         Canvas { context, size in
             for index in 0..<70 {

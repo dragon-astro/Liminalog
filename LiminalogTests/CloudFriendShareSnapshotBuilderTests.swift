@@ -311,6 +311,46 @@ struct CloudFriendShareSnapshotBuilderTests {
         #expect(items.activities.isEmpty)
     }
 
+    @Test
+    func activeChapterStaysInCurrentStatusButNotCalendarItems() {
+        let now = Date(timeIntervalSince1970: 1_780_764_000)
+        let preset = VisibilityPreset(name: "全部公開", level: .all, publishMode: .realtime, now: now)
+        let friend = Friend(displayName: "Mika", status: .accepted, now: now)
+        friend.userRecordID = "_target"
+        friend.visibilityPresetID = preset.id
+
+        let focus = Category(name: "集中", colorHex: "#2F80ED", icon: "bolt.fill")
+        let active = Chapter(category: focus, startTime: now.addingTimeInterval(-1_800))
+        active.endTime = nil
+        active.updatedAt = now.addingTimeInterval(-1_800)
+
+        let finished = Chapter(category: focus, startTime: now.addingTimeInterval(-7_200))
+        finished.endTime = now.addingTimeInterval(-3_600)
+        finished.updatedAt = now.addingTimeInterval(-3_600)
+
+        let snapshot = CloudFriendShareSnapshotBuilder.snapshot(
+            for: friend,
+            ownUsername: "owner",
+            ownDisplayName: "Owner",
+            visibilityPresets: [preset],
+            chapters: [active, finished],
+            acceptedFriendIDs: [friend.id],
+            now: now,
+            scoreProvider: { _ in 0 }
+        )
+        let items = CloudFriendShareSnapshotBuilder.sharedItems(
+            for: friend,
+            visibilityPresets: [preset],
+            chapters: [active, finished],
+            planBlocks: [],
+            acceptedFriendIDs: [friend.id],
+            now: now
+        )
+
+        #expect(snapshot.currentStatusTitle == "集中")
+        #expect(items.activities.map(\.id) == [finished.id])
+    }
+
     private static func sampleProfileImageData() -> Data {
         let renderer = UIGraphicsImageRenderer(size: CGSize(width: 640, height: 640))
         let image = renderer.image { context in

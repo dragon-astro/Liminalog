@@ -368,7 +368,7 @@ struct ProfileCardStyle: Identifiable {
 enum ProfileCardStyleCatalog {
     static let noneItem = ProfileCardStyle(id: ProfileDecorationUnlocks.noCardStyleID, title: "なし", systemImage: "minus.rectangle", lightBackgroundHex: "#FFFFFF", darkBackgroundHex: "#1F1A38", markHex: "#8E879F", stripOpacity: 0, borderWidth: 0)
     static let defaultID = ProfileDecorationUnlocks.defaultCardStyleID
-    static let defaultItem = ProfileCardStyle(id: defaultID, title: "静空", systemImage: "rectangle", lightBackgroundHex: "#FFFFFF", darkBackgroundHex: "#1F1A38", markHex: nil, stripOpacity: 0.34, borderWidth: 1)
+    static let defaultItem = ProfileCardStyle(id: defaultID, title: "なし", systemImage: "rectangle", lightBackgroundHex: "#FFFFFF", darkBackgroundHex: "#1F1A38", markHex: nil, stripOpacity: 0.34, borderWidth: 1)
     static let freeItems: [ProfileCardStyle] = [
         generated(id: "free_dawn_horizon_panel", title: "暁線", systemImage: "sunrise.fill", markHex: "#FFB3C7"),
         generated(id: "free_ripple_border_panel", title: "水縁", systemImage: "water.waves", markHex: "#39D5E8"),
@@ -398,8 +398,8 @@ enum ProfileCardStyleCatalog {
         ProfileCardStyle(id: "porcelain_panel", title: "白磁", systemImage: "circle.hexagongrid.fill", lightBackgroundHex: "#F8FBFF", darkBackgroundHex: "#172033", markHex: "#D8ECFF", stripOpacity: 0.38, borderWidth: 1),
         ProfileCardStyle(id: "tide_panel", title: "潮目", systemImage: "drop.fill", lightBackgroundHex: "#F0FFFD", darkBackgroundHex: "#122E34", markHex: "#39D5E8", stripOpacity: 0.42, borderWidth: 1)
     ]
-    static let visibleItems: [ProfileCardStyle] = [noneItem, defaultItem] + freeItems
-    static let items: [ProfileCardStyle] = visibleItems + legacyItems
+    static let visibleItems: [ProfileCardStyle] = [defaultItem] + freeItems
+    static let items: [ProfileCardStyle] = [noneItem] + visibleItems + legacyItems
     static let generatedArtworkIDs = Set((freeItems + legacyItems).map(\.id))
 
     static func item(for id: String?) -> ProfileCardStyle {

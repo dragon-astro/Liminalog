@@ -64,6 +64,10 @@ struct DailyPersona {
         }
 
         if summary.plannedDuration == 0 {
+            if let lifestyleCopy = DailyCardLifestyleCopy.shapeDraft(analysis: analysis) {
+                let copy = DailyPersonaCopy(lifestyleCopy)
+                return DailyPersona(kind: .noPlan, title: copy.title, message: copy.message(seed: messageSeed), symbol: copy.symbol, facts: facts)
+            }
             let copy = DailyCardCopyCatalog.noPlanCopy()
             return DailyPersona(kind: .noPlan, title: copy.title, message: copy.message(seed: messageSeed), symbol: copy.symbol, facts: facts)
         }
@@ -78,18 +82,8 @@ struct DailyPersona {
         recordedDuration: TimeInterval,
         chapterCount: Int
     ) -> [DailyCardFact] {
-        let hasMeaningfulRestExclusion = analysis.restWasExcluded && analysis.discretionaryDuration > 0
-        let durationForPrimaryFact = hasMeaningfulRestExclusion ? analysis.discretionaryDuration : recordedDuration
-        let durationTitle = hasMeaningfulRestExclusion ? "裁量時間" : "記録カバー"
-
         var facts = [
-            DailyCardFact(
-                id: "duration",
-                title: durationTitle,
-                value: formatDailyCardDuration(durationForPrimaryFact),
-                suffix: nil,
-                systemImage: hasMeaningfulRestExclusion ? "clock.badge.checkmark" : "clock.fill"
-            ),
+            primaryFact(analysis: analysis, recordedDuration: recordedDuration),
             secondaryFact(summary: summary, chapterCount: chapterCount)
         ]
         if let spotlightFact = analysis.spotlightFact {
@@ -98,6 +92,29 @@ struct DailyPersona {
             facts.append(signalFact)
         }
         return Array(facts.prefix(3))
+    }
+
+    private static func primaryFact(
+        analysis: DailyCardPatternDetector,
+        recordedDuration: TimeInterval
+    ) -> DailyCardFact {
+        if let focus = analysis.focusCategory {
+            return DailyCardFact(
+                id: "focus-category",
+                title: "主役",
+                value: focus.category.name,
+                suffix: formatDailyCardDuration(focus.duration),
+                systemImage: "star.fill"
+            )
+        }
+
+        return DailyCardFact(
+            id: "record-cover",
+            title: "記録カバー",
+            value: formatDailyCardDuration(recordedDuration),
+            suffix: nil,
+            systemImage: "clock.fill"
+        )
     }
 
     private static func secondaryFact(summary: ScoreSummary, chapterCount: Int) -> DailyCardFact {
@@ -185,6 +202,9 @@ private extension DailyCardPatternSignal {
     var copy: DailyPersonaCopy {
         switch self {
         case let .firstRecord(category):
+            if let draft = DailyCardLifestyleCopy.firstRecordDraft(for: category) {
+                return DailyPersonaCopy(draft)
+            }
             return DailyPersonaCopy(
                 title: "\(category.name)、はじめました",
                 messages: [
@@ -194,6 +214,9 @@ private extension DailyCardPatternSignal {
                 symbol: "sparkles"
             )
         case let .returnAfterGap(category, days):
+            if let draft = DailyCardLifestyleCopy.returnAfterGapDraft(for: category, days: days) {
+                return DailyPersonaCopy(draft)
+            }
             return DailyPersonaCopy(
                 title: "おかえり\(category.name)",
                 messages: [
@@ -204,6 +227,9 @@ private extension DailyCardPatternSignal {
             )
         case let .personalBest(category, duration, previousBest):
             let improvement = max(duration - previousBest, 0)
+            if let draft = DailyCardLifestyleCopy.personalBestDraft(for: category, duration: duration, improvement: improvement) {
+                return DailyPersonaCopy(draft)
+            }
             return DailyPersonaCopy(
                 title: "\(category.name)自己最長",
                 messages: [
@@ -285,10 +311,10 @@ private extension DailyCardPatternSignal {
             return DailyCardFact(id: "signal-gap", title: "復帰", value: "\(days)", suffix: "日ぶり", systemImage: "hand.wave.fill")
         case let .personalBest(_, duration, _):
             return DailyCardFact(id: "signal-best", title: "自己最長", value: formatDailyCardDuration(duration), suffix: nil, systemImage: "crown.fill")
-        case let .moreThanUsual(_, delta):
-            return DailyCardFact(id: "signal-more", title: "いつもより", value: formatDailyCardDuration(delta), suffix: "多め", systemImage: "arrow.up.right")
-        case let .lessThanUsual(_, delta):
-            return DailyCardFact(id: "signal-less", title: "いつもより", value: formatDailyCardDuration(delta), suffix: "控えめ", systemImage: "arrow.down.right")
+        case let .moreThanUsual(category, delta):
+            return DailyCardFact(id: "signal-more", title: category.name, value: "+\(formatDailyCardDuration(delta))", suffix: "多め", systemImage: "arrow.up.right")
+        case let .lessThanUsual(category, delta):
+            return DailyCardFact(id: "signal-less", title: category.name, value: "-\(formatDailyCardDuration(delta))", suffix: "控えめ", systemImage: "arrow.down.right")
         }
     }
 }
@@ -351,6 +377,10 @@ private enum DailyCardCopyCatalog {
     }
 
     static func shapeCopy(analysis: DailyCardPatternDetector) -> DailyPersonaCopy {
+        if let lifestyleCopy = DailyCardLifestyleCopy.shapeDraft(analysis: analysis) {
+            return DailyPersonaCopy(lifestyleCopy)
+        }
+
         let focusName = analysis.focusCategory?.category.name ?? "今日"
         let focusDuration = formatDailyCardDuration(analysis.focusCategory?.duration ?? analysis.discretionaryDuration)
         let sprintName = analysis.longestMeaningfulCategory?.name ?? focusName
@@ -419,6 +449,16 @@ private struct DailyPersonaCopy {
     let title: String
     let messages: [String]
     let symbol: String
+
+    init(title: String, messages: [String], symbol: String) {
+        self.title = title
+        self.messages = messages
+        self.symbol = symbol
+    }
+
+    init(_ draft: DailyCardLifestyleCopyDraft) {
+        self.init(title: draft.title, messages: draft.messages, symbol: draft.symbol)
+    }
 
     func message(seed: Int) -> String {
         guard !messages.isEmpty else { return "" }

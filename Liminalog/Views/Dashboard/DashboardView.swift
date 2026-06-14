@@ -9,29 +9,23 @@ struct DashboardView: View {
     @State private var clock = TickClock(interval: 60)
 
     var body: some View {
-        // Today と同じ構造: 各期間ページが NavigationStack { ScrollView } を直下に持ち、
-        // 期間タブはシステムナビバー(principal)へ。ZStack のグラデ backdrop でバー裏の白を消す。
+        // 選択中の期間だけを構築する。Page TabView で週/月/年を同時に持つと、
+        // ルートタブ切り替え時に複数期間の @Query と集計が一気に走って重くなる。
         ZStack {
             LiminalTheme.canvasGradient.ignoresSafeArea()
 
-            TabView(selection: $period) {
-                ForEach(DashboardPeriod.allCases) { item in
-                    NavigationStack {
-                        DashboardPeriodContent(
-                            period: item,
-                            anchorDate: anchorDate,
-                            clockNow: clock.now,
-                            onPickDate: { isShowingPeriodPicker = true }
-                        )
-                        .background(LiminalTheme.canvasGradient)
-                        .navigationBarTitleDisplayMode(.inline)
-                        .toolbar { dashboardToolbar }
-                    }
-                    .tag(item)
-                }
+            NavigationStack {
+                DashboardPeriodContent(
+                    period: period,
+                    anchorDate: anchorDate,
+                    clockNow: clock.now,
+                    onPickDate: { isShowingPeriodPicker = true }
+                )
+                .id(dashboardContentID)
+                .background(LiminalTheme.canvasGradient)
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar { dashboardToolbar }
             }
-            .tabViewStyle(.page(indexDisplayMode: .never))
-            .ignoresSafeArea()
         }
         .onAppear {
             clock.start()
@@ -45,6 +39,10 @@ struct DashboardView: View {
         .sheet(isPresented: $isShowingCustomizeSheet) {
             DashboardCustomizeSheet(period: period)
         }
+    }
+
+    private var dashboardContentID: String {
+        "\(period.rawValue)-\(Int(anchorDate.timeIntervalSinceReferenceDate / 60))"
     }
 
     @ToolbarContentBuilder

@@ -89,8 +89,9 @@ enum CloudFriendShareSnapshotBuilder {
             acceptedFriendIDs: acceptedFriendIDs,
             now: now
         ))
+        let finishedChapters = chapters.filter { $0.endTime != nil }
         let activities = nonOverlappingActivities(FriendSharedActivitySnapshot.snapshots(
-            from: chapters,
+            from: finishedChapters,
             now: now,
             visibilityPreset: preset,
             recipientFriendID: friend.id,

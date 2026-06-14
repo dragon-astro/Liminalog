@@ -47,7 +47,7 @@ struct ProfileDecorationUnlocks {
             in: unlockItems,
             kind: .cardStyle,
             defaultID: Self.defaultCardStyleID,
-            unequippedID: Self.noCardStyleID
+            unequippedID: nil
         )
 
         #if DEBUG
@@ -91,12 +91,26 @@ struct ProfileDecorationUnlocks {
         equippedID(requestedID, unlockedIDs: iconFrameIDs, defaultID: Self.defaultIconFrameID)
     }
 
+    func equippedIconFrameID(settings: UserSettings?) -> String {
+        guard let settings else {
+            return equippedIconFrameID(nil)
+        }
+        let equippedKeyTargetID = Self.equippedTargetID(
+            from: settings.equippedUnlockItemKeys,
+            kind: .iconFrame
+        )
+        return equippedIconFrameID(equippedKeyTargetID ?? settings.profileIconFrameID)
+    }
+
     func equippedStreakIconID(_ requestedID: String?) -> String {
         equippedID(requestedID, unlockedIDs: streakIconIDs, defaultID: Self.defaultStreakIconID)
     }
 
     func equippedCardStyleID(_ requestedID: String?) -> String {
-        equippedID(requestedID, unlockedIDs: cardStyleIDs, defaultID: Self.defaultCardStyleID)
+        if requestedID == Self.noCardStyleID {
+            return Self.defaultCardStyleID
+        }
+        return equippedID(requestedID, unlockedIDs: cardStyleIDs, defaultID: Self.defaultCardStyleID)
     }
 
     func themeIsUnlocked(_ id: String) -> Bool {
@@ -118,7 +132,7 @@ struct ProfileDecorationUnlocks {
         let seenKeys = Set(settings?.seenUnlockItemKeys ?? [])
             .union(settings?.equippedUnlockItemKeys ?? [])
         let equippedBadgeID = unlocks.equippedBadgeID(settings?.profileBadgeID)
-        let equippedIconFrameID = unlocks.equippedIconFrameID(settings?.profileIconFrameID)
+        let equippedIconFrameID = unlocks.equippedIconFrameID(settings: settings)
         let equippedStreakIconID = unlocks.equippedStreakIconID(settings?.profileStreakIconID)
         let equippedCardStyleID = unlocks.equippedCardStyleID(settings?.profileCardStyleID)
         let equippedThemeID = unlocks.equippedThemeID(settings?.themeName)
@@ -161,25 +175,92 @@ struct ProfileDecorationUnlocks {
         unlockItems: [UnlockItem],
         settings: UserSettings
     ) {
-        let kindKeys = Set(
-            unlockItems
-                .filter { $0.kind == kind && !$0.key.isEmpty }
-                .map(\.key)
-        )
-        if !kindKeys.isEmpty {
-            settings.equippedUnlockItemKeys.removeAll { kindKeys.contains($0) }
-        }
+        let normalizedTargetID = normalizedEquippedTargetID(kind: kind, targetID: targetID)
+        settings.equippedUnlockItemKeys.removeAll { equippedKeyBelongsToKind($0, kind: kind, unlockItems: unlockItems) }
 
-        guard
-            let key = unlockItems.first(where: { item in
+        let catalogKey = unlockItems.first(where: { item in
                 item.kind == kind
-                    && item.targetID == targetID
+                    && item.targetID == normalizedTargetID
                     && item.unlockedAt != nil
                     && !item.key.isEmpty
-            })?.key
-        else { return }
+        })?.key
+        let explicitKey = explicitEquippedKey(kind: kind, targetID: normalizedTargetID)
 
+        guard let key = catalogKey ?? explicitKey else { return }
         settings.equippedUnlockItemKeys.append(key)
+    }
+
+    static func normalizedEquippedTargetID(kind: UnlockKind, targetID: String) -> String {
+        if kind == .cardStyle, targetID == noCardStyleID {
+            return defaultCardStyleID
+        }
+        return targetID
+    }
+
+    static func equippedTargetID(from equippedKeys: [String], kind: UnlockKind) -> String? {
+        for key in equippedKeys.reversed() {
+            if let targetID = explicitEquippedTargetID(kind: kind, key: key) {
+                return targetID
+            }
+            if let item = UnlockCatalog.items.first(where: { $0.kind == kind && $0.key == key }) {
+                return item.targetID
+            }
+        }
+        return nil
+    }
+
+    private static func equippedKeyBelongsToKind(_ key: String, kind: UnlockKind, unlockItems: [UnlockItem]) -> Bool {
+        guard !key.isEmpty else { return false }
+        if unlockItems.contains(where: { $0.kind == kind && $0.key == key }) {
+            return true
+        }
+        if UnlockCatalog.items.contains(where: { $0.kind == kind && $0.key == key }) {
+            return true
+        }
+        return key.hasPrefix(equippedKeyPrefix(for: kind))
+    }
+
+    private static func equippedKeyPrefix(for kind: UnlockKind) -> String {
+        switch kind {
+        case .nameBadge:
+            return "badge."
+        case .iconFrame:
+            return "frame."
+        case .streakIcon:
+            return "streak."
+        case .cardStyle:
+            return "card."
+        case .theme:
+            return "theme."
+        case .iconSet:
+            return "iconSet."
+        case .barStyle:
+            return "barStyle."
+        case .monthArt:
+            return "monthArt."
+        }
+    }
+
+    private static func explicitEquippedKey(kind: UnlockKind, targetID: String) -> String? {
+        switch (kind, targetID) {
+        case (.iconFrame, noIconFrameID):
+            return "frame.\(noIconFrameID)"
+        case (.iconFrame, defaultIconFrameID):
+            return "frame.\(defaultIconFrameID)"
+        default:
+            return nil
+        }
+    }
+
+    private static func explicitEquippedTargetID(kind: UnlockKind, key: String) -> String? {
+        switch (kind, key) {
+        case (.iconFrame, "frame.\(noIconFrameID)"):
+            return noIconFrameID
+        case (.iconFrame, "frame.\(defaultIconFrameID)"):
+            return defaultIconFrameID
+        default:
+            return nil
+        }
     }
 
     private static func unlockedTargetIDs(

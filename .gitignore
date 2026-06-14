@@ -2,3 +2,10 @@
 build/
 artifacts/
 名称未設定フォルダ/
+
+# AIツール用（アプリ本体ではない）
+.agents/
+skills-lock.json
+
+# スクショ生成ツールの作業/ビルド生成物（数百MB・アプリ無関係）
+marketing/

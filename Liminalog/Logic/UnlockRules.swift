@@ -19,6 +19,12 @@ enum UnlockRequirementKind: String, Codable, CaseIterable, Identifiable {
     case balancedDays
     case focusedDays
     case changeSignalDays
+    case sleepCategoryDays
+    case workCategoryDays
+    case studyCategoryDays
+    case hobbyPlayCategoryDays
+    case exerciseCategoryDays
+    case householdCategoryDays
     /// ひかりのかけら交換（doc 16 §12.0.1）。指標では絶対に自動解放されず、
     /// ユーザーの交換操作だけが unlockedAt を立てる。
     case exchange
@@ -43,7 +49,9 @@ enum UnlockRequirementKind: String, Codable, CaseIterable, Identifiable {
             "種類"
         case .planMatchedDays, .chargeDays, .morningPersonaDays, .nightPersonaDays,
              .recordingHabitDays, .personalBestDays, .returnAfterGapDays, .firstRecordDays,
-             .balancedDays, .focusedDays, .changeSignalDays:
+             .balancedDays, .focusedDays, .changeSignalDays, .sleepCategoryDays,
+             .workCategoryDays, .studyCategoryDays, .hobbyPlayCategoryDays,
+             .exerciseCategoryDays, .householdCategoryDays:
             "回"
         case .exchange:
             "枚"
@@ -88,6 +96,18 @@ enum UnlockRequirementKind: String, Codable, CaseIterable, Identifiable {
             "一点集中の日"
         case .changeSignalDays:
             "変化を作った日"
+        case .sleepCategoryDays:
+            "睡眠の日"
+        case .workCategoryDays:
+            "仕事の日"
+        case .studyCategoryDays:
+            "勉強の日"
+        case .hobbyPlayCategoryDays:
+            "趣味・遊びの日"
+        case .exerciseCategoryDays:
+            "運動の日"
+        case .householdCategoryDays:
+            "家事・生活の日"
         case .exchange:
             "ひかりのかけら"
         }
@@ -106,7 +126,9 @@ enum UnlockRequirementKind: String, Codable, CaseIterable, Identifiable {
         case .earlyRecordDays, .lateNightRecordDays,
              .planMatchedDays, .chargeDays, .morningPersonaDays, .nightPersonaDays,
              .recordingHabitDays, .personalBestDays, .returnAfterGapDays, .firstRecordDays,
-             .balancedDays, .focusedDays, .changeSignalDays:
+             .balancedDays, .focusedDays, .changeSignalDays, .sleepCategoryDays,
+             .workCategoryDays, .studyCategoryDays, .hobbyPlayCategoryDays,
+             .exerciseCategoryDays, .householdCategoryDays:
             "回"
         case .distinctCategoryCount:
             "種類"
@@ -151,6 +173,12 @@ struct UnlockMetrics: Equatable {
     var balancedDays: Int = 0
     var focusedDays: Int = 0
     var changeSignalDays: Int = 0
+    var sleepCategoryDays: Int = 0
+    var workCategoryDays: Int = 0
+    var studyCategoryDays: Int = 0
+    var hobbyPlayCategoryDays: Int = 0
+    var exerciseCategoryDays: Int = 0
+    var householdCategoryDays: Int = 0
 
     static func score(_ cumulativeScore: Int) -> UnlockMetrics {
         UnlockMetrics(cumulativeScore: cumulativeScore)
@@ -194,6 +222,18 @@ struct UnlockMetrics: Equatable {
             focusedDays
         case .changeSignalDays:
             changeSignalDays
+        case .sleepCategoryDays:
+            sleepCategoryDays
+        case .workCategoryDays:
+            workCategoryDays
+        case .studyCategoryDays:
+            studyCategoryDays
+        case .hobbyPlayCategoryDays:
+            hobbyPlayCategoryDays
+        case .exerciseCategoryDays:
+            exerciseCategoryDays
+        case .householdCategoryDays:
+            householdCategoryDays
         case .exchange:
             // 交換は指標で満たされない（ユーザー操作のみ）
             0
@@ -347,26 +387,38 @@ enum UnlockCatalog {
     ]
 
     private static let badgeDefinitions: [UnlockCatalogDefinition] = [
-        .init(key: "badge.planner", kind: .nameBadge, displayName: "計画派", systemImageName: "checkmark.seal.fill", tintHex: "#2F80ED", targetID: "planner", requirement: .init(kind: .planMatchedDays, value: 5)),
-        .init(key: "badge.executor", kind: .nameBadge, displayName: "実行者", systemImageName: "checkmark.seal.fill", tintHex: "#2F80ED", targetID: "executor", requirement: .init(kind: .planMatchedDays, value: 15)),
-        .init(key: "badge.promise_keeper", kind: .nameBadge, displayName: "約束の人", systemImageName: "checkmark.seal.fill", tintHex: "#5FE0A8", targetID: "promise_keeper", requirement: .init(kind: .planMatchedDays, value: 30)),
-        .init(key: "badge.restorer", kind: .nameBadge, displayName: "整え上手", systemImageName: "battery.100percent", tintHex: "#27AE60", targetID: "restorer", requirement: .init(kind: .chargeDays, value: 5)),
-        .init(key: "badge.recovery_master", kind: .nameBadge, displayName: "回復名人", systemImageName: "battery.100percent.bolt", tintHex: "#27AE60", targetID: "recovery_master", requirement: .init(kind: .chargeDays, value: 15)),
-        .init(key: "badge.morning_type", kind: .nameBadge, displayName: "朝型", systemImageName: "sunrise.fill", tintHex: "#F2994A", targetID: "morning_type", requirement: .init(kind: .morningPersonaDays, value: 5)),
-        .init(key: "badge.morning_person", kind: .nameBadge, displayName: "朝の人", systemImageName: "sun.max.fill", tintHex: "#F2C94C", targetID: "morning_person", requirement: .init(kind: .morningPersonaDays, value: 15)),
-        .init(key: "badge.night_walker", kind: .nameBadge, displayName: "夜渡り", systemImageName: "moon.stars.fill", tintHex: "#8AB4FF", targetID: "night_walker", requirement: .init(kind: .nightPersonaDays, value: 5)),
-        .init(key: "badge.night_person", kind: .nameBadge, displayName: "夜の人", systemImageName: "moon.haze.fill", tintHex: "#AEB4DD", targetID: "night_person", requirement: .init(kind: .nightPersonaDays, value: 15)),
-        .init(key: "badge.recorder", kind: .nameBadge, displayName: "記録家", systemImageName: "book.closed.fill", tintHex: "#6C5CE7", targetID: "recorder", requirement: .init(kind: .recordingHabitDays, value: 5)),
-        .init(key: "badge.observer", kind: .nameBadge, displayName: "継続観測者", systemImageName: "eye.fill", tintHex: "#9B8CFF", targetID: "observer", requirement: .init(kind: .recordingHabitDays, value: 15)),
-        .init(key: "badge.updater", kind: .nameBadge, displayName: "更新者", systemImageName: "arrow.up.right.circle.fill", tintHex: "#EB5757", targetID: "updater", requirement: .init(kind: .personalBestDays, value: 3)),
-        .init(key: "badge.best_crafter", kind: .nameBadge, displayName: "自己ベスト職人", systemImageName: "crown.fill", tintHex: "#F2C94C", targetID: "best_crafter", requirement: .init(kind: .personalBestDays, value: 10)),
-        .init(key: "badge.comeback", kind: .nameBadge, displayName: "復帰上手", systemImageName: "hand.wave.fill", tintHex: "#5FE0A8", targetID: "comeback", requirement: .init(kind: .returnAfterGapDays, value: 3)),
-        .init(key: "badge.resetter", kind: .nameBadge, displayName: "立て直し屋", systemImageName: "arrow.counterclockwise.circle.fill", tintHex: "#00A8A8", targetID: "resetter", requirement: .init(kind: .returnAfterGapDays, value: 8)),
-        .init(key: "badge.pioneer", kind: .nameBadge, displayName: "開拓者", systemImageName: "sparkles", tintHex: "#D946EF", targetID: "pioneer", requirement: .init(kind: .firstRecordDays, value: 5)),
-        .init(key: "badge.curious", kind: .nameBadge, displayName: "好奇心型", systemImageName: "sparkle.magnifyingglass", tintHex: "#C9A7FF", targetID: "curious", requirement: .init(kind: .firstRecordDays, value: 12)),
-        .init(key: "badge.balancer", kind: .nameBadge, displayName: "バランサー", systemImageName: "scale.3d", tintHex: "#27AE60", targetID: "balancer", requirement: .init(kind: .balancedDays, value: 5)),
-        .init(key: "badge.single_focus", kind: .nameBadge, displayName: "一点集中", systemImageName: "scope", tintHex: "#EB5757", targetID: "single_focus", requirement: .init(kind: .focusedDays, value: 5)),
-        .init(key: "badge.change_maker", kind: .nameBadge, displayName: "変化を作る人", systemImageName: "arrow.left.arrow.right.circle.fill", tintHex: "#F2994A", targetID: "change_maker", requirement: .init(kind: .changeSignalDays, value: 10))
+        .init(key: "badge.planner", kind: .nameBadge, displayName: "予定実行型", systemImageName: "checkmark.seal.fill", tintHex: "#2F80ED", targetID: "planner", requirement: .init(kind: .planMatchedDays, value: 5)),
+        .init(key: "badge.executor", kind: .nameBadge, displayName: "予定実行習慣型", systemImageName: "checkmark.seal.fill", tintHex: "#2F80ED", targetID: "executor", requirement: .init(kind: .planMatchedDays, value: 15)),
+        .init(key: "badge.promise_keeper", kind: .nameBadge, displayName: "予定安定型", systemImageName: "checkmark.seal.fill", tintHex: "#5FE0A8", targetID: "promise_keeper", requirement: .init(kind: .planMatchedDays, value: 30)),
+        .init(key: "badge.restorer", kind: .nameBadge, displayName: "回復優先型", systemImageName: "battery.100percent", tintHex: "#27AE60", targetID: "restorer", requirement: .init(kind: .chargeDays, value: 5)),
+        .init(key: "badge.recovery_master", kind: .nameBadge, displayName: "しっかり充電型", systemImageName: "battery.100percent.bolt", tintHex: "#27AE60", targetID: "recovery_master", requirement: .init(kind: .chargeDays, value: 15)),
+        .init(key: "badge.morning_type", kind: .nameBadge, displayName: "朝活型", systemImageName: "sunrise.fill", tintHex: "#F2994A", targetID: "morning_type", requirement: .init(kind: .morningPersonaDays, value: 5)),
+        .init(key: "badge.morning_person", kind: .nameBadge, displayName: "朝習慣型", systemImageName: "sun.max.fill", tintHex: "#F2C94C", targetID: "morning_person", requirement: .init(kind: .morningPersonaDays, value: 15)),
+        .init(key: "badge.night_walker", kind: .nameBadge, displayName: "夜集中型", systemImageName: "moon.stars.fill", tintHex: "#8AB4FF", targetID: "night_walker", requirement: .init(kind: .nightPersonaDays, value: 5)),
+        .init(key: "badge.night_person", kind: .nameBadge, displayName: "深夜稼働型", systemImageName: "moon.haze.fill", tintHex: "#AEB4DD", targetID: "night_person", requirement: .init(kind: .nightPersonaDays, value: 15)),
+        .init(key: "badge.recorder", kind: .nameBadge, displayName: "記録習慣型", systemImageName: "book.closed.fill", tintHex: "#6C5CE7", targetID: "recorder", requirement: .init(kind: .recordingHabitDays, value: 5)),
+        .init(key: "badge.observer", kind: .nameBadge, displayName: "記録定着型", systemImageName: "eye.fill", tintHex: "#9B8CFF", targetID: "observer", requirement: .init(kind: .recordingHabitDays, value: 15)),
+        .init(key: "badge.updater", kind: .nameBadge, displayName: "自己ベスト更新型", systemImageName: "arrow.up.right.circle.fill", tintHex: "#EB5757", targetID: "updater", requirement: .init(kind: .personalBestDays, value: 3)),
+        .init(key: "badge.best_crafter", kind: .nameBadge, displayName: "更新上手型", systemImageName: "crown.fill", tintHex: "#F2C94C", targetID: "best_crafter", requirement: .init(kind: .personalBestDays, value: 10)),
+        .init(key: "badge.comeback", kind: .nameBadge, displayName: "復帰上手型", systemImageName: "hand.wave.fill", tintHex: "#5FE0A8", targetID: "comeback", requirement: .init(kind: .returnAfterGapDays, value: 3)),
+        .init(key: "badge.resetter", kind: .nameBadge, displayName: "立て直し型", systemImageName: "arrow.counterclockwise.circle.fill", tintHex: "#00A8A8", targetID: "resetter", requirement: .init(kind: .returnAfterGapDays, value: 8)),
+        .init(key: "badge.pioneer", kind: .nameBadge, displayName: "新規開拓型", systemImageName: "sparkles", tintHex: "#D946EF", targetID: "pioneer", requirement: .init(kind: .firstRecordDays, value: 5)),
+        .init(key: "badge.curious", kind: .nameBadge, displayName: "探索習慣型", systemImageName: "sparkle.magnifyingglass", tintHex: "#C9A7FF", targetID: "curious", requirement: .init(kind: .firstRecordDays, value: 12)),
+        .init(key: "badge.balancer", kind: .nameBadge, displayName: "マルチ活動型", systemImageName: "scale.3d", tintHex: "#27AE60", targetID: "balancer", requirement: .init(kind: .balancedDays, value: 5)),
+        .init(key: "badge.single_focus", kind: .nameBadge, displayName: "一点集中型", systemImageName: "scope", tintHex: "#EB5757", targetID: "single_focus", requirement: .init(kind: .focusedDays, value: 5)),
+        .init(key: "badge.change_maker", kind: .nameBadge, displayName: "変化多め型", systemImageName: "arrow.left.arrow.right.circle.fill", tintHex: "#F2994A", targetID: "change_maker", requirement: .init(kind: .changeSignalDays, value: 10)),
+        .init(key: "badge.sleep_rhythm", kind: .nameBadge, displayName: "睡眠リズム型", systemImageName: "moon.fill", tintHex: "#9B51E0", targetID: "sleep_rhythm", requirement: .init(kind: .sleepCategoryDays, value: 5)),
+        .init(key: "badge.sleep_habit", kind: .nameBadge, displayName: "睡眠習慣型", systemImageName: "bed.double.fill", tintHex: "#A78BFA", targetID: "sleep_habit", requirement: .init(kind: .sleepCategoryDays, value: 15)),
+        .init(key: "badge.work_driver", kind: .nameBadge, displayName: "仕事推進型", systemImageName: "briefcase.fill", tintHex: "#6C5CE7", targetID: "work_driver", requirement: .init(kind: .workCategoryDays, value: 5)),
+        .init(key: "badge.work_habit", kind: .nameBadge, displayName: "仕事習慣型", systemImageName: "briefcase.circle.fill", tintHex: "#8B6BFF", targetID: "work_habit", requirement: .init(kind: .workCategoryDays, value: 15)),
+        .init(key: "badge.study_focus", kind: .nameBadge, displayName: "勉強集中型", systemImageName: "book.closed.fill", tintHex: "#2F80ED", targetID: "study_focus", requirement: .init(kind: .studyCategoryDays, value: 5)),
+        .init(key: "badge.study_habit", kind: .nameBadge, displayName: "勉強習慣型", systemImageName: "graduationcap.fill", tintHex: "#39D5E8", targetID: "study_habit", requirement: .init(kind: .studyCategoryDays, value: 15)),
+        .init(key: "badge.hobby_rich", kind: .nameBadge, displayName: "趣味充実型", systemImageName: "sparkles", tintHex: "#EB5757", targetID: "hobby_rich", requirement: .init(kind: .hobbyPlayCategoryDays, value: 5)),
+        .init(key: "badge.hobby_habit", kind: .nameBadge, displayName: "趣味習慣型", systemImageName: "gamecontroller.fill", tintHex: "#F2994A", targetID: "hobby_habit", requirement: .init(kind: .hobbyPlayCategoryDays, value: 15)),
+        .init(key: "badge.exercise_action", kind: .nameBadge, displayName: "運動実行型", systemImageName: "figure.run", tintHex: "#27AE60", targetID: "exercise_action", requirement: .init(kind: .exerciseCategoryDays, value: 5)),
+        .init(key: "badge.exercise_habit", kind: .nameBadge, displayName: "運動習慣型", systemImageName: "figure.strengthtraining.traditional", tintHex: "#5FE0A8", targetID: "exercise_habit", requirement: .init(kind: .exerciseCategoryDays, value: 15)),
+        .init(key: "badge.household_keeper", kind: .nameBadge, displayName: "生活整備型", systemImageName: "house.fill", tintHex: "#56CCF2", targetID: "household_keeper", requirement: .init(kind: .householdCategoryDays, value: 5)),
+        .init(key: "badge.household_habit", kind: .nameBadge, displayName: "生活習慣型", systemImageName: "checklist", tintHex: "#7DD3FC", targetID: "household_habit", requirement: .init(kind: .householdCategoryDays, value: 15))
     ]
 
     // 獲得テーマは極光のみ（docs/17 マネタイズ方針：テーマは課金カタログの主力とし、

@@ -725,25 +725,12 @@ enum ScoreSnapshotLoader {
                 return
             }
 
-            let morningTitles: Set<String> = [
-                "朝の短距離走者",
-                "早起きコツコツ",
-                "朝からせわしない"
-            ]
-            let nightTitles: Set<String> = [
-                "夜型スプリンター",
-                "宵っ張りの持久型",
-                "目まぐるしい夜",
-                "丑三つの天才",
-                "不眠の修行僧",
-                "体内時計バグり気味"
-            ]
             let factIDs = Set(snapshot.facts.map(\.id))
 
             planMatchedDay = snapshot.personaKind == .planMatched
             chargeDay = snapshot.personaKind == .chargeDay
-            morningPersonaDay = morningTitles.contains(snapshot.title)
-            nightPersonaDay = nightTitles.contains(snapshot.title)
+            morningPersonaDay = DailyCardLifestyleCopy.morningPersonaTitles.contains(snapshot.title)
+            nightPersonaDay = DailyCardLifestyleCopy.nightPersonaTitles.contains(snapshot.title)
             recordingHabitDay = factIDs.contains("habit-streak")
             personalBestDay = factIDs.contains("signal-best")
             returnAfterGapDay = factIDs.contains("signal-gap")

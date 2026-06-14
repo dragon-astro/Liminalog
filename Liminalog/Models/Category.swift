@@ -21,6 +21,37 @@ enum DailyCardCategoryIntent: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+enum CategoryAnalysisKind: String, Codable, CaseIterable, Identifiable {
+    case unspecified
+    case sleep
+    case work
+    case study
+    case hobbyPlay
+    case exercise
+    case household
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .unspecified:
+            "未指定"
+        case .sleep:
+            "睡眠"
+        case .work:
+            "仕事"
+        case .study:
+            "勉強"
+        case .hobbyPlay:
+            "趣味・遊び"
+        case .exercise:
+            "運動"
+        case .household:
+            "家事・生活"
+        }
+    }
+}
+
 @Model
 final class Category {
     var id: UUID = UUID()
@@ -30,6 +61,7 @@ final class Category {
     var sortOrder: Int = 0
     var isDefault: Bool = false
     var dailyCardIntentRawValue: String = DailyCardCategoryIntent.neutral.rawValue
+    var analysisKindRawValue: String = CategoryAnalysisKind.unspecified.rawValue
     var isDailyCardSleepCategory: Bool = false
     var defaultAudienceFriendSetIDs: [UUID] = []
     var defaultAudienceIncludedFriendIDs: [UUID] = []
@@ -48,6 +80,18 @@ final class Category {
         get { DailyCardCategoryIntent(rawValue: dailyCardIntentRawValue) ?? .neutral }
         set { dailyCardIntentRawValue = newValue.rawValue }
     }
+    var analysisKind: CategoryAnalysisKind {
+        get {
+            if let kind = CategoryAnalysisKind(rawValue: analysisKindRawValue), kind != .unspecified {
+                return kind
+            }
+            return isDailyCardSleepCategory ? .sleep : .unspecified
+        }
+        set {
+            analysisKindRawValue = newValue.rawValue
+            isDailyCardSleepCategory = newValue == .sleep
+        }
+    }
 
     init() {}
 
@@ -58,6 +102,7 @@ final class Category {
         sortOrder: Int = 0,
         isDefault: Bool = false,
         dailyCardIntent: DailyCardCategoryIntent = .neutral,
+        analysisKind: CategoryAnalysisKind = .unspecified,
         isDailyCardSleepCategory: Bool = false
     ) {
         self.id = UUID()
@@ -67,7 +112,9 @@ final class Category {
         self.sortOrder = sortOrder
         self.isDefault = isDefault
         self.dailyCardIntentRawValue = dailyCardIntent.rawValue
-        self.isDailyCardSleepCategory = isDailyCardSleepCategory
+        let resolvedAnalysisKind = analysisKind == .unspecified && isDailyCardSleepCategory ? CategoryAnalysisKind.sleep : analysisKind
+        self.analysisKindRawValue = resolvedAnalysisKind.rawValue
+        self.isDailyCardSleepCategory = resolvedAnalysisKind == .sleep
         self.defaultAudienceFriendSetIDs = []
         self.defaultAudienceIncludedFriendIDs = []
         self.defaultAudienceExcludedFriendIDs = []

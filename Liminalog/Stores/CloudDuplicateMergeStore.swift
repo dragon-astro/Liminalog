@@ -242,7 +242,11 @@ struct CloudDuplicateMergeStore {
         if primary.dailyCardIntent == .neutral, duplicate.dailyCardIntent != .neutral {
             primary.dailyCardIntent = duplicate.dailyCardIntent
         }
-        primary.isDailyCardSleepCategory = primary.isDailyCardSleepCategory || duplicate.isDailyCardSleepCategory
+        if primary.analysisKind == .unspecified, duplicate.analysisKind != .unspecified {
+            primary.analysisKind = duplicate.analysisKind
+        } else {
+            primary.isDailyCardSleepCategory = primary.isDailyCardSleepCategory || duplicate.isDailyCardSleepCategory
+        }
         primary.defaultAudienceFriendSetIDs = uniquePreservingOrder(
             primary.defaultAudienceFriendSetIDs + duplicate.defaultAudienceFriendSetIDs
         )
@@ -262,6 +266,7 @@ struct CloudDuplicateMergeStore {
         _ = category.sortOrder
         _ = category.isDefault
         _ = category.dailyCardIntentRawValue
+        _ = category.analysisKindRawValue
         _ = category.isDailyCardSleepCategory
         _ = category.defaultAudienceFriendSetIDs
         _ = category.defaultAudienceIncludedFriendIDs

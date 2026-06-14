@@ -46,6 +46,12 @@ struct SettingsView: View {
                 } label: {
                     Label("カレンダー表示", systemImage: "calendar")
                 }
+
+                NavigationLink {
+                    WidgetSettingsView()
+                } label: {
+                    Label("ウィジェット", systemImage: "rectangle.grid.2x2")
+                }
             } header: {
                 Text("記録")
             } footer: {
@@ -226,14 +232,15 @@ private struct PrivacyPolicyView: View {
             Section("利用目的") {
                 bullet("記録・統計・カレンダー・ウィジェットなど、アプリ機能を提供するため")
                 bullet("iCloudを使った同期、バックアップ、友達共有を行うため")
-                bullet("ユーザーID検索、友達申請、相互同意した友達との共有範囲を管理するため")
+                bullet("ユーザーID検索、友達申請、相互承認した友達との共有範囲を管理するため")
                 bullet("不具合調査、問い合わせ対応、サービス改善のため")
             }
 
             Section("iCloudと友達共有") {
                 policyParagraph("記録や設定は端末内およびiCloud/CloudKitに保存されます。iCloudにサインインしていない場合、同期や友達共有の一部機能は利用できないことがあります。")
-                policyParagraph("友達共有は、ユーザーID検索と相互同意が成立した相手に対してのみ行われます。共有される内容は、ユーザーが設定した公開範囲に従います。")
-                policyParagraph("友達解除またはブロックを行うと、その相手との共有は停止されます。")
+                policyParagraph("友達共有は、ユーザーID検索と相互承認が成立した相手に対してのみ行われます。共有される内容は、ユーザーが設定した公開範囲に従います。")
+                policyParagraph("友達解除またはブロックを行うと、その相手との共有は停止されます。削除やブロック後、同期が完了すると相手側で共有内容は表示されなくなります。")
+                policyParagraph("不適切なプロフィールや共有内容、迷惑行為がある場合は、友達プロフィールの通報メニューまたは問い合わせ先から連絡できます。")
             }
 
             Section("開発者が確認できる範囲") {
@@ -246,7 +253,7 @@ private struct PrivacyPolicyView: View {
             }
 
             Section("削除と同意の撤回") {
-                policyParagraph("ユーザーは、アプリ内の削除操作、友達解除、公開設定の変更、iCloud設定の変更により、保存・共有される情報を管理できます。")
+                policyParagraph("ユーザーは、アプリ内の削除操作、友達解除、ブロック、公開設定の変更、iCloud設定の変更により、保存・共有される情報を管理できます。")
                 policyParagraph("データ削除やプライバシーに関する相談が必要な場合は、問い合わせ先まで連絡してください。")
             }
 

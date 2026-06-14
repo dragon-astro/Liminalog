@@ -52,7 +52,7 @@ struct ProfileEditSheet: View {
         _bio = State(initialValue: settings?.profileBio ?? "")
         _imageData = State(initialValue: settings?.profileImageData)
         _badgeID = State(initialValue: ProfileBadgeCatalog.equippedBadge(id: settings?.profileBadgeID, badges: badges).id)
-        _iconFrameID = State(initialValue: unlocks.equippedIconFrameID(settings?.profileIconFrameID))
+        _iconFrameID = State(initialValue: unlocks.equippedIconFrameID(settings: settings))
         _streakIconID = State(initialValue: unlocks.equippedStreakIconID(settings?.profileStreakIconID))
         _cardStyleID = State(initialValue: unlocks.equippedCardStyleID(settings?.profileCardStyleID))
         let normalizedUserID = settings?.cloudUsernameNormalized.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -232,28 +232,46 @@ struct ProfileEditSheet: View {
 
     private var expandedPreviewHeader: some View {
         VStack(spacing: 0) {
-            ProfileHero(
-                displayName: previewDisplayName,
-                userID: userID,
-                bio: trimmedBio,
-                imageData: imageData,
-                accentColor: visualAccentColor,
-                equippedBadge: resolvedBadge,
-                iconFrame: ProfileIconFrameCatalog.item(for: iconFrameID),
-                cardStyle: resolvedCardStyle,
-                showsActions: false,
-                onEdit: {},
-                onShare: {}
-            )
-            .animation(.snappy(duration: 0.28), value: previewSignature)
-            .padding(.bottom, resolvedCardStyle.hasGeneratedArtwork ? -20 : 0)
+            editProfileHeroPreview
 
             streakChip
         }
         .padding(.horizontal, 16)
-        .padding(.top, 10)
+        .padding(.top, expandedPreviewTopPadding)
         .padding(.bottom, 10)
         .frame(maxWidth: .infinity)
+    }
+
+    private var expandedPreviewTopPadding: CGFloat {
+        resolvedCardStyle.hasGeneratedArtwork ? 26 : 10
+    }
+
+    private var editProfileHeroPreview: some View {
+        ProfileHero(
+            displayName: previewDisplayName,
+            userID: userID,
+            bio: trimmedBio,
+            imageData: imageData,
+            accentColor: visualAccentColor,
+            equippedBadge: resolvedBadge,
+            iconFrame: ProfileIconFrameCatalog.item(for: iconFrameID),
+            cardStyle: resolvedCardStyle,
+            showsActions: false,
+            onEdit: {},
+            onShare: {}
+        )
+        .scaleEffect(editProfileHeroPreviewScale, anchor: .top)
+        .frame(height: editProfileHeroPreviewHeight, alignment: .top)
+        .animation(.snappy(duration: 0.28), value: previewSignature)
+        .padding(.bottom, resolvedCardStyle.hasGeneratedArtwork ? -10 : 0)
+    }
+
+    private var editProfileHeroPreviewScale: CGFloat {
+        0.92
+    }
+
+    private var editProfileHeroPreviewHeight: CGFloat {
+        resolvedCardStyle.hasGeneratedArtwork ? 212 : 182
     }
 
     private var compactPreviewHeader: some View {
@@ -338,7 +356,7 @@ struct ProfileEditSheet: View {
                 .accessibilityHint("全角6文字、半角12文字まで入力できます")
                 .id(ProfileEditField.displayName)
 
-            TextField("自己紹介", text: $bio, axis: .vertical)
+            TextField("いまの気分をひとこと", text: $bio, axis: .vertical)
                 .lineLimit(3...5)
                 .focused($focusedField, equals: .bio)
                 .id(ProfileEditField.bio)
@@ -1115,6 +1133,7 @@ private struct ProfileCardStyleSelector: View {
                             ProfileCardStylePreview(style: item, accentColor: accentColor)
                         }
                         .padding(10)
+                        .frame(minHeight: 116, alignment: .topLeading)
                         .background(item.backgroundColor, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                         .overlay {
                             RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -1137,7 +1156,28 @@ private struct ProfileCardStylePreview: View {
 
     var body: some View {
         ProfileMiniCardStyleView(style: style, accentColor: accentColor)
-            .frame(height: 48)
+            .frame(maxWidth: .infinity)
+            .frame(height: cardBaseHeight)
+            .scaleEffect(cardScale, anchor: .center)
+            .padding(.horizontal, previewHorizontalInset)
+            .frame(maxWidth: .infinity)
+            .frame(height: previewFrameHeight)
+    }
+
+    private var cardBaseHeight: CGFloat {
+        style.hasGeneratedArtwork ? 46 : 48
+    }
+
+    private var cardScale: CGFloat {
+        style.hasGeneratedArtwork ? 0.84 : 0.90
+    }
+
+    private var previewFrameHeight: CGFloat {
+        style.hasGeneratedArtwork ? 60 : 56
+    }
+
+    private var previewHorizontalInset: CGFloat {
+        style.hasGeneratedArtwork ? 10 : 8
     }
 }
 

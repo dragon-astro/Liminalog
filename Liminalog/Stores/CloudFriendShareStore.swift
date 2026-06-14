@@ -329,6 +329,13 @@ final class CloudFriendShareStore {
         return try Self.validatedSnapshot(from: record, currentUserRecordName: currentUserRecordName)
     }
 
+    func ensureIncomingShareAccepted(url: URL) async throws {
+        let metadata = try await fetchShareMetadata(url: url, shouldFetchRootRecord: false)
+        if metadata.participantStatus == .pending {
+            _ = try await accept(metadata: metadata)
+        }
+    }
+
     func fetchAcceptedIncomingShare(rootRecordName: String) async throws -> CloudFriendShareSnapshot {
         let currentUserRecordName = try await currentUserRecordName()
         let recordID = CKRecord.ID(recordName: rootRecordName)
@@ -406,12 +413,12 @@ final class CloudFriendShareStore {
         }
     }
 
-    private func fetchShareMetadata(url: URL) async throws -> CKShare.Metadata {
+    private func fetchShareMetadata(url: URL, shouldFetchRootRecord: Bool = true) async throws -> CKShare.Metadata {
         try await withCheckedThrowingContinuation { continuation in
             var fetchedMetadata: CKShare.Metadata?
             var fetchedError: Error?
             let operation = CKFetchShareMetadataOperation(shareURLs: [url])
-            operation.shouldFetchRootRecord = true
+            operation.shouldFetchRootRecord = shouldFetchRootRecord
             operation.perShareMetadataResultBlock = { _, result in
                 switch result {
                 case let .success(metadata):

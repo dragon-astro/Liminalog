@@ -4,6 +4,23 @@ import SwiftData
 import Testing
 @testable import Liminalog
 
+private final class TestNotificationBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storedNotification: Notification?
+
+    var notification: Notification? {
+        lock.lock()
+        defer { lock.unlock() }
+        return storedNotification
+    }
+
+    func store(_ notification: Notification) {
+        lock.lock()
+        storedNotification = notification
+        lock.unlock()
+    }
+}
+
 struct CloudFriendShareSnapshotTests {
     @Test
     func statusSnapshotRoundTrips() throws {
@@ -167,6 +184,50 @@ struct CloudFriendShareRefreshLaneTests {
         #expect(lane.queuedRequest?.reason == "visibility changed")
         #expect(lane.queuedRequest?.changedPlanSourceIDs == [planID])
         #expect(lane.queuedRequest?.requiresFullPublish == true)
+    }
+
+    @Test
+    func publishStateResetSurvivesCoalescingWithTargetedRequests() {
+        var lane = CloudFriendShareRefreshLane()
+        let planID = UUID()
+        let didBegin = lane.begin(request: CloudFriendShareRefreshRequest(
+            reason: "plan",
+            changedPlanSourceIDs: [planID],
+            requiresFullPublish: false
+        ))
+        let didBeginSecond = lane.begin(request: CloudFriendShareRefreshRequest(
+            reason: "repair",
+            requiresFullPublish: true,
+            resetsPublishedItemState: true
+        ))
+
+        #expect(didBegin)
+        #expect(!didBeginSecond)
+        #expect(lane.queuedRequest?.reason == "repair")
+        #expect(lane.queuedRequest?.changedPlanSourceIDs.isEmpty == true)
+        #expect(lane.queuedRequest?.requiresFullPublish == true)
+        #expect(lane.queuedRequest?.resetsPublishedItemState == true)
+    }
+
+    @Test
+    func queuesTargetedIncomingFriendIDsWhileCurrentRefreshRuns() {
+        var lane = CloudFriendShareRefreshLane()
+        let firstFriendID = UUID()
+        let secondFriendID = UUID()
+        let didBegin = lane.begin(request: CloudFriendShareRefreshRequest(
+            reason: "calendar-1",
+            incomingFriendIDs: [firstFriendID]
+        ))
+        let didBeginSecond = lane.begin(request: CloudFriendShareRefreshRequest(
+            reason: "calendar-2",
+            incomingFriendIDs: [secondFriendID]
+        ))
+
+        #expect(didBegin)
+        #expect(!didBeginSecond)
+        #expect(lane.queuedRequest?.reason == "calendar-2")
+        #expect(lane.queuedRequest?.incomingFriendIDs == [secondFriendID])
+        #expect(lane.queuedRequest?.isTargetedIncomingRefresh == true)
     }
 }
 
@@ -888,13 +949,13 @@ struct FriendSharedRecordChangeImpactTests {
         let friendID = UUID()
         let otherFriendID = UUID()
         let center = NotificationCenter.default
-        var received: Notification?
+        let received = TestNotificationBox()
         let observer = center.addObserver(
             forName: CloudFriendShareRefreshCoordinator.sharedRecordsDidChange,
             object: nil,
             queue: nil
         ) { notification in
-            received = notification
+            received.store(notification)
         }
         defer {
             center.removeObserver(observer)
@@ -902,7 +963,7 @@ struct FriendSharedRecordChangeImpactTests {
 
         CloudFriendShareRefreshCoordinator.postSharedRecordsDidChange(friendID: friendID)
 
-        let change = SharedRecordChangeNotification(try #require(received))
+        let change = SharedRecordChangeNotification(try #require(received.notification))
         #expect(change.requiresFullReload)
         #expect(change.affects(friendID: friendID))
         #expect(!change.affects(friendID: otherFriendID))

@@ -83,9 +83,71 @@ struct DashboardCategoryStat: Identifiable {
 struct HourStat: Identifiable {
     let hour: Int
     let duration: TimeInterval
-    let category: Category?
+    let segments: [HourRhythmSegment]
 
     var id: Int { hour }
+
+    static func stats(
+        from chapters: [Chapter],
+        calendar: Calendar = .current,
+        now: Date = Date()
+    ) -> [HourStat] {
+        var durationsByHourAndCategory: [Int: [UUID?: (category: Category?, duration: TimeInterval)]] = [:]
+
+        for chapter in chapters {
+            let start = chapter.startTime
+            let end = max(chapter.endTime ?? now, start)
+            guard end > start else { continue }
+
+            var cursor = calendar.dateInterval(of: .hour, for: start)?.start ?? start
+            while cursor < end {
+                guard let nextHour = calendar.date(byAdding: .hour, value: 1, to: cursor) else { break }
+                let overlapStart = max(start, cursor)
+                let overlapEnd = min(end, nextHour)
+                let overlapDuration = max(0, overlapEnd.timeIntervalSince(overlapStart))
+                if overlapDuration > 0 {
+                    let hour = calendar.component(.hour, from: cursor)
+                    let category = chapter.category
+                    let categoryID = category?.id
+                    let current = durationsByHourAndCategory[hour, default: [:]][categoryID]
+                    durationsByHourAndCategory[hour, default: [:]][categoryID] = (
+                        category: current?.category ?? category,
+                        duration: (current?.duration ?? 0) + overlapDuration
+                    )
+                }
+                cursor = nextHour
+            }
+        }
+
+        return (0..<24).map { hour in
+            let segments = (durationsByHourAndCategory[hour] ?? [:])
+                .map { entry in
+                    HourRhythmSegment(
+                        category: entry.value.category,
+                        duration: entry.value.duration
+                    )
+                }
+                .sorted { $0.duration > $1.duration }
+            return HourStat(
+                hour: hour,
+                duration: segments.reduce(0) { $0 + $1.duration },
+                segments: segments
+            )
+        }
+    }
+}
+
+struct HourRhythmSegment: Identifiable {
+    let category: Category?
+    let duration: TimeInterval
+
+    var id: String {
+        category?.id.uuidString ?? "uncategorized"
+    }
+
+    var color: Color {
+        category?.displayColor ?? LiminalTheme.elevated
+    }
 }
 
 enum DashboardScorePalette {

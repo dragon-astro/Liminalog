@@ -13,7 +13,7 @@ private struct CloudFriendShareTimeoutError: LocalizedError {
 
 enum CloudFriendShareOperationTimeoutPolicy {
     static let standardOperation: TimeInterval = 12
-    static let incomingShareAccept: TimeInterval = 120
+    static let incomingShareAccept: TimeInterval = 180
     static let sharedZoneIncrementalFetch: TimeInterval = 45
     static let sharedZoneFullFetch: TimeInterval = 180
 
@@ -26,6 +26,11 @@ private struct IncomingShareSyncPayload {
     let acceptedSnapshot: CloudFriendShareSnapshot?
     let changes: FriendShareZoneChanges
     let clearsPreviousChangeToken: Bool
+}
+
+private enum IncomingShareSyncPhase: String {
+    case acceptingShare
+    case fetchingRecords
 }
 
 private final class CloudFriendShareTimeoutBox<Value>: @unchecked Sendable {
@@ -51,17 +56,27 @@ private final class CloudFriendShareTimeoutBox<Value>: @unchecked Sendable {
 @MainActor
 final class CloudFriendShareRefreshCoordinator {
     static let refreshRequested = Notification.Name("LiminalogCloudFriendShareRefreshRequested")
+    static let incomingRefreshRequested = Notification.Name("LiminalogCloudFriendShareIncomingRefreshRequested")
     static let sharedRecordsDidChange = Notification.Name("LiminalogFriendSharedRecordsDidChange")
+    static let incomingShareSyncStateDidChange = Notification.Name("LiminalogFriendIncomingShareSyncStateDidChange")
     static let pendingOutgoingRefreshDefaultsKey = "cloudFriendShare.pendingOutgoingRefresh"
     static let refreshReasonKey = "reason"
     static let changedPlanSourceIDsKey = "changedPlanSourceIDs"
     static let changedChapterSourceIDsKey = "changedChapterSourceIDs"
     static let changedScoreDayStartsKey = "changedScoreDayStarts"
+    static let incomingFriendIDsKey = "incomingFriendIDs"
     static let requiresFullPublishKey = "requiresFullPublish"
+    static let resetsPublishedItemStateKey = "resetsPublishedItemState"
     static let sharedRecordsDidChangeFriendIDKey = "friendID"
     static let sharedRecordsDidChangeRequiresFullReloadKey = "requiresFullReload"
     static let sharedRecordsDidChangeAffectedStartDatesKey = "affectedStartDates"
     static let sharedRecordsDidChangeAffectedEndDatesKey = "affectedEndDates"
+    static let incomingShareSyncFriendIDKey = "friendID"
+    static let incomingShareSyncOwnerUserRecordNameKey = "ownerUserRecordName"
+    static let incomingShareSyncIsSyncingKey = "isSyncing"
+    static let incomingShareSyncHasPreviousTokenKey = "hasPreviousToken"
+    static let incomingShareSyncErrorMessageKey = "errorMessage"
+    static let incomingShareSyncPhaseKey = "phase"
     private static let batchedSourceIDFetchThreshold = 24
 
     private let modelContainer: ModelContainer
@@ -91,7 +106,8 @@ final class CloudFriendShareRefreshCoordinator {
         changedPlanSourceIDs: Set<UUID> = [],
         changedChapterSourceIDs: Set<UUID> = [],
         changedScoreDayStarts: Set<Date> = [],
-        requiresFullPublish: Bool? = nil
+        requiresFullPublish: Bool? = nil,
+        resetsPublishedItemState: Bool = false
     ) {
         guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
         markPendingOutgoingRefresh()
@@ -104,8 +120,22 @@ final class CloudFriendShareRefreshCoordinator {
                 changedPlanSourceIDsKey: changedPlanSourceIDs.map(\.uuidString),
                 changedChapterSourceIDsKey: changedChapterSourceIDs.map(\.uuidString),
                 changedScoreDayStartsKey: changedScoreDayStarts.map(\.timeIntervalSince1970),
-                requiresFullPublishKey: shouldPublishFull
+                requiresFullPublishKey: shouldPublishFull,
+                resetsPublishedItemStateKey: resetsPublishedItemState
             ]
+        )
+    }
+
+    static func requestIncomingRefresh(reason: String, friendID: UUID? = nil) {
+        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
+        var userInfo: [String: Any] = [refreshReasonKey: reason]
+        if let friendID {
+            userInfo[incomingFriendIDsKey] = [friendID.uuidString]
+        }
+        NotificationCenter.default.post(
+            name: incomingRefreshRequested,
+            object: nil,
+            userInfo: userInfo
         )
     }
 
@@ -152,12 +182,36 @@ final class CloudFriendShareRefreshCoordinator {
         )
     }
 
+    private static func postIncomingShareSyncState(
+        friendID: UUID,
+        ownerUserRecordName: String,
+        isSyncing: Bool,
+        hasPreviousToken: Bool,
+        phase: IncomingShareSyncPhase? = nil,
+        error: Error? = nil
+    ) {
+        var userInfo: [String: Any] = [
+            incomingShareSyncFriendIDKey: friendID.uuidString,
+            incomingShareSyncOwnerUserRecordNameKey: ownerUserRecordName,
+            incomingShareSyncIsSyncingKey: isSyncing,
+            incomingShareSyncHasPreviousTokenKey: hasPreviousToken
+        ]
+        if let phase {
+            userInfo[incomingShareSyncPhaseKey] = phase.rawValue
+        }
+        if let error {
+            userInfo[incomingShareSyncErrorMessageKey] = String(describing: error)
+        }
+        NotificationCenter.default.post(name: incomingShareSyncStateDidChange, object: nil, userInfo: userInfo)
+    }
+
     func scheduleRefresh(
         reason: String,
         changedPlanSourceIDs: Set<UUID> = [],
         changedChapterSourceIDs: Set<UUID> = [],
         changedScoreDayStarts: Set<Date> = [],
-        requiresFullPublish: Bool = true
+        requiresFullPublish: Bool = true,
+        resetsPublishedItemState: Bool = false
     ) {
         guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
         let request = CloudFriendShareRefreshRequest(
@@ -165,7 +219,8 @@ final class CloudFriendShareRefreshCoordinator {
             changedPlanSourceIDs: changedPlanSourceIDs,
             changedChapterSourceIDs: changedChapterSourceIDs,
             changedScoreDayStarts: changedScoreDayStarts,
-            requiresFullPublish: requiresFullPublish
+            requiresFullPublish: requiresFullPublish,
+            resetsPublishedItemState: resetsPublishedItemState
         )
         pendingOutgoingTask?.cancel()
         pendingOutgoingTask = Task { [weak self] in
@@ -175,13 +230,23 @@ final class CloudFriendShareRefreshCoordinator {
         }
     }
 
-    func scheduleIncomingRefresh(reason: String) {
+    func scheduleIncomingRefresh(
+        reason: String,
+        friendIDs: Set<UUID> = [],
+        delay: TimeInterval = 1.5
+    ) {
         guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
+        let request = CloudFriendShareRefreshRequest(
+            reason: reason,
+            incomingFriendIDs: friendIDs
+        )
         pendingIncomingTask?.cancel()
         pendingIncomingTask = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            if delay > 0 {
+                try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            }
             guard !Task.isCancelled else { return }
-            await self?.runIncomingRefresh(reason: reason)
+            await self?.runIncomingRefresh(request: request)
         }
     }
 
@@ -243,11 +308,22 @@ final class CloudFriendShareRefreshCoordinator {
     }
 
     private func runIncomingRefresh(reason initialReason: String) async {
-        var request = CloudFriendShareRefreshRequest(reason: initialReason)
+        await runIncomingRefresh(request: CloudFriendShareRefreshRequest(reason: initialReason))
+    }
+
+    private func runIncomingRefresh(request initialRequest: CloudFriendShareRefreshRequest) async {
+        var request = initialRequest
         guard incomingRefreshLane.begin(request: request) else { return }
         while true {
             incomingRefreshLane.prepareForOperation()
-            await refreshAcceptedIncomingShares(reason: request.reason)
+            if request.isTargetedIncomingRefresh {
+                await refreshTargetedIncomingShares(
+                    friendIDs: request.incomingFriendIDs,
+                    reason: request.reason
+                )
+            } else {
+                await refreshAcceptedIncomingShares(reason: request.reason)
+            }
             guard let nextRequest = incomingRefreshLane.finishOperation() else { return }
             request = nextRequest
         }
@@ -407,6 +483,7 @@ final class CloudFriendShareRefreshCoordinator {
                     && !$0.userRecordID.isEmpty
                     && !($0.shareURL?.isEmpty ?? true)
             }
+            var pendingSharedRecordNotifications: [(friendID: UUID, impact: FriendSharedRecordChangeImpact)] = []
             guard !acceptedFriends.isEmpty else {
                 if didUpdateFriends {
                     try context.save()
@@ -436,12 +513,15 @@ final class CloudFriendShareRefreshCoordinator {
                 guard let shareURL = target.shareURL else { continue }
                 do {
                     guard let friend = aliveFriend(id: target.friendID, in: context) else { continue }
-                    try await syncIncomingShare(
+                    let syncResult = try await syncIncomingShare(
                         friend: friend,
                         shareURL: shareURL,
                         ownUserRecordName: ownUserRecordName,
                         modelContext: context
                     )
+                    if let syncResult, syncResult.shouldNotify {
+                        pendingSharedRecordNotifications.append((friendID: target.friendID, impact: syncResult.impact))
+                    }
                     didUpdateFriends = true
                 } catch {
                     if CloudFriendShareRefreshFailurePolicy.shouldClearCachedShare(after: error) {
@@ -465,8 +545,86 @@ final class CloudFriendShareRefreshCoordinator {
             if didUpdateFriends || purgedRecordCount > 0 || purgedDuplicateRecordCount > 0 {
                 try context.save()
             }
+            for notification in pendingSharedRecordNotifications {
+                Self.postSharedRecordsDidChange(friendID: notification.friendID, impact: notification.impact)
+            }
+            if purgedRecordCount > 0 || purgedDuplicateRecordCount > 0 {
+                Self.postSharedRecordsDidChange()
+            }
         } catch {
             NSLog("Liminalog: failed to refresh incoming friend shares on \(reason): \(String(describing: error))")
+        }
+    }
+
+    private func refreshTargetedIncomingShares(friendIDs: Set<UUID>, reason: String) async {
+        guard !friendIDs.isEmpty else {
+            await refreshAcceptedIncomingShares(reason: reason)
+            return
+        }
+
+        do {
+            let context = modelContainer.mainContext
+            guard let settings = try context.fetch(FetchDescriptor<UserSettings>(
+                sortBy: [SortDescriptor(\.createdAt)]
+            )).first else { return }
+            guard let ownUserRecordName = await ensureCloudUserRecordName(
+                for: settings,
+                modelContext: context,
+                reason: reason
+            ) else { return }
+
+            let friends = try context.fetch(FetchDescriptor<Friend>(
+                sortBy: [SortDescriptor(\.displayName)]
+            ))
+            let syncTargets = friends.compactMap { friend -> (friendID: UUID, userRecordID: String, shareURL: URL)? in
+                guard friendIDs.contains(friend.id),
+                      friend.status == .accepted,
+                      !friend.userRecordID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                      let shareURLString = friend.shareURL?.trimmingCharacters(in: .whitespacesAndNewlines),
+                      !shareURLString.isEmpty,
+                      let shareURL = URL(string: shareURLString)
+                else { return nil }
+                return (friend.id, friend.userRecordID, shareURL)
+            }
+            guard !syncTargets.isEmpty else { return }
+
+            var didUpdateFriends = false
+            var pendingSharedRecordNotifications: [(friendID: UUID, impact: FriendSharedRecordChangeImpact)] = []
+            for target in syncTargets {
+                do {
+                    guard let friend = aliveFriend(id: target.friendID, in: context) else { continue }
+                    let syncResult = try await syncIncomingShare(
+                        friend: friend,
+                        shareURL: target.shareURL,
+                        ownUserRecordName: ownUserRecordName,
+                        modelContext: context
+                    )
+                    if let syncResult, syncResult.shouldNotify {
+                        pendingSharedRecordNotifications.append((friendID: target.friendID, impact: syncResult.impact))
+                    }
+                    didUpdateFriends = true
+                } catch {
+                    if CloudFriendShareRefreshFailurePolicy.shouldClearCachedShare(after: error) {
+                        if let friend = aliveFriend(id: target.friendID, in: context) {
+                            CloudFriendShareSnapshotApplier.clearCachedShare(from: friend)
+                            friend.shareURL = nil
+                            postSharedRecordsDidChange(friend: friend, impact: .fullReload)
+                            didUpdateFriends = true
+                        }
+                    } else {
+                        NSLog("Liminalog: failed to refresh targeted incoming friend share for \(target.userRecordID) on \(reason): \(String(describing: error))")
+                    }
+                }
+            }
+
+            if didUpdateFriends {
+                try context.save()
+            }
+            for notification in pendingSharedRecordNotifications {
+                Self.postSharedRecordsDidChange(friendID: notification.friendID, impact: notification.impact)
+            }
+        } catch {
+            NSLog("Liminalog: failed to refresh targeted incoming friend shares on \(reason): \(String(describing: error))")
         }
     }
 
@@ -501,6 +659,7 @@ final class CloudFriendShareRefreshCoordinator {
             ))
             var didChange = false
             var shouldPublishAcceptedShares = false
+            var pendingSharedRecordNotifications: [(friendID: UUID, impact: FriendSharedRecordChangeImpact)] = []
 
             let restorations = CloudFriendConsentRestorePolicy.restorations(
                 incomingConsents: incomingConsents,
@@ -549,12 +708,15 @@ final class CloudFriendShareRefreshCoordinator {
                     if let shareURL = friendShareURL {
                         do {
                             guard let liveFriend = aliveFriend(id: friendID, in: context) else { continue }
-                            try await syncIncomingShare(
+                            let syncResult = try await syncIncomingShare(
                                 friend: liveFriend,
                                 shareURL: shareURL,
                                 ownUserRecordName: ownUserRecordName,
                                 modelContext: context
                             )
+                            if let syncResult, syncResult.shouldNotify {
+                                pendingSharedRecordNotifications.append((friendID: friendID, impact: syncResult.impact))
+                            }
                         } catch {
                             if CloudFriendShareRefreshFailurePolicy.shouldClearCachedShare(after: error) {
                                 if let liveFriend = aliveFriend(id: friendID, in: context) {
@@ -591,6 +753,9 @@ final class CloudFriendShareRefreshCoordinator {
             if didChange {
                 try context.save()
             }
+            for notification in pendingSharedRecordNotifications {
+                Self.postSharedRecordsDidChange(friendID: notification.friendID, impact: notification.impact)
+            }
             if shouldPublishAcceptedShares {
                 await runOutgoingRefresh(request: CloudFriendShareRefreshRequest(reason: reason))
             }
@@ -606,30 +771,58 @@ final class CloudFriendShareRefreshCoordinator {
         shareURL: URL,
         ownUserRecordName: String,
         modelContext: ModelContext
-    ) async throws {
+    ) async throws -> FriendShareZoneChangeApplyResult? {
         let stateStore = FriendSharePublishStateStore(modelContext: modelContext)
         let owner = friend.userRecordID
-        let payload = try await incomingShareSyncPayload(
+        let previousToken = stateStore.changeToken(ownerUserRecordName: owner)
+        Self.postIncomingShareSyncState(
+            friendID: friend.id,
             ownerUserRecordName: owner,
-            shareURL: shareURL,
-            previousToken: stateStore.changeToken(ownerUserRecordName: owner)
+            isSyncing: true,
+            hasPreviousToken: previousToken != nil,
+            phase: .fetchingRecords
         )
-        if let snapshot = payload.acceptedSnapshot {
-            CloudFriendShareSnapshotApplier.apply(snapshot, to: friend)
+        do {
+            let payload = try await incomingShareSyncPayload(
+                friendID: friend.id,
+                ownerUserRecordName: owner,
+                shareURL: shareURL,
+                previousToken: previousToken
+            )
+            if let snapshot = payload.acceptedSnapshot {
+                CloudFriendShareSnapshotApplier.apply(snapshot, to: friend)
+            }
+            if payload.clearsPreviousChangeToken {
+                stateStore.clearChangeToken(ownerUserRecordName: owner)
+            }
+            let applyResult = applyZoneChanges(
+                payload.changes,
+                to: friend,
+                ownUserRecordName: ownUserRecordName,
+                modelContext: modelContext,
+                stateStore: stateStore
+            )
+            Self.postIncomingShareSyncState(
+                friendID: friend.id,
+                ownerUserRecordName: owner,
+                isSyncing: false,
+                hasPreviousToken: previousToken != nil
+            )
+            return applyResult
+        } catch {
+            Self.postIncomingShareSyncState(
+                friendID: friend.id,
+                ownerUserRecordName: owner,
+                isSyncing: false,
+                hasPreviousToken: previousToken != nil,
+                error: error
+            )
+            throw error
         }
-        if payload.clearsPreviousChangeToken {
-            stateStore.clearChangeToken(ownerUserRecordName: owner)
-        }
-        applyZoneChanges(
-            payload.changes,
-            to: friend,
-            ownUserRecordName: ownUserRecordName,
-            modelContext: modelContext,
-            stateStore: stateStore
-        )
     }
 
     private func incomingShareSyncPayload(
+        friendID: UUID,
         ownerUserRecordName: String,
         shareURL: URL,
         previousToken: CKServerChangeToken?
@@ -640,6 +833,7 @@ final class CloudFriendShareRefreshCoordinator {
 
         let task = Task { @MainActor in
             try await self.fetchIncomingShareSyncPayload(
+                friendID: friendID,
                 ownerUserRecordName: ownerUserRecordName,
                 shareURL: shareURL,
                 previousToken: previousToken
@@ -657,6 +851,7 @@ final class CloudFriendShareRefreshCoordinator {
     }
 
     private func fetchIncomingShareSyncPayload(
+        friendID: UUID,
         ownerUserRecordName: String,
         shareURL: URL,
         previousToken: CKServerChangeToken?
@@ -671,14 +866,28 @@ final class CloudFriendShareRefreshCoordinator {
                 clearsPreviousChangeToken: false
             )
         } catch let error as CKError where error.code == .zoneNotFound || error.code == .userDeletedZone {
-            let snapshot = try await withCloudFriendTimeout(
+            Self.postIncomingShareSyncState(
+                friendID: friendID,
+                ownerUserRecordName: ownerUserRecordName,
+                isSyncing: true,
+                hasPreviousToken: previousToken != nil,
+                phase: .acceptingShare
+            )
+            try await withCloudFriendTimeout(
                 "accept incoming share",
                 seconds: CloudFriendShareOperationTimeoutPolicy.incomingShareAccept
             ) {
-                try await self.cloudShareStore.acceptIncomingShare(url: shareURL)
+                try await self.cloudShareStore.ensureIncomingShareAccepted(url: shareURL)
             }
+            Self.postIncomingShareSyncState(
+                friendID: friendID,
+                ownerUserRecordName: ownerUserRecordName,
+                isSyncing: true,
+                hasPreviousToken: false,
+                phase: .fetchingRecords
+            )
             return IncomingShareSyncPayload(
-                acceptedSnapshot: snapshot,
+                acceptedSnapshot: nil,
                 changes: try await fetchSharedZoneChanges(
                     ownerUserRecordName: ownerUserRecordName,
                     previousToken: nil
@@ -771,7 +980,7 @@ final class CloudFriendShareRefreshCoordinator {
         ownUserRecordName: String,
         modelContext: ModelContext,
         stateStore: FriendSharePublishStateStore
-    ) {
+    ) -> FriendShareZoneChangeApplyResult? {
         guard let result = FriendShareZoneChangeApplier().apply(
             changes,
             to: friend,
@@ -779,12 +988,10 @@ final class CloudFriendShareRefreshCoordinator {
             modelContext: modelContext,
             stateStore: stateStore
         ) else {
-            return
+            return nil
         }
         NSLog("Liminalog: applied friend share zone changes from \(friend.userRecordID): \(changes.changedRecords.count) changed records, \(changes.deletedRecordNames.count) deletions, fullZone=\(changes.didFetchFullZone)")
-        if result.shouldNotify {
-            postSharedRecordsDidChange(friend: friend, impact: result.impact)
-        }
+        return result
     }
 
     /// 同期ブロックで、モデルから全友達分のステータススナップショットと公開アイテム（全てプレーン値）を組み立てる。
@@ -1051,8 +1258,8 @@ final class CloudFriendShareRefreshCoordinator {
     ) async {
         let stateStore = FriendSharePublishStateStore(modelContext: modelContext)
 
-        if rootResult.didCreateRoot {
-            // ルートを作り直した場合、既存アイテムの parent が切れているため全量を再公開する。
+        if rootResult.didCreateRoot || request.resetsPublishedItemState {
+            // ルート再作成や修復publishでは、ローカル台帳を信用せず全件を再公開する。
             stateStore.clearPublishedItems(targetUserRecordName: target)
         }
 

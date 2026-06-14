@@ -117,6 +117,72 @@ struct DailyCardSnapshotStore {
         }
     }
 
+    @discardableResult
+    func backfillMissingSnapshots(
+        from scoreSnapshots: [DailyScoreSnapshot],
+        limit: Int = 120,
+        calendar: Calendar = .japanese,
+        now: Date = Date()
+    ) -> Int {
+        let candidates = scoreSnapshots
+            .filter(\.shouldDisplayAsDailyCard)
+            .sorted { $0.dayStart > $1.dayStart }
+            .prefix(max(limit, 0))
+        guard !candidates.isEmpty else { return 0 }
+
+        let dayStarts = candidates.map(\.dayStart)
+        guard let earliestDayStart = dayStarts.min(),
+              let latestDayStart = dayStarts.max(),
+              let fetchEnd = calendar.date(byAdding: .day, value: 1, to: latestDayStart),
+              let historyStart = calendar.date(byAdding: .day, value: -28, to: earliestDayStart)
+        else { return 0 }
+
+        let existingIDs = Set(snapshots(in: DateInterval(start: earliestDayStart, end: fetchEnd)).map(\.dayIdentifier))
+        let missingCandidates = candidates.filter { !existingIDs.contains($0.dayIdentifier) }
+        guard !missingCandidates.isEmpty else { return 0 }
+
+        let plans = plannedBlocks(in: DateInterval(start: earliestDayStart, end: fetchEnd))
+        let chapters = chapters(in: DateInterval(start: historyStart, end: fetchEnd), now: now)
+        var insertedCount = 0
+
+        for scoreSnapshot in missingCandidates {
+            let boundary = DayBoundary(date: scoreSnapshot.dayStart, calendar: calendar)
+            let dayPlans = plans.filter { $0.startTime < boundary.dayEnd && $0.endTime > boundary.dayStart }
+            let dayChapters = chapters.filter { $0.startTime < boundary.dayEnd && ($0.endTime ?? now) > boundary.dayStart }
+            let historyChapters = chapters.filter { $0.startTime < boundary.dayEnd }
+            let categoryRows = categoryRows(for: dayChapters, dayBoundary: boundary, now: now)
+            let summary = ScoreCalculator.summary(
+                date: scoreSnapshot.dayStart,
+                plans: dayPlans,
+                chapters: dayChapters,
+                calendar: calendar,
+                now: now
+            )
+            let recordedDuration = recordedDuration(for: dayChapters, dayBoundary: boundary, now: now)
+            let persona = DailyPersona.make(
+                summary: summary,
+                chapters: dayChapters,
+                historyChapters: historyChapters,
+                categoryRows: categoryRows,
+                recordedDuration: recordedDuration,
+                dayBoundary: boundary
+            )
+
+            upsert(
+                date: scoreSnapshot.dayStart,
+                summary: summary,
+                persona: persona,
+                categoryRows: categoryRows,
+                recordedDuration: recordedDuration,
+                calendar: calendar,
+                now: now
+            )
+            insertedCount += 1
+        }
+
+        return insertedCount
+    }
+
     private func existingSnapshot(dayIdentifier: String) -> SnapshotLookup {
         let descriptor = FetchDescriptor<DailyCardSnapshot>(
             predicate: #Predicate { $0.dayIdentifier == dayIdentifier },
@@ -134,6 +200,83 @@ struct DailyCardSnapshotStore {
             modelContext.delete(duplicate)
         }
         return .found(primary)
+    }
+
+    private func snapshots(in interval: DateInterval) -> [DailyCardSnapshot] {
+        let start = interval.start
+        let end = interval.end
+        let descriptor = FetchDescriptor<DailyCardSnapshot>(
+            predicate: #Predicate { $0.dayStart >= start && $0.dayStart < end },
+            sortBy: [SortDescriptor(\.dayStart, order: .reverse)]
+        )
+        do {
+            return try modelContext.fetch(descriptor)
+        } catch {
+            NSLog("Liminalog: failed to fetch daily card snapshots for backfill: \(String(describing: error))")
+            return []
+        }
+    }
+
+    private func plannedBlocks(in interval: DateInterval) -> [PlanBlock] {
+        let start = interval.start
+        let end = interval.end
+        let descriptor = FetchDescriptor<PlanBlock>(
+            predicate: #Predicate { $0.startTime < end && $0.endTime > start },
+            sortBy: [SortDescriptor(\.startTime)]
+        )
+        do {
+            return try modelContext.fetch(descriptor)
+        } catch {
+            NSLog("Liminalog: failed to fetch daily card backfill plans: \(String(describing: error))")
+            return []
+        }
+    }
+
+    private func chapters(in interval: DateInterval, now: Date) -> [Chapter] {
+        let start = interval.start
+        let end = interval.end
+        let descriptor = FetchDescriptor<Chapter>(
+            predicate: #Predicate { $0.startTime < end },
+            sortBy: [SortDescriptor(\.startTime)]
+        )
+        do {
+            return try modelContext.fetch(descriptor)
+                .filter { ($0.endTime ?? now) > start }
+        } catch {
+            NSLog("Liminalog: failed to fetch daily card backfill chapters: \(String(describing: error))")
+            return []
+        }
+    }
+
+    private func recordedDuration(
+        for chapters: [Chapter],
+        dayBoundary: DayBoundary,
+        now: Date
+    ) -> TimeInterval {
+        chapters.reduce(0) { partial, chapter in
+            let start = max(chapter.startTime, dayBoundary.dayStart)
+            let end = min(chapter.endTime ?? now, dayBoundary.dayEnd)
+            return partial + max(end.timeIntervalSince(start), 0)
+        }
+    }
+
+    private func categoryRows(
+        for chapters: [Chapter],
+        dayBoundary: DayBoundary,
+        now: Date
+    ) -> [(category: Category, duration: TimeInterval)] {
+        let grouped = Dictionary(grouping: chapters.compactMap { chapter -> (Category, TimeInterval)? in
+            guard let category = chapter.category else { return nil }
+            let start = max(chapter.startTime, dayBoundary.dayStart)
+            let end = min(chapter.endTime ?? now, dayBoundary.dayEnd)
+            return (category, max(end.timeIntervalSince(start), 0))
+        }, by: { $0.0.id })
+
+        return grouped.compactMap { _, values in
+            guard let category = values.first?.0 else { return nil }
+            return (category, values.reduce(0) { $0 + $1.1 })
+        }
+        .sorted { $0.duration > $1.duration }
     }
 
     private func saveChanges(_ action: String) {

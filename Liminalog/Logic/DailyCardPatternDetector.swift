@@ -315,8 +315,8 @@ struct DailyCardPatternDetector {
                     : .lessThanUsual(category: row.category, delta: delta)
                 let fact = DailyCardPatternFact(
                     id: z > 0 ? "signal-more" : "signal-less",
-                    title: "いつもより",
-                    value: formatPatternDuration(delta),
+                    title: row.category.name,
+                    value: "\(z > 0 ? "+" : "-")\(formatPatternDuration(delta))",
                     suffix: z > 0 ? "多め" : "控えめ",
                     systemImage: z > 0 ? "arrow.up.right" : "arrow.down.right"
                 )

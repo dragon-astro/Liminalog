@@ -3,7 +3,7 @@ import Testing
 @testable import Liminalog
 
 struct DailyCardEngineTests {
-    @Test("主要休息ブロックを実績扱いせず裁量時間として表示する")
+    @Test("主要休息ブロックを実績扱いせず主役カテゴリを表示する")
     func factsExcludeMajorRestBlocks() throws {
         let calendar = Calendar.liminalogTest
         let day = try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1)))
@@ -25,11 +25,12 @@ struct DailyCardEngineTests {
             dayBoundary: boundary
         )
 
-        #expect(persona.facts.first?.title == "裁量時間")
-        #expect(persona.facts.first?.value == "2時間")
+        #expect(persona.facts.first?.title == "主役")
+        #expect(persona.facts.first?.value == "勉強")
+        #expect(persona.facts.first?.suffix == "2時間")
     }
 
-    @Test("明示した睡眠タグは短い休息でも裁量時間から除外する")
+    @Test("明示した睡眠タグは短い休息でも主役カテゴリから除外する")
     func explicitSleepTagExcludesShortRestFromFacts() throws {
         let calendar = Calendar.liminalogTest
         let day = try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1)))
@@ -52,8 +53,9 @@ struct DailyCardEngineTests {
             dayBoundary: DayBoundary(date: day, calendar: calendar)
         )
 
-        #expect(persona.facts.first?.title == "裁量時間")
-        #expect(persona.facts.first?.value == "2時間")
+        #expect(persona.facts.first?.title == "主役")
+        #expect(persona.facts.first?.value == "勉強")
+        #expect(persona.facts.first?.suffix == "2時間")
         #expect(persona.title != "ガチ充電デー")
     }
 
@@ -151,6 +153,32 @@ struct DailyCardEngineTests {
         #expect(midnight.title == "丑三つの天才")
     }
 
+    @Test("分類済みカテゴリは振り返りカードの称号と本文を具体化する")
+    func analysisKindMakesDailyCardCopySpecific() throws {
+        let calendar = Calendar.liminalogTest
+        let day = try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1)))
+        let math = Category(
+            name: "数学",
+            colorHex: "#2F80ED",
+            icon: "book.fill",
+            analysisKind: .study
+        )
+        let chapter = try makeChapter(category: math, day: day, calendar: calendar, startHour: 6, durationMinutes: 120)
+
+        let persona = DailyPersona.make(
+            summary: ScoreSummary(date: day, categoryScore: 0, timelineScore: 0, totalScore: 40, plannedDuration: 0, recordedDuration: 2 * 60 * 60, matchedDuration: 0),
+            chapters: [chapter],
+            historyChapters: [],
+            categoryRows: [(math, 2 * 60 * 60)],
+            recordedDuration: 2 * 60 * 60,
+            dayBoundary: DayBoundary(date: day, calendar: calendar)
+        )
+
+        #expect(persona.title == "朝の学習日")
+        #expect(persona.message.contains("数学"))
+        #expect(persona.symbol == "book.closed.fill")
+    }
+
     @Test("履歴にないカテゴリは初記録signalとして称号とfactに出る")
     func firstRecordSignalBecomesPersonaAndFact() throws {
         let calendar = Calendar.liminalogTest
@@ -197,6 +225,36 @@ struct DailyCardEngineTests {
         )
 
         #expect(persona.title == "勉強自己最長")
+        #expect(persona.facts.contains { $0.id == "signal-best" && $0.value == "2時間" })
+    }
+
+    @Test("分類済みカテゴリの自己ベストsignalは生活スタイル語彙になる")
+    func analysisKindPersonalBestSignalUsesSpecificCopy() throws {
+        let calendar = Calendar.liminalogTest
+        let day = try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1)))
+        let math = Category(
+            name: "数学",
+            colorHex: "#2F80ED",
+            icon: "book.fill",
+            analysisKind: .study
+        )
+        let today = try makeChapter(category: math, day: day, calendar: calendar, startHour: 9, durationMinutes: 120)
+        let history = try (1...7).map { offset in
+            let historyDay = try #require(calendar.date(byAdding: .day, value: -offset, to: day))
+            return try makeChapter(category: math, day: historyDay, calendar: calendar, startHour: 9, durationMinutes: 60)
+        }
+
+        let persona = DailyPersona.make(
+            summary: ScoreSummary(date: day, categoryScore: 0, timelineScore: 0, totalScore: 45, plannedDuration: 3 * 60 * 60, recordedDuration: 2 * 60 * 60, matchedDuration: 0),
+            chapters: [today],
+            historyChapters: history,
+            categoryRows: [(math, 2 * 60 * 60)],
+            recordedDuration: 2 * 60 * 60,
+            dayBoundary: DayBoundary(date: day, calendar: calendar)
+        )
+
+        #expect(persona.title == "数学、学習自己最長")
+        #expect(persona.message.contains("数学"))
         #expect(persona.facts.contains { $0.id == "signal-best" && $0.value == "2時間" })
     }
 

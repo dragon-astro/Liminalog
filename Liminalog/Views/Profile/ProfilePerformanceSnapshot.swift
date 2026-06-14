@@ -68,6 +68,12 @@ struct ProfilePerformanceSnapshot {
         var distinctCategoryIDs = Set(finalizedSnapshots.flatMap(\.categoryIDs))
         distinctCategoryIDs.formUnion(todayStats.categoryIDs)
         let dailyCardMetrics = DailyCardUnlockMetrics(snapshots: finalizedSnapshots, today: todayStats.cardMetrics)
+        let categoriesByID = categoriesByID(modelContext: modelContext) ?? [:]
+        let categoryKindMetrics = CategoryKindUnlockMetrics(
+            snapshots: finalizedSnapshots,
+            todayCategoryIDs: todayStats.categoryIDs,
+            categoriesByID: categoriesByID
+        )
         let unlockMetrics = UnlockMetrics(
             cumulativeScore: totalEarnedScore,
             recordedDays: recordedDayCount,
@@ -86,7 +92,13 @@ struct ProfilePerformanceSnapshot {
             firstRecordDays: dailyCardMetrics.firstRecordDays,
             balancedDays: dailyCardMetrics.balancedDays,
             focusedDays: dailyCardMetrics.focusedDays,
-            changeSignalDays: dailyCardMetrics.changeSignalDays
+            changeSignalDays: dailyCardMetrics.changeSignalDays,
+            sleepCategoryDays: categoryKindMetrics.sleepDays,
+            workCategoryDays: categoryKindMetrics.workDays,
+            studyCategoryDays: categoryKindMetrics.studyDays,
+            hobbyPlayCategoryDays: categoryKindMetrics.hobbyPlayDays,
+            exerciseCategoryDays: categoryKindMetrics.exerciseDays,
+            householdCategoryDays: categoryKindMetrics.householdDays
         )
 
         return ProfilePerformanceSnapshot(
@@ -178,6 +190,17 @@ struct ProfilePerformanceSnapshot {
             return DailyCardUnlockMetrics()
         }
     }
+
+    @MainActor
+    private static func categoriesByID(modelContext: ModelContext) -> [UUID: Category]? {
+        let descriptor = FetchDescriptor<Category>()
+        do {
+            return Dictionary(uniqueKeysWithValues: try modelContext.fetch(descriptor).map { ($0.id, $0) })
+        } catch {
+            NSLog("Liminalog: failed to fetch categories for profile category unlocks: \(String(describing: error))")
+            return nil
+        }
+    }
 }
 
 private struct DailyCardUnlockMetrics {
@@ -199,25 +222,11 @@ private struct DailyCardUnlockMetrics {
         guard let snapshot else {
             return
         }
-        let morningTitles: Set<String> = [
-            "朝の短距離走者",
-            "早起きコツコツ",
-            "朝からせわしない"
-        ]
-        let nightTitles: Set<String> = [
-            "夜型スプリンター",
-            "宵っ張りの持久型",
-            "目まぐるしい夜",
-            "丑三つの天才",
-            "不眠の修行僧",
-            "体内時計バグり気味"
-        ]
-
         let factIDs = snapshot.factIDs
         planMatchedDays = snapshot.personaKind == .planMatched ? 1 : 0
         chargeDays = snapshot.personaKind == .chargeDay ? 1 : 0
-        morningPersonaDays = morningTitles.contains(snapshot.title) ? 1 : 0
-        nightPersonaDays = nightTitles.contains(snapshot.title) ? 1 : 0
+        morningPersonaDays = DailyCardLifestyleCopy.morningPersonaTitles.contains(snapshot.title) ? 1 : 0
+        nightPersonaDays = DailyCardLifestyleCopy.nightPersonaTitles.contains(snapshot.title) ? 1 : 0
         recordingHabitDays = factIDs.contains("habit-streak") ? 1 : 0
         personalBestDays = factIDs.contains("signal-best") ? 1 : 0
         returnAfterGapDays = factIDs.contains("signal-gap") ? 1 : 0
@@ -249,6 +258,36 @@ private struct TodayProfileStats {
     let lateNightRecordDay: Bool
     let categoryIDs: Set<UUID>
     let cardMetrics: DailyCardUnlockMetrics
+}
+
+private struct CategoryKindUnlockMetrics {
+    var sleepDays = 0
+    var workDays = 0
+    var studyDays = 0
+    var hobbyPlayDays = 0
+    var exerciseDays = 0
+    var householdDays = 0
+
+    init(
+        snapshots: [DailyScoreSnapshot],
+        todayCategoryIDs: Set<UUID>,
+        categoriesByID: [UUID: Category]
+    ) {
+        for snapshot in snapshots {
+            add(categoryIDs: Set(snapshot.categoryIDs), categoriesByID: categoriesByID)
+        }
+        add(categoryIDs: todayCategoryIDs, categoriesByID: categoriesByID)
+    }
+
+    private mutating func add(categoryIDs: Set<UUID>, categoriesByID: [UUID: Category]) {
+        let kinds = Set(categoryIDs.compactMap { categoriesByID[$0]?.analysisKind })
+        if kinds.contains(.sleep) { sleepDays += 1 }
+        if kinds.contains(.work) { workDays += 1 }
+        if kinds.contains(.study) { studyDays += 1 }
+        if kinds.contains(.hobbyPlay) { hobbyPlayDays += 1 }
+        if kinds.contains(.exercise) { exerciseDays += 1 }
+        if kinds.contains(.household) { householdDays += 1 }
+    }
 }
 
 private extension DailyCardSnapshot {

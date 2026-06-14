@@ -29,3 +29,9 @@ final class DailyScoreSnapshot {
 
     init() {}
 }
+
+extension DailyScoreSnapshot {
+    var shouldDisplayAsDailyCard: Bool {
+        hasRecord || recordedDuration > 0 || plannedDuration > 0 || score > 0
+    }
+}

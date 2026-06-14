@@ -5,15 +5,15 @@ import SwiftData
 final class CategoryStore {
     private let modelContext: ModelContext
 
-    private let defaultCategorySpecs: [(name: String, hex: String, icon: String, isSleep: Bool)] = [
-        ("勉強", "#2F80ED", "book.closed.fill", false),
-        ("仕事", "#6C5CE7", "briefcase.fill", false),
-        ("移動", "#F2994A", "tram.fill", false),
-        ("休憩", "#27AE60", "cup.and.saucer.fill", false),
-        ("睡眠", "#9B51E0", "moon.fill", true),
-        ("趣味", "#EB5757", "sparkles", false),
-        ("自由時間", "#F2C94C", "gamecontroller.fill", false),
-        ("家事", "#56CCF2", "house.fill", false)
+    private let defaultCategorySpecs: [(name: String, hex: String, icon: String, analysisKind: CategoryAnalysisKind)] = [
+        ("勉強", "#2F80ED", "book.closed.fill", .study),
+        ("仕事", "#6C5CE7", "briefcase.fill", .work),
+        ("移動", "#F2994A", "tram.fill", .unspecified),
+        ("休憩", "#27AE60", "cup.and.saucer.fill", .unspecified),
+        ("睡眠", "#9B51E0", "moon.fill", .sleep),
+        ("趣味", "#EB5757", "sparkles", .hobbyPlay),
+        ("自由時間", "#F2C94C", "gamecontroller.fill", .hobbyPlay),
+        ("家事", "#56CCF2", "house.fill", .household)
     ]
 
     init(modelContext: ModelContext) {
@@ -42,6 +42,7 @@ final class CategoryStore {
         colorHex: String,
         icon: String? = nil,
         dailyCardIntent: DailyCardCategoryIntent = .neutral,
+        analysisKind: CategoryAnalysisKind = .unspecified,
         isDailyCardSleepCategory: Bool = false,
         defaultAudienceFriendSetIDs: [UUID] = [],
         defaultAudienceIncludedFriendIDs: [UUID] = [],
@@ -58,6 +59,7 @@ final class CategoryStore {
             icon: icon,
             sortOrder: nextOrder,
             dailyCardIntent: dailyCardIntent,
+            analysisKind: analysisKind,
             isDailyCardSleepCategory: isDailyCardSleepCategory
         )
         category.defaultAudienceFriendSetIDs = defaultAudienceFriendSetIDs
@@ -74,6 +76,7 @@ final class CategoryStore {
         colorHex: String,
         icon: String? = nil,
         dailyCardIntent: DailyCardCategoryIntent = .neutral,
+        analysisKind: CategoryAnalysisKind = .unspecified,
         isDailyCardSleepCategory: Bool = false,
         defaultAudienceFriendSetIDs: [UUID]? = nil,
         defaultAudienceIncludedFriendIDs: [UUID]? = nil,
@@ -83,7 +86,7 @@ final class CategoryStore {
         category.colorHex = colorHex
         category.icon = icon
         category.dailyCardIntent = dailyCardIntent
-        category.isDailyCardSleepCategory = isDailyCardSleepCategory
+        category.analysisKind = analysisKind == .unspecified && isDailyCardSleepCategory ? .sleep : analysisKind
         if let defaultAudienceFriendSetIDs {
             category.defaultAudienceFriendSetIDs = defaultAudienceFriendSetIDs
         }
@@ -120,7 +123,14 @@ final class CategoryStore {
             return false
         }
         var existingNames = Set(all.map(\.name))
-        var didInsert = false
+        var didChange = false
+
+        for spec in defaultCategorySpecs {
+            for category in all where category.isDefault && category.name == spec.name && category.analysisKindRawValue == CategoryAnalysisKind.unspecified.rawValue {
+                category.analysisKind = spec.analysisKind
+                didChange = true
+            }
+        }
 
         for (index, spec) in defaultCategorySpecs.enumerated() where !existingNames.contains(spec.name) {
             let category = Category(
@@ -129,14 +139,14 @@ final class CategoryStore {
                 icon: spec.icon,
                 sortOrder: index,
                 isDefault: true,
-                isDailyCardSleepCategory: spec.isSleep
+                analysisKind: spec.analysisKind
             )
             modelContext.insert(category)
             existingNames.insert(spec.name)
-            didInsert = true
+            didChange = true
         }
 
-        guard didInsert else { return false }
+        guard didChange else { return false }
         return saveChanges("default category seed")
     }
 

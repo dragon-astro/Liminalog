@@ -6,13 +6,18 @@ struct ProfileView: View {
     @Query(sort: \UserSettings.createdAt) private var settingsList: [UserSettings]
     @Query(sort: \Friend.createdAt) private var friends: [Friend]
     @Query(sort: \UnlockItem.sortOrder) private var unlockItems: [UnlockItem]
+    @Query(sort: [SortDescriptor(\DailyCardSnapshot.dayStart, order: .reverse)]) private var dailyCardSnapshots: [DailyCardSnapshot]
+    @Query(sort: [SortDescriptor(\DailyScoreSnapshot.dayStart, order: .reverse)]) private var dailyScoreSnapshots: [DailyScoreSnapshot]
+    @Query(sort: \Category.sortOrder) private var categories: [Category]
 
     @State private var isShowingEditProfile = false
     @State private var isShowingShareProfile = false
     @State private var isShowingSettings = false
     @State private var isShowingUnlockGallery = false
+    @State private var isShowingDailyCardAlbum = false
     @State private var performanceSnapshot = ProfilePerformanceSnapshot.empty
     @State private var performanceSnapshotLoadedAt: Date?
+    @State private var lastDailyCardBackfillSignature: String?
     @State private var saveError: String?
     @State private var shareError: String?
     #if DEBUG
@@ -75,13 +80,6 @@ struct ProfileView: View {
         ProfileBadgeCatalog.equippedBadge(id: settings?.profileBadgeID, badges: badges)
     }
 
-    private var nextUnlockTargets: [ProfileUnlockTarget] {
-        ProfileUnlockTargetCatalog.targets(
-            metrics: performanceSnapshot.unlockMetrics,
-            unlockItems: unlockItems
-        )
-    }
-
     private var freshUnlockItems: [UnlockItem] {
         ProfileDecorationUnlocks.freshUnlockedItems(
             unlockItems: unlockItems,
@@ -94,8 +92,23 @@ struct ProfileView: View {
         !freshUnlockItems.isEmpty
     }
 
+    private var dailyCardEntries: [ProfileDailyCardEntry] {
+        ProfileDailyCardEntry.merged(
+            snapshots: dailyCardSnapshots,
+            scoreSnapshots: dailyScoreSnapshots,
+            categories: categories
+        )
+    }
+
+    private var dailyCardBackfillSignature: String {
+        dailyScoreSnapshots
+            .prefix(120)
+            .map(\.dayIdentifier)
+            .joined(separator: "|")
+    }
+
     private var iconFrame: ProfileIconFrameStyle {
-        ProfileIconFrameCatalog.item(for: decorationUnlocks.equippedIconFrameID(settings?.profileIconFrameID))
+        ProfileIconFrameCatalog.item(for: decorationUnlocks.equippedIconFrameID(settings: settings))
     }
 
     private var streakIcon: ProfileStreakIconStyle {
@@ -144,37 +157,34 @@ struct ProfileView: View {
                     )
                     .padding(.bottom, cardStyle.hasGeneratedArtwork ? -36 : 0)
 
-                    ProfileLevelGauge(
-                        score: cumulativeScore,
-                        onTap: { isShowingUnlockGallery = true }
-                    )
+                    VStack(alignment: .leading, spacing: 10) {
+                        ProfileLevelGauge(
+                            score: cumulativeScore,
+                            onTap: { isShowingUnlockGallery = true }
+                        )
 
-                    ProfileStatsRow(
-                        streak: performanceSnapshot.streakCount,
-                        totalScore: performanceSnapshot.totalEarnedScore,
-                        friendCount: acceptedFriendCount,
-                        streakIcon: streakIcon
-                    )
+                        ProfileStatsRow(
+                            streak: performanceSnapshot.streakCount,
+                            totalScore: performanceSnapshot.totalEarnedScore,
+                            friendCount: acceptedFriendCount,
+                            streakIcon: streakIcon
+                        )
 
-                    if !nextUnlockTargets.isEmpty || !unlockItems.isEmpty {
-                        ProfileNextUnlockSection(
-                            targets: nextUnlockTargets,
+                        ProfileCollectionAccessButton(
                             fragmentBalance: fragmentBalance,
                             showsGalleryIndicator: hasFreshUnlockItems,
                             onOpenGallery: { isShowingUnlockGallery = true }
                         )
                     }
 
-                    ProfileCollectionSection(
-                        badges: badges,
-                        equippedBadge: equippedBadge,
-                        iconFrame: iconFrame,
-                        streakIcon: streakIcon,
-                        cardStyle: cardStyle
+                    ProfileDailyCardAlbumSection(
+                        entries: dailyCardEntries,
+                        onOpenAlbum: { isShowingDailyCardAlbum = true }
                     )
+
                 }
                 .padding(.horizontal, 20)
-                .padding(.top, 18)
+                .padding(.top, 32)
                 .padding(.bottom, 36)
             }
             .background(LiminalTheme.canvasGradient)
@@ -194,6 +204,9 @@ struct ProfileView: View {
             }
             .navigationDestination(isPresented: $isShowingUnlockGallery) {
                 UnlockGalleryView(initialMetrics: performanceSnapshot.unlockMetrics)
+            }
+            .sheet(isPresented: $isShowingDailyCardAlbum) {
+                ProfileDailyCardAlbumView(entries: dailyCardEntries)
             }
             .sheet(isPresented: $isShowingEditProfile) {
                 ProfileEditSheet(
@@ -227,9 +240,13 @@ struct ProfileView: View {
                 refreshPerformanceSnapshot()
                 applyDebugLaunchRouteIfNeeded()
             }
+            .task(id: dailyCardBackfillSignature) {
+                backfillDailyCardSnapshots()
+            }
             .onChange(of: isShowingSettings) { _, isShowing in
                 if !isShowing {
                     refreshPerformanceSnapshot()
+                    backfillDailyCardSnapshots()
                 }
             }
         }
@@ -268,6 +285,14 @@ struct ProfileView: View {
         performanceSnapshot = snapshot
         performanceSnapshotLoadedAt = now
         UnlockStore(modelContext: modelContext).refresh(metrics: snapshot.unlockMetrics)
+    }
+
+    private func backfillDailyCardSnapshots() {
+        guard lastDailyCardBackfillSignature != dailyCardBackfillSignature else { return }
+        lastDailyCardBackfillSignature = dailyCardBackfillSignature
+        DailyCardSnapshotStore(modelContext: modelContext).backfillMissingSnapshots(
+            from: dailyScoreSnapshots
+        )
     }
 
     private func saveProfile(_ draft: ProfileDraft) -> Bool {

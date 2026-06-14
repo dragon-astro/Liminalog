@@ -9,6 +9,7 @@ struct FriendsView: View {
     @Query(sort: \Friend.createdAt) private var friends: [Friend]
     @Query(sort: \UserSettings.createdAt) private var settingsList: [UserSettings]
     @Query(sort: \VisibilityPreset.sortOrder) private var visibilityPresets: [VisibilityPreset]
+    @Query(sort: \UnlockItem.sortOrder) private var unlockItems: [UnlockItem]
     @Query private var activeChapters: [Chapter]
 
     @State private var clock = TickClock(interval: 60)
@@ -52,13 +53,17 @@ struct FriendsView: View {
         settingsList.first
     }
 
+    private var decorationUnlocks: ProfileDecorationUnlocks {
+        ProfileDecorationUnlocks(unlockItems: unlockItems)
+    }
+
     private var ownDisplayName: String {
         let name = settings?.profileDisplayName.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return name.isEmpty ? "Liminalogユーザー" : name
     }
 
     private var ownIconFrame: ProfileIconFrameStyle {
-        ProfileIconFrameCatalog.item(for: settings?.profileIconFrameID)
+        ProfileIconFrameCatalog.item(for: decorationUnlocks.equippedIconFrameID(settings: settings))
     }
 
     private var ownVisualAccentColor: Color {
@@ -735,8 +740,11 @@ struct FriendsView: View {
                 await MainActor.run {
                     acceptLocally(friend)
                 }
-                if let shareURL = incomingShareURL(for: friend) {
-                    try await refreshIncomingShare(for: friend, shareURL: shareURL)
+                if incomingShareURL(for: friend) != nil {
+                    CloudFriendShareRefreshCoordinator.requestIncomingRefresh(
+                        reason: "friend accepted",
+                        friendID: friend.id
+                    )
                 }
                 _ = try await publishOutgoingShare(to: friend, consentStatus: .accepted)
                 await MainActor.run {
@@ -843,8 +851,11 @@ struct FriendsView: View {
                     friendSearchUserID = ""
                 }
                 if result.status == .accepted {
-                    if let shareURL = incomingShareURL(for: friend) {
-                        try await refreshIncomingShare(for: friend, shareURL: shareURL)
+                    if incomingShareURL(for: friend) != nil {
+                        CloudFriendShareRefreshCoordinator.requestIncomingRefresh(
+                            reason: "friend request accepted",
+                            friendID: friend.id
+                        )
                     }
                     _ = try await publishOutgoingShare(to: friend, consentStatus: .accepted)
                 }
@@ -911,6 +922,8 @@ struct FriendsView: View {
                         incomingConsents: incomingConsents,
                         outgoingConsents: outgoingConsents
                     )
+                    var acceptedRefreshFriendIDs: [UUID] = []
+                    var acceptedPublishFriends: [Friend] = []
                     for restoration in restorations {
                         let status = restoration.status
                         let friend = upsertCloudFriend(
@@ -922,14 +935,25 @@ struct FriendsView: View {
                             handleBlockedCloudFriend(friend, direction: restoration.direction)
                             continue
                         }
-                        if status == .accepted, let shareURL = incomingShareURL(for: friend) {
-                            Task {
-                                try? await refreshIncomingShare(for: friend, shareURL: shareURL)
-                                _ = try? await publishOutgoingShare(to: friend, consentStatus: .accepted)
+                        if status == .accepted {
+                            if incomingShareURL(for: friend) != nil {
+                                acceptedRefreshFriendIDs.append(friend.id)
                             }
+                            acceptedPublishFriends.append(friend)
                         }
                     }
                     if save() {
+                        for friendID in acceptedRefreshFriendIDs {
+                            CloudFriendShareRefreshCoordinator.requestIncomingRefresh(
+                                reason: "friend requests restored",
+                                friendID: friendID
+                            )
+                        }
+                        for friend in acceptedPublishFriends {
+                            Task {
+                                _ = try? await publishOutgoingShare(to: friend, consentStatus: .accepted)
+                            }
+                        }
                         loadedCloudRequestsUserRecordName = ownUserRecordName
                         if trigger == .manual {
                             let count = incomingConsents.count + outgoingConsents.count
@@ -1163,7 +1187,7 @@ struct FriendsView: View {
             ownProfileImageData: settings?.profileImageData,
             ownProfileAccentColorHex: settings?.profileAccentColorHex ?? "#2F80ED",
             ownProfileBadgeID: settings?.profileBadgeID ?? "starter",
-            ownProfileIconFrameID: settings?.profileIconFrameID ?? "clear_air",
+            ownProfileIconFrameID: decorationUnlocks.equippedIconFrameID(settings: settings),
             ownProfileStreakIconID: settings?.profileStreakIconID ?? "flame",
             ownProfileCardStyleID: settings?.profileCardStyleID ?? "quiet_sky",
             visibilityPresets: visibilityPresets,
@@ -1690,6 +1714,7 @@ private struct FriendCardBackground: View {
 private struct FriendDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
     let friend: Friend
     let onSharingSettingsChanged: (Friend) -> Void
     @Query(sort: \VisibilityPreset.sortOrder) private var visibilityPresets: [VisibilityPreset]
@@ -1700,6 +1725,7 @@ private struct FriendDetailView: View {
     @State private var isShowingCalendar = false
     @State private var showingBlockConfirmation = false
     @State private var showingDeleteConfirmation = false
+    @State private var showingReportConfirmation = false
     @State private var saveError: String?
     #if DEBUG
     @State private var didHandleDebugCalendarLaunch = false
@@ -1707,6 +1733,7 @@ private struct FriendDetailView: View {
 
     private let cloudSocialStore = CloudKitSocialStore()
     private let cloudShareStore = CloudFriendShareStore()
+    private let supportEmailAddress = "yuhlab.dev@gmail.com"
 
     private var settings: UserSettings? {
         settingsList.first
@@ -1815,6 +1842,13 @@ private struct FriendDetailView: View {
 
                     Button(role: .destructive) {
                         LiminalHaptics.warning()
+                        showingReportConfirmation = true
+                    } label: {
+                        Label("通報", systemImage: "exclamationmark.bubble")
+                    }
+
+                    Button(role: .destructive) {
+                        LiminalHaptics.warning()
                         showingBlockConfirmation = true
                     } label: {
                         Label("ブロック", systemImage: "hand.raised")
@@ -1833,6 +1867,22 @@ private struct FriendDetailView: View {
                 }
                 .accessibilityLabel("友達メニュー")
             }
+        }
+        .confirmationDialog(
+            "\(friend.displayName)を通報しますか？",
+            isPresented: $showingReportConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("通報メールを作成", role: .destructive) {
+                reportFriend()
+            }
+            Button("通報してブロック", role: .destructive) {
+                reportFriend()
+                blockFriend()
+            }
+            Button("キャンセル", role: .cancel) {}
+        } message: {
+            Text("迷惑行為や不適切な表示名・プロフィール・共有内容を開発者に知らせます。")
         }
         .confirmationDialog(
             "\(friend.displayName)をブロックしますか？",
@@ -1913,6 +1963,47 @@ private struct FriendDetailView: View {
                 }
             }
         }
+    }
+
+    private func reportFriend() {
+        var components = URLComponents()
+        components.scheme = "mailto"
+        components.path = supportEmailAddress
+        components.queryItems = [
+            URLQueryItem(name: "subject", value: "Liminalog 友達通報"),
+            URLQueryItem(name: "body", value: reportMailBody)
+        ]
+
+        guard let url = components.url else {
+            saveError = "通報メールを作成できませんでした。設定の問い合わせ先から連絡してください。"
+            return
+        }
+
+        LiminalHaptics.warning()
+        openURL(url)
+    }
+
+    private var reportMailBody: String {
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "1"
+        let ownUsername = settings?.cloudUsernameNormalized.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let ownRecordName = settings?.cloudUserRecordName.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+        return """
+        以下の友達について通報します。
+
+        通報内容:
+
+
+        対象の表示名: \(friend.displayName)
+        対象のユーザーID: \(friend.handle)
+        対象のCloudKit ID: \(friend.userRecordID)
+        自分のユーザーID: \(ownUsername)
+        自分のCloudKit ID: \(ownRecordName)
+        アプリ: Liminalog \(version) (\(build))
+
+        必要に応じて、該当するプロフィール表示や共有内容のスクリーンショットも添付してください。
+        """
     }
 
     private func deleteFriend() {
@@ -2073,8 +2164,11 @@ private struct FriendDetailView: View {
                     acceptFriendLocally()
                     onSharingSettingsChanged(friend)
                 }
-                if let shareURL = incomingShareURL(for: friend) {
-                    try await refreshIncomingShare(for: friend, shareURL: shareURL)
+                if incomingShareURL(for: friend) != nil {
+                    CloudFriendShareRefreshCoordinator.requestIncomingRefresh(
+                        reason: "friend detail accepted",
+                        friendID: friend.id
+                    )
                 }
             } catch {
                 await MainActor.run {
@@ -2579,6 +2673,7 @@ private struct FriendCalendarView: View {
     @State private var pickerYear = Calendar.japanese.component(.year, from: Date())
     @State private var pickerMonth = Calendar.japanese.component(.month, from: Date())
     @State private var selectedDay: FriendSharedCalendarTargetDay?
+    @State private var incomingSyncBannerState: FriendCalendarIncomingSyncBannerState = .hidden
 
     private let calendar = Calendar.japanese
     private let weekdays = Calendar.japaneseShortWeekdaySymbols
@@ -2590,48 +2685,62 @@ private struct FriendCalendarView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            calendarTopBar
+        ZStack(alignment: .bottom) {
+            VStack(spacing: 0) {
+                calendarTopBar
 
-            CalendarWeekdayHeader(
-                weekdays: weekdays,
-                weekdayColor: weekdayColor(_:)
-            )
+                CalendarWeekdayHeader(
+                    weekdays: weekdays,
+                    weekdayColor: weekdayColor(_:)
+                )
 
-            ScrollView(.horizontal) {
-                LazyHStack(alignment: .top, spacing: 0) {
-                    ForEach(monthOffsets, id: \.self) { offset in
-                        CalendarMonthGrid(
-                            pageData: cachedPageData(for: month(forOffset: offset)),
-                            onOpenDay: { date, _ in
-                                selectedDay = FriendSharedCalendarTargetDay(date: date)
-                            }
-                        )
-                        .padding(.vertical, 8)
-                        .containerRelativeFrame(.horizontal)
-                        .id(offset)
+                ScrollView(.horizontal) {
+                    LazyHStack(alignment: .top, spacing: 0) {
+                        ForEach(monthOffsets, id: \.self) { offset in
+                            CalendarMonthGrid(
+                                pageData: cachedPageData(for: month(forOffset: offset)),
+                                onOpenDay: { date, _ in
+                                    selectedDay = FriendSharedCalendarTargetDay(date: date)
+                                }
+                            )
+                            .padding(.vertical, 8)
+                            .containerRelativeFrame(.horizontal)
+                            .id(offset)
+                        }
                     }
+                    .scrollTargetLayout()
                 }
-                .scrollTargetLayout()
+                .scrollTargetBehavior(.paging)
+                .scrollPosition(id: $scrolledOffset, anchor: .center)
+                .defaultScrollAnchor(.center)
+                .scrollIndicators(.hidden)
+                .frame(maxHeight: .infinity, alignment: .top)
             }
-            .scrollTargetBehavior(.paging)
-            .scrollPosition(id: $scrolledOffset, anchor: .center)
-            .defaultScrollAnchor(.center)
-            .scrollIndicators(.hidden)
-            .frame(maxHeight: .infinity, alignment: .top)
-            .onAppear {
-                handleCalendarAppear()
-            }
-            .onChange(of: scrolledOffset) { _, newValue in
-                handleScroll(to: newValue)
-            }
-            .onReceive(NotificationCenter.default.publisher(for: CloudFriendShareRefreshCoordinator.sharedRecordsDidChange)) { notification in
-                guard isSharedRecordChange(for: notification) else { return }
-                reloadVisibleData(forSharedRecordChange: notification)
-            }
-            .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
-                reloadAfterForeground()
-            }
+
+            FriendCalendarIncomingSyncBanner(state: incomingSyncBannerState)
+                .frame(maxWidth: 260)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 10)
+                .zIndex(1)
+        }
+        .animation(.easeOut(duration: 0.2), value: incomingSyncBannerState)
+        .onAppear {
+            handleCalendarAppear()
+        }
+        .onChange(of: scrolledOffset) { _, newValue in
+            handleScroll(to: newValue)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: CloudFriendShareRefreshCoordinator.sharedRecordsDidChange)) { notification in
+            guard isSharedRecordChange(for: notification) else { return }
+            reloadVisibleData(forSharedRecordChange: notification)
+            refreshIncomingSyncBannerState()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: CloudFriendShareRefreshCoordinator.incomingShareSyncStateDidChange)) { notification in
+            handleIncomingShareSyncState(notification)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            reloadAfterForeground()
+            refreshIncomingSyncBannerState()
         }
         .background(LiminalTheme.canvasGradient)
         .navigationTitle("\(friend.displayName)のカレンダー")
@@ -2713,7 +2822,7 @@ private struct FriendCalendarView: View {
         }
         .padding(.horizontal, 12)
         .padding(.top, 8)
-        .padding(.bottom, 10)
+        .padding(.bottom, 6)
         .background(LiminalTheme.surface)
     }
 
@@ -2759,6 +2868,8 @@ private struct FriendCalendarView: View {
     }
 
     private func handleCalendarAppear() {
+        refreshIncomingSyncBannerState()
+        requestIncomingShareRefresh(reason: "friend calendar appear")
         #if DEBUG
         let startedAt = Date()
         let targetOffset = scrolledOffset ?? 0
@@ -2784,7 +2895,61 @@ private struct FriendCalendarView: View {
     }
 
     private func reloadAfterForeground() {
+        requestIncomingShareRefresh(reason: "friend calendar foreground")
         reloadVisibleData()
+    }
+
+    private func requestIncomingShareRefresh(reason: String) {
+        guard friend.status == .accepted,
+              !friend.userRecordID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              !(friend.shareURL?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+        else { return }
+        CloudFriendShareRefreshCoordinator.requestIncomingRefresh(reason: reason, friendID: friend.id)
+    }
+
+    private func refreshIncomingSyncBannerState() {
+        guard friend.status == .accepted,
+              !friend.userRecordID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              !(friend.shareURL?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+        else {
+            incomingSyncBannerState = .hidden
+            return
+        }
+        if incomingSyncBannerState.isFinished {
+            incomingSyncBannerState = .hidden
+        }
+    }
+
+    private func handleIncomingShareSyncState(_ notification: Notification) {
+        guard incomingShareSyncNotificationMatchesFriend(notification) else { return }
+        let isSyncing = notification.userInfo?[CloudFriendShareRefreshCoordinator.incomingShareSyncIsSyncingKey] as? Bool ?? false
+        let hasPreviousToken = notification.userInfo?[CloudFriendShareRefreshCoordinator.incomingShareSyncHasPreviousTokenKey] as? Bool ?? false
+        let rawPhase = notification.userInfo?[CloudFriendShareRefreshCoordinator.incomingShareSyncPhaseKey] as? String
+        let phase = FriendCalendarIncomingSyncPhase(rawValue: rawPhase ?? "")
+        let errorMessage = notification.userInfo?[CloudFriendShareRefreshCoordinator.incomingShareSyncErrorMessageKey] as? String
+
+        if isSyncing {
+            incomingSyncBannerState = phase == .acceptingShare
+                ? .acceptingShare
+                : (hasPreviousToken ? .syncingLatest : .syncingHistory)
+        } else if let errorMessage, !errorMessage.isEmpty {
+            incomingSyncBannerState = .failed(hasPreviousToken: hasPreviousToken)
+        } else {
+            incomingSyncBannerState = .hidden
+        }
+    }
+
+    private func incomingShareSyncNotificationMatchesFriend(_ notification: Notification) -> Bool {
+        if let rawFriendID = notification.userInfo?[CloudFriendShareRefreshCoordinator.incomingShareSyncFriendIDKey] as? String,
+           UUID(uuidString: rawFriendID) == friend.id {
+            return true
+        }
+        if let ownerUserRecordName = notification.userInfo?[CloudFriendShareRefreshCoordinator.incomingShareSyncOwnerUserRecordNameKey] as? String,
+           !ownerUserRecordName.isEmpty,
+           ownerUserRecordName == friend.userRecordID {
+            return true
+        }
+        return false
     }
 
     private func reloadVisibleData(forSharedRecordChange notification: Notification) {
@@ -2863,6 +3028,122 @@ private struct FriendCalendarView: View {
         case "日": .red
         case "土": .blue
         default: .secondary
+        }
+    }
+}
+
+private enum FriendCalendarIncomingSyncPhase: String {
+    case acceptingShare
+    case fetchingRecords
+}
+
+private enum FriendCalendarIncomingSyncBannerState: Equatable {
+    case hidden
+    case waitingForInitialSync
+    case acceptingShare
+    case syncingHistory
+    case syncingLatest
+    case failed(hasPreviousToken: Bool)
+
+    var isFinished: Bool {
+        if case .failed = self {
+            return true
+        }
+        return false
+    }
+
+    var isVisible: Bool {
+        self != .hidden
+    }
+
+    var isSyncing: Bool {
+        switch self {
+        case .waitingForInitialSync, .acceptingShare, .syncingHistory, .syncingLatest:
+            true
+        case .hidden, .failed:
+            false
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .hidden:
+            ""
+        case .waitingForInitialSync, .acceptingShare:
+            "共有を承認中"
+        case .syncingHistory:
+            "予定を受信中"
+        case .syncingLatest:
+            "予定を更新中"
+        case .failed(let hasPreviousToken):
+            hasPreviousToken ? "更新できませんでした" : "連携できませんでした"
+        }
+    }
+
+    var message: String {
+        switch self {
+        case .hidden:
+            ""
+        case .waitingForInitialSync:
+            "初回の共有を準備しています。"
+        case .acceptingShare:
+            "iCloudの共有参加を確認しています。"
+        case .syncingHistory:
+            "共有済みの予定レコードを取得しています。"
+        case .syncingLatest:
+            "友達の変更を取得しています。表示中の月は自動で更新されます。"
+        case .failed:
+            "通信状態を確認して、友達タブの更新をもう一度試してください。"
+        }
+    }
+
+    var iconName: String {
+        switch self {
+        case .failed:
+            "exclamationmark.triangle.fill"
+        default:
+            "arrow.triangle.2.circlepath"
+        }
+    }
+}
+
+private struct FriendCalendarIncomingSyncBanner: View {
+    let state: FriendCalendarIncomingSyncBannerState
+
+    var body: some View {
+        if state.isVisible {
+            HStack(spacing: 8) {
+                if state.isSyncing {
+                    ProgressView()
+                        .controlSize(.small)
+                        .tint(LiminalTheme.accent)
+                        .frame(width: 16, height: 16)
+                } else {
+                    Image(systemName: state.iconName)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.orange)
+                        .frame(width: 16, height: 16)
+                }
+
+                Text(state.title)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(LiminalTheme.text)
+                    .lineLimit(1)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(LiminalTheme.surface.opacity(0.96))
+            )
+            .overlay(
+                Capsule(style: .continuous)
+                    .stroke(LiminalTheme.divider.opacity(0.7), lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.14), radius: 8, x: 0, y: 4)
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("\(state.title)。\(state.message)")
         }
     }
 }

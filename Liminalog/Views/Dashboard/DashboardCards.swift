@@ -614,14 +614,7 @@ struct HourRhythmCard: View {
     let chapters: [Chapter]
 
     private var hourlyStats: [HourStat] {
-        (0..<24).map { hour in
-            let matches = chapters.filter { Calendar.current.component(.hour, from: $0.startTime) == hour }
-            let duration = matches.reduce(0) { $0 + max(0, $1.durationLive) }
-            let category = Dictionary(grouping: matches.compactMap(\.category), by: \.id)
-                .max { $0.value.count < $1.value.count }?
-                .value.first
-            return HourStat(hour: hour, duration: duration, category: category)
-        }
+        HourStat.stats(from: chapters)
     }
 
     private var maxDuration: TimeInterval {
@@ -638,11 +631,7 @@ struct HourRhythmCard: View {
                 VStack(spacing: 8) {
                     HStack(alignment: .bottom, spacing: 3) {
                         ForEach(hourlyStats) { stat in
-                            Capsule()
-                                .fill(stat.category?.displayColor ?? LiminalTheme.elevated)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: max(7, 48 * stat.duration / maxDuration))
-                                .opacity(stat.duration > 0 ? 1 : 0.5)
+                            HourRhythmBar(stat: stat, maxDuration: maxDuration)
                         }
                     }
                     .frame(height: 52, alignment: .bottom)
@@ -664,6 +653,34 @@ struct HourRhythmCard: View {
             }
         }
         .dashboardCard()
+    }
+}
+
+private struct HourRhythmBar: View {
+    let stat: HourStat
+    let maxDuration: TimeInterval
+
+    private var barHeight: CGFloat {
+        max(7, 48 * stat.duration / maxDuration)
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            if stat.segments.isEmpty {
+                Rectangle()
+                    .fill(LiminalTheme.elevated)
+            } else {
+                ForEach(stat.segments) { segment in
+                    Rectangle()
+                        .fill(segment.color)
+                        .frame(height: max(1, barHeight * segment.duration / max(stat.duration, 1)))
+                }
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: barHeight, alignment: .bottom)
+        .clipShape(Capsule())
+        .opacity(stat.duration > 0 ? 1 : 0.5)
     }
 }
 

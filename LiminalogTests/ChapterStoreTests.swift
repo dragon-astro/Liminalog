@@ -369,7 +369,7 @@ struct ChapterStoreTests {
         let staleCategory = Category(name: "古いダミー", colorHex: "#999999")
         context.insert(staleCategory)
         let userChapter = Chapter(category: staleCategory, startTime: try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1, hour: 6))))
-        userChapter.endTime = try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1, hour: 7)))
+        userChapter.endTime = calendar.date(from: DateComponents(year: 2026, month: 6, day: 1, hour: 7))
         context.insert(userChapter)
         try context.save()
         UserDefaults.standard.set(999, forKey: versionKey)
@@ -477,10 +477,10 @@ struct ChapterStoreTests {
         let category = Category(name: "壊れたダミー", colorHex: "#999999")
         context.insert(category)
         let first = Chapter(category: category, startTime: try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1, hour: 8))))
-        first.endTime = try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1, hour: 9)))
+        first.endTime = calendar.date(from: DateComponents(year: 2026, month: 6, day: 1, hour: 9))
         first.photoLocalIdentifier = "liminalog.debug.dev-chapter"
         let second = Chapter(category: category, startTime: try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1, hour: 8, minute: 30))))
-        second.endTime = try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1, hour: 9, minute: 30)))
+        second.endTime = calendar.date(from: DateComponents(year: 2026, month: 6, day: 1, hour: 9, minute: 30))
         second.photoLocalIdentifier = "liminalog.debug.dev-chapter"
         context.insert(first)
         context.insert(second)
@@ -508,7 +508,7 @@ struct ChapterStoreTests {
         let userCategory = Category(name: "ユーザー", colorHex: "#111111")
         context.insert(userCategory)
         let userChapter = Chapter(category: userCategory, startTime: try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1, hour: 6))))
-        userChapter.endTime = try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1, hour: 7)))
+        userChapter.endTime = calendar.date(from: DateComponents(year: 2026, month: 6, day: 1, hour: 7))
         context.insert(userChapter)
         let userPlan = PlanBlock(
             category: userCategory,

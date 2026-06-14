@@ -35,7 +35,7 @@ struct ProfileHero: View {
     let iconFrame: ProfileIconFrameStyle
     let cardStyle: ProfileCardStyle
     var showsActions: Bool = true
-    var emptyBioText: String = "プロフィールを育てよう"
+    var emptyBioText: String = "いまの気分をひとこと"
     /// 歩んだ距離（累積スコア由来・減らない）。数字のみをさりげなく出す（doc 16 §12.0.1）。
     var level: Int? = nil
     let onEdit: () -> Void
@@ -1964,29 +1964,192 @@ struct ProfileStatTile: View {
     }
 }
 
-struct ProfileNextUnlockSection: View {
-    let targets: [ProfileUnlockTarget]
+struct ProfileCollectionAccessButton: View {
     let fragmentBalance: Int
     let showsGalleryIndicator: Bool
     let onOpenGallery: () -> Void
 
     var body: some View {
+        HStack(spacing: 10) {
+            ProfileCollectionActionTile(
+                title: "コレクション",
+                subtitle: "装飾を見る",
+                systemImage: "square.grid.2x2.fill",
+                tint: LiminalTheme.accent,
+                showsIndicator: showsGalleryIndicator,
+                action: onOpenGallery
+            )
+
+            ProfileFragmentBalanceTile(
+                balance: fragmentBalance,
+                systemImage: "sparkle",
+                tint: fragmentBalance > 0 ? LiminalTheme.reward : LiminalTheme.secondaryText
+            )
+        }
+        .accessibilityElement(children: .contain)
+    }
+}
+
+private struct ProfileCollectionActionTile: View {
+    let title: String
+    let subtitle: String
+    let systemImage: String
+    let tint: Color
+    let showsIndicator: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                ZStack {
+                    Circle()
+                        .fill(tint.opacity(0.14))
+                    Image(systemName: systemImage)
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(tint)
+                }
+                .frame(width: 34, height: 34)
+                .overlay(alignment: .topTrailing) {
+                    if showsIndicator {
+                        Circle()
+                            .fill(LiminalTheme.reward)
+                            .frame(width: 8, height: 8)
+                            .offset(x: 1, y: -1)
+                            .accessibilityHidden(true)
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(LiminalTheme.text)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.78)
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(LiminalTheme.secondaryText)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.78)
+                }
+                .layoutPriority(1)
+
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.black))
+                    .foregroundStyle(tint)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
+            .background(LiminalTheme.surface.opacity(0.72), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke((showsIndicator ? LiminalTheme.reward : LiminalTheme.divider).opacity(showsIndicator ? 0.42 : 0.48), lineWidth: 1)
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(title)を開く")
+        .accessibilityHint(subtitle)
+    }
+}
+
+private struct ProfileFragmentBalanceTile: View {
+    let balance: Int
+    let systemImage: String
+    let tint: Color
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Circle()
+                .fill(tint.opacity(0.14))
+                .overlay {
+                    Image(systemName: systemImage)
+                        .font(.headline.weight(.bold))
+                        .foregroundStyle(tint)
+                }
+                .frame(width: 34, height: 34)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text("かけら")
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(LiminalTheme.text)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.78)
+                Text("×\(balance.formatted())")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(tint)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.78)
+            }
+            .layoutPriority(1)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
+        .background(LiminalTheme.surface.opacity(0.72), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(LiminalTheme.divider.opacity(0.48), lineWidth: 1)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("ひかりのかけら\(balance)個")
+    }
+}
+
+struct ProfileDailyCardAlbumSection: View {
+    let entries: [ProfileDailyCardEntry]
+    let onOpenAlbum: () -> Void
+    @State private var focusedIndex = 0
+    @State private var selectedEntry: ProfileDailyCardEntry?
+    @GestureState private var dragTranslation: CGFloat = 0
+
+    private var recentEntries: [ProfileDailyCardEntry] {
+        Array(entries.prefix(6))
+    }
+
+    private var clampedFocusedIndex: Int {
+        guard !entries.isEmpty else { return 0 }
+        return min(max(focusedIndex, 0), entries.count - 1)
+    }
+
+    private var focusedEntry: ProfileDailyCardEntry? {
+        guard !entries.isEmpty else { return nil }
+        return entries[clampedFocusedIndex]
+    }
+
+    private var stackedEntries: [(offset: Int, entry: ProfileDailyCardEntry)] {
+        guard !entries.isEmpty else { return [] }
+        let isRevealingNewer = dragTranslation > 0 && canMoveToNewer
+        let candidateIndexes: [Int] = isRevealingNewer
+            ? [clampedFocusedIndex, clampedFocusedIndex - 1, clampedFocusedIndex + 1]
+            : [clampedFocusedIndex, clampedFocusedIndex + 1, clampedFocusedIndex + 2]
+        var usedIndexes = Set<Int>()
+        return candidateIndexes.compactMap { index -> Int? in
+            guard entries.indices.contains(index), usedIndexes.insert(index).inserted else { return nil }
+            return index
+        }
+        .enumerated()
+        .map { offset, index in
+            (offset: offset, entry: entries[index])
+        }
+    }
+
+    private var canMoveToNewer: Bool {
+        clampedFocusedIndex > 0
+    }
+
+    private var canMoveToOlder: Bool {
+        clampedFocusedIndex < entries.count - 1
+    }
+
+    var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
-                Text("コレクション")
+                Text("デイリーカード")
                     .font(.headline)
                 Spacer()
-                Button {
-                    onOpenGallery()
-                } label: {
+                Button(action: onOpenAlbum) {
                     HStack(spacing: 4) {
-                        if showsGalleryIndicator {
-                            Circle()
-                                .fill(LiminalTheme.reward)
-                                .frame(width: 7, height: 7)
-                                .accessibilityHidden(true)
-                        }
-                        Text(fragmentBalance > 0 ? "交換へ" : "見る")
+                        Text("一覧")
                         Image(systemName: "chevron.right")
                     }
                     .font(.caption.weight(.semibold))
@@ -1995,25 +2158,772 @@ struct ProfileNextUnlockSection: View {
                 .buttonStyle(.plain)
             }
 
-            ProfileFragmentBalanceCard(
-                balance: fragmentBalance,
-                showsGalleryIndicator: showsGalleryIndicator,
-                onOpenGallery: onOpenGallery
-            )
+            if recentEntries.isEmpty {
+                ProfileDailyCardEmptyTile()
+            } else {
+                ProfileDailyCardDeck(
+                    stackedEntries: stackedEntries,
+                    focusedEntry: focusedEntry,
+                    focusedIndex: clampedFocusedIndex,
+                    totalCount: entries.count,
+                    dragTranslation: dragTranslation,
+                    canMoveToNewer: canMoveToNewer,
+                    canMoveToOlder: canMoveToOlder,
+                    onOpenEntry: openEntry,
+                    onMoveToNewer: moveToNewer,
+                    onMoveToOlder: moveToOlder
+                )
+                .simultaneousGesture(deckDragGesture)
+                .onChange(of: entries.map(\.id)) { _, _ in
+                    focusedIndex = min(focusedIndex, max(entries.count - 1, 0))
+                }
+            }
+        }
+        .navigationDestination(item: $selectedEntry) { entry in
+            ProfileDailyCardArchivePagerView(entries: entries, initialEntry: entry)
+        }
+    }
 
-            if !targets.isEmpty {
+    private var deckDragGesture: some Gesture {
+        DragGesture(minimumDistance: 12)
+            .updating($dragTranslation) { value, state, _ in
+                state = value.translation.width
+            }
+            .onEnded { value in
+                let horizontal = value.translation.width
+                let vertical = abs(value.translation.height)
+                guard abs(horizontal) > max(76, vertical * 1.35) else { return }
+                if horizontal < 0 {
+                    moveToOlder()
+                } else {
+                    moveToNewer()
+                }
+            }
+    }
+
+    private func moveToOlder() {
+        guard canMoveToOlder else { return }
+        withAnimation(.spring(response: 0.36, dampingFraction: 0.82)) {
+            focusedIndex = min(focusedIndex + 1, entries.count - 1)
+        }
+    }
+
+    private func moveToNewer() {
+        guard canMoveToNewer else { return }
+        withAnimation(.spring(response: 0.36, dampingFraction: 0.82)) {
+            focusedIndex = max(focusedIndex - 1, 0)
+        }
+    }
+
+    private func openEntry(_ entry: ProfileDailyCardEntry) {
+        selectedEntry = entry
+    }
+}
+
+private struct ProfileDailyCardDeck: View {
+    let stackedEntries: [(offset: Int, entry: ProfileDailyCardEntry)]
+    let focusedEntry: ProfileDailyCardEntry?
+    let focusedIndex: Int
+    let totalCount: Int
+    let dragTranslation: CGFloat
+    let canMoveToNewer: Bool
+    let canMoveToOlder: Bool
+    let onOpenEntry: (ProfileDailyCardEntry) -> Void
+    let onMoveToNewer: () -> Void
+    let onMoveToOlder: () -> Void
+
+    private var progressText: String {
+        "\(focusedIndex + 1) / \(totalCount)"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            ZStack {
+                ForEach(Array(stackedEntries.reversed()), id: \.entry.id) { item in
+                    let isTop = item.offset == 0
+                    ProfileDailyCardDeckLayer(
+                        entry: item.entry,
+                        layerOffset: item.offset,
+                        dragTranslation: isTop ? dragTranslation : 0
+                    )
+                    .zIndex(Double(10 - item.offset))
+                    .allowsHitTesting(isTop)
+                    .accessibilityHidden(!isTop)
+                }
+            }
+            .contentShape(Rectangle())
+            .onTapGesture {
+                if let focusedEntry {
+                    onOpenEntry(focusedEntry)
+                }
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(deckAccessibilityLabel)
+            .accessibilityHint("タップでカードを開きます。左右のボタンでカードをめくれます。")
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction {
+                if let focusedEntry {
+                    onOpenEntry(focusedEntry)
+                }
+            }
+            .frame(height: 232)
+            .frame(maxWidth: .infinity)
+            .animation(.spring(response: 0.32, dampingFraction: 0.86), value: focusedIndex)
+
+            HStack(spacing: 10) {
+                Button(action: onMoveToNewer) {
+                    Image(systemName: "chevron.left")
+                        .font(.caption.weight(.bold))
+                        .frame(width: 34, height: 34)
+                        .background(LiminalTheme.surface, in: Circle())
+                        .overlay(Circle().stroke(LiminalTheme.divider.opacity(0.7), lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(canMoveToNewer ? LiminalTheme.text : LiminalTheme.secondaryText.opacity(0.42))
+                .disabled(!canMoveToNewer)
+                .contentShape(Circle())
+                .accessibilityLabel("新しいカードへ")
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(focusedEntry?.dayStart.japaneseMonthDayShortWeekday ?? "")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(LiminalTheme.text)
+                    Text(progressText)
+                        .font(.caption2.monospacedDigit().weight(.semibold))
+                        .foregroundStyle(LiminalTheme.secondaryText)
+                }
+
+                Spacer(minLength: 0)
+
+                Button(action: onMoveToOlder) {
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.bold))
+                        .frame(width: 34, height: 34)
+                        .background(LiminalTheme.surface, in: Circle())
+                        .overlay(Circle().stroke(LiminalTheme.divider.opacity(0.7), lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(canMoveToOlder ? LiminalTheme.text : LiminalTheme.secondaryText.opacity(0.42))
+                .disabled(!canMoveToOlder)
+                .contentShape(Circle())
+                .accessibilityLabel("古いカードへ")
+            }
+            .padding(.horizontal, 10)
+        }
+    }
+
+    private var deckAccessibilityLabel: String {
+        guard let focusedEntry else { return "デイリーカード" }
+        return "\(focusedEntry.dayStart.japaneseMonthDayShortWeekday)、\(focusedEntry.title)、\(focusedEntry.score)ポイント、\(progressText)"
+    }
+}
+
+private struct ProfileDailyCardDeckLayer: View {
+    let entry: ProfileDailyCardEntry
+    let layerOffset: Int
+    let dragTranslation: CGFloat
+
+    private var isTop: Bool {
+        layerOffset == 0
+    }
+
+    private var baseScale: CGFloat {
+        1 - CGFloat(layerOffset) * 0.045
+    }
+
+    private var baseYOffset: CGFloat {
+        CGFloat(layerOffset) * 13
+    }
+
+    private var baseRotation: Double {
+        Double(layerOffset - 1) * 2.2
+    }
+
+    private var activeRotation: Double {
+        Double(dragTranslation / 46)
+    }
+
+    private var activeOpacity: Double {
+        max(0.72, 1 - Double(abs(dragTranslation) / 520))
+    }
+
+    var body: some View {
+        ProfileDailyCardDeckPreview(entry: entry)
+        .scaleEffect(baseScale)
+        .offset(x: isTop ? dragTranslation : CGFloat(layerOffset) * 10, y: baseYOffset)
+        .rotationEffect(
+            .degrees(baseRotation + (isTop ? activeRotation : 0)),
+            anchor: isTop
+                ? (dragTranslation >= 0 ? .bottomLeading : .bottomTrailing)
+                : .center
+        )
+        .opacity(isTop ? activeOpacity : 1)
+        .shadow(color: LiminalTheme.dusk.opacity(isTop ? 0.18 : 0.1), radius: isTop ? 22 : 12, y: isTop ? 14 : 8)
+        .accessibilityLabel("\(entry.dayStart.japaneseMonthDayShortWeekday)、\(entry.title)、\(entry.score)ポイント")
+    }
+}
+
+private struct ProfileDailyCardDeckPreview: View {
+    let entry: ProfileDailyCardEntry
+
+    private var tint: Color {
+        ProfileDailyCardVisual.tint(for: entry.personaKind)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .center) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Liminalog")
+                        .font(.caption.weight(.black))
+                        .foregroundStyle(LiminalTheme.accent)
+                        .textCase(.uppercase)
+                    Text(entry.dayStart.japaneseMonthDayWeekday)
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(LiminalTheme.secondaryText)
+                }
+
+                Spacer()
+
+                Image(systemName: entry.symbol)
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(tint)
+                    .frame(width: 30, height: 30)
+                    .liminalGlassFill(in: Circle())
+            }
+
+            HStack(alignment: .center, spacing: 16) {
+                ZStack {
+                    Circle()
+                        .stroke(LiminalTheme.secondaryText.opacity(0.16), lineWidth: 14)
+                    Circle()
+                        .trim(from: 0, to: max(min(CGFloat(entry.score) / 100, 1), 0.05))
+                        .stroke(
+                            tint,
+                            style: StrokeStyle(lineWidth: 14, lineCap: .round)
+                        )
+                        .rotationEffect(.degrees(-90))
+
+                    VStack(spacing: 4) {
+                        Image(systemName: entry.symbol)
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(LiminalTheme.reward)
+                        Text("\(entry.score)pt")
+                            .font(.title3.monospacedDigit().weight(.black))
+                            .foregroundStyle(LiminalTheme.text)
+                    }
+                }
+                .frame(width: 112, height: 112)
+
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("進行中の条件")
+                    Text(entry.title.isEmpty ? "名前のない日" : entry.title)
+                        .font(.title3.weight(.heavy))
+                        .foregroundStyle(LiminalTheme.text)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.72)
+
+                    Text(entry.message.isEmpty ? fallbackMessage : entry.message)
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(LiminalTheme.secondaryText)
-                    VStack(spacing: 8) {
-                        ForEach(targets) { target in
-                            ProfileUnlockTargetRow(target: target)
+                        .lineLimit(3)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            HStack(spacing: 7) {
+                ProfileDailyCardMetricPill(
+                    text: "\(entry.score)pt",
+                    systemImage: "sparkles",
+                    tint: tint
+                )
+                ProfileDailyCardMetricPill(
+                    text: ProfileDailyCardVisual.durationText(entry.recordedDuration),
+                    systemImage: "stopwatch.fill",
+                    tint: LiminalTheme.accent
+                )
+                if let category = entry.categories.first {
+                    ProfileDailyCardMetricPill(
+                        text: category.name,
+                        systemImage: "circle.fill",
+                        tint: Color(hex: category.colorHex)
+                    )
+                }
+            }
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, minHeight: 210, alignment: .topLeading)
+        .background {
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(LiminalTheme.cardGradient)
+                .overlay(LiminalGrainOverlay().clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous)))
+                .overlay(alignment: .topTrailing) {
+                    Circle()
+                        .fill(tint.opacity(0.2))
+                        .frame(width: 136, height: 136)
+                        .blur(radius: 38)
+                        .offset(x: 48, y: -56)
+                }
+                .overlay(alignment: .bottomLeading) {
+                    Circle()
+                        .fill(LiminalTheme.dusk.opacity(0.16))
+                        .frame(width: 172, height: 172)
+                        .blur(radius: 48)
+                        .offset(x: -72, y: 70)
+                }
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(
+                    LinearGradient(
+                        colors: [
+                            .white.opacity(0.72),
+                            tint.opacity(0.35),
+                            LiminalTheme.text.opacity(0.1)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
+        }
+    }
+
+    private var fallbackMessage: String {
+        entry.categories.first.map { "\($0.name)を中心に過ごした日" } ?? "記録から生まれた1枚"
+    }
+}
+
+private struct ProfileDailyCardEmptyTile: View {
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "rectangle.stack.badge.person.crop.fill")
+                .font(.title3.weight(.bold))
+                .foregroundStyle(LiminalTheme.accent)
+                .frame(width: 42, height: 42)
+                .background(LiminalTheme.accent.opacity(0.14), in: Circle())
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("まだカードはありません")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(LiminalTheme.text)
+                Text("過去の記録がたまるとここに並びます")
+                    .font(.caption)
+                    .foregroundStyle(LiminalTheme.secondaryText)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(12)
+        .background(LiminalTheme.surface, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(LiminalTheme.divider.opacity(0.65), lineWidth: 1)
+        }
+    }
+}
+
+private struct ProfileDailyCardMiniTile: View {
+    let entry: ProfileDailyCardEntry
+
+    private var tint: Color {
+        ProfileDailyCardVisual.tint(for: entry.personaKind)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 11) {
+            HStack(alignment: .top, spacing: 8) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Liminalog")
+                        .font(.system(size: 10, weight: .black))
+                        .foregroundStyle(LiminalTheme.accent)
+                        .textCase(.uppercase)
+                    Text(entry.dayStart.japaneseMonthDayShortWeekday)
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(LiminalTheme.secondaryText)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.82)
+                }
+
+                Spacer(minLength: 0)
+
+                Image(systemName: entry.symbol)
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(tint)
+                    .frame(width: 26, height: 26)
+                    .liminalGlassFill(in: Circle())
+            }
+
+            HStack(spacing: 10) {
+                ProfileDailyCardScoreMedallion(score: entry.score, symbol: entry.symbol, tint: tint, size: 68)
+
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(entry.title.isEmpty ? "名前のない日" : entry.title)
+                        .font(.subheadline.weight(.heavy))
+                        .foregroundStyle(LiminalTheme.text)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.76)
+
+                    Text(entry.message.isEmpty ? fallbackMessage : entry.message)
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(LiminalTheme.secondaryText)
+                        .lineLimit(3)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .layoutPriority(1)
+            }
+
+            Spacer(minLength: 0)
+
+            HStack(spacing: 5) {
+                ForEach(Array(entry.categories.prefix(4).enumerated()), id: \.offset) { _, category in
+                    Capsule()
+                        .fill(Color(hex: category.colorHex).opacity(0.86))
+                        .frame(width: 17, height: 6)
+                        .accessibilityLabel(category.name)
+                }
+
+                Spacer(minLength: 0)
+
+                Text(ProfileDailyCardVisual.durationText(entry.recordedDuration))
+                    .font(.caption2.monospacedDigit().weight(.bold))
+                    .foregroundStyle(LiminalTheme.secondaryText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+            }
+        }
+        .padding(13)
+        .frame(maxWidth: .infinity, minHeight: 198, alignment: .topLeading)
+        .background {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(LiminalTheme.cardGradient)
+                .overlay(LiminalGrainOverlay().clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous)))
+                .overlay(alignment: .topTrailing) {
+                    Circle()
+                        .fill(tint.opacity(0.22))
+                        .frame(width: 86, height: 86)
+                        .blur(radius: 24)
+                        .offset(x: 30, y: -34)
+                }
+                .overlay(alignment: .bottomLeading) {
+                    DecorativeAccentStrip(color: tint)
+                        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                }
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(
+                    LinearGradient(
+                        colors: [.white.opacity(0.68), tint.opacity(0.28), LiminalTheme.text.opacity(0.08)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
+        }
+        .shadow(color: tint.opacity(0.12), radius: 12, y: 8)
+        .accessibilityElement(children: .combine)
+    }
+
+    private var fallbackMessage: String {
+        entry.categories.first.map { "\($0.name)を中心に過ごした日" } ?? "記録から生まれた1枚"
+    }
+}
+
+private struct ProfileDailyCardScoreMedallion: View {
+    let score: Int
+    let symbol: String
+    let tint: Color
+    let size: CGFloat
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(LiminalTheme.secondaryText.opacity(0.13), lineWidth: max(size * 0.12, 7))
+            Circle()
+                .trim(from: 0, to: max(min(CGFloat(score) / 100, 1), 0.05))
+                .stroke(tint, style: StrokeStyle(lineWidth: max(size * 0.12, 7), lineCap: .round))
+                .rotationEffect(.degrees(-90))
+
+            VStack(spacing: 2) {
+                Image(systemName: symbol)
+                    .font(.system(size: size * 0.14, weight: .bold))
+                    .foregroundStyle(LiminalTheme.reward)
+                Text("\(score)")
+                    .font(.system(size: size * 0.25, weight: .black, design: .rounded).monospacedDigit())
+                    .foregroundStyle(LiminalTheme.text)
+                Text("pt")
+                    .font(.system(size: size * 0.12, weight: .heavy, design: .rounded))
+                    .foregroundStyle(LiminalTheme.secondaryText)
+            }
+        }
+        .frame(width: size, height: size)
+    }
+}
+
+private struct ProfileDailyCardMetricPill: View {
+    let text: String
+    let systemImage: String
+    let tint: Color
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: systemImage)
+                .font(.caption2.weight(.bold))
+            Text(text)
+                .font(.caption2.weight(.semibold).monospacedDigit())
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
+        }
+        .foregroundStyle(tint)
+        .padding(.horizontal, 7)
+        .padding(.vertical, 5)
+        .background(tint.opacity(0.12), in: Capsule())
+    }
+}
+
+struct ProfileDailyCardAlbumView: View {
+    @Environment(\.dismiss) private var dismiss
+    let entries: [ProfileDailyCardEntry]
+
+    private let columns = [
+        GridItem(.flexible(), spacing: 12),
+        GridItem(.flexible(), spacing: 12)
+    ]
+
+    private var monthSections: [ProfileDailyCardMonthSection] {
+        let calendar = Calendar.japanese
+        let grouped = Dictionary(grouping: entries) { entry in
+            calendar.date(from: calendar.dateComponents([.year, .month], from: entry.dayStart)) ?? entry.dayStart
+        }
+        return grouped
+            .map { monthStart, entries in
+                ProfileDailyCardMonthSection(monthStart: monthStart, entries: entries.sorted { $0.dayStart > $1.dayStart })
+            }
+            .sorted { $0.monthStart > $1.monthStart }
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                if entries.isEmpty {
+                    ProfileDailyCardAlbumEmptyState()
+                        .padding(.horizontal, 20)
+                        .padding(.top, 28)
+                } else {
+                    LazyVStack(alignment: .leading, spacing: 22) {
+                        ProfileDailyCardAlbumHeader(entries: entries)
+
+                        ForEach(monthSections) { section in
+                            VStack(alignment: .leading, spacing: 10) {
+                                HStack(alignment: .firstTextBaseline) {
+                                    Text(section.monthStart.japaneseYearMonth)
+                                        .font(.headline.weight(.bold))
+                                        .foregroundStyle(LiminalTheme.text)
+                                    Spacer()
+                                    Text("\(section.entries.count)枚")
+                                        .font(.caption.monospacedDigit().weight(.semibold))
+                                        .foregroundStyle(LiminalTheme.secondaryText)
+                                }
+
+                                LazyVGrid(columns: columns, spacing: 12) {
+                                    ForEach(section.entries) { entry in
+                                        NavigationLink {
+                                            ProfileDailyCardArchivePagerView(entries: entries, initialEntry: entry)
+                                        } label: {
+                                            ProfileDailyCardMiniTile(entry: entry)
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                            }
                         }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 28)
+                    .padding(.bottom, 34)
+                }
+            }
+            .background(LiminalTheme.canvasGradient.ignoresSafeArea())
+            .navigationTitle("デイリーカード")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("閉じる") {
+                        dismiss()
                     }
                 }
             }
         }
+    }
+}
+
+private struct ProfileDailyCardMonthSection: Identifiable {
+    let monthStart: Date
+    let entries: [ProfileDailyCardEntry]
+
+    var id: TimeInterval {
+        monthStart.timeIntervalSince1970
+    }
+}
+
+private struct ProfileDailyCardAlbumHeader: View {
+    let entries: [ProfileDailyCardEntry]
+
+    private var newestEntry: ProfileDailyCardEntry? {
+        entries.first
+    }
+
+    private var bestScore: Int {
+        entries.map(\.score).max() ?? 0
+    }
+
+    private var averageScore: Int {
+        guard !entries.isEmpty else { return 0 }
+        return Int((Double(entries.reduce(0) { $0 + $1.score }) / Double(entries.count)).rounded())
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("カードアルバム")
+                    .font(.title2.weight(.heavy))
+                    .foregroundStyle(LiminalTheme.text)
+                Spacer()
+                Text("\(entries.count)枚")
+                    .font(.headline.monospacedDigit().weight(.black))
+                    .foregroundStyle(LiminalTheme.accent)
+            }
+
+            if let newestEntry {
+                ProfileDailyCardAlbumFeature(entry: newestEntry, totalCount: entries.count, bestScore: bestScore, averageScore: averageScore)
+            }
+        }
+    }
+}
+
+private struct ProfileDailyCardAlbumFeature: View {
+    let entry: ProfileDailyCardEntry
+    let totalCount: Int
+    let bestScore: Int
+    let averageScore: Int
+
+    private var tint: Color {
+        ProfileDailyCardVisual.tint(for: entry.personaKind)
+    }
+
+    var body: some View {
+        HStack(spacing: 14) {
+            ProfileDailyCardScoreMedallion(score: entry.score, symbol: entry.symbol, tint: tint, size: 88)
+
+            VStack(alignment: .leading, spacing: 9) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(entry.dayStart.japaneseMonthDayShortWeekday)
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(LiminalTheme.secondaryText)
+                    Text(entry.title.isEmpty ? "名前のない日" : entry.title)
+                        .font(.headline.weight(.heavy))
+                        .foregroundStyle(LiminalTheme.text)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.78)
+                }
+
+                HStack(spacing: 7) {
+                    ProfileDailyCardAlbumStat(label: "収集", value: "\(totalCount)")
+                    ProfileDailyCardAlbumStat(label: "最高", value: "\(bestScore)")
+                    ProfileDailyCardAlbumStat(label: "平均", value: "\(averageScore)")
+                }
+            }
+            .layoutPriority(1)
+        }
+        .padding(16)
+        .background {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(LiminalTheme.surface.opacity(0.9))
+                .overlay(alignment: .topTrailing) {
+                    Circle()
+                        .fill(tint.opacity(0.18))
+                        .frame(width: 160, height: 160)
+                        .blur(radius: 44)
+                        .offset(x: 54, y: -68)
+                }
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(tint.opacity(0.18), lineWidth: 1)
+        }
+    }
+}
+
+private struct ProfileDailyCardAlbumStat: View {
+    let label: String
+    let value: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label)
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(LiminalTheme.secondaryText)
+            Text(value)
+                .font(.caption.monospacedDigit().weight(.black))
+                .foregroundStyle(LiminalTheme.text)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct ProfileDailyCardAlbumEmptyState: View {
+    var body: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "rectangle.stack.badge.person.crop.fill")
+                .font(.title2.weight(.bold))
+                .foregroundStyle(LiminalTheme.accent)
+                .frame(width: 54, height: 54)
+                .background(LiminalTheme.accent.opacity(0.14), in: Circle())
+
+            Text("カードはまだありません")
+                .font(.headline)
+                .foregroundStyle(LiminalTheme.text)
+
+            Text("過去の記録がたまると、ここに少しずつ並びます")
+                .font(.subheadline)
+                .foregroundStyle(LiminalTheme.secondaryText)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(20)
+        .background(LiminalTheme.surface, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+}
+
+private enum ProfileDailyCardVisual {
+    static func tint(for kind: DailyCardPersonaKind) -> Color {
+        switch kind {
+        case .missingDay:
+            return LiminalTheme.secondaryText
+        case .planMatched:
+            return Color(hex: "#5FE0A8")
+        case .chargeDay:
+            return LiminalTheme.reward
+        case .signal:
+            return Color(hex: "#FF8FB3")
+        case .noPlan:
+            return Color(hex: "#8AB4FF")
+        case .shape:
+            return LiminalTheme.accent
+        }
+    }
+
+    static func durationText(_ seconds: TimeInterval) -> String {
+        let totalMinutes = max(Int(seconds / 60), 0)
+        let hours = totalMinutes / 60
+        let minutes = totalMinutes % 60
+        if hours > 0, minutes > 0 {
+            return "\(hours)h\(minutes)m"
+        }
+        if hours > 0 {
+            return "\(hours)h"
+        }
+        return "\(minutes)m"
     }
 }
 
@@ -2072,97 +2982,6 @@ private struct ProfileFragmentBalanceCard: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("ひかりのかけら\(balance)個。\(hasBalance ? "装飾と交換できます。" : "レベルアップで獲得できます。")")
-    }
-}
-
-private struct ProfileUnlockTargetRow: View {
-    @Environment(\.liminalThemeTransitionProgress) private var themeTransitionProgress
-    let target: ProfileUnlockTarget
-
-    private var tint: Color {
-        Color(hex: target.tintHex)
-    }
-
-    private var remainingLabel: String {
-        target.remainingText
-    }
-
-    var body: some View {
-        let _ = themeTransitionProgress
-        HStack(spacing: 12) {
-            ZStack {
-                Circle()
-                    .fill(tint.opacity(0.16))
-                Image(systemName: target.systemImageName)
-                    .font(.headline.weight(.bold))
-                    .foregroundStyle(tint)
-            }
-            .frame(width: 42, height: 42)
-
-            VStack(alignment: .leading, spacing: 7) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text(target.displayName)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(LiminalTheme.text)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.75)
-
-                    Text(target.kindTitle)
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(tint)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 3)
-                        .background(tint.opacity(0.12), in: Capsule())
-                }
-
-                Text(target.conditionText)
-                    .font(.caption)
-                    .foregroundStyle(LiminalTheme.secondaryText)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
-
-                ProgressView(value: target.progress)
-                    .tint(tint)
-
-                HStack {
-                    Text(remainingLabel)
-                    Spacer(minLength: 8)
-                    Text(target.progressText)
-                }
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(LiminalTheme.secondaryText)
-            }
-        }
-        .padding(12)
-        .background(LiminalTheme.surface, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-    }
-}
-
-private struct ProfileAllUnlockedCard: View {
-    @Environment(\.liminalThemeTransitionProgress) private var themeTransitionProgress
-
-    var body: some View {
-        let _ = themeTransitionProgress
-        HStack(spacing: 12) {
-            Image(systemName: "checkmark.seal.fill")
-                .font(.title3.weight(.bold))
-                .foregroundStyle(Color(hex: "#27AE60"))
-                .frame(width: 42, height: 42)
-                .background(Color(hex: "#27AE60").opacity(0.14), in: Circle())
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text("全解放済み")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(LiminalTheme.text)
-                Text("今の装備を磨ける状態")
-                    .font(.caption)
-                    .foregroundStyle(LiminalTheme.secondaryText)
-            }
-
-            Spacer(minLength: 0)
-        }
-        .padding(12)
-        .background(LiminalTheme.surface, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 }
 

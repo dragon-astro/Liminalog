@@ -11,7 +11,7 @@ struct CategoryEditSheet: View {
     @State private var color: Color = .blue
     @State private var icon: String = "circle.fill"
     @State private var dailyCardIntent: DailyCardCategoryIntent = .neutral
-    @State private var isDailyCardSleepCategory = false
+    @State private var analysisKind: CategoryAnalysisKind = .unspecified
     @State private var defaultAudienceFriendSetIDs: [UUID] = []
     @State private var defaultAudienceIncludedFriendIDs: [UUID] = []
     @State private var defaultAudienceExcludedFriendIDs: [UUID] = []
@@ -22,37 +22,37 @@ struct CategoryEditSheet: View {
     @Query(sort: \FriendSet.sortOrder) private var friendSets: [FriendSet]
     @Query(sort: \Friend.displayName) private var friends: [Friend]
 
-    private let icons = [
-        "book.closed.fill",
-        "graduationcap.fill",
-        "pencil.and.outline",
-        "briefcase.fill",
-        "laptopcomputer",
-        "doc.text.fill",
-        "tram.fill",
-        "car.fill",
-        "airplane",
-        "figure.walk",
-        "figure.run",
-        "bicycle",
-        "cup.and.saucer.fill",
-        "takeoutbag.and.cup.and.straw.fill",
-        "moon.fill",
-        "bed.double.fill",
-        "sparkles",
-        "gamecontroller.fill",
-        "music.note",
-        "paintpalette.fill",
-        "camera.fill",
-        "tv.fill",
-        "heart.fill",
-        "cross.case.fill",
-        "house.fill",
-        "washer.fill",
-        "cart.fill",
-        "leaf.fill",
-        "person.2.fill",
-        "dumbbell.fill"
+    private let icons: [CategoryIconOption] = [
+        .init(symbol: "book.closed.fill", label: "読書・学習"),
+        .init(symbol: "graduationcap.fill", label: "授業・講義"),
+        .init(symbol: "pencil.and.outline", label: "ノート・執筆"),
+        .init(symbol: "briefcase.fill", label: "仕事"),
+        .init(symbol: "laptopcomputer", label: "PC作業"),
+        .init(symbol: "doc.text.fill", label: "書類・事務"),
+        .init(symbol: "checklist", label: "タスク"),
+        .init(symbol: "calendar", label: "予定"),
+        .init(symbol: "clock.fill", label: "予定・ルーティン"),
+        .init(symbol: "tram.fill", label: "電車移動"),
+        .init(symbol: "figure.walk", label: "徒歩"),
+        .init(symbol: "figure.run", label: "ランニング"),
+        .init(symbol: "airplane", label: "旅行・遠出"),
+        .init(symbol: "house.fill", label: "家事・生活"),
+        .init(symbol: "wrench.and.screwdriver.fill", label: "整理・メンテナンス"),
+        .init(symbol: "cart.fill", label: "買い物"),
+        .init(symbol: "fork.knife", label: "料理・食事"),
+        .init(symbol: "cup.and.saucer.fill", label: "休憩"),
+        .init(symbol: "sparkles", label: "自由時間"),
+        .init(symbol: "gamecontroller.fill", label: "ゲーム"),
+        .init(symbol: "music.note", label: "音楽"),
+        .init(symbol: "paintpalette.fill", label: "創作"),
+        .init(symbol: "camera.fill", label: "写真"),
+        .init(symbol: "movieclapper.fill", label: "動画・鑑賞"),
+        .init(symbol: "heart.fill", label: "ケア"),
+        .init(symbol: "cross.case.fill", label: "通院・体調"),
+        .init(symbol: "dumbbell.fill", label: "筋トレ"),
+        .init(symbol: "bed.double.fill", label: "睡眠"),
+        .init(symbol: "moon.fill", label: "休息・夜"),
+        .init(symbol: "person.2.fill", label: "人付き合い")
     ]
 
     private let colorPresets: [CategoryColorPreset] = [
@@ -123,17 +123,18 @@ struct CategoryEditSheet: View {
 
                 Section("アイコン") {
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 6), spacing: 10) {
-                        ForEach(icons, id: \.self) { symbol in
+                        ForEach(icons) { option in
                             Button {
-                                icon = symbol
+                                icon = option.symbol
                             } label: {
-                                Image(systemName: symbol)
+                                Image(systemName: option.symbol)
                                     .font(.headline)
                                     .frame(width: 40, height: 40)
-                                    .foregroundStyle(icon == symbol ? .white : color)
-                                    .background(RoundedRectangle(cornerRadius: 10).fill(icon == symbol ? color : color.opacity(0.12)))
+                                    .foregroundStyle(icon == option.symbol ? .white : color)
+                                    .background(RoundedRectangle(cornerRadius: 10).fill(icon == option.symbol ? color : color.opacity(0.12)))
                             }
                             .buttonStyle(.plain)
+                            .accessibilityLabel(option.label)
                         }
                     }
                     .padding(.vertical, 4)
@@ -146,8 +147,18 @@ struct CategoryEditSheet: View {
                         }
                     }
                     .pickerStyle(.segmented)
+                }
 
-                    Toggle("睡眠として扱う", isOn: $isDailyCardSleepCategory)
+                Section {
+                    Picker("扱い", selection: $analysisKind) {
+                        ForEach(CategoryAnalysisKind.allCases) { kind in
+                            Text(kind.title).tag(kind)
+                        }
+                    }
+                } header: {
+                    Text("分析での扱い")
+                } footer: {
+                    Text("設定したカテゴリだけ、統計やプロフィールバッジの判定に使われます。未指定のカテゴリは判定に使われません。カテゴリ名や表示には影響しません。")
                 }
 
                 Section {
@@ -208,7 +219,7 @@ struct CategoryEditSheet: View {
                     color = cat.color
                     icon = cat.icon ?? "circle.fill"
                     dailyCardIntent = cat.dailyCardIntent
-                    isDailyCardSleepCategory = cat.isDailyCardSleepCategory
+                    analysisKind = cat.analysisKind
                     defaultAudienceFriendSetIDs = cat.defaultAudienceFriendSetIDs
                     defaultAudienceIncludedFriendIDs = cat.defaultAudienceIncludedFriendIDs
                     defaultAudienceExcludedFriendIDs = cat.defaultAudienceExcludedFriendIDs
@@ -282,7 +293,8 @@ struct CategoryEditSheet: View {
                 colorHex: color.hexString,
                 icon: icon,
                 dailyCardIntent: dailyCardIntent,
-                isDailyCardSleepCategory: isDailyCardSleepCategory,
+                analysisKind: analysisKind,
+                isDailyCardSleepCategory: analysisKind == .sleep,
                 defaultAudienceFriendSetIDs: defaultAudienceFriendSetIDs,
                 defaultAudienceIncludedFriendIDs: defaultAudienceIncludedFriendIDs,
                 defaultAudienceExcludedFriendIDs: defaultAudienceExcludedFriendIDs
@@ -293,7 +305,8 @@ struct CategoryEditSheet: View {
                 colorHex: color.hexString,
                 icon: icon,
                 dailyCardIntent: dailyCardIntent,
-                isDailyCardSleepCategory: isDailyCardSleepCategory,
+                analysisKind: analysisKind,
+                isDailyCardSleepCategory: analysisKind == .sleep,
                 defaultAudienceFriendSetIDs: defaultAudienceFriendSetIDs,
                 defaultAudienceIncludedFriendIDs: defaultAudienceIncludedFriendIDs,
                 defaultAudienceExcludedFriendIDs: defaultAudienceExcludedFriendIDs
@@ -311,6 +324,12 @@ private struct CategoryColorPreset: Identifiable {
     var id: String { hex }
     let name: String
     let hex: String
+}
+
+private struct CategoryIconOption: Identifiable {
+    var id: String { symbol }
+    let symbol: String
+    let label: String
 }
 
 private struct CategoryCustomColorSheet: View {

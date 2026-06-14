@@ -84,6 +84,64 @@ struct DailyCardSnapshotStoreTests {
         #expect(collection[1].latestDayStart == DayBoundary.dayStart(for: thirdDay, calendar: calendar))
     }
 
+    @Test
+    func backfillCreatesCardsForUnopenedScoreSnapshots() throws {
+        let calendar = Calendar.liminalogTest
+        let container = try TestModelContainer.make()
+        let context = container.mainContext
+        let store = DailyCardSnapshotStore(modelContext: context)
+        let day = try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1)))
+        let secondDay = try #require(calendar.date(byAdding: .day, value: 1, to: day))
+        let category = Category(name: "制作", colorHex: "#2F80ED", icon: "hammer.fill")
+        context.insert(category)
+
+        for targetDay in [day, secondDay] {
+            let dayStart = DayBoundary.dayStart(for: targetDay, calendar: calendar)
+            let plan = PlanBlock(
+                category: category,
+                title: "制作",
+                startTime: dayStart,
+                endTime: try #require(calendar.date(byAdding: .hour, value: 2, to: dayStart))
+            )
+            let chapter = Chapter(category: category, startTime: dayStart)
+            chapter.endTime = calendar.date(byAdding: .minute, value: 90, to: dayStart)
+            context.insert(plan)
+            context.insert(chapter)
+
+            let scoreSnapshot = DailyScoreSnapshot()
+            scoreSnapshot.dayStart = dayStart
+            scoreSnapshot.dayIdentifier = DailyCardSnapshot.dayIdentifier(for: dayStart, calendar: calendar)
+            scoreSnapshot.score = 80
+            scoreSnapshot.plannedDuration = 2 * 60 * 60
+            scoreSnapshot.recordedDuration = 90 * 60
+            scoreSnapshot.hasRecord = true
+            scoreSnapshot.categoryIDs = [category.id]
+            context.insert(scoreSnapshot)
+        }
+        try context.save()
+
+        let insertedCount = store.backfillMissingSnapshots(
+            from: try context.fetch(FetchDescriptor<DailyScoreSnapshot>()),
+            calendar: calendar,
+            now: try #require(calendar.date(byAdding: .day, value: 3, to: day))
+        )
+
+        let snapshots = try context.fetch(FetchDescriptor<DailyCardSnapshot>(
+            sortBy: [SortDescriptor(\.dayStart)]
+        ))
+        #expect(insertedCount == 2)
+        #expect(snapshots.map(\.dayIdentifier) == ["2026-06-01", "2026-06-02"])
+        #expect(snapshots.allSatisfy { !$0.title.isEmpty })
+        #expect(snapshots.allSatisfy { $0.categories.first?.name == "制作" })
+
+        let secondInsertedCount = store.backfillMissingSnapshots(
+            from: try context.fetch(FetchDescriptor<DailyScoreSnapshot>()),
+            calendar: calendar
+        )
+        #expect(secondInsertedCount == 0)
+        #expect(try context.fetch(FetchDescriptor<DailyCardSnapshot>()).count == 2)
+    }
+
     private func persona(title: String, kind: DailyCardPersonaKind) -> DailyPersona {
         DailyPersona(
             kind: kind,
