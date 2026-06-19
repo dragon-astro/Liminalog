@@ -979,8 +979,9 @@ struct FriendsView: View {
         friend.shareURL = nil
         clearIncomingShareData(for: friend)
         friend.updatedAt = Date()
+        let targetUserRecordName = friend.userRecordID
         Task {
-            try? await stopCloudSharing(with: friend, block: true)
+            try? await cloudShareStore.revokeOutgoingShare(targetUserRecordName: targetUserRecordName)
         }
     }
 
@@ -2777,9 +2778,16 @@ private struct FriendCalendarView: View {
 
     private var calendarTopBar: some View {
         HStack(spacing: 12) {
-            Color.clear
-                .frame(width: 44, height: 44)
-                .accessibilityHidden(true)
+            Button {
+                manuallyRefreshIncomingShare()
+            } label: {
+                Image(systemName: "arrow.clockwise")
+                    .font(.title3.weight(.semibold))
+                    .frame(width: 44, height: 44)
+            }
+            .buttonStyle(.borderless)
+            .disabled(incomingSyncBannerState.isSyncing)
+            .accessibilityLabel("友達の予定を更新")
 
             Button {
                 prepareMonthPicker()
@@ -2897,6 +2905,12 @@ private struct FriendCalendarView: View {
     private func reloadAfterForeground() {
         requestIncomingShareRefresh(reason: "friend calendar foreground")
         reloadVisibleData()
+    }
+
+    private func manuallyRefreshIncomingShare() {
+        LiminalHaptics.selection()
+        incomingSyncBannerState = .syncingLatest
+        requestIncomingShareRefresh(reason: "friend calendar manual refresh")
     }
 
     private func requestIncomingShareRefresh(reason: String) {

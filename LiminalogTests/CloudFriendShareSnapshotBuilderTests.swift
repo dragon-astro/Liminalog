@@ -153,6 +153,7 @@ struct CloudFriendShareSnapshotBuilderTests {
             isPublic: true
         )
         plan.audienceFriendIDs = [selectedFriend.id]
+        plan.audienceSource = .custom
         plan.hasAudienceSnapshot = true
         let acceptedFriendIDs: Set<UUID> = [selectedFriend.id, otherFriend.id]
 
@@ -175,6 +176,113 @@ struct CloudFriendShareSnapshotBuilderTests {
 
         #expect(selectedItems.plans.map(\.title) == ["限定予定"])
         #expect(otherItems.plans.isEmpty)
+    }
+
+    @Test
+    func categoryDefaultAudienceRedactsLegacyItemsWithoutExplicitSnapshot() {
+        let now = Date(timeIntervalSince1970: 1_780_764_000)
+        let category = Category(name: "仕事", colorHex: "#2F80ED", icon: "briefcase.fill")
+        let selectedFriend = Friend(displayName: "A", handle: "@selected", status: .accepted)
+        selectedFriend.userRecordID = "_selected"
+        let otherFriend = Friend(displayName: "B", handle: "@other", status: .accepted)
+        otherFriend.userRecordID = "_other"
+        let preset = VisibilityPreset(name: "詳細")
+        selectedFriend.visibilityPresetID = preset.id
+        otherFriend.visibilityPresetID = preset.id
+        let plan = PlanBlock(
+            category: category,
+            title: "既定公開予定",
+            startTime: now,
+            endTime: now.addingTimeInterval(3_600),
+            isPublic: true
+        )
+        plan.hasAudienceSnapshot = false
+        let acceptedFriendIDs: Set<UUID> = [selectedFriend.id, otherFriend.id]
+        let categoryAudiences = [category.id: Set([selectedFriend.id])]
+
+        let selectedItems = CloudFriendShareSnapshotBuilder.sharedItems(
+            for: selectedFriend,
+            visibilityPresets: [preset],
+            chapters: [],
+            planBlocks: [plan],
+            acceptedFriendIDs: acceptedFriendIDs,
+            categoryDefaultAudienceByCategoryID: categoryAudiences,
+            now: now
+        )
+        let otherItems = CloudFriendShareSnapshotBuilder.sharedItems(
+            for: otherFriend,
+            visibilityPresets: [preset],
+            chapters: [],
+            planBlocks: [plan],
+            acceptedFriendIDs: acceptedFriendIDs,
+            categoryDefaultAudienceByCategoryID: categoryAudiences,
+            now: now
+        )
+
+        #expect(selectedItems.plans.map(\.title) == ["既定公開予定"])
+        #expect(otherItems.plans.map(\.title) == ["予定あり"])
+        #expect(otherItems.plans.first?.categoryID == nil)
+        #expect(otherItems.plans.first?.categoryTitle.isEmpty == true)
+        #expect(otherItems.plans.first?.categoryIconName == "calendar")
+        #expect(otherItems.plans.first?.categoryColorHex == "#8E8E93")
+    }
+
+    @Test
+    func categoryDefaultSnapshotRedactsNewItemsForUnselectedFriend() {
+        let now = Date(timeIntervalSince1970: 1_780_764_000)
+        let category = Category(name: "仕事", colorHex: "#2F80ED", icon: "briefcase.fill")
+        let selectedFriend = Friend(displayName: "A", handle: "@selected", status: .accepted)
+        selectedFriend.userRecordID = "_selected"
+        let otherFriend = Friend(displayName: "B", handle: "@other", status: .accepted)
+        otherFriend.userRecordID = "_other"
+        let preset = VisibilityPreset(name: "詳細")
+        selectedFriend.visibilityPresetID = preset.id
+        otherFriend.visibilityPresetID = preset.id
+        let plan = PlanBlock(
+            category: category,
+            title: "新しい既定公開予定",
+            startTime: now,
+            endTime: now.addingTimeInterval(3_600),
+            isPublic: true
+        )
+        plan.audienceFriendIDs = [selectedFriend.id]
+        plan.audienceSource = .categoryDefaultSnapshot
+        plan.hasAudienceSnapshot = true
+        let chapter = Chapter(category: category, startTime: now.addingTimeInterval(7_200))
+        chapter.endTime = now.addingTimeInterval(10_800)
+        chapter.note = "詳細メモ"
+        chapter.mood = "集中"
+        chapter.locationName = "自宅"
+        chapter.audienceFriendIDs = [selectedFriend.id]
+        chapter.audienceSource = .categoryDefaultSnapshot
+        chapter.hasAudienceSnapshot = true
+        let acceptedFriendIDs: Set<UUID> = [selectedFriend.id, otherFriend.id]
+
+        let selectedItems = CloudFriendShareSnapshotBuilder.sharedItems(
+            for: selectedFriend,
+            visibilityPresets: [preset],
+            chapters: [chapter],
+            planBlocks: [plan],
+            acceptedFriendIDs: acceptedFriendIDs,
+            now: now
+        )
+        let otherItems = CloudFriendShareSnapshotBuilder.sharedItems(
+            for: otherFriend,
+            visibilityPresets: [preset],
+            chapters: [chapter],
+            planBlocks: [plan],
+            acceptedFriendIDs: acceptedFriendIDs,
+            now: now
+        )
+
+        #expect(selectedItems.plans.map(\.title) == ["新しい既定公開予定"])
+        #expect(selectedItems.activities.map(\.title) == ["仕事"])
+        #expect(otherItems.plans.map(\.title) == ["予定あり"])
+        #expect(otherItems.activities.map(\.title) == ["予定あり"])
+        #expect(otherItems.activities.first?.categoryID == nil)
+        #expect(otherItems.activities.first?.note == nil)
+        #expect(otherItems.activities.first?.mood == nil)
+        #expect(otherItems.activities.first?.locationName == nil)
     }
 
     @Test

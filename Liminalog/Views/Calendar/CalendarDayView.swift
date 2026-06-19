@@ -307,7 +307,7 @@ struct CalendarDayView: View {
 
     private var importantPlans: [PlanBlock] {
         plannedBlocks(on: date)
-            .filter { $0.isAllDay || $0.isImportant }
+            .filter(\.isImportant)
             .sorted {
                 if $0.startTime == $1.startTime {
                     return $0.createdAt < $1.createdAt

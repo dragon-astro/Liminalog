@@ -529,10 +529,39 @@ final class ChapterStore {
         audienceSource: AudienceSource = .categoryDefaultSnapshot,
         hasAudienceSnapshot: Bool = true
     ) -> Bool {
+        createPlanBlock(
+            category: category,
+            title: title,
+            startTime: startTime,
+            endTime: endTime,
+            isAllDay: isAllDay,
+            isImportant: isImportant,
+            note: note,
+            isPublic: isPublic,
+            audienceFriendIDs: audienceFriendIDs,
+            audienceSource: audienceSource,
+            hasAudienceSnapshot: hasAudienceSnapshot
+        ) != nil
+    }
+
+    @discardableResult
+    func createPlanBlock(
+        category: Category?,
+        title: String,
+        startTime: Date,
+        endTime: Date,
+        isAllDay: Bool = false,
+        isImportant: Bool = false,
+        note: String? = nil,
+        isPublic: Bool = true,
+        audienceFriendIDs: [UUID]? = nil,
+        audienceSource: AudienceSource = .categoryDefaultSnapshot,
+        hasAudienceSnapshot: Bool = true
+    ) -> PlanBlock? {
         let audienceResolution = audienceFriendIDs.map {
             AudienceResolution(friendIDs: $0, didResolveSnapshot: hasAudienceSnapshot)
         } ?? defaultAudienceResolution(for: category)
-        guard planStore.addPlanBlock(
+        guard let plan = planStore.createPlanBlock(
             category: category,
             title: title,
             startTime: startTime,
@@ -544,14 +573,21 @@ final class ChapterStore {
             audienceFriendIDs: audienceResolution.friendIDs,
             audienceSource: audienceSource,
             hasAudienceSnapshot: hasAudienceSnapshot && audienceResolution.didResolveSnapshot
-        ) else { return false }
+        ) else { return nil }
         markChanged(requestCloudFriendShareRefresh: false)
-        return true
+        return plan
     }
 
     @discardableResult
     func savePlanBlock(_ plan: PlanBlock, category: Category?, title: String, startTime: Date, endTime: Date, isAllDay: Bool, isImportant: Bool, note: String?, isPublic: Bool, audienceFriendIDs: [UUID]? = nil, audienceSource: AudienceSource? = nil, hasAudienceSnapshot: Bool? = nil) -> Bool {
         guard planStore.savePlanBlock(plan, category: category, title: title, startTime: startTime, endTime: endTime, isAllDay: isAllDay, isImportant: isImportant, note: note, isPublic: isPublic, audienceFriendIDs: audienceFriendIDs, audienceSource: audienceSource, hasAudienceSnapshot: hasAudienceSnapshot) else { return false }
+        markChanged(requestCloudFriendShareRefresh: false)
+        return true
+    }
+
+    @discardableResult
+    func savePlanScheduleChanges(_ changes: [PlanStore.ScheduleChange]) -> Bool {
+        guard planStore.savePlanScheduleChanges(changes) else { return false }
         markChanged(requestCloudFriendShareRefresh: false)
         return true
     }

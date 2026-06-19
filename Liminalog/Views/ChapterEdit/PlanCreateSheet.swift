@@ -27,7 +27,6 @@ struct PlanCreateSheet: View {
     @State private var didInitializeAudience = false
     @State private var saveError: String?
     @State private var errorTitle = "保存できませんでした"
-    @State private var showDeleteConfirm = false
 
     init(initialDate: Date = Date(), startsAsAllDay: Bool = false) {
         editingPlan = nil
@@ -37,7 +36,7 @@ struct PlanCreateSheet: View {
         _endTime = State(initialValue: calendar.date(byAdding: .hour, value: 1, to: start) ?? start)
         _allDayEndDate = State(initialValue: start)
         _isAllDay = State(initialValue: startsAsAllDay)
-        _isImportant = State(initialValue: startsAsAllDay)
+        _isImportant = State(initialValue: false)
     }
 
     init(plan: PlanBlock) {
@@ -50,7 +49,7 @@ struct PlanCreateSheet: View {
         _endTime = State(initialValue: plan.endTime)
         _allDayEndDate = State(initialValue: inclusiveEndDate)
         _isAllDay = State(initialValue: plan.isAllDay)
-        _isImportant = State(initialValue: plan.isAllDay || plan.isImportant)
+        _isImportant = State(initialValue: plan.isImportant)
         _selectedCategory = State(initialValue: plan.category)
         _note = State(initialValue: plan.note ?? "")
         _isPublic = State(initialValue: plan.isPublic)
@@ -140,14 +139,6 @@ struct PlanCreateSheet: View {
                 }
             } message: {
                 Text(saveError ?? "")
-            }
-            .confirmationDialog("予定を削除しますか？", isPresented: $showDeleteConfirm, titleVisibility: .visible) {
-                Button("削除", role: .destructive) {
-                    deletePlan()
-                }
-                Button("キャンセル", role: .cancel) {}
-            } message: {
-                Text("この予定は元に戻せません。")
             }
         }
     }
@@ -368,14 +359,21 @@ struct PlanCreateSheet: View {
                     tint: LiminalTheme.secondaryText
                 )
             } else {
-                Button(role: .destructive) {
-                    LiminalHaptics.warning()
-                    showDeleteConfirm = true
+                Menu {
+                    Section("この予定は元に戻せません。") {
+                        Button(role: .destructive) {
+                            LiminalHaptics.warning()
+                            deletePlan()
+                        } label: {
+                            Label("削除", systemImage: "trash.fill")
+                        }
+                    }
                 } label: {
                     Label("予定を削除", systemImage: "trash.fill")
                         .font(.subheadline.weight(.semibold))
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
+                .tint(.red)
             }
         }
     }

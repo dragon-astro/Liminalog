@@ -60,6 +60,12 @@ struct SettingsView: View {
 
             Section {
                 NavigationLink {
+                    FriendSetSettingsView()
+                } label: {
+                    Label("友達セット", systemImage: "person.2")
+                }
+
+                NavigationLink {
                     VisibilityPresetSettingsView()
                 } label: {
                     Label("友達への見え方", systemImage: "eye")
@@ -73,7 +79,7 @@ struct SettingsView: View {
             } header: {
                 Text("プライバシー")
             } footer: {
-                Text("カテゴリごとの既定の公開相手はカテゴリ管理から、友達ごとのプリセット割り当ては友達詳細から変更できます。ブロックはブロックリストから解除できます。")
+                Text("友達セットはカテゴリごとの公開相手に使えます。友達ごとの見え方は友達詳細から、ブロックはブロックリストから変更できます。")
             }
 
             Section("外観") {

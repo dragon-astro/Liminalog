@@ -312,6 +312,9 @@ private struct YesterdayReviewPage: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var queriedChapters: [Chapter]
     @Query private var queriedPlans: [PlanBlock]
+    @State private var cachedPayload: DailyReflectionPayload?
+    @State private var cachedPayloadSourceSignature: String?
+    @State private var persistedSnapshotSignatures: Set<String> = []
 
     let date: Date
     let onPlanTomorrow: () -> Void
@@ -338,119 +341,68 @@ private struct YesterdayReviewPage: View {
     }
 
     var body: some View {
+        let payload = resolvedPayload
+
         ScrollView {
             VStack(spacing: 14) {
-                DailyReflectionCard(
-                    date: date,
-                    summary: scoreSummary,
-                    chapters: dayChapters,
-                    historyChapters: historyChapters,
-                    plans: dayPlans,
-                    dayBoundary: dayBoundary,
-                    categoryRows: categoryRows,
-                    recordedDuration: recordedDuration,
-                    onPlanTomorrow: onPlanTomorrow
+                DailyReflectionPayloadCard(
+                    payload: payload,
+                    onPlanTomorrow: onPlanTomorrow,
+                    onPersistSnapshot: persistDailyCardSnapshotIfNeeded
                 )
-                .task(id: snapshotSignature) {
-                    persistDailyCardSnapshot()
-                }
+                .equatable()
             }
             .padding(.horizontal, 16)
             .padding(.top, 12)
             .padding(.bottom, 32)
         }
-    }
-
-    private var dayBoundary: DayBoundary {
-        DayBoundary(date: date, calendar: .japanese)
-    }
-
-    private var dayPlans: [PlanBlock] {
-        queriedPlans
-            .filter { $0.startTime < dayBoundary.dayEnd && $0.endTime > dayBoundary.dayStart }
-            .sorted { $0.startTime < $1.startTime }
-    }
-
-    private var dayChapters: [Chapter] {
-        let now = Date()
-        return queriedChapters
-            .filter { $0.startTime < dayBoundary.dayEnd && ($0.endTime ?? now) > dayBoundary.dayStart }
-            .sorted { $0.startTime < $1.startTime }
-    }
-
-    private var historyChapters: [Chapter] {
-        queriedChapters.sorted { $0.startTime < $1.startTime }
-    }
-
-    private var scoreSummary: ScoreSummary {
-        ScoreCalculator.summary(
-            date: date,
-            plans: dayPlans,
-            chapters: dayChapters,
-            calendar: .japanese,
-            now: Date()
-        )
-    }
-
-    private var recordedDuration: TimeInterval {
-        let now = Date()
-        return dayChapters.reduce(0) { partial, chapter in
-            let start = max(chapter.startTime, dayBoundary.dayStart)
-            let end = min(chapter.endTime ?? now, dayBoundary.dayEnd)
-            return partial + max(end.timeIntervalSince(start), 0)
+        .task(id: payloadSourceSignature) {
+            refreshPayloadCache()
         }
     }
 
-    private var categoryRows: [(category: Category, duration: TimeInterval)] {
-        let now = Date()
-        let grouped = Dictionary(grouping: dayChapters.compactMap { chapter -> (Category, TimeInterval)? in
-            guard let category = chapter.category else { return nil }
-            let start = max(chapter.startTime, dayBoundary.dayStart)
-            let end = min(chapter.endTime ?? now, dayBoundary.dayEnd)
-            return (category, max(end.timeIntervalSince(start), 0))
-        }, by: { $0.0.id })
-
-        return grouped.compactMap { _, values in
-            guard let category = values.first?.0 else { return nil }
-            return (category, values.reduce(0) { $0 + $1.1 })
+    private var resolvedPayload: DailyReflectionPayload {
+        if cachedPayloadSourceSignature == payloadSourceSignature,
+           let cachedPayload {
+            return cachedPayload
         }
-        .sorted { $0.duration > $1.duration }
+        return makePayload()
     }
 
-    private var dailyPersona: DailyPersona {
-        DailyPersona.make(
-            summary: scoreSummary,
-            chapters: dayChapters,
-            historyChapters: historyChapters,
-            categoryRows: categoryRows,
-            recordedDuration: recordedDuration,
-            dayBoundary: dayBoundary
-        )
-    }
-
-    private var snapshotSignature: String {
+    private var payloadSourceSignature: String {
         [
-            "\(dayBoundary.dayStart.timeIntervalSince1970)",
-            "\(dayChapters.count)",
-            "\(dayPlans.count)",
-            "\(Int(recordedDuration.rounded()))",
-            "\(Int(scoreSummary.totalScore.rounded()))"
-        ].joined(separator: ":")
+            "\(date.timeIntervalSince1970)",
+            queriedPlans.map { "\($0.id.uuidString):\($0.updatedAt.timeIntervalSince1970)" }.joined(separator: ","),
+            queriedChapters.map { "\($0.id.uuidString):\($0.updatedAt.timeIntervalSince1970):\($0.endTime?.timeIntervalSince1970 ?? -1)" }.joined(separator: ",")
+        ].joined(separator: "|")
+    }
+
+    private func makePayload() -> DailyReflectionPayload {
+        DailyReflectionPayload.make(
+            date: date,
+            queriedPlans: queriedPlans,
+            queriedChapters: queriedChapters
+        )
     }
 
     @MainActor
-    private func persistDailyCardSnapshot() {
-        DailyCardSnapshotStore(modelContext: modelContext).upsert(
-            date: date,
-            summary: scoreSummary,
-            persona: dailyPersona,
-            categoryRows: categoryRows,
-            recordedDuration: recordedDuration
-        )
+    private func refreshPayloadCache() {
+        cachedPayload = makePayload()
+        cachedPayloadSourceSignature = payloadSourceSignature
     }
 
-    private var topCategory: (category: Category, duration: TimeInterval)? {
-        categoryRows.first
+    @MainActor
+    private func persistDailyCardSnapshotIfNeeded(_ payload: DailyReflectionPayload) {
+        let signature = payload.snapshotSignature
+        guard !persistedSnapshotSignatures.contains(signature) else { return }
+        persistedSnapshotSignatures.insert(signature)
+        DailyCardSnapshotStore(modelContext: modelContext).upsert(
+            date: payload.date,
+            summary: payload.summary,
+            persona: payload.persona,
+            categoryRows: payload.categoryRows,
+            recordedDuration: payload.recordedDuration
+        )
     }
 }
 

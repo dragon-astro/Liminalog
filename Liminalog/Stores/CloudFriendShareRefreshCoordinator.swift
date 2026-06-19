@@ -683,7 +683,6 @@ final class CloudFriendShareRefreshCoordinator {
                 // await 前にプレーン値を確保（モデル読みは await を跨がせない）。
                 let friendID = friend.id
                 let friendUserRecordID = friend.userRecordID
-                let friendUsername = cloudUsername(from: friend)
                 let friendShareURL = friend.shareURL.flatMap(URL.init(string:))
 
                 if status == .blocked {
@@ -692,14 +691,6 @@ final class CloudFriendShareRefreshCoordinator {
                     CloudFriendShareSnapshotApplier.clearCachedShare(from: friend)
                     postSharedRecordsDidChange(friend: friend, impact: .fullReload)
                     try? await cloudShareStore.revokeOutgoingShare(targetUserRecordName: friendUserRecordID)
-                    if restoration.direction == .incoming, !settings.cloudUsernameNormalized.isEmpty {
-                        _ = try? await cloudSocialStore.blockOwnConsent(
-                            targetUserRecordName: friendUserRecordID,
-                            ownUsername: settings.cloudUsernameNormalized,
-                            targetUsername: friendUsername,
-                            ownDisplayName: publicDisplayName(settings.profileDisplayName)
-                        )
-                    }
                     continue
                 }
 
@@ -1015,6 +1006,20 @@ final class CloudFriendShareRefreshCoordinator {
         guard let visibilityPresets = try? modelContext.fetch(FetchDescriptor<VisibilityPreset>(
             sortBy: [SortDescriptor(\.sortOrder)]
         )) else { return nil }
+        let allFriends = (try? modelContext.fetch(FetchDescriptor<Friend>(
+            sortBy: [SortDescriptor(\.displayName)]
+        ))) ?? acceptedFriends
+        let friendSets = (try? modelContext.fetch(FetchDescriptor<FriendSet>(
+            sortBy: [SortDescriptor(\.sortOrder)]
+        ))) ?? []
+        let categories = (try? modelContext.fetch(FetchDescriptor<Category>(
+            sortBy: [SortDescriptor(\.sortOrder)]
+        ))) ?? []
+        let categoryDefaultAudienceByCategoryID = categoryDefaultAudienceByCategoryID(
+            categories: categories,
+            friendSets: friendSets,
+            friends: allFriends
+        )
         let activeChapters = (try? modelContext.fetch(FetchDescriptor<Chapter>(
             predicate: #Predicate { $0.endTime == nil },
             sortBy: [SortDescriptor(\.startTime)]
@@ -1071,6 +1076,7 @@ final class CloudFriendShareRefreshCoordinator {
                 visibilityPresets: visibilityPresets,
                 chapters: snapshotChapters,
                 acceptedFriendIDs: acceptedFriendIDs,
+                categoryDefaultAudienceByCategoryID: categoryDefaultAudienceByCategoryID,
                 now: now,
                 scoreProvider: { metrics.score(for: $0) },
                 streakProvider: { metrics.streakCount },
@@ -1083,6 +1089,7 @@ final class CloudFriendShareRefreshCoordinator {
                 planBlocks: planBlocks,
                 dailyScores: dailyScores,
                 acceptedFriendIDs: acceptedFriendIDs,
+                categoryDefaultAudienceByCategoryID: categoryDefaultAudienceByCategoryID,
                 now: now
             )
             return PreparedOutgoingShare(
@@ -1224,8 +1231,22 @@ final class CloudFriendShareRefreshCoordinator {
               )),
               let planBlocks = try? modelContext.fetch(FetchDescriptor<PlanBlock>(
                   sortBy: [SortDescriptor(\.startTime)]
+              )),
+              let allFriends = try? modelContext.fetch(FetchDescriptor<Friend>(
+                  sortBy: [SortDescriptor(\.displayName)]
+              )),
+              let friendSets = try? modelContext.fetch(FetchDescriptor<FriendSet>(
+                  sortBy: [SortDescriptor(\.sortOrder)]
+              )),
+              let categories = try? modelContext.fetch(FetchDescriptor<Category>(
+                  sortBy: [SortDescriptor(\.sortOrder)]
               ))
         else { return nil }
+        let categoryDefaultAudienceByCategoryID = categoryDefaultAudienceByCategoryID(
+            categories: categories,
+            friendSets: friendSets,
+            friends: allFriends
+        )
 
         let request = CloudFriendShareRefreshRequest(reason: "full shared items", requiresFullPublish: true)
         let dailyScores = sharedDailyScoreSnapshots(
@@ -1243,7 +1264,27 @@ final class CloudFriendShareRefreshCoordinator {
             planBlocks: planBlocks,
             dailyScores: dailyScores,
             acceptedFriendIDs: acceptedFriendIDs,
+            categoryDefaultAudienceByCategoryID: categoryDefaultAudienceByCategoryID,
             now: now
+        )
+    }
+
+    private func categoryDefaultAudienceByCategoryID(
+        categories: [Category],
+        friendSets: [FriendSet],
+        friends: [Friend]
+    ) -> [UUID: Set<UUID>] {
+        Dictionary(
+            uniqueKeysWithValues: categories.map { category in
+                (
+                    category.id,
+                    Set(AudienceResolver.categoryDefaultAudience(
+                        for: category,
+                        friendSets: friendSets,
+                        friends: friends
+                    ))
+                )
+            }
         )
     }
 

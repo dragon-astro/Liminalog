@@ -3,6 +3,12 @@ import SwiftData
 
 @MainActor
 final class PlanStore {
+    struct ScheduleChange {
+        let plan: PlanBlock
+        let startTime: Date
+        let endTime: Date
+    }
+
     private let modelContext: ModelContext
     private let clock: any LiminalogClock
 
@@ -116,7 +122,36 @@ final class PlanStore {
         audienceSource: AudienceSource = .categoryDefaultSnapshot,
         hasAudienceSnapshot: Bool = false
     ) -> Bool {
-        guard canCreate(startTime: startTime, endTime: endTime, isAllDay: isAllDay) else { return false }
+        createPlanBlock(
+            category: category,
+            title: title,
+            startTime: startTime,
+            endTime: endTime,
+            isAllDay: isAllDay,
+            isImportant: isImportant,
+            note: note,
+            isPublic: isPublic,
+            audienceFriendIDs: audienceFriendIDs,
+            audienceSource: audienceSource,
+            hasAudienceSnapshot: hasAudienceSnapshot
+        ) != nil
+    }
+
+    @discardableResult
+    func createPlanBlock(
+        category: Category?,
+        title: String,
+        startTime: Date,
+        endTime: Date,
+        isAllDay: Bool = false,
+        isImportant: Bool = false,
+        note: String? = nil,
+        isPublic: Bool = true,
+        audienceFriendIDs: [UUID] = [],
+        audienceSource: AudienceSource = .categoryDefaultSnapshot,
+        hasAudienceSnapshot: Bool = false
+    ) -> PlanBlock? {
+        guard canCreate(startTime: startTime, endTime: endTime, isAllDay: isAllDay) else { return nil }
         let plan = PlanBlock(
             category: category,
             title: normalizedTitle(title, category: category),
@@ -136,7 +171,7 @@ final class PlanStore {
             "plan add",
             changedPlanSourceID: plan.id,
             changedScoreDayStarts: affectedScoreDayStarts(start: plan.startTime, end: plan.endTime)
-        )
+        ) ? plan : nil
     }
 
     @discardableResult
@@ -187,6 +222,43 @@ final class PlanStore {
     }
 
     @discardableResult
+    func savePlanScheduleChanges(_ changes: [ScheduleChange]) -> Bool {
+        let meaningfulChanges = changes.filter {
+            $0.plan.startTime != $0.startTime || $0.plan.endTime != $0.endTime
+        }
+        guard !meaningfulChanges.isEmpty else { return true }
+
+        var changedPlanSourceIDs: Set<UUID> = []
+        var changedScoreDayStarts: Set<Date> = []
+        for change in meaningfulChanges {
+            guard !change.plan.isAllDay,
+                  !isScheduleLocked(change.plan),
+                  canCreate(startTime: change.startTime, isAllDay: false),
+                  change.startTime < change.endTime
+            else {
+                return false
+            }
+            changedPlanSourceIDs.insert(change.plan.id)
+            changedScoreDayStarts.formUnion(affectedScoreDayStarts(start: change.plan.startTime, end: change.plan.endTime))
+            changedScoreDayStarts.formUnion(affectedScoreDayStarts(start: change.startTime, end: change.endTime))
+        }
+
+        guard canApplyScheduleChanges(meaningfulChanges) else { return false }
+
+        for change in meaningfulChanges {
+            change.plan.startTime = change.startTime
+            change.plan.endTime = max(change.endTime, change.startTime.addingTimeInterval(60))
+            change.plan.updatedAt = clock.now
+        }
+
+        return saveChanges(
+            "plan schedule batch update",
+            changedPlanSourceIDs: changedPlanSourceIDs,
+            changedScoreDayStarts: changedScoreDayStarts
+        )
+    }
+
+    @discardableResult
     func deletePlanBlock(_ plan: PlanBlock) -> Bool {
         guard !isScheduleLocked(plan) else { return false }
         let sourceID = plan.id
@@ -209,11 +281,23 @@ final class PlanStore {
         changedPlanSourceID: UUID,
         changedScoreDayStarts: Set<Date>
     ) -> Bool {
+        saveChanges(
+            action,
+            changedPlanSourceIDs: [changedPlanSourceID],
+            changedScoreDayStarts: changedScoreDayStarts
+        )
+    }
+
+    private func saveChanges(
+        _ action: String,
+        changedPlanSourceIDs: Set<UUID>,
+        changedScoreDayStarts: Set<Date>
+    ) -> Bool {
         do {
             try modelContext.save()
             CloudFriendShareRefreshCoordinator.requestRefresh(
                 reason: action,
-                changedPlanSourceIDs: [changedPlanSourceID],
+                changedPlanSourceIDs: changedPlanSourceIDs,
                 changedScoreDayStarts: changedScoreDayStarts,
                 requiresFullPublish: false
             )
@@ -223,6 +307,44 @@ final class PlanStore {
             modelContext.rollback()
             return false
         }
+    }
+
+    private func canApplyScheduleChanges(_ changes: [ScheduleChange]) -> Bool {
+        let changesByID = Dictionary(uniqueKeysWithValues: changes.map { ($0.plan.id, $0) })
+        let fetchStart = changes.map(\.startTime).min() ?? clock.now
+        let fetchEnd = changes.map(\.endTime).max() ?? clock.now
+        let descriptor = FetchDescriptor<PlanBlock>(
+            predicate: #Predicate { !$0.isAllDay && $0.startTime < fetchEnd && $0.endTime > fetchStart },
+            sortBy: [SortDescriptor(\.startTime)]
+        )
+        let candidates: [PlanBlock]
+        do {
+            candidates = try modelContext.fetch(descriptor)
+        } catch {
+            NSLog("Liminalog: failed to fetch plans for batch schedule validation: \(String(describing: error))")
+            return false
+        }
+
+        let intervals = candidates.map { plan in
+            if let change = changesByID[plan.id] {
+                return (id: plan.id, start: change.startTime, end: change.endTime)
+            }
+            return (id: plan.id, start: plan.startTime, end: plan.endTime)
+        }
+        .sorted { lhs, rhs in
+            if lhs.start == rhs.start {
+                return lhs.id.uuidString < rhs.id.uuidString
+            }
+            return lhs.start < rhs.start
+        }
+
+        guard intervals.allSatisfy({ $0.start < $0.end }) else { return false }
+        for pair in zip(intervals, intervals.dropFirst()) {
+            if pair.0.end > pair.1.start {
+                return false
+            }
+        }
+        return true
     }
 
     private func affectedScoreDayStarts(start: Date, end: Date) -> Set<Date> {

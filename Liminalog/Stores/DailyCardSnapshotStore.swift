@@ -24,35 +24,8 @@ struct DailyCardSnapshotStore {
         let dayStart = DayBoundary.dayStart(for: date, calendar: calendar)
         let dayIdentifier = DailyCardSnapshot.dayIdentifier(for: dayStart, calendar: calendar)
         let lookup = existingSnapshot(dayIdentifier: dayIdentifier)
-        let snapshot: DailyCardSnapshot
-        let shouldInsert: Bool
-        let shouldSave: Bool
-        switch lookup {
-        case .found(let existingSnapshot):
-            snapshot = existingSnapshot
-            shouldInsert = false
-            shouldSave = true
-        case .missing:
-            snapshot = DailyCardSnapshot()
-            shouldInsert = true
-            shouldSave = true
-        case .failed:
-            snapshot = DailyCardSnapshot()
-            shouldInsert = false
-            shouldSave = false
-        }
-
-        snapshot.dayStart = dayStart
-        snapshot.dayIdentifier = dayIdentifier
-        snapshot.schemaVersion = 1
-        snapshot.personaKind = persona.kind
-        snapshot.title = persona.title
-        snapshot.message = persona.message
-        snapshot.symbol = persona.symbol
-        snapshot.score = Int(summary.totalScore.rounded())
-        snapshot.plannedDuration = summary.plannedDuration
-        snapshot.recordedDuration = recordedDuration
-        snapshot.factPayloadJSON = DailyCardSnapshot.encode(
+        let score = Int(summary.totalScore.rounded())
+        let factPayloadJSON = DailyCardSnapshot.encode(
             persona.facts.map {
                 DailyCardSnapshotFactPayload(
                     id: $0.id,
@@ -63,7 +36,7 @@ struct DailyCardSnapshotStore {
                 )
             }
         )
-        snapshot.categoryPayloadJSON = DailyCardSnapshot.encode(
+        let categoryPayloadJSON = DailyCardSnapshot.encode(
             categoryRows.prefix(6).map {
                 DailyCardSnapshotCategoryPayload(
                     categoryID: $0.category.id,
@@ -73,13 +46,60 @@ struct DailyCardSnapshotStore {
                 )
             }
         )
+        let snapshot: DailyCardSnapshot
+        let shouldInsert: Bool
+        let canSave: Bool
+        switch lookup {
+        case .found(let existingSnapshot):
+            snapshot = existingSnapshot
+            shouldInsert = false
+            canSave = true
+        case .missing:
+            snapshot = DailyCardSnapshot()
+            shouldInsert = true
+            canSave = true
+        case .failed:
+            snapshot = DailyCardSnapshot()
+            shouldInsert = false
+            canSave = false
+        }
+
+        let hasChanges = shouldInsert || snapshot.dayStart != dayStart ||
+            snapshot.dayIdentifier != dayIdentifier ||
+            snapshot.schemaVersion != 1 ||
+            snapshot.personaKind != persona.kind ||
+            snapshot.title != persona.title ||
+            snapshot.message != persona.message ||
+            snapshot.symbol != persona.symbol ||
+            snapshot.score != score ||
+            snapshot.plannedDuration != summary.plannedDuration ||
+            snapshot.recordedDuration != recordedDuration ||
+            snapshot.factPayloadJSON != factPayloadJSON ||
+            snapshot.categoryPayloadJSON != categoryPayloadJSON
+
+        guard hasChanges else {
+            return snapshot
+        }
+
+        snapshot.dayStart = dayStart
+        snapshot.dayIdentifier = dayIdentifier
+        snapshot.schemaVersion = 1
+        snapshot.personaKind = persona.kind
+        snapshot.title = persona.title
+        snapshot.message = persona.message
+        snapshot.symbol = persona.symbol
+        snapshot.score = score
+        snapshot.plannedDuration = summary.plannedDuration
+        snapshot.recordedDuration = recordedDuration
+        snapshot.factPayloadJSON = factPayloadJSON
+        snapshot.categoryPayloadJSON = categoryPayloadJSON
         snapshot.updatedAt = now
 
         if shouldInsert {
             snapshot.createdAt = now
             modelContext.insert(snapshot)
         }
-        if shouldSave {
+        if canSave {
             saveChanges("daily card snapshot")
         }
         return snapshot

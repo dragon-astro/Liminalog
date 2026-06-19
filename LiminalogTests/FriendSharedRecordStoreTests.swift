@@ -72,6 +72,8 @@ struct FriendSharedRecordStoreTests {
         title: String = "予定",
         start: TimeInterval,
         end: TimeInterval,
+        isAllDay: Bool = false,
+        isImportant: Bool = false,
         updatedAt: TimeInterval = 0
     ) -> FriendSharedPlanSnapshot {
         FriendSharedPlanSnapshot(
@@ -79,6 +81,8 @@ struct FriendSharedRecordStoreTests {
             title: title,
             startTime: base.addingTimeInterval(start),
             endTime: base.addingTimeInterval(end),
+            isAllDay: isAllDay,
+            isImportant: isImportant,
             updatedAt: base.addingTimeInterval(updatedAt)
         )
     }
@@ -331,6 +335,33 @@ struct FriendSharedRecordStoreTests {
         #expect(pageData.scoreSummariesByDay[dayStart]?.kind == .sharedData)
         #expect(pageData.scoreSummariesByDay[dayStart]?.hasData == true)
         #expect(pageData.importantPlansByDay.values.flatMap { $0 }.allSatisfy { $0.title != "他人の重要予定" })
+    }
+
+    @Test("友達カレンダーは終日だけでは重要予定として表示しない")
+    func calendarPageDataDoesNotTreatAllDayAsImportantByItself() throws {
+        let container = try TestModelContainer.make()
+        let context = container.mainContext
+        let friendID = UUID()
+        let dayStart = Calendar.japanese.startOfDay(for: base)
+
+        context.insert(FriendSharedPlanRecord(
+            friendID: friendID,
+            snapshot: makePlanSnapshot(
+                title: "終日の通常予定",
+                start: 0,
+                end: 86_400,
+                isAllDay: true,
+                isImportant: false
+            )
+        ))
+        try context.save()
+
+        let month = Calendar.japanese.date(from: Calendar.japanese.dateComponents([.year, .month], from: base)) ?? base
+        let pageData = FriendCalendarPageDataBuilder(friendID: friendID, modelContext: context)
+            .pageData(for: month)
+
+        #expect(pageData.importantPlansByDay[dayStart]?.isEmpty ?? true)
+        #expect(pageData.scoreSummariesByDay[dayStart]?.kind == .score)
     }
 
     @Test("友達カレンダーは予定だけの日をアクセントリングではなくスコアなしとして表示する")

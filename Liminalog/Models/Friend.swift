@@ -209,12 +209,14 @@ struct FriendSharedPlanSnapshot: Codable, Identifiable, Hashable {
         visibilityPreset: VisibilityPreset? = nil,
         recipientFriendID: UUID? = nil,
         acceptedFriendIDs: Set<UUID> = [],
+        categoryDefaultAudienceByCategoryID: [UUID: Set<UUID>] = [:],
         now: Date = Date()
     ) -> [FriendSharedPlanSnapshot] {
         let policy = FriendSharingVisibilityPolicy(
             visibilityPreset: visibilityPreset,
             recipientFriendID: recipientFriendID,
             acceptedFriendIDs: acceptedFriendIDs,
+            categoryDefaultAudienceByCategoryID: categoryDefaultAudienceByCategoryID,
             now: now
         )
 
@@ -229,7 +231,7 @@ struct FriendSharedPlanSnapshot: Codable, Identifiable, Hashable {
     }
 
     var showsInCalendarAsImportant: Bool {
-        isAllDay || isImportant
+        isImportant
     }
 
     var spansMultipleCalendarDays: Bool {
@@ -308,12 +310,14 @@ struct FriendSharedActivitySnapshot: Codable, Identifiable, Hashable {
         now: Date = Date(),
         visibilityPreset: VisibilityPreset? = nil,
         recipientFriendID: UUID? = nil,
-        acceptedFriendIDs: Set<UUID> = []
+        acceptedFriendIDs: Set<UUID> = [],
+        categoryDefaultAudienceByCategoryID: [UUID: Set<UUID>] = [:]
     ) -> [FriendSharedActivitySnapshot] {
         let policy = FriendSharingVisibilityPolicy(
             visibilityPreset: visibilityPreset,
             recipientFriendID: recipientFriendID,
             acceptedFriendIDs: acceptedFriendIDs,
+            categoryDefaultAudienceByCategoryID: categoryDefaultAudienceByCategoryID,
             now: now
         )
 
@@ -407,6 +411,12 @@ private struct FriendSharingVisibilityPolicy {
     private static let redactedPlanTitle = "予定あり"
     private static let redactedPlanCategoryColorHex = "#8E8E93"
 
+    private enum VisibilityAccess {
+        case full
+        case redacted
+        case hidden
+    }
+
     private let publishMode: PublishMode
     private let publishingDisabled: Bool
     private let hideMoodAndNote: Bool
@@ -415,12 +425,14 @@ private struct FriendSharingVisibilityPolicy {
     private let excludedCategoryIDs: Set<UUID>
     private let recipientFriendID: UUID?
     private let acceptedFriendIDs: Set<UUID>
+    private let categoryDefaultAudienceByCategoryID: [UUID: Set<UUID>]
     private let now: Date
 
     init(
         visibilityPreset: VisibilityPreset?,
         recipientFriendID: UUID? = nil,
         acceptedFriendIDs: Set<UUID> = [],
+        categoryDefaultAudienceByCategoryID: [UUID: Set<UUID>] = [:],
         now: Date = Date()
     ) {
         let publishMode = visibilityPreset?.publishMode ?? .realtime
@@ -434,27 +446,28 @@ private struct FriendSharingVisibilityPolicy {
         self.excludedCategoryIDs = Set(visibilityPreset?.excludedCategoryIDs ?? [])
         self.recipientFriendID = recipientFriendID
         self.acceptedFriendIDs = acceptedFriendIDs
+        self.categoryDefaultAudienceByCategoryID = categoryDefaultAudienceByCategoryID
         self.now = now
     }
 
     func snapshot(for plan: PlanBlock) -> FriendSharedPlanSnapshot? {
         guard !publishingDisabled,
               isPublishableThroughTiming(endTime: plan.endTime),
-              isVisible(
-                isPublic: plan.isPublic,
-                audienceFriendIDs: plan.audienceFriendIDs,
-                hasAudienceSnapshot: plan.hasAudienceSnapshot
-              ),
               !isExcluded(plan.category)
         else { return nil }
 
+        let access = visibilityAccess(
+            isPublic: plan.isPublic,
+            audienceFriendIDs: plan.audienceFriendIDs,
+            audienceSource: plan.audienceSource,
+            hasAudienceSnapshot: plan.hasAudienceSnapshot,
+            category: plan.category
+        )
+        guard access != .hidden else { return nil }
+
         var snapshot = FriendSharedPlanSnapshot(plan: plan)
-        if freeTimeOnly {
-            snapshot.categoryID = nil
-            snapshot.title = Self.redactedPlanTitle
-            snapshot.categoryTitle = ""
-            snapshot.categoryIconName = "calendar"
-            snapshot.categoryColorHex = Self.redactedPlanCategoryColorHex
+        if access == .redacted || freeTimeOnly {
+            redactPlan(&snapshot)
         }
         return snapshot
     }
@@ -463,20 +476,26 @@ private struct FriendSharingVisibilityPolicy {
         let effectiveEndTime = max(chapter.endTime ?? now, chapter.startTime)
         guard !publishingDisabled,
               isPublishableThroughTiming(endTime: effectiveEndTime),
-              isVisible(
-                isPublic: chapter.isPublic,
-                audienceFriendIDs: chapter.audienceFriendIDs,
-                hasAudienceSnapshot: chapter.hasAudienceSnapshot
-              ),
               !isExcluded(chapter.category)
         else { return nil }
 
+        let access = visibilityAccess(
+            isPublic: chapter.isPublic,
+            audienceFriendIDs: chapter.audienceFriendIDs,
+            audienceSource: chapter.audienceSource,
+            hasAudienceSnapshot: chapter.hasAudienceSnapshot,
+            category: chapter.category
+        )
+        guard access != .hidden else { return nil }
+
         var snapshot = FriendSharedActivitySnapshot(chapter: chapter, now: now)
-        if hideMoodAndNote {
+        if access == .redacted {
+            redactActivity(&snapshot)
+        } else if hideMoodAndNote {
             snapshot.note = nil
             snapshot.mood = nil
         }
-        if hideLocation {
+        if access != .redacted && hideLocation {
             snapshot.locationName = nil
         }
         return snapshot
@@ -499,19 +518,51 @@ private struct FriendSharingVisibilityPolicy {
         return excludedCategoryIDs.contains(category.id)
     }
 
-    private func isVisible(
+    private func redactPlan(_ snapshot: inout FriendSharedPlanSnapshot) {
+        snapshot.categoryID = nil
+        snapshot.title = Self.redactedPlanTitle
+        snapshot.categoryTitle = ""
+        snapshot.categoryIconName = "calendar"
+        snapshot.categoryColorHex = Self.redactedPlanCategoryColorHex
+    }
+
+    private func redactActivity(_ snapshot: inout FriendSharedActivitySnapshot) {
+        snapshot.categoryID = nil
+        snapshot.title = Self.redactedPlanTitle
+        snapshot.categoryTitle = ""
+        snapshot.categoryIconName = "calendar"
+        snapshot.categoryColorHex = Self.redactedPlanCategoryColorHex
+        snapshot.note = nil
+        snapshot.mood = nil
+        snapshot.locationName = nil
+    }
+
+    private func visibilityAccess(
         isPublic: Bool,
         audienceFriendIDs: [UUID],
-        hasAudienceSnapshot: Bool
-    ) -> Bool {
-        guard let recipientFriendID else { return isPublic }
+        audienceSource: AudienceSource,
+        hasAudienceSnapshot: Bool,
+        category: Category?
+    ) -> VisibilityAccess {
+        guard isPublic else { return .hidden }
+        guard let recipientFriendID else { return .full }
+        guard acceptedFriendIDs.contains(recipientFriendID) else { return .hidden }
+        if !hasAudienceSnapshot,
+           let categoryID = category?.id,
+           let categoryDefaultAudience = categoryDefaultAudienceByCategoryID[categoryID] {
+            return categoryDefaultAudience.contains(recipientFriendID) ? .full : .redacted
+        }
+        if hasAudienceSnapshot,
+           audienceSource == .categoryDefaultSnapshot {
+            return audienceFriendIDs.contains(recipientFriendID) ? .full : .redacted
+        }
         return AudienceResolver.isFriendInAudience(
             isPublic: isPublic,
             audienceFriendIDs: audienceFriendIDs,
             hasAudienceSnapshot: hasAudienceSnapshot,
             friendID: recipientFriendID,
             acceptedFriendIDs: acceptedFriendIDs
-        )
+        ) ? .full : .hidden
     }
 }
 

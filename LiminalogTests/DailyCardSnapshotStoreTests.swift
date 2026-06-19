@@ -85,6 +85,49 @@ struct DailyCardSnapshotStoreTests {
     }
 
     @Test
+    func upsertSkipsSaveWhenSnapshotIsUnchanged() throws {
+        let calendar = Calendar.liminalogTest
+        let container = try TestModelContainer.make()
+        let context = container.mainContext
+        let store = DailyCardSnapshotStore(modelContext: context)
+        let day = try #require(calendar.date(from: DateComponents(year: 2026, month: 6, day: 1)))
+        let later = try #require(calendar.date(byAdding: .hour, value: 1, to: day))
+        let summary = ScoreSummary(
+            date: day,
+            categoryScore: 80,
+            timelineScore: 90,
+            totalScore: 88,
+            plannedDuration: 2 * 60 * 60,
+            recordedDuration: 2 * 60 * 60,
+            matchedDuration: 90 * 60
+        )
+
+        let first = store.upsert(
+            date: day,
+            summary: summary,
+            persona: persona(title: "有言実行の人", kind: .planMatched),
+            categoryRows: [],
+            recordedDuration: 2 * 60 * 60,
+            calendar: calendar,
+            now: day
+        )
+        let firstUpdatedAt = first.updatedAt
+        let second = store.upsert(
+            date: day,
+            summary: summary,
+            persona: persona(title: "有言実行の人", kind: .planMatched),
+            categoryRows: [],
+            recordedDuration: 2 * 60 * 60,
+            calendar: calendar,
+            now: later
+        )
+
+        #expect(first.id == second.id)
+        #expect(second.updatedAt == firstUpdatedAt)
+        #expect(try context.fetch(FetchDescriptor<DailyCardSnapshot>()).count == 1)
+    }
+
+    @Test
     func backfillCreatesCardsForUnopenedScoreSnapshots() throws {
         let calendar = Calendar.liminalogTest
         let container = try TestModelContainer.make()

@@ -11,11 +11,15 @@ struct DailyReflectionCard: View {
     let dayBoundary: DayBoundary
     let categoryRows: [(category: Category, duration: TimeInterval)]
     let recordedDuration: TimeInterval
+    var preparedPersona: DailyPersona? = nil
     let onPlanTomorrow: (() -> Void)?
     @State private var shareItem: DailyCardShareItem?
 
     private var persona: DailyPersona {
-        DailyPersona.make(
+        if let preparedPersona {
+            return preparedPersona
+        }
+        return DailyPersona.make(
             summary: summary,
             chapters: chapters,
             historyChapters: historyChapters,
@@ -465,60 +469,252 @@ private struct DailyRingSegment {
     let color: Color
 }
 
+struct DailyReflectionPayload {
+    let date: Date
+    let dayBoundary: DayBoundary
+    let dayPlans: [PlanBlock]
+    let dayChapters: [Chapter]
+    let historyChapters: [Chapter]
+    let summary: ScoreSummary
+    let recordedDuration: TimeInterval
+    let categoryRows: [(category: Category, duration: TimeInterval)]
+    let persona: DailyPersona
+
+    var snapshotSignature: String {
+        [
+            "\(dayBoundary.dayStart.timeIntervalSince1970)",
+            "\(dayChapters.count)",
+            "\(dayPlans.count)",
+            "\(Int(recordedDuration.rounded()))",
+            "\(Int(summary.totalScore.rounded()))",
+            persona.kind.rawValue,
+            persona.title,
+            categoryRows.map { "\($0.category.id.uuidString):\(Int($0.duration.rounded()))" }.joined(separator: ",")
+        ].joined(separator: ":")
+    }
+
+    var renderSignature: String {
+        [
+            snapshotSignature,
+            dayPlans.map {
+                [
+                    $0.id.uuidString,
+                    "\($0.startTime.timeIntervalSince1970)",
+                    "\($0.endTime.timeIntervalSince1970)",
+                    "\($0.updatedAt.timeIntervalSince1970)"
+                ].joined(separator: ":")
+            }.joined(separator: ","),
+            dayChapters.map {
+                [
+                    $0.id.uuidString,
+                    "\($0.startTime.timeIntervalSince1970)",
+                    "\($0.endTime?.timeIntervalSince1970 ?? -1)",
+                    "\($0.updatedAt.timeIntervalSince1970)"
+                ].joined(separator: ":")
+            }.joined(separator: ",")
+        ].joined(separator: "|")
+    }
+
+    static func make(
+        date: Date,
+        queriedPlans: [PlanBlock],
+        queriedChapters: [Chapter],
+        calendar: Calendar = .japanese,
+        now: Date = Date()
+    ) -> DailyReflectionPayload {
+        let dayBoundary = DayBoundary(date: date, calendar: calendar)
+        let dayPlans = queriedPlans
+            .filter { $0.startTime < dayBoundary.dayEnd && $0.endTime > dayBoundary.dayStart }
+            .sorted { $0.startTime < $1.startTime }
+        let dayChapters = queriedChapters
+            .filter { $0.startTime < dayBoundary.dayEnd && ($0.endTime ?? now) > dayBoundary.dayStart }
+            .sorted { $0.startTime < $1.startTime }
+        let historyChapters = queriedChapters.sorted { $0.startTime < $1.startTime }
+        let summary = ScoreCalculator.summary(
+            date: date,
+            plans: dayPlans,
+            chapters: dayChapters,
+            calendar: calendar,
+            now: now
+        )
+        let recordedDuration = Self.recordedDuration(for: dayChapters, dayBoundary: dayBoundary, now: now)
+        let categoryRows = Self.categoryRows(for: dayChapters, dayBoundary: dayBoundary, now: now)
+        let persona = DailyPersona.make(
+            summary: summary,
+            chapters: dayChapters,
+            historyChapters: historyChapters,
+            categoryRows: categoryRows,
+            recordedDuration: recordedDuration,
+            dayBoundary: dayBoundary
+        )
+        return DailyReflectionPayload(
+            date: date,
+            dayBoundary: dayBoundary,
+            dayPlans: dayPlans,
+            dayChapters: dayChapters,
+            historyChapters: historyChapters,
+            summary: summary,
+            recordedDuration: recordedDuration,
+            categoryRows: categoryRows,
+            persona: persona
+        )
+    }
+
+    private static func recordedDuration(
+        for chapters: [Chapter],
+        dayBoundary: DayBoundary,
+        now: Date
+    ) -> TimeInterval {
+        chapters.reduce(0) { partial, chapter in
+            let start = max(chapter.startTime, dayBoundary.dayStart)
+            let end = min(chapter.endTime ?? now, dayBoundary.dayEnd)
+            return partial + max(end.timeIntervalSince(start), 0)
+        }
+    }
+
+    private static func categoryRows(
+        for chapters: [Chapter],
+        dayBoundary: DayBoundary,
+        now: Date
+    ) -> [(category: Category, duration: TimeInterval)] {
+        let grouped = Dictionary(grouping: chapters.compactMap { chapter -> (Category, TimeInterval)? in
+            guard let category = chapter.category else { return nil }
+            let start = max(chapter.startTime, dayBoundary.dayStart)
+            let end = min(chapter.endTime ?? now, dayBoundary.dayEnd)
+            return (category, max(end.timeIntervalSince(start), 0))
+        }, by: { $0.0.id })
+
+        return grouped.compactMap { _, values in
+            guard let category = values.first?.0 else { return nil }
+            return (category, values.reduce(0) { $0 + $1.1 })
+        }
+        .sorted { $0.duration > $1.duration }
+    }
+}
+
+struct DailyReflectionPayloadCard: View, Equatable {
+    let payload: DailyReflectionPayload
+    let onPlanTomorrow: (() -> Void)?
+    let onPersistSnapshot: ((DailyReflectionPayload) -> Void)?
+
+    private let renderSignature: String
+    private let showsPlanTomorrowAction: Bool
+    private let persistsSnapshot: Bool
+
+    init(
+        payload: DailyReflectionPayload,
+        onPlanTomorrow: (() -> Void)?,
+        onPersistSnapshot: ((DailyReflectionPayload) -> Void)?
+    ) {
+        self.payload = payload
+        self.onPlanTomorrow = onPlanTomorrow
+        self.onPersistSnapshot = onPersistSnapshot
+        self.renderSignature = payload.renderSignature
+        self.showsPlanTomorrowAction = onPlanTomorrow != nil
+        self.persistsSnapshot = onPersistSnapshot != nil
+    }
+
+    static func == (lhs: DailyReflectionPayloadCard, rhs: DailyReflectionPayloadCard) -> Bool {
+        lhs.renderSignature == rhs.renderSignature &&
+            lhs.showsPlanTomorrowAction == rhs.showsPlanTomorrowAction &&
+            lhs.persistsSnapshot == rhs.persistsSnapshot
+    }
+
+    var body: some View {
+        let card = DailyReflectionCard(
+            date: payload.date,
+            summary: payload.summary,
+            chapters: payload.dayChapters,
+            historyChapters: payload.historyChapters,
+            plans: payload.dayPlans,
+            dayBoundary: payload.dayBoundary,
+            categoryRows: payload.categoryRows,
+            recordedDuration: payload.recordedDuration,
+            preparedPersona: payload.persona,
+            onPlanTomorrow: onPlanTomorrow
+        )
+        if let onPersistSnapshot {
+            card.task(id: payload.snapshotSignature) {
+                onPersistSnapshot(payload)
+            }
+        } else {
+            card
+        }
+    }
+}
+
 private struct DailyFactStrip: View {
     let facts: [DailyCardFact]
 
     var body: some View {
         HStack(spacing: 9) {
             ForEach(facts) { fact in
-                DailyFactPill(
-                    title: fact.title,
-                    value: fact.value,
-                    suffix: fact.suffix,
-                    systemImage: fact.systemImage
-                )
+                DailyFactPill(fact: fact)
             }
         }
     }
 }
 
 private struct DailyFactPill: View {
-    let title: String
-    let value: String
-    let suffix: String?
-    let systemImage: String
+    let fact: DailyCardFact
     private let pillHeight: CGFloat = 64
 
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
             HStack(spacing: 5) {
-                Image(systemName: systemImage)
+                Image(systemName: fact.systemImage)
                     .font(.caption2.weight(.bold))
-                Text(title)
+                Text(fact.title)
                     .font(.caption2.weight(.bold))
                     .lineLimit(1)
                     .minimumScaleFactor(0.72)
             }
             .foregroundStyle(LiminalTheme.secondaryText)
 
-            HStack(alignment: .firstTextBaseline, spacing: 2) {
-                Text(value)
-                    .font(.subheadline.weight(.black).monospacedDigit())
-                    .foregroundStyle(LiminalTheme.text)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.62)
-                if let suffix {
-                    Text(suffix)
-                        .font(.caption2.weight(.bold))
-                        .foregroundStyle(LiminalTheme.secondaryText)
-                        .lineLimit(1)
-                }
-            }
+            valueContent
         }
         .frame(maxWidth: .infinity, minHeight: pillHeight, alignment: .leading)
         .padding(.horizontal, 10)
         .liminalGlassFill(in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .liminalAccentLight(in: RoundedRectangle(cornerRadius: 14, style: .continuous), intensity: 0.26)
+    }
+
+    @ViewBuilder
+    private var valueContent: some View {
+        if shouldStackValueAndSuffix, let suffix = fact.suffix {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(fact.value)
+                    .font(.caption.weight(.black))
+                    .foregroundStyle(LiminalTheme.text)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.68)
+
+                Text(suffix)
+                    .font(.caption2.weight(.bold).monospacedDigit())
+                    .foregroundStyle(LiminalTheme.secondaryText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+            }
+        } else {
+            HStack(alignment: .firstTextBaseline, spacing: 2) {
+                Text(fact.value)
+                    .font(.subheadline.weight(.black).monospacedDigit())
+                    .foregroundStyle(LiminalTheme.text)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.62)
+                if let suffix = fact.suffix {
+                    Text(suffix)
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(LiminalTheme.secondaryText)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.72)
+                }
+            }
+        }
+    }
+
+    private var shouldStackValueAndSuffix: Bool {
+        fact.id == "focus-category" && fact.suffix != nil
     }
 }
 

@@ -65,6 +65,7 @@ struct AudienceVisibilityTests {
             isPublic: true
         )
         plan.audienceFriendIDs = [allowedFriendID]
+        plan.audienceSource = .custom
         plan.hasAudienceSnapshot = true
 
         let allowed = FriendSharedPlanSnapshot.snapshots(

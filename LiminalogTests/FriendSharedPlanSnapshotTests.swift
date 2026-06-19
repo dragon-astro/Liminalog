@@ -124,6 +124,38 @@ struct FriendSharedPlanSnapshotTests {
     }
 
     @Test
+    func calendarDisplayRequiresImportantFlagEvenForAllDayPlans() {
+        let calendar = Calendar.japanese
+        let start = calendar.date(from: DateComponents(year: 2026, month: 5, day: 30))!
+        let end = calendar.date(byAdding: .day, value: 1, to: start)!
+        let allDayNormal = FriendSharedPlanSnapshot(
+            title: "終日の通常予定",
+            startTime: start,
+            endTime: end,
+            isAllDay: true,
+            isImportant: false
+        )
+        let allDayImportant = FriendSharedPlanSnapshot(
+            title: "終日の重要予定",
+            startTime: start,
+            endTime: end,
+            isAllDay: true,
+            isImportant: true
+        )
+        let timedImportant = FriendSharedPlanSnapshot(
+            title: "時間指定の重要予定",
+            startTime: start,
+            endTime: end,
+            isAllDay: false,
+            isImportant: true
+        )
+
+        #expect(!allDayNormal.showsInCalendarAsImportant)
+        #expect(allDayImportant.showsInCalendarAsImportant)
+        #expect(timedImportant.showsInCalendarAsImportant)
+    }
+
+    @Test
     func excludedCategoriesSuppressPlanSnapshots() {
         let calendar = Calendar.japanese
         let base = calendar.date(from: DateComponents(year: 2026, month: 5, day: 30, hour: 9))!

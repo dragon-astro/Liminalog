@@ -25,6 +25,7 @@ enum CloudFriendShareSnapshotBuilder {
         visibilityPresets: [VisibilityPreset],
         chapters: [Chapter],
         acceptedFriendIDs: Set<UUID>,
+        categoryDefaultAudienceByCategoryID: [UUID: Set<UUID>] = [:],
         now: Date,
         scoreProvider: (FriendScorePeriod) -> Double,
         streakProvider: () -> Int = { 0 },
@@ -39,7 +40,8 @@ enum CloudFriendShareSnapshotBuilder {
             now: now,
             visibilityPreset: preset,
             recipientFriendID: friend.id,
-            acceptedFriendIDs: acceptedFriendIDs
+            acceptedFriendIDs: acceptedFriendIDs,
+            categoryDefaultAudienceByCategoryID: categoryDefaultAudienceByCategoryID
         ).first
 
         return CloudFriendShareSnapshot(
@@ -77,6 +79,7 @@ enum CloudFriendShareSnapshotBuilder {
         planBlocks: [PlanBlock],
         dailyScores: [FriendSharedDailyScoreSnapshot] = [],
         acceptedFriendIDs: Set<UUID>,
+        categoryDefaultAudienceByCategoryID: [UUID: Set<UUID>] = [:],
         now: Date
     ) -> SharedItems {
         let preset = visibilityPreset(for: friend, in: visibilityPresets)
@@ -87,6 +90,7 @@ enum CloudFriendShareSnapshotBuilder {
             visibilityPreset: preset,
             recipientFriendID: friend.id,
             acceptedFriendIDs: acceptedFriendIDs,
+            categoryDefaultAudienceByCategoryID: categoryDefaultAudienceByCategoryID,
             now: now
         ))
         let finishedChapters = chapters.filter { $0.endTime != nil }
@@ -95,7 +99,8 @@ enum CloudFriendShareSnapshotBuilder {
             now: now,
             visibilityPreset: preset,
             recipientFriendID: friend.id,
-            acceptedFriendIDs: acceptedFriendIDs
+            acceptedFriendIDs: acceptedFriendIDs,
+            categoryDefaultAudienceByCategoryID: categoryDefaultAudienceByCategoryID
         ))
         return SharedItems(plans: plans, activities: activities, scores: dailyScores)
     }
