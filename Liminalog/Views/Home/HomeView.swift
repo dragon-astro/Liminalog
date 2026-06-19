@@ -25,17 +25,59 @@ private enum TodayPage: String, CaseIterable, Identifiable {
     }
 }
 
+private enum TomorrowPlanMode: String, CaseIterable, Identifiable {
+    case timeline
+    case list
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .timeline: "時間軸"
+        case .list: "リスト"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .timeline: "calendar.day.timeline.left"
+        case .list: "list.bullet.rectangle"
+        }
+    }
+
+    var accessibilityLabel: String {
+        switch self {
+        case .timeline: "明日を時間軸で表示"
+        case .list: "明日をリストで表示"
+        }
+    }
+}
+
+private struct HomePlanCreateRequest: Identifiable {
+    let id = UUID()
+    let initialDate: Date
+    let startsAsAllDay: Bool
+}
+
 struct HomeView: View {
     @Environment(ChapterStore.self) private var store
     @Environment(\.modelContext) private var modelContext
+    @Query(sort: [SortDescriptor(\Category.sortOrder), SortDescriptor(\Category.createdAt)]) private var categories: [Category]
+    @AppStorage("home.tomorrowPlanMode") private var tomorrowPlanModeRawValue = TomorrowPlanMode.timeline.rawValue
+    @AppStorage("calendarPlanTitleFontSize") private var planTitleFontSize = 6.0
+    @AppStorage("calendarPlanTitleBold") private var planTitleBold = false
     @State private var selectedPage: TodayPage = HomeView.defaultInitialTodayPage
     @State private var editingChapter: Chapter? = nil
-    @State private var showingAddSheet = false
-    @State private var addSheetStart = Date()
+    @State private var editingPlan: PlanBlock? = nil
+    @State private var planCreateRequest: HomePlanCreateRequest? = nil
     @State private var clock = TickClock(interval: 60)
     @State private var pendingLiveActivitySyncTask: Task<Void, Never>?
     @State private var tomorrowHasActionableGap = false
     @State private var didApplyInitialPage = false
+    @State private var selectedTomorrowTimelineCategoryID: UUID?
+    @State private var tomorrowTimelineVisibleHour = 7
+    @State private var tomorrowScheduleInteractionActive = false
+    @State private var tomorrowPlanReloadToken = 0
 
     var body: some View {
         // 各ページをプロフィールと同じ NavigationStack { ScrollView } 構造にする。
@@ -67,8 +109,11 @@ struct HomeView: View {
         .sheet(item: $editingChapter) { chapter in
             ChapterEditSheet(chapter: chapter)
         }
-        .sheet(isPresented: $showingAddSheet) {
-            ChapterCreateSheet(initialDate: addSheetStart)
+        .sheet(item: $editingPlan, onDismiss: reloadTomorrowPlansAfterEditing) { plan in
+            PlanCreateSheet(plan: plan)
+        }
+        .sheet(item: $planCreateRequest, onDismiss: reloadTomorrowPlansAfterEditing) { request in
+            PlanCreateSheet(initialDate: request.initialDate, startsAsAllDay: request.startsAsAllDay)
         }
         .onAppear {
             clock.start()
@@ -96,16 +141,9 @@ struct HomeView: View {
 
     @ToolbarContentBuilder
     private func toolbarContent(for page: TodayPage) -> some ToolbarContent {
-        if page == .today {
+        if page == .tomorrow {
             ToolbarItem(placement: .topBarLeading) {
-                Button {
-                    addSheetStart = defaultAddStart
-                    showingAddSheet = true
-                } label: {
-                    Image(systemName: "plus")
-                        .font(.title3.weight(.semibold))
-                }
-                .accessibilityLabel("記録を追加")
+                tomorrowPlanModeMenu
             }
         }
         ToolbarItem(placement: .principal) {
@@ -114,13 +152,47 @@ struct HomeView: View {
                 showsTomorrowIndicator: tomorrowHasActionableGap
             )
         }
-        ToolbarItem(placement: .topBarTrailing) {
-            NavigationLink(destination: CategorySettingsView()) {
-                Image(systemName: "slider.horizontal.3")
-                    .font(.title3.weight(.semibold))
+        if page == .today {
+            ToolbarItem(placement: .topBarTrailing) {
+                NavigationLink(destination: CategorySettingsView()) {
+                    Image(systemName: "slider.horizontal.3")
+                        .font(.title3.weight(.semibold))
+                }
+                .accessibilityLabel("カテゴリ設定")
             }
-            .accessibilityLabel("カテゴリ設定")
+        } else if page == .tomorrow {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    planCreateRequest = defaultTomorrowPlanCreateRequest
+                    LiminalHaptics.openSheet()
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.title3.weight(.semibold))
+                }
+                .accessibilityLabel("明日の予定を追加")
+            }
         }
+    }
+
+    private var tomorrowPlanModeMenu: some View {
+        Menu {
+            ForEach(TomorrowPlanMode.allCases) { mode in
+                Button {
+                    setTomorrowPlanMode(mode)
+                } label: {
+                    Label(mode.title, systemImage: mode.systemImage)
+                }
+                .accessibilityLabel(mode.accessibilityLabel)
+            }
+        } label: {
+            Image(systemName: selectedTomorrowPlanMode.systemImage)
+                .font(.title3.weight(.semibold))
+                .frame(width: 36, height: 36)
+                .foregroundStyle(LiminalTheme.accent)
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("明日の表示を切り替え")
     }
 
     @ViewBuilder
@@ -137,14 +209,25 @@ struct HomeView: View {
             TodayRecordPage(date: todayDate, editingChapter: $editingChapter)
                 .id(dayID(for: todayDate))
         case .tomorrow:
-            TomorrowPlanPage(date: tomorrowDate)
+            TomorrowPlanPage(
+                date: tomorrowDate,
+                mode: selectedTomorrowPlanMode,
+                categories: categories,
+                planTitleFontSize: planTitleFontSize,
+                planTitleBold: planTitleBold,
+                reloadToken: tomorrowPlanReloadToken,
+                visibleHour: $tomorrowTimelineVisibleHour,
+                selectedCategoryID: $selectedTomorrowTimelineCategoryID,
+                isScheduleInteractionActive: $tomorrowScheduleInteractionActive,
+                onEditPlan: { plan in
+                    editingPlan = plan
+                },
+                onScheduleChanged: {
+                    refreshTomorrowCoverage()
+                }
+            )
                 .id(dayID(for: tomorrowDate))
         }
-    }
-
-    private var defaultAddStart: Date {
-        let now = clock.now
-        return Calendar.japanese.date(byAdding: .minute, value: -30, to: now) ?? now
     }
 
     private var todayDate: Date {
@@ -157,6 +240,37 @@ struct HomeView: View {
 
     private var tomorrowDate: Date {
         relativeDate(1)
+    }
+
+    private var defaultTomorrowPlanCreateRequest: HomePlanCreateRequest {
+        if let start = firstAvailableTomorrowPlanStart {
+            return HomePlanCreateRequest(initialDate: start, startsAsAllDay: false)
+        }
+        return HomePlanCreateRequest(
+            initialDate: DayBoundary.dayStart(for: tomorrowDate, calendar: .japanese),
+            startsAsAllDay: true
+        )
+    }
+
+    private var firstAvailableTomorrowPlanStart: Date? {
+        let calendar = Calendar.japanese
+        let boundary = DayBoundary(date: tomorrowDate, calendar: calendar)
+        let preferred = calendar.date(bySettingHour: 9, minute: 0, second: 0, of: tomorrowDate) ?? boundary.dayStart
+        let latestStart = calendar.date(byAdding: .hour, value: -1, to: boundary.dayEnd) ?? preferred
+
+        var candidate = preferred
+        while candidate <= latestStart {
+            let candidateEnd = calendar.date(byAdding: .hour, value: 1, to: candidate) ?? candidate
+            if !store.hasTimedPlanOverlap(startTime: candidate, endTime: candidateEnd) {
+                return candidate
+            }
+            guard let nextCandidate = calendar.date(byAdding: .minute, value: 15, to: candidate),
+                  nextCandidate > candidate
+            else { break }
+            candidate = nextCandidate
+        }
+
+        return nil
     }
 
     private func relativeDate(_ dayOffset: Int) -> Date {
@@ -191,6 +305,21 @@ struct HomeView: View {
 
     private var scrollPages: [TodayPage] {
         TodayPage.allCases
+    }
+
+    private var selectedTomorrowPlanMode: TomorrowPlanMode {
+        TomorrowPlanMode(rawValue: tomorrowPlanModeRawValue) ?? .timeline
+    }
+
+    private func setTomorrowPlanMode(_ mode: TomorrowPlanMode) {
+        guard selectedTomorrowPlanMode != mode else { return }
+        tomorrowPlanModeRawValue = mode.rawValue
+        LiminalHaptics.selection()
+    }
+
+    private func reloadTomorrowPlansAfterEditing() {
+        tomorrowPlanReloadToken += 1
+        refreshTomorrowCoverage()
     }
 
     private func applyInitialPage() {
@@ -295,16 +424,289 @@ private struct TodayRecordPage: View {
 }
 
 private struct TomorrowPlanPage: View {
+    @Environment(ChapterStore.self) private var store
+    @Environment(\.modelContext) private var modelContext
+
     let date: Date
+    let mode: TomorrowPlanMode
+    let categories: [Category]
+    let planTitleFontSize: Double
+    let planTitleBold: Bool
+    let reloadToken: Int
+    @Binding var visibleHour: Int
+    @Binding var selectedCategoryID: UUID?
+    @Binding var isScheduleInteractionActive: Bool
+    let onEditPlan: (PlanBlock) -> Void
+    let onScheduleChanged: () -> Void
+
+    @State private var timelinePlans: [PlanBlock] = []
+    @State private var clock = TickClock(interval: 60)
 
     var body: some View {
-        CalendarDayView(
-            date: date,
-            showsNavigationControls: false,
-            allowsDayNavigation: false,
-            contentPadding: 16,
-            showsPlanningStatus: true
+        Group {
+            switch mode {
+            case .timeline:
+                timelineMode
+            case .list:
+                CalendarDayView(
+                    date: date,
+                    showsNavigationControls: false,
+                    allowsDayNavigation: false,
+                    contentPadding: 16,
+                    showsPlanningStatus: true
+                )
+            }
+        }
+        .onAppear {
+            clock.start()
+            normalizeSelectedCategory()
+            reloadTimelinePlans()
+        }
+        .onDisappear {
+            clock.stop()
+        }
+        .onChange(of: date) { _, _ in
+            reloadTimelinePlans()
+        }
+        .onChange(of: reloadToken) { _, _ in
+            reloadTimelinePlans()
+        }
+        .onChange(of: categories.map(\.id)) { _, _ in
+            normalizeSelectedCategory()
+        }
+    }
+
+    private var timelineMode: some View {
+        VStack(spacing: 0) {
+            HomeTomorrowPlanningStatusIndicator(
+                remainingText: planningDeadlineText,
+                coverage: planningCoverage
+            )
+            .padding(.horizontal, 16)
+            .padding(.top, 7)
+            .padding(.bottom, 2)
+
+            HomeTomorrowTimelineCategoryPalette(
+                categories: categories,
+                selectedCategoryID: $selectedCategoryID
+            )
+
+            GeometryReader { proxy in
+                EditablePlanTimelineView(
+                    date: date,
+                    plans: timelinePlans,
+                    categories: categories,
+                    visibleCategoryIDs: nil,
+                    isEditingEnabled: store.canCreatePlan(startTime: date, isAllDay: false),
+                    planTitleFontSize: planTitleFontSize,
+                    planTitleBold: planTitleBold,
+                    isInteractionEnabled: true,
+                    isPageSwipeActive: false,
+                    visibleHour: $visibleHour,
+                    selectedCategoryID: $selectedCategoryID,
+                    isScheduleInteractionActive: $isScheduleInteractionActive,
+                    onEditPlan: onEditPlan,
+                    onScheduleChanged: {
+                        reloadTimelinePlans()
+                        onScheduleChanged()
+                    }
+                )
+                .frame(
+                    width: max(1, proxy.size.width - 32),
+                    height: max(1, proxy.size.height - 6),
+                    alignment: .top
+                )
+                .padding(.horizontal, 16)
+                .padding(.top, 6)
+            }
+        }
+        .background(LiminalTheme.canvasGradient)
+    }
+
+    private func reloadTimelinePlans() {
+        timelinePlans = PlanStore(modelContext: modelContext).plannedBlocks(on: date)
+    }
+
+    private var planningCoverage: PlanCoverageSummary {
+        PlanCoverageSummary.make(date: date, plans: timelinePlans)
+    }
+
+    private var planningDeadlineText: String {
+        let deadline = DayBoundary.dayStart(for: date, calendar: .japanese)
+        let remaining = deadline.timeIntervalSince(clock.now)
+        guard remaining > 0 else { return "調整中" }
+        return compactRemainingDuration(remaining)
+    }
+
+    private func compactRemainingDuration(_ seconds: TimeInterval) -> String {
+        let totalMinutes = max(Int(seconds / 60), 0)
+        let hours = totalMinutes / 60
+        let minutes = totalMinutes % 60
+        if hours >= 24 {
+            let days = hours / 24
+            let remainingHours = hours % 24
+            return remainingHours > 0 ? "\(days)日\(remainingHours)時間" : "\(days)日"
+        }
+        if hours > 0, minutes > 0 {
+            return "\(hours)時間\(minutes)分"
+        }
+        if hours > 0 {
+            return "\(hours)時間"
+        }
+        return "\(minutes)分"
+    }
+
+    private func normalizeSelectedCategory() {
+        if let selectedCategoryID, categories.contains(where: { $0.id == selectedCategoryID }) {
+            return
+        }
+        selectedCategoryID = categories.first?.id
+    }
+}
+
+private struct HomeTomorrowPlanningStatusIndicator: View {
+    let remainingText: String
+    let coverage: PlanCoverageSummary
+
+    private var hasGap: Bool {
+        coverage.hasActionableGap
+    }
+
+    private var tint: Color {
+        hasGap ? CalendarSemanticColor.planGap : CalendarSemanticColor.planFilled
+    }
+
+    private var statusText: String {
+        hasGap ? "空きあり" : "予定登録済み"
+    }
+
+    private var statusIcon: String {
+        hasGap ? "circle.fill" : "checkmark.circle.fill"
+    }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "timer")
+                .font(.caption.weight(.bold))
+
+            Text("残り \(remainingText)")
+                .font(.caption.weight(.bold))
+                .monospacedDigit()
+                .lineLimit(1)
+
+            Spacer(minLength: 10)
+
+            Image(systemName: statusIcon)
+                .font(.caption2.weight(.bold))
+                .symbolRenderingMode(.hierarchical)
+
+            Text(statusText)
+                .font(.caption2.weight(.semibold))
+                .lineLimit(1)
+        }
+        .foregroundStyle(tint)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(tint.opacity(0.12))
         )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(tint.opacity(0.5), lineWidth: 1)
+        )
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("明日の予定づくりの残り時間")
+        .accessibilityValue("\(remainingText)、\(statusText)")
+    }
+}
+
+private struct HomeTomorrowTimelineCategoryPalette: View {
+    let categories: [Category]
+    @Binding var selectedCategoryID: UUID?
+
+    var body: some View {
+        ScrollView(.horizontal) {
+            HStack(spacing: 8) {
+                if categories.isEmpty {
+                    HomeTomorrowTimelineEmptyCategoryChip()
+                } else {
+                    ForEach(categories) { category in
+                        Button {
+                            selectedCategoryID = category.id
+                            LiminalHaptics.selection()
+                        } label: {
+                            HomeTomorrowTimelineCategoryChip(
+                                category: category,
+                                isSelected: category.id == selectedCategoryID
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 2)
+        }
+        .scrollIndicators(.hidden)
+        .padding(.top, 6)
+    }
+}
+
+private struct HomeTomorrowTimelineCategoryChip: View {
+    let category: Category
+    let isSelected: Bool
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: category.icon ?? "circle.fill")
+                .font(.system(size: 10, weight: .bold))
+
+            Text(category.name)
+                .font(.system(size: 11, weight: .semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.82)
+        }
+        .foregroundStyle(isSelected ? .white : category.displayColor)
+        .padding(.horizontal, 8)
+        .frame(minHeight: 30)
+        .background(
+            Capsule()
+                .fill(isSelected ? category.displayColor : category.displayColor.opacity(0.12))
+        )
+        .overlay(
+            Capsule()
+                .stroke(category.displayColor.opacity(isSelected ? 0.9 : 0.3), lineWidth: 1)
+        )
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(category.name)を選択")
+    }
+}
+
+private struct HomeTomorrowTimelineEmptyCategoryChip: View {
+    var body: some View {
+        HStack(spacing: 5) {
+            Image(systemName: "square.grid.2x2")
+                .font(.system(size: 10.5, weight: .bold))
+
+            Text("カテゴリなし")
+                .font(.system(size: 11, weight: .semibold))
+                .lineLimit(1)
+        }
+        .foregroundStyle(LiminalTheme.secondaryText)
+        .padding(.horizontal, 9)
+        .frame(minHeight: 30)
+        .background(
+            Capsule()
+                .fill(LiminalTheme.elevated.opacity(0.72))
+        )
+        .overlay(
+            Capsule()
+                .stroke(LiminalTheme.divider.opacity(0.72), lineWidth: 1)
+        )
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("カテゴリなし")
     }
 }
 

@@ -81,7 +81,7 @@ struct EditablePlanTimelineView: View {
     private let calendar = Calendar.japanese
     private let hourColumnWidth: CGFloat = 50
     private let hourLabelHeight: CGFloat = 14
-    private let timelineTopInset: CGFloat = 15
+    private let timelineTopInset: CGFloat = 30
     private let sideInset: CGFloat = 4
     private let bottomScrollPadding: CGFloat = 24
     private let snapMinutes = 15

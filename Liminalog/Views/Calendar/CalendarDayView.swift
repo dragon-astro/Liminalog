@@ -191,27 +191,30 @@ struct CalendarDayView: View {
             Text("残り \(planningDeadlineText)")
                 .font(.caption.weight(.bold))
                 .monospacedDigit()
+                .lineLimit(1)
             Spacer(minLength: 10)
             Image(systemName: statusIcon)
                 .font(.caption2.weight(.bold))
                 .symbolRenderingMode(.hierarchical)
             Text(statusText)
                 .font(.caption2.weight(.semibold))
+                .lineLimit(1)
         }
         .foregroundStyle(tint)
         .padding(.horizontal, 10)
         .padding(.vertical, 7)
         .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(tint.opacity(0.12))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(tint.opacity(0.5), lineWidth: 1)
-            )
-            .accessibilityLabel("明日の予定づくりの残り時間")
-            .accessibilityValue("\(planningDeadlineText)、\(statusText)")
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(tint.opacity(0.12))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(tint.opacity(0.5), lineWidth: 1)
+        )
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("明日の予定づくりの残り時間")
+        .accessibilityValue("\(planningDeadlineText)、\(statusText)")
     }
 
     private var scoreArea: some View {
