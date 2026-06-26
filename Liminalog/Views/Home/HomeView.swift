@@ -502,6 +502,8 @@ private struct TomorrowPlanPage: View {
                     planTitleBold: planTitleBold,
                     isInteractionEnabled: true,
                     isPageSwipeActive: false,
+                    showsChrome: true,
+                    colorStyle: .standalone,
                     visibleHour: $visibleHour,
                     selectedCategoryID: $selectedCategoryID,
                     isScheduleInteractionActive: $isScheduleInteractionActive,

@@ -21,6 +21,12 @@ enum PlanTimelineResizeEdge {
     case end
 }
 
+enum PlanTimelineAdjustment {
+    case move
+    case resizeStart
+    case resizeEnd
+}
+
 struct PlanTimelineResizeResult: Equatable {
     let startMinute: Int
     let endMinute: Int
@@ -138,6 +144,284 @@ enum PlanTimelineRescheduler {
         }
     }
 
+    static func resolveClamped(
+        items: [PlanTimelineInterval],
+        editingID: UUID,
+        proposedStartMinute: Int,
+        proposedEndMinute: Int,
+        pushDirection: PlanTimelinePushDirection,
+        adjustment: PlanTimelineAdjustment,
+        minimumDuration: Int = 15
+    ) -> [PlanTimelineInterval]? {
+        guard let original = items.first(where: { $0.id == editingID }),
+              proposedStartMinute < proposedEndMinute
+        else {
+            return nil
+        }
+
+        var proposal = clampedToDay(
+            start: proposedStartMinute,
+            end: proposedEndMinute,
+            original: original,
+            adjustment: adjustment,
+            minimumDuration: minimumDuration
+        )
+        let effectivePushDirection = effectivePushDirection(
+            requestedDirection: pushDirection,
+            adjustment: adjustment,
+            items: items,
+            editingID: editingID,
+            original: original,
+            proposal: proposal
+        )
+
+        let correction = correctionForReachability(
+            items: items,
+            editingID: editingID,
+            proposedStartMinute: proposal.start,
+            proposedEndMinute: proposal.end,
+            pushDirection: effectivePushDirection
+        )
+
+        switch (effectivePushDirection, adjustment) {
+        case (.later, .resizeEnd):
+            proposal.end -= correction
+        case (.later, .move):
+            proposal.start -= correction
+            proposal.end -= correction
+        case (.later, .resizeStart):
+            if proposal.end == original.endMinute {
+                proposal.start = min(proposal.start, proposal.end - minimumDuration)
+            } else {
+                proposal.start -= correction
+                proposal.end -= correction
+            }
+
+        case (.earlier, .resizeStart):
+            proposal.start += correction
+        case (.earlier, .move):
+            proposal.start += correction
+            proposal.end += correction
+        case (.earlier, .resizeEnd):
+            if proposal.start == original.startMinute {
+                proposal.end = max(proposal.end, proposal.start + minimumDuration)
+            } else {
+                proposal.start += correction
+                proposal.end += correction
+            }
+        }
+
+        guard proposal.end - proposal.start >= minimumDuration else {
+            return nil
+        }
+
+        if let resolved = resolve(
+            items: items,
+            editingID: editingID,
+            proposedStartMinute: proposal.start,
+            proposedEndMinute: proposal.end,
+            pushDirection: effectivePushDirection
+        ) {
+            return resolved
+        }
+
+        return nil
+    }
+
+    private static func clampedToDay(
+        start: Int,
+        end: Int,
+        original: PlanTimelineInterval,
+        adjustment: PlanTimelineAdjustment,
+        minimumDuration: Int
+    ) -> (start: Int, end: Int) {
+        var start = start
+        var end = end
+
+        switch adjustment {
+        case .move:
+            let duration = max(minimumDuration, end - start)
+            start = max(dayStartMinute, min(dayEndMinute - duration, start))
+            end = start + duration
+
+        case .resizeStart:
+            if end == original.endMinute {
+                end = max(dayStartMinute + minimumDuration, min(dayEndMinute, end))
+                start = max(dayStartMinute, min(end - minimumDuration, start))
+            } else {
+                let duration = max(minimumDuration, end - start)
+                if start < dayStartMinute {
+                    start = dayStartMinute
+                    end = start + duration
+                }
+                if end > dayEndMinute {
+                    end = dayEndMinute
+                    start = end - duration
+                }
+            }
+
+        case .resizeEnd:
+            if start == original.startMinute {
+                start = max(dayStartMinute, min(dayEndMinute - minimumDuration, start))
+                end = min(dayEndMinute, max(start + minimumDuration, end))
+            } else {
+                let duration = max(minimumDuration, end - start)
+                if end > dayEndMinute {
+                    end = dayEndMinute
+                    start = end - duration
+                }
+                if start < dayStartMinute {
+                    start = dayStartMinute
+                    end = start + duration
+                }
+            }
+        }
+
+        return (start, end)
+    }
+
+    private static func effectivePushDirection(
+        requestedDirection: PlanTimelinePushDirection,
+        adjustment: PlanTimelineAdjustment,
+        items: [PlanTimelineInterval],
+        editingID: UUID,
+        original: PlanTimelineInterval,
+        proposal: (start: Int, end: Int)
+    ) -> PlanTimelinePushDirection {
+        if let upperBoundary = upperBoundaryEnd(in: items, editingID: editingID, original: original),
+           proposal.start < upperBoundary {
+            return .earlier
+        }
+        if let lowerBoundary = lowerBoundaryStart(in: items, editingID: editingID, original: original),
+           proposal.end > lowerBoundary {
+            return .later
+        }
+
+        switch adjustment {
+        case .move:
+            return requestedDirection
+        case .resizeEnd:
+            return proposal.start < original.startMinute ? .earlier : requestedDirection
+        case .resizeStart:
+            return proposal.end > original.endMinute ? .later : requestedDirection
+        }
+    }
+
+    private static func upperBoundaryEnd(
+        in items: [PlanTimelineInterval],
+        editingID: UUID,
+        original: PlanTimelineInterval
+    ) -> Int? {
+        items
+            .filter { $0.id != editingID && $0.startMinute < original.startMinute }
+            .map(\.endMinute)
+            .max()
+    }
+
+    private static func lowerBoundaryStart(
+        in items: [PlanTimelineInterval],
+        editingID: UUID,
+        original: PlanTimelineInterval
+    ) -> Int? {
+        items
+            .filter { $0.id != editingID && $0.endMinute > original.endMinute }
+            .map(\.startMinute)
+            .min()
+    }
+
+    private static func correctionForReachability(
+        items: [PlanTimelineInterval],
+        editingID: UUID,
+        proposedStartMinute: Int,
+        proposedEndMinute: Int,
+        pushDirection: PlanTimelinePushDirection
+    ) -> Int {
+        switch pushDirection {
+        case .later:
+            return laterOverflow(
+                items: items,
+                editingID: editingID,
+                proposedStartMinute: proposedStartMinute,
+                proposedEndMinute: proposedEndMinute
+            )
+        case .earlier:
+            return earlierUnderflow(
+                items: items,
+                editingID: editingID,
+                proposedStartMinute: proposedStartMinute,
+                proposedEndMinute: proposedEndMinute
+            )
+        }
+    }
+
+    private static func laterOverflow(
+        items: [PlanTimelineInterval],
+        editingID: UUID,
+        proposedStartMinute: Int,
+        proposedEndMinute: Int
+    ) -> Int {
+        var previousEnd = proposedEndMinute
+        if previousEnd > dayEndMinute {
+            return previousEnd - dayEndMinute
+        }
+
+        let candidates = items
+            .filter { $0.id != editingID && $0.endMinute > proposedStartMinute }
+            .sorted {
+                if $0.startMinute == $1.startMinute {
+                    return $0.endMinute < $1.endMinute
+                }
+                return $0.startMinute < $1.startMinute
+            }
+
+        for candidate in candidates {
+            guard candidate.startMinute < previousEnd else { break }
+            if candidate.isLocked {
+                return previousEnd - candidate.startMinute
+            }
+            previousEnd += candidate.duration
+            if previousEnd > dayEndMinute {
+                return previousEnd - dayEndMinute
+            }
+        }
+
+        return 0
+    }
+
+    private static func earlierUnderflow(
+        items: [PlanTimelineInterval],
+        editingID: UUID,
+        proposedStartMinute: Int,
+        proposedEndMinute: Int
+    ) -> Int {
+        var nextStart = proposedStartMinute
+        if nextStart < dayStartMinute {
+            return dayStartMinute - nextStart
+        }
+
+        let candidates = items
+            .filter { $0.id != editingID && $0.startMinute < proposedEndMinute }
+            .sorted {
+                if $0.endMinute == $1.endMinute {
+                    return $0.startMinute > $1.startMinute
+                }
+                return $0.endMinute > $1.endMinute
+            }
+
+        for candidate in candidates {
+            guard candidate.endMinute > nextStart else { break }
+            if candidate.isLocked {
+                return candidate.endMinute - nextStart
+            }
+            nextStart -= candidate.duration
+            if nextStart < dayStartMinute {
+                return dayStartMinute - nextStart
+            }
+        }
+
+        return 0
+    }
+
     private static func pushLater(in items: inout [PlanTimelineInterval], editingIndex: Int) -> Bool {
         let editingInterval = items[editingIndex]
         guard editingInterval.endMinute <= dayEndMinute else { return false }
@@ -189,4 +473,5 @@ enum PlanTimelineRescheduler {
         }
         return true
     }
+
 }

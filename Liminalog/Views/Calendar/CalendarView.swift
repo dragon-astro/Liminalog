@@ -20,6 +20,7 @@ struct CalendarView: View {
     @State private var showingMonthPicker = false
     @State private var pickerYear = Calendar.japanese.component(.year, from: Date())
     @State private var pickerMonth = Calendar.japanese.component(.month, from: Date())
+    @State private var pickerDay = Calendar.japanese.component(.day, from: Date())
     @State private var showingCalendarSettings = false
     @State private var showingCalendarSearch = false
     @State private var showingCalendarFilter = false
@@ -56,12 +57,14 @@ struct CalendarView: View {
                 CalendarMonthPickerSheet(
                     selectedYear: $pickerYear,
                     selectedMonth: $pickerMonth,
+                    selectedDay: $pickerDay,
+                    includesDay: displayMode == .day,
                     yearRange: calendarYearRange,
                     onCancel: {
                         showingMonthPicker = false
                     },
                     onDone: {
-                        applyPickedMonth()
+                        applyPickedPeriod()
                         showingMonthPicker = false
                     }
                 )
@@ -689,11 +692,21 @@ struct CalendarView: View {
         let sourceDate = displayMode == .month ? visibleMonth : visibleTimelineDate
         pickerYear = calendar.component(.year, from: sourceDate)
         pickerMonth = calendar.component(.month, from: sourceDate)
+        pickerDay = calendar.component(.day, from: sourceDate)
     }
 
-    private func applyPickedMonth() {
-        let components = DateComponents(year: pickerYear, month: pickerMonth, day: 1)
+    private func applyPickedPeriod() {
+        let day = displayMode == .day ? min(pickerDay, daysInPickerMonth) : 1
+        let components = DateComponents(year: pickerYear, month: pickerMonth, day: day)
         jump(to: calendar.date(from: components) ?? visibleMonth)
+    }
+
+    private var daysInPickerMonth: Int {
+        let components = DateComponents(year: pickerYear, month: pickerMonth, day: 1)
+        guard let month = calendar.date(from: components),
+              let range = calendar.range(of: .day, in: .month, for: month)
+        else { return 31 }
+        return range.count
     }
 
     private func monthGridDates(for month: Date) -> [Date] {
@@ -1260,6 +1273,7 @@ private struct CalendarTimelineEmptyCategoryChip: View {
 
 private struct CalendarDayTimelineContainer: View {
     @Environment(ChapterStore.self) private var store
+    @Environment(\.colorScheme) private var colorScheme
 
     let date: Date
     let categories: [Category]
@@ -1275,6 +1289,8 @@ private struct CalendarDayTimelineContainer: View {
     let onEditPlan: (PlanBlock) -> Void
     let onScheduleChanged: () -> Void
     private let bottomChromeInset: CGFloat = 14
+    private let timelineHorizontalPadding: CGFloat = 16
+    private let timelineTopPadding: CGFloat = 6
 
     init(
         date: Date,
@@ -1309,32 +1325,287 @@ private struct CalendarDayTimelineContainer: View {
 
     var body: some View {
         GeometryReader { proxy in
-            EditablePlanTimelineView(
-                date: date,
-                plans: plans,
-                categories: categories,
-                visibleCategoryIDs: visibleCategoryIDs,
-                isEditingEnabled: store.canCreatePlan(startTime: date, isAllDay: false),
-                planTitleFontSize: planTitleFontSize,
-                planTitleBold: planTitleBold,
-                isInteractionEnabled: isInteractionEnabled,
-                isPageSwipeActive: isPageSwipeActive,
-                visibleHour: $visibleHour,
-                selectedCategoryID: $selectedCategoryID,
-                isScheduleInteractionActive: $isScheduleInteractionActive,
-                onEditPlan: onEditPlan,
-                onScheduleChanged: onScheduleChanged
+            let timelineWidth = max(1, proxy.size.width - timelineHorizontalPadding * 2)
+            let cardHeight = max(1, proxy.size.height - timelineTopPadding - bottomChromeInset)
+            let allDayHeaderHeight = CalendarDayTimelineAllDayHeader.height(
+                forPlanCount: allDayPlans.count,
+                planTitleFontSize: planTitleFontSize
             )
-            .frame(
-                width: max(1, proxy.size.width - 32),
-                height: max(1, proxy.size.height - 6 - bottomChromeInset),
-                alignment: .top
+            VStack(spacing: 0) {
+                CalendarDayTimelineAllDayHeader(
+                    date: date,
+                    plans: allDayPlans,
+                    planTitleFontSize: planTitleFontSize,
+                    onOpenPlan: onEditPlan
+                )
+                .frame(width: timelineWidth, height: allDayHeaderHeight)
+
+                EditablePlanTimelineView(
+                    date: date,
+                    plans: plans,
+                    categories: categories,
+                    visibleCategoryIDs: visibleCategoryIDs,
+                    isEditingEnabled: store.canCreatePlan(startTime: date, isAllDay: false),
+                    planTitleFontSize: planTitleFontSize,
+                    planTitleBold: planTitleBold,
+                    isInteractionEnabled: isInteractionEnabled,
+                    isPageSwipeActive: isPageSwipeActive,
+                    showsChrome: false,
+                    colorStyle: .calendarGrid,
+                    visibleHour: $visibleHour,
+                    selectedCategoryID: $selectedCategoryID,
+                    isScheduleInteractionActive: $isScheduleInteractionActive,
+                    onEditPlan: onEditPlan,
+                    onScheduleChanged: onScheduleChanged
+                )
+                .frame(
+                    width: timelineWidth,
+                    height: max(1, cardHeight - allDayHeaderHeight),
+                    alignment: .top
+                )
+            }
+            .frame(width: timelineWidth, height: cardHeight, alignment: .top)
+            .background(dayTimelineBackground)
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(dayTimelineStroke, lineWidth: 1)
             )
-            .padding(.horizontal, 16)
-            .padding(.top, 6)
+            .padding(.horizontal, timelineHorizontalPadding)
+            .padding(.top, timelineTopPadding)
         }
     }
 
+    private var allDayPlans: [PlanBlock] {
+        plans
+            .filter { $0.isAllDay && isPlanVisible($0) }
+            .sorted {
+                if $0.startTime == $1.startTime {
+                    return $0.createdAt < $1.createdAt
+                }
+                return $0.startTime < $1.startTime
+            }
+    }
+
+    private func isPlanVisible(_ plan: PlanBlock) -> Bool {
+        guard let visibleCategoryIDs else { return true }
+        guard let categoryID = plan.category?.id else { return false }
+        return visibleCategoryIDs.contains(categoryID)
+    }
+
+    private var dayTimelineBackground: Color {
+        colorScheme == .dark
+            ? Color(red: 0.035, green: 0.037, blue: 0.043)
+            : Color(red: 0.985, green: 0.985, blue: 0.98)
+    }
+
+    private var dayTimelineStroke: Color {
+        colorScheme == .dark ? Color.white.opacity(0.14) : Color.black.opacity(0.12)
+    }
+
+}
+
+private struct CalendarDayTimelineAllDayHeader: View {
+    @Environment(\.colorScheme) private var colorScheme
+
+    let date: Date
+    let plans: [PlanBlock]
+    let planTitleFontSize: Double
+    let onOpenPlan: (PlanBlock) -> Void
+    private let calendar = Calendar.japanese
+
+    static func height(forPlanCount planCount: Int, planTitleFontSize: Double) -> CGFloat {
+        dayHeaderHeight + allDayLaneHeight(
+            forPlanCount: planCount,
+            planTitleFontSize: planTitleFontSize
+        )
+    }
+
+    private static func allDayLaneHeight(forPlanCount planCount: Int, planTitleFontSize: Double) -> CGFloat {
+        let visibleCount = min(planCount, visibleRowLimit)
+        guard visibleCount > 0 else { return 1 }
+        let itemHeight = CalendarDayTimelineAllDayRow.height(forTitleFontSize: planTitleFontSize)
+        return laneVerticalPadding * 2
+            + CGFloat(visibleCount) * itemHeight
+            + CGFloat(max(visibleCount - 1, 0)) * itemSpacing
+    }
+
+    private static let visibleRowLimit = 2
+    private static let dayHeaderHeight: CGFloat = 46
+    private static let hourColumnWidth: CGFloat = 50
+    private static let daySpacing: CGFloat = 1
+    private static let itemSpacing: CGFloat = 1.5
+    private static let laneVerticalPadding: CGFloat = 2
+
+    private var visiblePlans: ArraySlice<PlanBlock> {
+        plans.prefix(Self.visibleRowLimit)
+    }
+
+    private var hiddenCount: Int {
+        max(0, plans.count - Self.visibleRowLimit)
+    }
+
+    private var allDayLaneHeight: CGFloat {
+        Self.allDayLaneHeight(
+            forPlanCount: plans.count,
+            planTitleFontSize: planTitleFontSize
+        )
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: Self.daySpacing) {
+                Rectangle()
+                    .fill(hourColumnBackground)
+                    .frame(width: Self.hourColumnWidth, height: Self.dayHeaderHeight)
+
+                VStack(spacing: 2) {
+                    Text(dayNumberText)
+                        .font(.system(size: 14, weight: isToday ? .bold : .semibold, design: .monospaced))
+                        .foregroundStyle(dayNumberColor)
+                        .frame(width: 27, height: 27)
+                        .background {
+                            if isToday {
+                                Circle()
+                                    .fill(LiminalTheme.accent.opacity(0.82))
+                            }
+                        }
+
+                    Text(weekdayText)
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(weekdayColor)
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: Self.dayHeaderHeight)
+                .background(dayHeaderBackground)
+            }
+            .frame(height: Self.dayHeaderHeight)
+            .background(gridLine)
+
+            HStack(alignment: .top, spacing: Self.daySpacing) {
+                Rectangle()
+                    .fill(hourColumnBackground)
+                    .frame(width: Self.hourColumnWidth)
+                    .frame(height: allDayLaneHeight)
+
+                VStack(alignment: .leading, spacing: Self.itemSpacing) {
+                    ForEach(visiblePlans) { plan in
+                        Button {
+                            LiminalHaptics.openSheet()
+                            onOpenPlan(plan)
+                        } label: {
+                            CalendarDayTimelineAllDayRow(
+                                plan: plan,
+                                titleFontSize: planTitleFontSize
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    if hiddenCount > 0 {
+                        Text("+\(hiddenCount)")
+                            .font(.system(size: 8, weight: .bold, design: .monospaced))
+                            .foregroundStyle(LiminalTheme.secondaryText)
+                            .padding(.horizontal, 4)
+                    }
+                }
+                .padding(.horizontal, 2)
+                .padding(.vertical, Self.laneVerticalPadding)
+                .frame(maxWidth: .infinity)
+                .frame(height: allDayLaneHeight, alignment: .topLeading)
+                .background(dayColumnBackground)
+            }
+            .frame(height: allDayLaneHeight)
+        }
+        .background(gridLine)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(gridLine)
+                .frame(height: 1)
+        }
+    }
+
+    private var dayNumberText: String {
+        "\(calendar.component(.day, from: date))"
+    }
+
+    private var weekdayText: String {
+        let index = calendar.component(.weekday, from: date) - 1
+        return Calendar.japaneseShortWeekdaySymbols[max(0, min(index, Calendar.japaneseShortWeekdaySymbols.count - 1))]
+    }
+
+    private var isToday: Bool {
+        calendar.isDateInToday(date)
+    }
+
+    private var weekdayColor: Color {
+        let weekday = calendar.component(.weekday, from: date)
+        if weekday == 1 { return .red }
+        if weekday == 7 { return .blue }
+        return LiminalTheme.secondaryText
+    }
+
+    private var dayNumberColor: Color {
+        isToday ? .white : weekdayColor
+    }
+
+    private var dayHeaderBackground: Color {
+        timelineBackground
+    }
+
+    private var dayColumnBackground: Color {
+        timelineBackground
+    }
+
+    private var timelineBackground: Color {
+        colorScheme == .dark
+            ? Color(red: 0.035, green: 0.037, blue: 0.043)
+            : Color(red: 0.985, green: 0.985, blue: 0.98)
+    }
+
+    private var hourColumnBackground: Color {
+        colorScheme == .dark
+            ? Color(red: 0.05, green: 0.052, blue: 0.06)
+            : Color(red: 0.955, green: 0.955, blue: 0.945)
+    }
+
+    private var gridLine: Color {
+        colorScheme == .dark ? Color.white.opacity(0.16) : Color.black.opacity(0.13)
+    }
+}
+
+private struct CalendarDayTimelineAllDayRow: View {
+    let plan: PlanBlock
+    let titleFontSize: Double
+
+    static func height(forTitleFontSize titleFontSize: Double) -> CGFloat {
+        max(13, ceil(displayTitleFontSize(for: titleFontSize) + 2))
+    }
+
+    private static func displayTitleFontSize(for titleFontSize: Double) -> CGFloat {
+        CalendarPlanTitleMetrics.timelineBlockTitleSize(titleFontSize)
+    }
+
+    private var tint: Color {
+        plan.category?.displayColor ?? LiminalTheme.accent
+    }
+
+    var body: some View {
+        Text(plan.title.isEmpty ? (plan.category?.name ?? "予定") : plan.title)
+            .font(.system(size: displayTitleFontSize, weight: .bold))
+            .lineLimit(1)
+            .minimumScaleFactor(0.72)
+            .allowsTightening(true)
+            .foregroundStyle(.white)
+            .padding(.horizontal, 3)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(height: Self.height(forTitleFontSize: titleFontSize))
+            .background(tint.opacity(0.68), in: RoundedRectangle(cornerRadius: 3.5, style: .continuous))
+    }
+
+    private var displayTitleFontSize: CGFloat {
+        Self.displayTitleFontSize(for: titleFontSize)
+    }
 }
 
 private struct CalendarDayPagerSheet: View {
@@ -1345,37 +1616,45 @@ private struct CalendarDayPagerSheet: View {
     let initialDate: Date
     let highlightedPlanID: UUID?
 
-    @State private var anchorDate: Date
-    @State private var selectedOffset = 0
+    @State private var scrolledOffset: Int? = 0
     @State private var pendingCreateDate: Date
     @State private var pendingPlanStartsAsAllDay = false
     @State private var showingPlanSheet = false
     @State private var operationError: String?
+    private let pageOffsets = Array(-240...240)
 
     init(initialDate: Date, highlightedPlanID: UUID?) {
         self.initialDate = Calendar.japanese.startOfDay(for: initialDate)
         self.highlightedPlanID = highlightedPlanID
-        _anchorDate = State(initialValue: Calendar.japanese.startOfDay(for: initialDate))
         _pendingCreateDate = State(initialValue: Calendar.japanese.startOfDay(for: initialDate))
     }
 
     var body: some View {
-        TabView(selection: $selectedOffset) {
-            ForEach([-1, 0, 1], id: \.self) { offset in
-                CalendarDayView(
-                    date: pageDate(offset),
-                    highlightedPlanID: highlightedPlanID(for: pageDate(offset)),
-                    showsNavigationControls: false,
-                    allowsDayNavigation: false
-                )
-                .id(pageDate(offset).timeIntervalSince1970)
-                .tag(offset)
+        ScrollView(.horizontal) {
+            LazyHStack(alignment: .top, spacing: 0) {
+                ForEach(pageOffsets, id: \.self) { offset in
+                    CalendarDayView(
+                        date: pageDate(offset),
+                        highlightedPlanID: highlightedPlanID(for: pageDate(offset)),
+                        showsNavigationControls: false,
+                        allowsDayNavigation: false
+                    )
+                    .containerRelativeFrame(.horizontal)
+                    .accessibilityHidden(offset != currentOffset)
+                    .id(offset)
+                }
             }
+            .scrollTargetLayout()
         }
-        .tabViewStyle(.page(indexDisplayMode: .never))
-        .onChange(of: selectedOffset) { _, newValue in
-            guard newValue != 0 else { return }
-            settlePageShift(newValue)
+        .scrollTargetBehavior(.paging)
+        .scrollPosition(id: $scrolledOffset, anchor: .center)
+        .defaultScrollAnchor(.center)
+        .scrollIndicators(.hidden)
+        .contentShape(Rectangle())
+        .onAppear {
+            if scrolledOffset == nil {
+                scrolledOffset = 0
+            }
         }
         .navigationBarBackButtonHidden()
         .toolbar {
@@ -1415,22 +1694,20 @@ private struct CalendarDayPagerSheet: View {
         }
     }
 
+    private var currentOffset: Int {
+        scrolledOffset ?? 0
+    }
+
+    private var currentDate: Date {
+        pageDate(currentOffset)
+    }
+
     private func pageDate(_ offset: Int) -> Date {
-        Calendar.japanese.date(byAdding: .day, value: offset, to: anchorDate) ?? anchorDate
+        Calendar.japanese.date(byAdding: .day, value: offset, to: initialDate) ?? initialDate
     }
 
     private func highlightedPlanID(for date: Date) -> UUID? {
         Calendar.japanese.isDate(date, inSameDayAs: initialDate) ? highlightedPlanID : nil
-    }
-
-    private func settlePageShift(_ offset: Int) {
-        let targetDate = pageDate(offset)
-        var transaction = Transaction()
-        transaction.disablesAnimations = true
-        withTransaction(transaction) {
-            anchorDate = targetDate
-            selectedOffset = 0
-        }
     }
 
     private var operationErrorPresented: Binding<Bool> {
@@ -1494,7 +1771,7 @@ private struct CalendarDayPagerSheet: View {
     }
 
     private var dayChapters: [Chapter] {
-        let boundary = DayBoundary(date: anchorDate, calendar: .japanese)
+        let boundary = DayBoundary(date: currentDate, calendar: .japanese)
         return ScoreSnapshotLoader.chapters(
             in: DateInterval(start: boundary.dayStart, end: boundary.dayEnd),
             modelContext: modelContext,
@@ -1504,14 +1781,14 @@ private struct CalendarDayPagerSheet: View {
     }
 
     private var canCreateTimedPlansForDay: Bool {
-        store.canCreatePlan(startTime: anchorDate, isAllDay: false)
+        store.canCreatePlan(startTime: currentDate, isAllDay: false)
     }
 
     private var defaultPlanStart: Date {
-        if Calendar.japanese.isDateInToday(anchorDate) {
+        if Calendar.japanese.isDateInToday(currentDate) {
             return Date()
         }
-        return Calendar.japanese.date(bySettingHour: 9, minute: 0, second: 0, of: anchorDate) ?? anchorDate
+        return Calendar.japanese.date(bySettingHour: 9, minute: 0, second: 0, of: currentDate) ?? currentDate
     }
 
     private func preparePlanCreation() {
@@ -1519,7 +1796,7 @@ private struct CalendarDayPagerSheet: View {
             pendingCreateDate = defaultPlanStart
             pendingPlanStartsAsAllDay = false
         } else {
-            pendingCreateDate = Calendar.japanese.startOfDay(for: anchorDate)
+            pendingCreateDate = Calendar.japanese.startOfDay(for: currentDate)
             pendingPlanStartsAsAllDay = true
         }
         showingPlanSheet = true
@@ -1930,6 +2207,11 @@ private enum CalendarPlanTitleMetrics {
         guard value.isFinite else { return defaultSize }
         return min(max(value, minSize), maxSize)
     }
+
+    static func timelineBlockTitleSize(_ value: Double) -> CGFloat {
+        let normalized = clamped(value)
+        return CGFloat(10.8 + (normalized - defaultSize) * 0.62)
+    }
 }
 
 private struct CalendarLabelStyleSettingRow: View {
@@ -2152,9 +2434,31 @@ private struct CalendarLabelStylePreview: View {
 struct CalendarMonthPickerSheet: View {
     @Binding var selectedYear: Int
     @Binding var selectedMonth: Int
+    @Binding var selectedDay: Int
+    let includesDay: Bool
     let yearRange: ClosedRange<Int>
     let onCancel: () -> Void
     let onDone: () -> Void
+
+    private let calendar = Calendar.japanese
+
+    init(
+        selectedYear: Binding<Int>,
+        selectedMonth: Binding<Int>,
+        selectedDay: Binding<Int> = .constant(1),
+        includesDay: Bool = false,
+        yearRange: ClosedRange<Int>,
+        onCancel: @escaping () -> Void,
+        onDone: @escaping () -> Void
+    ) {
+        _selectedYear = selectedYear
+        _selectedMonth = selectedMonth
+        _selectedDay = selectedDay
+        self.includesDay = includesDay
+        self.yearRange = yearRange
+        self.onCancel = onCancel
+        self.onDone = onDone
+    }
 
     var body: some View {
         NavigationStack {
@@ -2174,10 +2478,26 @@ struct CalendarMonthPickerSheet: View {
                 }
                 .pickerStyle(.wheel)
                 .frame(maxWidth: .infinity)
+
+                if includesDay {
+                    Picker("日", selection: $selectedDay) {
+                        ForEach(1...daysInSelectedMonth, id: \.self) { day in
+                            Text("\(day)日").tag(day)
+                        }
+                    }
+                    .pickerStyle(.wheel)
+                    .frame(maxWidth: .infinity)
+                }
             }
             .padding(.horizontal, 12)
-            .navigationTitle("年月を選択")
+            .navigationTitle(includesDay ? "日付を選択" : "年月を選択")
             .navigationBarTitleDisplayMode(.inline)
+            .onChange(of: selectedYear) { _, _ in
+                clampSelectedDay()
+            }
+            .onChange(of: selectedMonth) { _, _ in
+                clampSelectedDay()
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("キャンセル", action: onCancel)
@@ -2189,6 +2509,18 @@ struct CalendarMonthPickerSheet: View {
             }
         }
         .presentationDetents([.height(280)])
+    }
+
+    private var daysInSelectedMonth: Int {
+        let components = DateComponents(year: selectedYear, month: selectedMonth, day: 1)
+        guard let date = calendar.date(from: components),
+              let range = calendar.range(of: .day, in: .month, for: date)
+        else { return 31 }
+        return range.count
+    }
+
+    private func clampSelectedDay() {
+        selectedDay = min(selectedDay, daysInSelectedMonth)
     }
 }
 

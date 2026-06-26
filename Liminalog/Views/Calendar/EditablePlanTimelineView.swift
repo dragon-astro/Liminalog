@@ -45,6 +45,11 @@ private struct EditableTimelineRenderCache {
     let visiblePlanIDs: Set<UUID>
 }
 
+enum EditablePlanTimelineColorStyle {
+    case standalone
+    case calendarGrid
+}
+
 struct EditablePlanTimelineView: View {
     @Environment(ChapterStore.self) private var store
     @Environment(\.colorScheme) private var colorScheme
@@ -58,6 +63,8 @@ struct EditablePlanTimelineView: View {
     let planTitleBold: Bool
     let isInteractionEnabled: Bool
     let isPageSwipeActive: Bool
+    let showsChrome: Bool
+    let colorStyle: EditablePlanTimelineColorStyle
     @Binding var visibleHour: Int
     @Binding var selectedCategoryID: UUID?
     @Binding var isScheduleInteractionActive: Bool
@@ -68,6 +75,7 @@ struct EditablePlanTimelineView: View {
     @State private var draftIntervals: [PlanTimelineInterval]?
     @State private var gestureBaseline: [PlanTimelineInterval]?
     @State private var resizeInteractionAnchor: PlanTimelineInterval?
+    @State private var resizeMinimumLock: EditableResizeMinimumLock?
     @State private var activeResizeEdge: EditablePlanResizeEdge?
     @State private var creationDraft: PlanCreationDraft?
     @State private var creationGestureIsActive = false
@@ -274,14 +282,21 @@ struct EditablePlanTimelineView: View {
                 .frame(width: proxy.size.width, height: proxy.size.height)
                 .scrollDisabled(shouldDisableTimelineScroll || isPageSwipeActive)
                 .scrollIndicators(.visible)
-                .background(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(timelineBackground)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .stroke(timelineOuterStroke, lineWidth: 1)
-                )
+                .background {
+                    if showsChrome {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(timelineBackground)
+                    } else {
+                        Rectangle()
+                            .fill(timelineBackground)
+                    }
+                }
+                .overlay {
+                    if showsChrome {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .stroke(timelineOuterStroke, lineWidth: 1)
+                    }
+                }
                 .onAppear {
                     scrollToVisibleHour(with: scrollProxy)
                 }
@@ -484,7 +499,8 @@ struct EditablePlanTimelineView: View {
         )
         .offset(
             x: blockXOffset(for: width, slot: slot),
-            y: yOffset(for: interval.startMinute) - EditablePlanBlockMetrics.verticalOverflow
+            y: yOffset(for: interval.startMinute)
+                - EditablePlanBlockMetrics.verticalOverflow
         )
         .zIndex(isSelected ? 10 : 1)
 
@@ -922,10 +938,9 @@ struct EditablePlanTimelineView: View {
                 let delta = snappedMinuteDelta(dragTranslationY(value))
                 let proposedStart = original.startMinute + delta
                 let proposedEnd = original.endMinute + delta
-                guard lastMoveFeedbackMinute != proposedStart else { return }
                 let direction: PlanTimelinePushDirection = delta >= 0 ? .later : .earlier
-                if updateDraft(from: baseline, editingID: plan.id, start: proposedStart, end: proposedEnd, direction: direction) {
-                    notifyMoveStepIfNeeded(proposedStart)
+                if let interval = updateDraft(from: baseline, editingID: plan.id, start: proposedStart, end: proposedEnd, direction: direction, adjustment: .move) {
+                    notifyMoveStepIfNeeded(interval.startMinute)
                 }
             }
             .onEnded { _ in
@@ -934,7 +949,7 @@ struct EditablePlanTimelineView: View {
     }
 
     private func startHandleGesture(for plan: PlanBlock) -> some Gesture {
-        DragGesture(minimumDistance: 2, coordinateSpace: .global)
+        DragGesture(minimumDistance: 0, coordinateSpace: .global)
             .onChanged { value in
                 guard selectedPlanID == plan.id, !store.isPlanScheduleLocked(plan) else { return }
                 markScheduleInteractionActive()
@@ -949,10 +964,9 @@ struct EditablePlanTimelineView: View {
                 }
                 activeResizeEdge = .start
                 let delta = snappedMinuteDelta(resizeDragTranslationY(value))
-                let resize = resizedInterval(from: original, edge: .start, delta: delta)
-                guard lastResizeFeedbackMinute != resize.feedbackMinute else { return }
-                if updateDraft(from: baseline, editingID: plan.id, start: resize.start, end: resize.end, direction: resize.direction) {
-                    notifyResizeStepIfNeeded(resize.feedbackMinute)
+                let resize = resizedInterval(from: original, edge: .start, delta: delta, currentGlobalY: value.location.y)
+                if let interval = updateDraft(from: baseline, editingID: plan.id, start: resize.start, end: resize.end, direction: resize.direction, adjustment: .resizeStart) {
+                    notifyResizeStepIfNeeded(interval.startMinute)
                 }
             }
             .onEnded { _ in
@@ -961,7 +975,7 @@ struct EditablePlanTimelineView: View {
     }
 
     private func endHandleGesture(for plan: PlanBlock) -> some Gesture {
-        DragGesture(minimumDistance: 2, coordinateSpace: .global)
+        DragGesture(minimumDistance: 0, coordinateSpace: .global)
             .onChanged { value in
                 guard selectedPlanID == plan.id, !store.isPlanScheduleLocked(plan) else { return }
                 markScheduleInteractionActive()
@@ -976,10 +990,9 @@ struct EditablePlanTimelineView: View {
                 }
                 activeResizeEdge = .end
                 let delta = snappedMinuteDelta(resizeDragTranslationY(value))
-                let resize = resizedInterval(from: original, edge: .end, delta: delta)
-                guard lastResizeFeedbackMinute != resize.feedbackMinute else { return }
-                if updateDraft(from: baseline, editingID: plan.id, start: resize.start, end: resize.end, direction: resize.direction) {
-                    notifyResizeStepIfNeeded(resize.feedbackMinute)
+                let resize = resizedInterval(from: original, edge: .end, delta: delta, currentGlobalY: value.location.y)
+                if let interval = updateDraft(from: baseline, editingID: plan.id, start: resize.start, end: resize.end, direction: resize.direction, adjustment: .resizeEnd) {
+                    notifyResizeStepIfNeeded(interval.endMinute)
                 }
             }
             .onEnded { _ in
@@ -1119,28 +1132,34 @@ struct EditablePlanTimelineView: View {
             .contentShape(Rectangle())
     }
 
-    @discardableResult
     private func updateDraft(
         from baseline: [PlanTimelineInterval],
         editingID: UUID,
         start: Int,
         end: Int,
-        direction: PlanTimelinePushDirection
-    ) -> Bool {
-        guard let resolved = PlanTimelineRescheduler.resolve(
+        direction: PlanTimelinePushDirection,
+        adjustment: PlanTimelineAdjustment
+    ) -> PlanTimelineInterval? {
+        guard let resolved = PlanTimelineRescheduler.resolveClamped(
             items: baseline,
             editingID: editingID,
             proposedStartMinute: start,
             proposedEndMinute: end,
-            pushDirection: direction
+            pushDirection: direction,
+            adjustment: adjustment,
+            minimumDuration: minimumDurationMinutes
         ) else {
             warnOnceDuringScheduleGesture()
-            return false
+            return nil
         }
         if draftIntervals != resolved {
-            draftIntervals = resolved
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                draftIntervals = resolved
+            }
         }
-        return true
+        return resolved.first { $0.id == editingID }
     }
 
     private func markScheduleInteractionActive() {
@@ -1163,8 +1182,16 @@ struct EditablePlanTimelineView: View {
     private func resizedInterval(
         from original: PlanTimelineInterval,
         edge: EditablePlanResizeEdge,
-        delta: Int
+        delta: Int,
+        currentGlobalY: CGFloat? = nil
     ) -> (start: Int, end: Int, direction: PlanTimelinePushDirection, feedbackMinute: Int) {
+        if let currentGlobalY,
+           let locked = resizeMinimumLock,
+           locked.planID == original.id,
+           locked.edge == edge {
+            return resizedIntervalFromMinimumLock(locked, currentGlobalY: currentGlobalY)
+        }
+
         let result = PlanTimelineRescheduler.resizedBounds(
             originalStartMinute: original.startMinute,
             originalEndMinute: original.endMinute,
@@ -1172,7 +1199,56 @@ struct EditablePlanTimelineView: View {
             delta: delta,
             minimumDuration: minimumDurationMinutes
         )
+        let reachedMinimum = result.endMinute - result.startMinute <= minimumDurationMinutes
+        if let currentGlobalY, reachedMinimum, crossedMinimum(from: original, edge: edge, delta: delta) {
+            resizeMinimumLock = EditableResizeMinimumLock(
+                planID: original.id,
+                edge: edge,
+                startMinute: result.startMinute,
+                endMinute: result.endMinute,
+                locationY: currentGlobalY
+            )
+        } else if !reachedMinimum {
+            resizeMinimumLock = nil
+        }
         return (result.startMinute, result.endMinute, result.pushDirection, result.feedbackMinute)
+    }
+
+    private func resizedIntervalFromMinimumLock(
+        _ locked: EditableResizeMinimumLock,
+        currentGlobalY: CGFloat
+    ) -> (start: Int, end: Int, direction: PlanTimelinePushDirection, feedbackMinute: Int) {
+        let delta = snappedMinuteDelta(currentGlobalY - locked.locationY)
+        switch locked.edge {
+        case .start:
+            if delta > 0 {
+                let start = min(PlanTimelineRescheduler.dayEndMinute - minimumDurationMinutes, locked.startMinute + delta)
+                let end = start + minimumDurationMinutes
+                resizeMinimumLock = locked.updated(startMinute: start, endMinute: end, locationY: currentGlobalY)
+                return (start, end, .later, start)
+            }
+            let start = max(PlanTimelineRescheduler.dayStartMinute, min(locked.endMinute - minimumDurationMinutes, locked.startMinute + delta))
+            return (start, locked.endMinute, .earlier, start)
+
+        case .end:
+            if delta < 0 {
+                let end = max(PlanTimelineRescheduler.dayStartMinute + minimumDurationMinutes, locked.endMinute + delta)
+                let start = end - minimumDurationMinutes
+                resizeMinimumLock = locked.updated(startMinute: start, endMinute: end, locationY: currentGlobalY)
+                return (start, end, .earlier, end)
+            }
+            let end = min(PlanTimelineRescheduler.dayEndMinute, max(locked.startMinute + minimumDurationMinutes, locked.endMinute + delta))
+            return (locked.startMinute, end, .later, end)
+        }
+    }
+
+    private func crossedMinimum(from original: PlanTimelineInterval, edge: EditablePlanResizeEdge, delta: Int) -> Bool {
+        switch edge {
+        case .start:
+            original.startMinute + delta > original.endMinute - minimumDurationMinutes
+        case .end:
+            original.endMinute + delta < original.startMinute + minimumDurationMinutes
+        }
     }
 
     private func applyAccessibilityMove(plan: PlanBlock, minuteDelta: Int) {
@@ -1296,6 +1372,7 @@ struct EditablePlanTimelineView: View {
         gestureBaseline = nil
         draftIntervals = nil
         resizeInteractionAnchor = nil
+        resizeMinimumLock = nil
         activeResizeEdge = nil
         resizeDragStartGlobalY = nil
         didWarnDuringScheduleGesture = false
@@ -1336,7 +1413,7 @@ struct EditablePlanTimelineView: View {
     }
 
     private func interval(for plan: PlanBlock) -> PlanTimelineInterval? {
-        displayedIntervals(using: currentRenderCache).first { $0.id == plan.id }
+        return displayedIntervals(using: currentRenderCache).first { $0.id == plan.id }
     }
 
     private var timelineHeight: CGFloat {
@@ -1352,15 +1429,29 @@ struct EditablePlanTimelineView: View {
     }
 
     private var timelineBackground: Color {
-        colorScheme == .dark
-            ? Color(red: 0.125, green: 0.129, blue: 0.145)
-            : Color(red: 0.985, green: 0.985, blue: 0.98)
+        switch colorStyle {
+        case .standalone:
+            colorScheme == .dark
+                ? Color(red: 0.125, green: 0.129, blue: 0.145)
+                : Color(red: 0.985, green: 0.985, blue: 0.98)
+        case .calendarGrid:
+            colorScheme == .dark
+                ? Color(red: 0.035, green: 0.037, blue: 0.043)
+                : Color(red: 0.985, green: 0.985, blue: 0.98)
+        }
     }
 
     private var timelineHourColumnBackground: Color {
-        colorScheme == .dark
-            ? Color(red: 0.105, green: 0.109, blue: 0.125)
-            : Color(red: 0.955, green: 0.955, blue: 0.945)
+        switch colorStyle {
+        case .standalone:
+            colorScheme == .dark
+                ? Color(red: 0.105, green: 0.109, blue: 0.125)
+                : Color(red: 0.955, green: 0.955, blue: 0.945)
+        case .calendarGrid:
+            colorScheme == .dark
+                ? Color(red: 0.05, green: 0.052, blue: 0.06)
+                : Color(red: 0.955, green: 0.955, blue: 0.945)
+        }
     }
 
     private var timelineOuterStroke: Color {
@@ -1760,6 +1851,24 @@ private enum EditablePlanResizeEdge {
         case .end:
             return .end
         }
+    }
+}
+
+private struct EditableResizeMinimumLock {
+    let planID: UUID
+    let edge: EditablePlanResizeEdge
+    let startMinute: Int
+    let endMinute: Int
+    let locationY: CGFloat
+
+    func updated(startMinute: Int, endMinute: Int, locationY: CGFloat) -> EditableResizeMinimumLock {
+        EditableResizeMinimumLock(
+            planID: planID,
+            edge: edge,
+            startMinute: startMinute,
+            endMinute: endMinute,
+            locationY: locationY
+        )
     }
 }
 

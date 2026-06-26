@@ -65,6 +65,54 @@ struct PlanTimelineReschedulerTests {
         #expect(result.feedbackMinute == 15)
     }
 
+    @Test("予定がない方向へ終了ハンドルを伸ばすと日付終端まで伸ばせる")
+    func endHandleCanExpandToDayEndWhenSpaceIsAvailable() {
+        let planID = UUID()
+        let resize = PlanTimelineRescheduler.resizedBounds(
+            originalStartMinute: 21 * 60,
+            originalEndMinute: 22 * 60,
+            edge: .end,
+            delta: 3 * 60
+        )
+        let resolved = PlanTimelineRescheduler.resolve(
+            items: [
+                PlanTimelineInterval(id: planID, startMinute: 21 * 60, endMinute: 22 * 60)
+            ],
+            editingID: planID,
+            proposedStartMinute: resize.startMinute,
+            proposedEndMinute: resize.endMinute,
+            pushDirection: resize.pushDirection
+        )
+
+        let item = resolved?.first
+        #expect(item?.startMinute == 21 * 60)
+        #expect(item?.endMinute == 24 * 60)
+    }
+
+    @Test("予定がない方向へ開始ハンドルを伸ばすと日付始端まで伸ばせる")
+    func startHandleCanExpandToDayStartWhenSpaceIsAvailable() {
+        let planID = UUID()
+        let resize = PlanTimelineRescheduler.resizedBounds(
+            originalStartMinute: 2 * 60,
+            originalEndMinute: 3 * 60,
+            edge: .start,
+            delta: -3 * 60
+        )
+        let resolved = PlanTimelineRescheduler.resolve(
+            items: [
+                PlanTimelineInterval(id: planID, startMinute: 2 * 60, endMinute: 3 * 60)
+            ],
+            editingID: planID,
+            proposedStartMinute: resize.startMinute,
+            proposedEndMinute: resize.endMinute,
+            pushDirection: resize.pushDirection
+        )
+
+        let item = resolved?.first
+        #expect(item?.startMinute == 0)
+        #expect(item?.endMinute == 3 * 60)
+    }
+
     @Test("終了ハンドルで次の予定にぶつかると後続予定を押す")
     func pushesLaterPlansWhenEndHandleExpands() {
         let firstID = UUID()
@@ -159,6 +207,38 @@ struct PlanTimelineReschedulerTests {
         #expect(items[secondID]?.endMinute == 9 * 60 + 45)
         #expect(items[thirdID]?.startMinute == 9 * 60 + 45)
         #expect(items[thirdID]?.endMinute == 11 * 60)
+    }
+
+    @Test("玉突き後に重ならない位置へ戻すと押された予定も元の位置へ戻る")
+    func pushedPlanReturnsWhenEditingPlanMovesBackToNonCollision() {
+        let firstID = UUID()
+        let secondID = UUID()
+        let baseline = [
+            PlanTimelineInterval(id: firstID, startMinute: 9 * 60, endMinute: 10 * 60),
+            PlanTimelineInterval(id: secondID, startMinute: 10 * 60, endMinute: 11 * 60)
+        ]
+        let pushed = PlanTimelineRescheduler.resolve(
+            items: baseline,
+            editingID: firstID,
+            proposedStartMinute: 9 * 60,
+            proposedEndMinute: 10 * 60 + 30,
+            pushDirection: .later
+        )
+        let restored = PlanTimelineRescheduler.resolve(
+            items: baseline,
+            editingID: firstID,
+            proposedStartMinute: 8 * 60,
+            proposedEndMinute: 9 * 60,
+            pushDirection: .earlier
+        )
+
+        let pushedItems = Dictionary(uniqueKeysWithValues: (pushed ?? []).map { ($0.id, $0) })
+        let restoredItems = Dictionary(uniqueKeysWithValues: (restored ?? []).map { ($0.id, $0) })
+        #expect(pushedItems[secondID]?.startMinute == 10 * 60 + 30)
+        #expect(restoredItems[firstID]?.startMinute == 8 * 60)
+        #expect(restoredItems[firstID]?.endMinute == 9 * 60)
+        #expect(restoredItems[secondID]?.startMinute == 10 * 60)
+        #expect(restoredItems[secondID]?.endMinute == 11 * 60)
     }
 
     @Test("予定を後ろへ移動して次の予定をまたいでも玉突きで押す")
@@ -257,6 +337,221 @@ struct PlanTimelineReschedulerTests {
         )
 
         #expect(resolved == nil)
+    }
+
+    @Test("一度拒否された後でも元の基準から有効な位置へ戻せる")
+    func canRecoverFromFailedResolveUsingOriginalBaseline() {
+        let firstID = UUID()
+        let secondID = UUID()
+        let baseline = [
+            PlanTimelineInterval(id: firstID, startMinute: 22 * 60, endMinute: 23 * 60),
+            PlanTimelineInterval(id: secondID, startMinute: 23 * 60, endMinute: 24 * 60)
+        ]
+        let rejected = PlanTimelineRescheduler.resolve(
+            items: baseline,
+            editingID: firstID,
+            proposedStartMinute: 22 * 60,
+            proposedEndMinute: 23 * 60 + 30,
+            pushDirection: .later
+        )
+        let recovered = PlanTimelineRescheduler.resolve(
+            items: baseline,
+            editingID: firstID,
+            proposedStartMinute: 21 * 60,
+            proposedEndMinute: 22 * 60,
+            pushDirection: .earlier
+        )
+
+        let items = Dictionary(uniqueKeysWithValues: (recovered ?? []).map { ($0.id, $0) })
+        #expect(rejected == nil)
+        #expect(items[firstID]?.startMinute == 21 * 60)
+        #expect(items[firstID]?.endMinute == 22 * 60)
+        #expect(items[secondID]?.startMinute == 23 * 60)
+        #expect(items[secondID]?.endMinute == 24 * 60)
+    }
+
+    @Test("速い終了ハンドル操作で到達限界を越えても一回の補正で有効位置へ収める")
+    func clampedEndResizeStopsAtReachableCollisionLimit() {
+        let firstID = UUID()
+        let secondID = UUID()
+        let resolved = PlanTimelineRescheduler.resolveClamped(
+            items: [
+                PlanTimelineInterval(id: firstID, startMinute: 18 * 60, endMinute: 19 * 60),
+                PlanTimelineInterval(id: secondID, startMinute: 23 * 60, endMinute: 24 * 60)
+            ],
+            editingID: firstID,
+            proposedStartMinute: 18 * 60,
+            proposedEndMinute: 24 * 60,
+            pushDirection: .later,
+            adjustment: .resizeEnd
+        )
+
+        let items = Dictionary(uniqueKeysWithValues: (resolved ?? []).map { ($0.id, $0) })
+        #expect(items[firstID]?.startMinute == 18 * 60)
+        #expect(items[firstID]?.endMinute == 23 * 60)
+        #expect(items[secondID]?.startMinute == 23 * 60)
+        #expect(items[secondID]?.endMinute == 24 * 60)
+    }
+
+    @Test("速い開始ハンドル操作で到達限界を越えても一回の補正で有効位置へ収める")
+    func clampedStartResizeStopsAtReachableCollisionLimit() {
+        let firstID = UUID()
+        let secondID = UUID()
+        let resolved = PlanTimelineRescheduler.resolveClamped(
+            items: [
+                PlanTimelineInterval(id: firstID, startMinute: 0, endMinute: 60),
+                PlanTimelineInterval(id: secondID, startMinute: 5 * 60, endMinute: 6 * 60)
+            ],
+            editingID: secondID,
+            proposedStartMinute: 0,
+            proposedEndMinute: 6 * 60,
+            pushDirection: .earlier,
+            adjustment: .resizeStart
+        )
+
+        let items = Dictionary(uniqueKeysWithValues: (resolved ?? []).map { ($0.id, $0) })
+        #expect(items[firstID]?.startMinute == 0)
+        #expect(items[firstID]?.endMinute == 60)
+        #expect(items[secondID]?.startMinute == 60)
+        #expect(items[secondID]?.endMinute == 6 * 60)
+    }
+
+    @Test("速い後方移動で到達限界を越えても一回の補正で有効位置へ収める")
+    func clampedMoveLaterStopsAtReachableCollisionLimit() {
+        let firstID = UUID()
+        let secondID = UUID()
+        let resolved = PlanTimelineRescheduler.resolveClamped(
+            items: [
+                PlanTimelineInterval(id: firstID, startMinute: 18 * 60, endMinute: 19 * 60),
+                PlanTimelineInterval(id: secondID, startMinute: 23 * 60, endMinute: 24 * 60)
+            ],
+            editingID: firstID,
+            proposedStartMinute: 23 * 60,
+            proposedEndMinute: 24 * 60,
+            pushDirection: .later,
+            adjustment: .move
+        )
+
+        let items = Dictionary(uniqueKeysWithValues: (resolved ?? []).map { ($0.id, $0) })
+        #expect(items[firstID]?.startMinute == 22 * 60)
+        #expect(items[firstID]?.endMinute == 23 * 60)
+        #expect(items[secondID]?.startMinute == 23 * 60)
+        #expect(items[secondID]?.endMinute == 24 * 60)
+    }
+
+    @Test("速い前方移動で到達限界を越えても一回の補正で有効位置へ収める")
+    func clampedMoveEarlierStopsAtReachableCollisionLimit() {
+        let firstID = UUID()
+        let secondID = UUID()
+        let resolved = PlanTimelineRescheduler.resolveClamped(
+            items: [
+                PlanTimelineInterval(id: firstID, startMinute: 0, endMinute: 60),
+                PlanTimelineInterval(id: secondID, startMinute: 5 * 60, endMinute: 6 * 60)
+            ],
+            editingID: secondID,
+            proposedStartMinute: 0,
+            proposedEndMinute: 60,
+            pushDirection: .earlier,
+            adjustment: .move
+        )
+
+        let items = Dictionary(uniqueKeysWithValues: (resolved ?? []).map { ($0.id, $0) })
+        #expect(items[firstID]?.startMinute == 0)
+        #expect(items[firstID]?.endMinute == 60)
+        #expect(items[secondID]?.startMinute == 60)
+        #expect(items[secondID]?.endMinute == 2 * 60)
+    }
+
+    @Test("終了ハンドルで上側に入り込んだ後に下へ戻しても上側予定と入れ替わらない")
+    func endHandleCrossedAboveKeepsEarlierPlanAboveWhenDraggingBackDown() {
+        let upperID = UUID()
+        let editingID = UUID()
+        let resolved = PlanTimelineRescheduler.resolveClamped(
+            items: [
+                PlanTimelineInterval(id: upperID, startMinute: 9 * 60, endMinute: 10 * 60),
+                PlanTimelineInterval(id: editingID, startMinute: 10 * 60, endMinute: 11 * 60)
+            ],
+            editingID: editingID,
+            proposedStartMinute: 8 * 60 + 45,
+            proposedEndMinute: 9 * 60 + 30,
+            pushDirection: .later,
+            adjustment: .resizeEnd
+        )
+
+        let items = Dictionary(uniqueKeysWithValues: (resolved ?? []).map { ($0.id, $0) })
+        #expect(items[upperID]?.startMinute == 7 * 60 + 45)
+        #expect(items[upperID]?.endMinute == 8 * 60 + 45)
+        #expect(items[editingID]?.startMinute == 8 * 60 + 45)
+        #expect(items[editingID]?.endMinute == 9 * 60 + 30)
+    }
+
+    @Test("上側に押された予定は元の終了位置を通るまで選択中予定の下へ潜らない")
+    func pushedEarlierPlanDoesNotSwapBelowEditingPlanBeforeOriginalBoundary() {
+        let upperID = UUID()
+        let editingID = UUID()
+        let resolved = PlanTimelineRescheduler.resolveClamped(
+            items: [
+                PlanTimelineInterval(id: upperID, startMinute: 9 * 60 + 30, endMinute: 10 * 60 + 30),
+                PlanTimelineInterval(id: editingID, startMinute: 10 * 60, endMinute: 11 * 60)
+            ],
+            editingID: editingID,
+            proposedStartMinute: 10 * 60 + 15,
+            proposedEndMinute: 10 * 60 + 45,
+            pushDirection: .later,
+            adjustment: .resizeEnd
+        )
+
+        let items = Dictionary(uniqueKeysWithValues: (resolved ?? []).map { ($0.id, $0) })
+        #expect(items[upperID]?.startMinute == 9 * 60 + 15)
+        #expect(items[upperID]?.endMinute == 10 * 60 + 15)
+        #expect(items[editingID]?.startMinute == 10 * 60 + 15)
+        #expect(items[editingID]?.endMinute == 10 * 60 + 45)
+    }
+
+    @Test("開始ハンドルで下側に入り込んだ後に上へ戻しても下側予定と入れ替わらない")
+    func startHandleCrossedBelowKeepsLaterPlanBelowWhenDraggingBackUp() {
+        let editingID = UUID()
+        let lowerID = UUID()
+        let resolved = PlanTimelineRescheduler.resolveClamped(
+            items: [
+                PlanTimelineInterval(id: editingID, startMinute: 9 * 60, endMinute: 10 * 60),
+                PlanTimelineInterval(id: lowerID, startMinute: 10 * 60, endMinute: 11 * 60)
+            ],
+            editingID: editingID,
+            proposedStartMinute: 10 * 60 + 15,
+            proposedEndMinute: 10 * 60 + 45,
+            pushDirection: .earlier,
+            adjustment: .resizeStart
+        )
+
+        let items = Dictionary(uniqueKeysWithValues: (resolved ?? []).map { ($0.id, $0) })
+        #expect(items[editingID]?.startMinute == 10 * 60 + 15)
+        #expect(items[editingID]?.endMinute == 10 * 60 + 45)
+        #expect(items[lowerID]?.startMinute == 10 * 60 + 45)
+        #expect(items[lowerID]?.endMinute == 11 * 60 + 45)
+    }
+
+    @Test("下側に押された予定は元の開始位置を通るまで選択中予定の上へ潜らない")
+    func pushedLaterPlanDoesNotSwapAboveEditingPlanBeforeOriginalBoundary() {
+        let editingID = UUID()
+        let lowerID = UUID()
+        let resolved = PlanTimelineRescheduler.resolveClamped(
+            items: [
+                PlanTimelineInterval(id: editingID, startMinute: 9 * 60, endMinute: 10 * 60),
+                PlanTimelineInterval(id: lowerID, startMinute: 9 * 60 + 30, endMinute: 10 * 60 + 30)
+            ],
+            editingID: editingID,
+            proposedStartMinute: 9 * 60 + 15,
+            proposedEndMinute: 9 * 60 + 45,
+            pushDirection: .earlier,
+            adjustment: .resizeStart
+        )
+
+        let items = Dictionary(uniqueKeysWithValues: (resolved ?? []).map { ($0.id, $0) })
+        #expect(items[editingID]?.startMinute == 9 * 60 + 15)
+        #expect(items[editingID]?.endMinute == 9 * 60 + 45)
+        #expect(items[lowerID]?.startMinute == 9 * 60 + 45)
+        #expect(items[lowerID]?.endMinute == 10 * 60 + 45)
     }
 
     @Test("ロック済み予定を押す必要がある配置は拒否する")

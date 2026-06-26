@@ -1165,7 +1165,7 @@ struct CalendarWeekTimelineView: View {
     }
 
     private func startHandleGesture(for segment: WeekTimedPlanSegment) -> some Gesture {
-        DragGesture(minimumDistance: 2, coordinateSpace: .global)
+        DragGesture(minimumDistance: 0, coordinateSpace: .global)
             .onChanged { value in
                 let baseline = currentResizeBaseline(for: segment)
                 guard selectedPlanID == segment.plan.id,
@@ -1198,7 +1198,7 @@ struct CalendarWeekTimelineView: View {
     }
 
     private func endHandleGesture(for segment: WeekTimedPlanSegment) -> some Gesture {
-        DragGesture(minimumDistance: 2, coordinateSpace: .global)
+        DragGesture(minimumDistance: 0, coordinateSpace: .global)
             .onChanged { value in
                 let baseline = currentResizeBaseline(for: segment)
                 guard selectedPlanID == segment.plan.id,
@@ -1718,7 +1718,8 @@ struct CalendarWeekTimelineView: View {
             dayIndex: targetDayIndex,
             proposedStartMinute: clampedMinute,
             proposedEndMinute: clampedMinute + durationMinutes,
-            direction: direction
+            direction: direction,
+            adjustment: .move
         )
     }
 
@@ -1791,7 +1792,8 @@ struct CalendarWeekTimelineView: View {
                 dayIndex: baseline.dayIndex,
                 proposedStartMinute: resize.start,
                 proposedEndMinute: resize.end,
-                direction: resize.direction
+                direction: resize.direction,
+                adjustment: .resizeStart
             )
         case .end:
             return resolvedDrafts(
@@ -1799,7 +1801,8 @@ struct CalendarWeekTimelineView: View {
                 dayIndex: baseline.dayIndex,
                 proposedStartMinute: resize.start,
                 proposedEndMinute: resize.end,
-                direction: resize.direction
+                direction: resize.direction,
+                adjustment: .resizeEnd
             )
         }
     }
@@ -1881,7 +1884,8 @@ struct CalendarWeekTimelineView: View {
         dayIndex: Int,
         proposedStartMinute: Int,
         proposedEndMinute: Int,
-        direction: PlanTimelinePushDirection
+        direction: PlanTimelinePushDirection,
+        adjustment: PlanTimelineAdjustment
     ) -> [UUID: WeekPlanMoveDraft]? {
         guard days.indices.contains(dayIndex) else { return nil }
         let day = days[dayIndex]
@@ -1905,12 +1909,14 @@ struct CalendarWeekTimelineView: View {
                 )
             }
 
-        guard let resolved = PlanTimelineRescheduler.resolve(
+        guard let resolved = PlanTimelineRescheduler.resolveClamped(
             items: intervals,
             editingID: editingPlan.id,
             proposedStartMinute: proposedStartMinute,
             proposedEndMinute: proposedEndMinute,
-            pushDirection: direction
+            pushDirection: direction,
+            adjustment: adjustment,
+            minimumDuration: minimumDurationMinutes
         ) else {
             return nil
         }
@@ -1984,7 +1990,11 @@ struct CalendarWeekTimelineView: View {
 
     private func updateMovingDrafts(_ drafts: [UUID: WeekPlanMoveDraft]) {
         guard movingDrafts != drafts else { return }
-        movingDrafts = drafts
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            movingDrafts = drafts
+        }
     }
 
     private func scheduleChanges(from drafts: [UUID: WeekPlanMoveDraft]) -> [PlanStore.ScheduleChange] {
