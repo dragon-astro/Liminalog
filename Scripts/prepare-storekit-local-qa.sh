@@ -103,7 +103,7 @@ Copy into AppStore/StoreKitLocalTesting.md after Xcode normal Run succeeds:
 | Xcode | $xcode_version |
 | StoreKit Configuration | \`$storekit_path\` |
 | StoreKit Config Validation | pass |
-| DEBUG Product Diagnostics | fill manually after confirming requested 8 / loaded 8 / valid 8 |
+| DEBUG Product Diagnostics | fill manually with the StoreKit商品取得診断 > 証跡 line |
 | Tester | fill manually |
 | Date | $date_value |
 
@@ -112,4 +112,5 @@ Next:
 2. Confirm Run > Options > StoreKit Configuration is $storekit_path.
 3. Run the app from Xcode, then open Settings > Proと応援.
 4. Confirm DEBUG StoreKit商品取得診断 shows requested 8, loaded 8, valid 8.
+5. Copy its 証跡 line into DEBUG Product Diagnostics.
 REPORT

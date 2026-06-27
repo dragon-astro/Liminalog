@@ -64,6 +64,7 @@ struct PurchaseStoreDebugTests {
                 productTypeDescription: "consumable"
             )
         ])
+        #expect(diagnostics.evidenceLine == "requestedCount=3 loadedCount=2 validCount=1 missingCount=1 rejectedCount=1")
     }
 
     @Test
@@ -79,6 +80,25 @@ struct PurchaseStoreDebugTests {
         #expect(diagnostics.missingRequestedProductIDs == PurchaseProductID.storeKitProductIDs)
         #expect(diagnostics.rejectedLoadedProducts.isEmpty)
         #expect(diagnostics.errorDescription == "StoreKit failed")
+        #expect(diagnostics.evidenceLine == "requestedCount=8 loadedCount=0 validCount=0 missingCount=8 rejectedCount=0")
+    }
+
+    @Test
+    func productLoadDiagnosticsEvidenceLineMatchesLocalQATemplate() {
+        let diagnostics = PurchaseProductLoadDiagnostics(
+            requestedProductIDs: PurchaseProductID.storeKitProductIDs,
+            loadedProducts: PurchaseProductID.storeKitProductIDs.map {
+                PurchaseProductLoadDiagnostics.LoadedProduct(
+                    id: $0,
+                    productTypeDescription: "matching"
+                )
+            },
+            validProductIDs: PurchaseProductID.storeKitProductIDs,
+            errorDescription: nil,
+            recordedAt: Date(timeIntervalSince1970: 0)
+        )
+
+        #expect(diagnostics.evidenceLine == "requestedCount=8 loadedCount=8 validCount=8 missingCount=0 rejectedCount=0")
     }
 
     @Test

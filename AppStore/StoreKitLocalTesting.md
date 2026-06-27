@@ -98,7 +98,8 @@ xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -configuration Debug -
 6. Product > Run で起動する。
 7. 設定 > Proと応援 を開く。
 8. DEBUG の `StoreKit商品取得診断` が `要求ID 8 / 取得 8 / 有効 8` 相当で、未取得IDと型不一致が空であることを確認する。
-9. 取得が0件の時は、XcodeのRun経路か、StoreKit Configurationの選択状態を先に疑う。MCP/CLI起動の結果だけでアプリ側バグ扱いしない。
+9. `StoreKit商品取得診断` の `証跡` 行を `DEBUG Product Diagnostics` 欄へ貼る。期待値は `requestedCount=8 loadedCount=8 validCount=8 missingCount=0 rejectedCount=0`。
+10. 取得が0件の時は、XcodeのRun経路か、StoreKit Configurationの選択状態を先に疑う。MCP/CLI起動の結果だけでアプリ側バグ扱いしない。
 
 ## 5. ローカル購入テストケース
 
@@ -138,7 +139,7 @@ xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -configuration Debug -
 | Xcode |  |
 | StoreKit Configuration | `liminalog.storekit` |
 | StoreKit Config Validation | pass / fail |
-| DEBUG Product Diagnostics | fill manually after confirming requested 8 / loaded 8 / valid 8 |
+| DEBUG Product Diagnostics | fill manually with the StoreKit商品取得診断 > 証跡 line |
 | Tester |  |
 | Date |  |
 

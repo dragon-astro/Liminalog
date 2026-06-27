@@ -246,6 +246,10 @@ struct SupportLiminalogView: View {
             LabeledContent("取得", value: "\(diagnostics.loadedProducts.count)")
             LabeledContent("有効", value: "\(diagnostics.validProductIDs.count)")
             LabeledContent("確認時刻", value: diagnostics.recordedAt.formatted(date: .omitted, time: .standard))
+            debugDiagnosticList(
+                title: "証跡",
+                values: [diagnostics.evidenceLine]
+            )
 
             if !diagnostics.missingRequestedProductIDs.isEmpty {
                 debugDiagnosticList(

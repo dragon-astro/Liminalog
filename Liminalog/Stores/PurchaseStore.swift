@@ -25,6 +25,17 @@ struct PurchaseProductLoadDiagnostics: Equatable {
         let validIDs = Set(validProductIDs)
         return loadedProducts.filter { !validIDs.contains($0.id) }
     }
+
+    var evidenceLine: String {
+        [
+            "requestedCount=\(requestedProductIDs.count)",
+            "loadedCount=\(loadedProducts.count)",
+            "validCount=\(validProductIDs.count)",
+            "missingCount=\(missingRequestedProductIDs.count)",
+            "rejectedCount=\(rejectedLoadedProducts.count)"
+        ]
+        .joined(separator: " ")
+    }
 }
 
 enum DebugPurchaseEntitlementsOverride: String, CaseIterable, Identifiable {
