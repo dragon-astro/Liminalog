@@ -124,6 +124,33 @@ if decision.isAllowed {
 - 2026-06-27: XcodeBuildMCP / iPhone 17 Pro Simulator / Debug で `debug.purchase.enforceFeatureRestrictions = true`、`-LiminalogInitialRootTab dashboard` と `-LiminalogDebugPurchaseState pro` を指定して統計本体、`decorationPassOnly` を指定して `StatisticsProPreviewView` が表示されることを確認した。確認後、同フラグは `false` に戻した。
 - 2026-06-27: XcodeBuildMCP / iPhone 17 Pro Simulator / Debug で `-LiminalogDebugPurchaseState lifetime` と `lifetimeWithDecorationPass` を指定して統計本体が表示されることを確認した。確認後、同フラグは `false` に戻した。
 
+## Gate 3 QA Evidence Sheet
+
+Gate 3 で `featureRestrictionsAreEnabled` を true にする直前に埋める。入力後は `swift Scripts/validate-storekit-config.swift --validate-statistics-pro-qa-complete` を通す。Gate 3 へ進む直前は `Scripts/validate-purchase-readiness.sh --gate3-ready` を使う。
+
+| 項目 | 記録 |
+|---|---|
+| Git SHA |  |
+| Build | Release |
+| Device / OS |  |
+| Tester |  |
+| Date |  |
+| Purchase Entry Point | enabled / disabled |
+| Feature Restrictions | enabled |
+
+| Case | Required Result | Evidence | Result | Notes |
+|---|---|---|---|---|
+| Release未準備 | `PurchaseConfiguration.current` のままなら統計タブは既存通り表示される | screenshot / note |  |  |
+| 購入導線ONのみ | `purchaseEntryPointIsEnabled == true` でも `featureRestrictionsAreEnabled == false` なら統計タブは既存通り表示される | screenshot / note |  |  |
+| 機能制限ON + 無料 | 統計タブはPro案内になり、重い統計集計は構築されない | screenshot / note |  |  |
+| 機能制限ON + Proサブ | 統計タブは既存通り表示される | screenshot / note |  |  |
+| 機能制限ON + ライフタイム | 統計タブは既存通り表示される | screenshot / note |  |  |
+| 機能制限ON + 装飾パスのみ | 統計タブはPro案内になり、Pro権利として扱われない | screenshot / note |  |  |
+| 無料維持機能 | 当日スコア、ストリーク、デイリーカード、カレンダー、友達、記録はロックされない | screenshot / note |  |  |
+| 購入画面統一 | 統計Pro案内からの購入導線は `SupportLiminalogView` に遷移し、統計専用StoreKit処理を持たない | screenshot / note |  |  |
+| 回帰テスト | `PurchaseAccessPolicyTests`、`PurchaseConfigurationTests`、`StatisticsTabAccessPolicyTests` が成功している | command output |  |  |
+| Release build | Release build が成功している | command output |  |  |
+
 ## やらないこと
 
 - 統計タブを非表示にする。

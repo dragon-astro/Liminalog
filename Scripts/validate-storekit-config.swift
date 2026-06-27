@@ -142,6 +142,12 @@ if let storeKitQAEvidenceFlagIndex = arguments.firstIndex(of: "--validate-storek
     validateStoreKitLocalQAEvidenceComplete(at: path)
 }
 
+if let statisticsProQAEvidenceFlagIndex = arguments.firstIndex(of: "--validate-statistics-pro-qa-complete") {
+    let candidatePath = arguments.dropFirst(statisticsProQAEvidenceFlagIndex + 1).first
+    let path = candidatePath?.hasPrefix("-") == false ? candidatePath! : "Liminalog/Views/Profile/docs/19-statistics-pro-gate.md"
+    validateStatisticsProQAEvidenceComplete(at: path)
+}
+
 if let docsFlagIndex = arguments.firstIndex(of: "--validate-products-doc") {
     let path = arguments.dropFirst(docsFlagIndex + 1).first ?? "AppStore/PurchaseProducts.md"
     validatePurchaseProductsDocument(at: path)
@@ -569,6 +575,94 @@ private func validateStoreKitLocalQAEvidenceComplete(at path: String) -> Never {
 
     if failures.isEmpty {
         print("StoreKit local QA evidence sheet is complete.")
+        exit(EXIT_SUCCESS)
+    }
+
+    for failure in failures {
+        print("error: \(failure)")
+    }
+    exit(EXIT_FAILURE)
+}
+
+private func validateStatisticsProQAEvidenceComplete(at path: String) -> Never {
+    let fileURL = URL(fileURLWithPath: path)
+    guard let text = try? String(contentsOf: fileURL, encoding: .utf8) else {
+        print("error: Statistics Pro QA evidence sheet not found at \(fileURL.path)")
+        exit(EXIT_FAILURE)
+    }
+
+    let section = markdownSection(named: "Gate 3 QA Evidence Sheet", in: text)
+    let metadata = metadataRows(in: section)
+    let evidenceRows = storeKitQAEvidenceRows(in: section)
+    var rowsByCase: [String: StoreKitQAEvidenceRow] = [:]
+    var duplicateCases: [String] = []
+    for row in evidenceRows {
+        if rowsByCase[row.caseName] != nil {
+            duplicateCases.append(row.caseName)
+        }
+        rowsByCase[row.caseName] = row
+    }
+    let requiredMetadataFields = [
+        "Git SHA",
+        "Build",
+        "Device / OS",
+        "Tester",
+        "Date",
+        "Purchase Entry Point",
+        "Feature Restrictions"
+    ]
+    let requiredCases = [
+        "Release未準備",
+        "購入導線ONのみ",
+        "機能制限ON + 無料",
+        "機能制限ON + Proサブ",
+        "機能制限ON + ライフタイム",
+        "機能制限ON + 装飾パスのみ",
+        "無料維持機能",
+        "購入画面統一",
+        "回帰テスト",
+        "Release build"
+    ]
+
+    var failures: [String] = []
+
+    for field in requiredMetadataFields {
+        if metadata[field, default: ""].isEmpty {
+            failures.append("Statistics Pro QA metadata is missing \(field)")
+        }
+    }
+    if metadata["Build"]?.lowercased() != "release" {
+        failures.append("Statistics Pro QA metadata Build must be Release")
+    }
+    if metadata["Purchase Entry Point"]?.lowercased() != "enabled" {
+        failures.append("Statistics Pro QA metadata Purchase Entry Point must be enabled")
+    }
+    if metadata["Feature Restrictions"]?.lowercased() != "enabled" {
+        failures.append("Statistics Pro QA metadata Feature Restrictions must be enabled")
+    }
+
+    if evidenceRows.count != requiredCases.count {
+        failures.append("expected \(requiredCases.count) Statistics Pro QA evidence rows, found \(evidenceRows.count)")
+    }
+    for duplicateCase in duplicateCases {
+        failures.append("duplicate Statistics Pro QA evidence case: \(duplicateCase)")
+    }
+
+    for caseName in requiredCases {
+        guard let row = rowsByCase[caseName] else {
+            failures.append("missing Statistics Pro QA evidence case: \(caseName)")
+            continue
+        }
+        if row.evidence.isEmpty || row.evidence == "screenshot / note" || row.evidence == "command output" {
+            failures.append("Statistics Pro QA evidence is missing concrete proof for \(caseName)")
+        }
+        if row.result.lowercased() != "pass" {
+            failures.append("Statistics Pro QA result must be pass for \(caseName)")
+        }
+    }
+
+    if failures.isEmpty {
+        print("Statistics Pro QA evidence sheet is complete.")
         exit(EXIT_SUCCESS)
     }
 
@@ -1158,6 +1252,7 @@ private func printUsage() {
       swift Scripts/validate-storekit-config.swift --validate-app-store-connect-confirmation-template [path-to-AppStoreConnectProductConfirmation.md]
       swift Scripts/validate-storekit-config.swift --validate-app-store-connect-confirmation-complete [path-to-AppStoreConnectProductConfirmation.md]
       swift Scripts/validate-storekit-config.swift --validate-storekit-local-qa-complete [path-to-StoreKitLocalTesting.md]
+      swift Scripts/validate-storekit-config.swift --validate-statistics-pro-qa-complete [path-to-19-statistics-pro-gate.md]
       swift Scripts/validate-storekit-config.swift --validate-products-doc [path-to-PurchaseProducts.md]
       swift Scripts/validate-storekit-config.swift --validate-product-source [path-to-PurchaseProduct.swift]
       swift Scripts/validate-storekit-config.swift --validate-premium-decoration-products-doc [path-to-PurchaseProducts.md]

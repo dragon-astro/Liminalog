@@ -5,6 +5,7 @@ set -euo pipefail
 run_release_build=false
 run_gate1_ready=false
 run_gate2_ready=false
+run_gate3_ready=false
 storekit_path="${LIMINALOG_STOREKIT_CONFIG:-liminalog.storekit}"
 
 for argument in "$@"; do
@@ -21,18 +22,25 @@ for argument in "$@"; do
       run_gate2_ready=true
       run_release_build=true
       ;;
+    --gate3-ready)
+      run_gate1_ready=true
+      run_gate2_ready=true
+      run_gate3_ready=true
+      run_release_build=true
+      ;;
     --storekit=*)
       storekit_path="${argument#--storekit=}"
       ;;
     --help|-h)
       cat <<'USAGE'
 usage:
-  Scripts/validate-purchase-readiness.sh [--release-build] [--gate1-ready] [--gate2-ready] [--storekit=path/to/liminalog.storekit]
+  Scripts/validate-purchase-readiness.sh [--release-build] [--gate1-ready] [--gate2-ready] [--gate3-ready] [--storekit=path/to/liminalog.storekit]
 
 Runs the purchase-release checks that do not require App Store Connect access.
 The StoreKit configuration check is skipped with a note when the file is absent.
 Use --gate1-ready only after App Store Connect products are created and the confirmation sheet is filled.
 Use --gate2-ready only after Local StoreKit purchase QA evidence is complete.
+Use --gate3-ready only after Statistics Pro restriction QA evidence is complete.
 USAGE
       exit 0
       ;;
@@ -99,6 +107,11 @@ fi
 if [[ "$run_gate2_ready" == true ]]; then
   run_step "Validate Local StoreKit QA evidence is complete" \
     swift Scripts/validate-storekit-config.swift --validate-storekit-local-qa-complete
+fi
+
+if [[ "$run_gate3_ready" == true ]]; then
+  run_step "Validate Statistics Pro QA evidence is complete" \
+    swift Scripts/validate-storekit-config.swift --validate-statistics-pro-qa-complete
 fi
 
 run_step "Check whitespace in git diffs" \

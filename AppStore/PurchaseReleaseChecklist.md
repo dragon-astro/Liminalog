@@ -123,6 +123,7 @@ featureRestrictionsAreEnabled: true
 - `PurchaseAccessPolicyTests`
 - `PurchaseConfigurationTests`
 - 統計タブ入口の回帰テスト
+- `Scripts/validate-purchase-readiness.sh --gate3-ready` が成功。
 - Release build
 - 実機QA
 
