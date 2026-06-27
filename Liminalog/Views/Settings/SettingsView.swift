@@ -102,16 +102,16 @@ struct SettingsView: View {
                 Text("友達セットはカテゴリごとの公開相手に使えます。友達ごとの見え方は友達詳細から、ブロックはブロックリストから変更できます。")
             }
 
+            if shouldShowPurchaseEntryPoint {
+                purchaseSection
+            }
+
             Section("外観") {
                 NavigationLink {
                     ThemePickerView()
                 } label: {
                     Label("テーマ", systemImage: "paintpalette")
                 }
-            }
-
-            if shouldShowPurchaseEntryPoint {
-                purchaseSection
             }
 
             #if DEBUG
