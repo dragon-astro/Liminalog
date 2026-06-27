@@ -106,6 +106,7 @@ swift Scripts/validate-storekit-config.swift --validate-release-safety
 | 2026-06-27 | working tree after `6007e98` | DEBUG | iPhone 17 Pro Simulator / iOS 26.5 | none | visible | DEBUG forced on | pass | `debug.purchase.enforceFeatureRestrictions = true` と `-LiminalogInitialRootTab dashboard` で起動し、無料状態の統計タブが `StatisticsProPreviewView` になることを確認。確認後フラグはOFFへ戻した。 |
 | 2026-06-27 | working tree after `497ca6a` | DEBUG | iPhone 17 Pro Simulator / iOS 26.5 | none | visible | DEBUG forced on | pass | `-LiminalogDebugPurchaseState pro` で統計本体、`decorationPassOnly` で `StatisticsProPreviewView` が表示されることを確認。確認後フラグはOFFへ戻した。 |
 | 2026-06-27 | working tree after `a2c3b34` | DEBUG | iPhone 17 Pro Simulator / iOS 26.5 | none | visible | DEBUG forced on | pass | `-LiminalogDebugPurchaseState lifetime` と `lifetimeWithDecorationPass` で統計本体が表示されることを確認。確認後フラグはOFFへ戻した。 |
+| 2026-06-27 | `4230b478` | DEBUG | iPhone 17 Pro Simulator / iOS 26.5 | scheme expects local `.storekit` | visible | off | blocked | XcodeBuildMCP で設定の `Proと応援` から課金画面へ遷移できることは確認。商品取得は失敗表示のため、Local StoreKit購入操作QAはXcode通常Run待ち。 |
 
 ## Stop Conditions
 

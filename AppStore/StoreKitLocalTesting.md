@@ -87,6 +87,12 @@ xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -configuration Debug -
 
 この表を埋めるまでは、`AppStore/PurchaseReadinessAudit.md` の `StoreKitローカル購入テスト` を `Done` にしない。
 
+### XcodeBuildMCP Attempt Log
+
+| Date | Git SHA | Build | Device / OS | StoreKit Source | Result | Notes |
+|---|---|---|---|---|---|---|
+| 2026-06-27 | `4230b478` | DEBUG | iPhone 17 Pro Simulator / iOS 26.5 | scheme expects `liminalog.storekit` | blocked | XcodeBuildMCP でビルド・起動し、設定の `Proと応援` から課金画面へ遷移できることは確認。商品取得は `商品情報を取得できませんでした` 表示になったため、購入操作QAは未完了のまま。Xcode の通常 Run で StoreKit Configuration を適用して再確認する。 |
+
 | 項目 | 記録 |
 |---|---|
 | Git SHA |  |
