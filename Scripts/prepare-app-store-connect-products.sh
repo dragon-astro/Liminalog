@@ -5,6 +5,8 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
 strict_clean=false
+allow_other_branch=false
+expected_branch="${LIMINALOG_PURCHASE_BRANCH:-codex/monetization-foundation}"
 swift_module_cache_path="${LIMINALOG_SWIFT_MODULE_CACHE_PATH:-/private/tmp/liminalog-swift-module-cache}"
 
 for argument in "$@"; do
@@ -12,13 +14,17 @@ for argument in "$@"; do
     --strict-clean)
       strict_clean=true
       ;;
+    --allow-other-branch)
+      allow_other_branch=true
+      ;;
     --help|-h)
       cat <<'USAGE'
 usage:
-  Scripts/prepare-app-store-connect-products.sh [--strict-clean]
+  Scripts/prepare-app-store-connect-products.sh [--strict-clean] [--allow-other-branch]
 
 Runs the local checks that should pass before creating App Store Connect products.
 Use --strict-clean to fail when the working tree has uncommitted changes.
+By default, this expects the codex/monetization-foundation branch. Set LIMINALOG_PURCHASE_BRANCH or pass --allow-other-branch to override.
 USAGE
       exit 0
       ;;
@@ -42,12 +48,20 @@ run_swift_validator() {
 }
 
 git_sha="$(git rev-parse --short HEAD)"
+current_branch="$(git branch --show-current)"
 git_status="$(git status --short)"
 date_value="$(date +%F)"
 
 echo "App Store Connect product setup preflight"
 echo
 echo "Git SHA: $git_sha"
+echo "Branch: ${current_branch:-detached HEAD}"
+if [[ "$allow_other_branch" != true && "$current_branch" != "$expected_branch" ]]; then
+  echo "error: expected branch $expected_branch before creating App Store Connect products." >&2
+  echo "       Current branch is ${current_branch:-detached HEAD}." >&2
+  echo "       Set LIMINALOG_PURCHASE_BRANCH or pass --allow-other-branch if this is intentional." >&2
+  exit 1
+fi
 if [[ -n "$git_status" ]]; then
   echo "Working tree: dirty"
   echo "$git_status" | sed 's/^/  /'
