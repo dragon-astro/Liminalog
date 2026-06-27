@@ -51,9 +51,12 @@ swift Scripts/validate-storekit-config.swift --validate-release-safety
 
 対象：`liminalog.storekit` 作成後。目的は、購入画面とローカル権利反映を確認すること。
 
+完了証跡は `AppStore/StoreKitLocalTesting.md` の `Local StoreKit QA Evidence Sheet` に残す。証跡表が埋まるまでは `AppStore/PurchaseReadinessAudit.md` の `StoreKitローカル購入テスト` を `Done` にしない。
+
 事前条件：
 
 - `swift Scripts/validate-storekit-config.swift --validate-products-doc` が成功している。
+- `swift Scripts/validate-storekit-config.swift --validate-premium-decoration-products-doc` が成功している。
 - `swift Scripts/validate-storekit-config.swift liminalog.storekit` が成功している。
 - Xcode scheme の Run > Options > StoreKit Configuration に `liminalog.storekit` が設定されている。
 

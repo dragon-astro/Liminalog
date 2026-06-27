@@ -83,7 +83,41 @@ xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -configuration Debug -
 - サブスク期限切れ：Pro/装飾レンタル権が外れる。
 - 商品種別不一致：アプリ側の商品候補と権利キャッシュから外れる。
 
-## 6. Release への接続条件
+## 6. Local StoreKit QA Evidence Sheet
+
+この表を埋めるまでは、`AppStore/PurchaseReadinessAudit.md` の `StoreKitローカル購入テスト` を `Done` にしない。
+
+| 項目 | 記録 |
+|---|---|
+| Git SHA |  |
+| Build | DEBUG |
+| Device / OS |  |
+| Xcode |  |
+| StoreKit Configuration | `liminalog.storekit` |
+| StoreKit Config Validation | pass / fail |
+| Tester |  |
+| Date |  |
+
+| Case | Required Result | Evidence | Result | Notes |
+|---|---|---|---|---|
+| 商品取得 | Pro、ライフタイム、装飾パス、支援が意図した順で表示される。ただし装飾パスはライフタイム所有時だけ表示される | screenshot / note |  |  |
+| Pro月額購入 | ステータスがPro有効になり、統計Pro権利が有効になる | screenshot / note |  |  |
+| Pro年額購入 | 月額と同じPro権利になる | screenshot / note |  |  |
+| ライフタイム購入 | ステータスがライフタイム所有になり、Pro権利が永続扱いになる | screenshot / note |  |  |
+| ライフタイム後の装飾パス表示 | ライフタイム所有後だけ装飾パスが購入候補に出る | screenshot / note |  |  |
+| 装飾パス購入 | `hasDecorationRental == true` 相当の表示になり、Pro機能権利にはならない | screenshot / note |  |  |
+| 支援チップ購入 | 恒久権利は増えず、購入完了メッセージだけ表示される | screenshot / note |  |  |
+| 購入キャンセル | エラー扱いのメッセージや壊れた進行状態が残らない | screenshot / note |  |  |
+| 復元なし | 「復元できる購入は見つかりませんでした。」として扱われる | screenshot / note |  |  |
+| 復元あり | ライフタイムや有効サブスクの権利が再読込される | screenshot / note |  |  |
+| サブスク期限切れ | Pro/装飾レンタル権が外れる | screenshot / note |  |  |
+| サブスク管理 | StoreKitの管理画面を開ける | screenshot / note |  |  |
+| 既存機能スモーク | 購入後にホーム、カレンダー、統計、友達、プロフィールの既存操作が変わらない | screenshot / note |  |  |
+| 商品種別不一致防止 | `Scripts/validate-purchase-readiness.sh` が成功している | command output |  |  |
+
+失敗した行が1つでもある場合は、購入導線をReleaseで開かない。
+
+## 7. Release への接続条件
 
 StoreKit ローカル購入テストが通っても、次が揃うまでは Release の購入導線は開かない。
 

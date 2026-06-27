@@ -25,7 +25,7 @@ Liminalog の課金基盤 v0 を、現時点の証拠ベースで監査するた
 | App Store Connect商品準備 | Prepared | `AppStore/PurchaseProducts.md`、`--app-store-connect-tsv`、`--app-store-connect-confirmation-md`、Confirmation Sheet。`Scripts/validate-purchase-readiness.sh` でTSV出力を確認済み | App Store Connect で商品8件と `Liminalog Pro` group を実作成し、各行を確認 |
 | 商品ドキュメント整合性 | Done | `Scripts/validate-purchase-readiness.sh` が 2026-06-27 に成功。`--validate-products-doc` と `--validate-premium-decoration-products-doc` も含めて確認済み | 商品・価格・種別を変えたら再実行 |
 | StoreKitローカル設定 | Prepared | repo 直下に `liminalog.storekit` を追加。Shared scheme の Run に `liminalog.storekit` を接続。`Scripts/validate-purchase-readiness.sh` が 2026-06-27 に `billingPlans` と scheme 参照の検査込みで成功 | Xcode editorが `.storekit` や scheme を書き換えた場合は再検査 |
-| StoreKitローカル購入テスト | Prepared | `liminalog.storekit`、`AppStore/StoreKitLocalTesting.md`、`AppStore/PurchaseUIQA.md` に手順あり。`xcodebuild test` + `SKTestSession(contentsOf:)` は 2026-06-27 に `app.YasudaRyuga.Liminalog is not installed for development` で商品取得不可だったため自動テスト化しない | Xcode Run のStoreKit設定、またはApp Store Connect Sandboxで購入、復元、期限切れ、キャンセルを確認 |
+| StoreKitローカル購入テスト | Prepared | `liminalog.storekit`、`AppStore/StoreKitLocalTesting.md`、`AppStore/PurchaseUIQA.md` に手順と `Local StoreKit QA Evidence Sheet` あり。`xcodebuild test` + `SKTestSession(contentsOf:)` は 2026-06-27 に `app.YasudaRyuga.Liminalog is not installed for development` で商品取得不可だったため自動テスト化しない | Xcode Run のStoreKit設定、またはApp Store Connect Sandboxで購入、復元、期限切れ、キャンセルを確認し、証跡表を埋める |
 | Release課金導線準備 | Prepared | `PurchaseReleaseChecklist.md` の Gate 1 / Gate 2 / Gate 3、`PurchaseConfiguration.current` の段階フラグ | App Store Connect と利用規約確定後に Gate 1 へ進める |
 | 課金UI QA | Prepared | `AppStore/PurchaseUIQA.md`。2026-06-27 に XcodeBuildMCP / iPhone 17 Pro Simulator で DEBUG の設定入口表示と課金画面遷移、統計Proプレビュー表示、Release の設定入口非表示を確認。DEBUG 起動引数 `-LiminalogDebugPurchaseState` で無料 / Pro / ライフタイム / ライフタイム＋装飾パス / 装飾パスのみの統計表示を確認 | Local StoreKit購入操作、実機QA、既存タブの広範囲スモークを実行して証跡を残す |
 | 統計Pro化設計 | Prepared | `Liminalog/Views/Profile/docs/19-statistics-pro-gate.md`、`StatisticsProPreviewView`、`StatisticsTabAccessPolicy`、`RootTabView` 統計タブ入口分岐、DEBUGの `Pro制限を試す` 導線、DEBUG 起動時の疑似課金状態注入。2026-06-27 に `StatisticsTabAccessPolicyTests` を含む対象テスト48件が成功し、iPhone 17 Pro Simulatorで無料/Pro/ライフタイム/ライフタイム＋装飾パス/装飾パスのみの統計表示を目視確認 | `featureRestrictionsAreEnabled` はまだ false。実機QA、Gate変更時のReleaseスモークQAは未完了 |
@@ -78,7 +78,7 @@ xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -configuration Debug -
 - `purchaseEntryPointIsEnabled` は false のまま。Releaseでは購入画面を出さない。
 - `featureRestrictionsAreEnabled` は false のまま。統計タブやカテゴリセット上限をまだロックしない。
 - `backgroundEntitlementRefreshIsEnabled` は false のまま。起動時や復帰時にStoreKit権利更新を走らせない。
-- `liminalog.storekit` は追加・検査済みで、Xcode scheme の Run へ接続済み。ただしローカル購入操作そのもののQAは未完了。
+- `liminalog.storekit` は追加・検査済みで、Xcode scheme の Run へ接続済み。ただしローカル購入操作そのもののQAと `AppStore/StoreKitLocalTesting.md` の証跡表記入は未完了。
 - 2026-06-27 に `xcodebuild test` で `SKTestSession(contentsOf:)` による自動購入テストを試したが、Simulator の `storekitd` が `app.YasudaRyuga.Liminalog is not installed for development` を返した。失敗するテストを残さないため、現時点では手動StoreKit QAへ戻す。
 - 2026-06-27 に XcodeBuildMCP の DEBUG 起動で「Proと応援」入口と画面遷移は確認済み。ただし XcodeBuildMCP 起動では StoreKit Configuration が適用されず商品取得は失敗表示だったため、Local StoreKit購入QAは未完了。
 - 2026-06-27 に XcodeBuildMCP の Release 起動で、設定画面に「Proと応援」が表示されないことを確認済み。
