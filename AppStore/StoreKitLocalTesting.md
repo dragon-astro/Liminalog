@@ -52,6 +52,18 @@ swift Scripts/validate-storekit-config.swift --validate-xcode-scheme-storekit
 Scripts/validate-purchase-readiness.sh
 ```
 
+Xcode通常Runでローカル購入QAを始める直前のpreflight：
+
+```sh
+Scripts/prepare-storekit-local-qa.sh
+```
+
+クリーンな課金チェックポイントだけでQAする場合は、未コミット差分を失敗扱いにする。
+
+```sh
+Scripts/prepare-storekit-local-qa.sh --strict-clean
+```
+
 期待商品を確認したいだけなら次を使う。
 
 ```sh
@@ -77,13 +89,14 @@ xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -configuration Debug -
 ローカル購入QAはこの手順を正とする。
 
 1. `git status --short` を確認し、課金QAと無関係なアプリコード差分がある場合は、証跡に dirty 状態を記録する。可能ならクリーンな課金チェックポイントで実施する。
-2. Xcode で `Liminalog.xcodeproj` を開く。
-3. Scheme を `Liminalog`、Run destination を購入QA用 Simulator にする。
-4. Edit Scheme > Run > Options > StoreKit Configuration が `liminalog.storekit` であることを確認する。
-5. Product > Run で起動する。
-6. 設定 > Proと応援 を開く。
-7. DEBUG の `StoreKit商品取得診断` が `要求ID 8 / 取得 8 / 有効 8` 相当で、未取得IDと型不一致が空であることを確認する。
-8. 取得が0件の時は、XcodeのRun経路か、StoreKit Configurationの選択状態を先に疑う。MCP/CLI起動の結果だけでアプリ側バグ扱いしない。
+2. `Scripts/prepare-storekit-local-qa.sh` を実行し、StoreKit設定、scheme参照、Release gate、未接続の単品装飾、差分の空白チェックが通ることを確認する。
+3. Xcode で `Liminalog.xcodeproj` を開く。
+4. Scheme を `Liminalog`、Run destination を購入QA用 Simulator にする。
+5. Edit Scheme > Run > Options > StoreKit Configuration が `liminalog.storekit` であることを確認する。
+6. Product > Run で起動する。
+7. 設定 > Proと応援 を開く。
+8. DEBUG の `StoreKit商品取得診断` が `要求ID 8 / 取得 8 / 有効 8` 相当で、未取得IDと型不一致が空であることを確認する。
+9. 取得が0件の時は、XcodeのRun経路か、StoreKit Configurationの選択状態を先に疑う。MCP/CLI起動の結果だけでアプリ側バグ扱いしない。
 
 ## 5. ローカル購入テストケース
 
