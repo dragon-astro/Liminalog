@@ -435,7 +435,7 @@ private struct ProductDocumentRow {
 }
 
 private func productRows(in markdown: String) -> [ProductDocumentRow] {
-    markdown
+    markdownSection(named: "Products", in: markdown)
         .split(separator: "\n", omittingEmptySubsequences: false)
         .compactMap { rawLine -> ProductDocumentRow? in
             let line = String(rawLine)
@@ -454,6 +454,20 @@ private func productRows(in markdown: String) -> [ProductDocumentRow] {
                 subscriptionGroup: columns[4] == "-" ? nil : columns[4]
             )
         }
+}
+
+private func markdownSection(named heading: String, in markdown: String) -> String {
+    let marker = "## \(heading)"
+    guard let startRange = markdown.range(of: marker) else {
+        return markdown
+    }
+
+    let contentStart = startRange.upperBound
+    let remaining = markdown[contentStart...]
+    if let nextHeadingRange = remaining.range(of: "\n## ") {
+        return String(remaining[..<nextHeadingRange.lowerBound])
+    }
+    return String(remaining)
 }
 
 private func normalizeMarkdownCell(_ value: String) -> String {

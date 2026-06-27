@@ -12,6 +12,8 @@ Liminalog の App Store Connect 商品作成用メモ。アプリ内の転記元
 
 ## Products
 
+現在の購入導線と StoreKit Configuration に入れる主要商品。転記元は `PurchaseProductID.appStoreConnectSpecifications`。
+
 | Product ID | Reference Name | Type | Price | Group |
 |---|---|---|---:|---|
 | `liminalog.pro.monthly` | Liminalog Pro 月額 | Auto-Renewable Subscription | ¥400 | `Liminalog Pro` |
@@ -22,6 +24,22 @@ Liminalog の App Store Connect 商品作成用メモ。アプリ内の転記元
 | `liminalog.support.small` | 小さく応援 | Consumable | ¥250 | - |
 | `liminalog.support.medium` | しっかり応援 | Consumable | ¥600 | - |
 | `liminalog.support.large` | 大きく応援 | Consumable | ¥1,200 | - |
+
+## Premium Decoration Single Products
+
+プレミアム装飾を単品販売する時の App Store Connect 作成候補。転記元は `PremiumDecorationCatalog.items`。
+現時点では `PurchaseConfiguration.current.productIDs`、`liminalog.storekit`、購入UIには入れない。UI接続と単品購入QAの直前に有効化する。
+
+| Product ID | Reference Name | Type | Price | Group |
+|---|---|---|---:|---|
+| `liminalog.decoration.frame.aurora_wreath` | 極光環フレーム | Non-Consumable | ¥120 | - |
+| `liminalog.decoration.frame.kintsugi_ring` | 金継ぎフレーム | Non-Consumable | ¥120 | - |
+| `liminalog.decoration.frame.porcelain_halo` | 白磁フレーム | Non-Consumable | ¥120 | - |
+| `liminalog.decoration.frame.tideglass_ring` | 潮硝子フレーム | Non-Consumable | ¥120 | - |
+| `liminalog.decoration.card.aurora_panel` | 極光幕カード | Non-Consumable | ¥120 | - |
+| `liminalog.decoration.card.kintsugi_panel` | 金継ぎカード | Non-Consumable | ¥120 | - |
+| `liminalog.decoration.card.porcelain_panel` | 白磁カード | Non-Consumable | ¥120 | - |
+| `liminalog.decoration.card.tide_panel` | 潮目カード | Non-Consumable | ¥120 | - |
 
 ## Review Notes Draft
 
@@ -34,6 +52,7 @@ App Review に課金の意図を説明する時の下書き。
 - App Store Connect 上の商品IDがこの表と一致している。
 - 商品種別が `PurchaseProductID.expectedStoreKitProductKind(for:)` と一致している。
 - サブスクリプション商品が `Liminalog Pro` グループに入っている。
+- 単品装飾を有効化する場合は、`liminalog.decoration.` prefix の商品が Non-Consumable として作成されている。
 - 年額Proの無料体験を付けるか確定している。
 - 利用規約URLが公開済みで、App Store Connect とアプリ内設定の両方から参照できる。
 - ローカル StoreKit Configuration で同じ商品IDを作り、`Scripts/validate-storekit-config.swift` を通している。
@@ -79,6 +98,21 @@ App Store Connect で作成した後、各行を確認する。すべて確認�
 | `liminalog.support.medium` | [ ] | [ ] | [ ] | - | 権利付与なし |
 | `liminalog.support.large` | [ ] | [ ] | [ ] | - | 権利付与なし |
 | `Liminalog Pro` subscription group | - | - | - | [ ] | Proサブと装飾パスを同一グループに入れる |
+
+### Premium Decoration Single Product Confirmation
+
+単品装飾をこのリリースで有効化する場合のみ確認する。購入UIに入れない段階では、App Store Connect 上で作成しても `PurchaseConfiguration.current.productIDs` へはまだ追加しない。
+
+| Product ID | ID | Type | Price | Notes |
+|---|---|---|---|---|
+| `liminalog.decoration.frame.aurora_wreath` | [ ] | [ ] | [ ] | Non-Consumable |
+| `liminalog.decoration.frame.kintsugi_ring` | [ ] | [ ] | [ ] | Non-Consumable |
+| `liminalog.decoration.frame.porcelain_halo` | [ ] | [ ] | [ ] | Non-Consumable |
+| `liminalog.decoration.frame.tideglass_ring` | [ ] | [ ] | [ ] | Non-Consumable |
+| `liminalog.decoration.card.aurora_panel` | [ ] | [ ] | [ ] | Non-Consumable |
+| `liminalog.decoration.card.kintsugi_panel` | [ ] | [ ] | [ ] | Non-Consumable |
+| `liminalog.decoration.card.porcelain_panel` | [ ] | [ ] | [ ] | Non-Consumable |
+| `liminalog.decoration.card.tide_panel` | [ ] | [ ] | [ ] | Non-Consumable |
 
 ## After App Store Connect Confirmation
 
