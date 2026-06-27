@@ -64,7 +64,7 @@ xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -destination "platform
 
 - Gate 1 が通っている。
 - StoreKitローカル購入テストが成功している。
-- 実機またはシミュレータで購入画面が崩れていない。
+- `AppStore/PurchaseUIQA.md` の DEBUG / Release / Local StoreKit 確認が通っている。
 - Product取得失敗時の文言が自然。
 - 復元、サブスク管理、購入キャンセルの挙動を確認済み。
 
@@ -87,7 +87,7 @@ backgroundEntitlementRefreshIsEnabled: true
 
 - Release build 成功。
 - DEBUG StoreKit Configuration で商品取得成功。
-- 購入/復元/管理画面の手動QA。
+- `AppStore/PurchaseUIQA.md` に沿った購入/復元/管理画面の手動QA。
 - 既存タブのスモーク確認。
 
 ## Gate 3: Feature Restrictions

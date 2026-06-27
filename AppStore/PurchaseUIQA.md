@@ -1,0 +1,96 @@
+# Purchase UI QA
+
+Liminalog の課金UIを既存機能に影響させず確認するための手順。課金導線は段階的に開くため、今できる確認と StoreKit / App Store Connect 準備後の確認を分ける。
+
+## Safety Rules
+
+- 既存ユーザーのリリースデータが入った実機にインストールして確認する場合は、事前に明示承認を取る。
+- 手元確認はまず Simulator の DEBUG ビルドで行う。
+- `.storekit` がない間は実購入フローを通さず、設定の DEBUG セクションにある「課金状態を試す」で表示状態だけを見る。
+- `PurchaseConfiguration.current.purchaseEntryPointIsEnabled == false` の間、Release では設定に「Proと応援」が出ないことを正とする。
+- `featureRestrictionsAreEnabled == false` の間、統計、記録、カレンダー、友達、プロフィールカード、シェアの既存機能はロックしない。
+- StoreKit の購入、復元、サブスクリプション管理を試すのは、`liminalog.storekit` 作成後、または App Store Connect Sandbox 準備後に限る。
+
+## Current Pre-StoreKit QA
+
+対象：`.storekit` がまだない状態。目的は、既存機能を変えずに課金UIの骨格だけ確認すること。
+
+1. DEBUG ビルドで起動する。
+2. 設定を開き、「Proと応援」が表示されることを確認する。
+3. 「Proと応援」を開き、準備中の説明、規約リンク、未設定項目が表示されることを確認する。
+4. 設定 > デバッグ > 課金状態を試す を `実際の状態` / `Proサブ` / `ライフタイム` / `ライフタイム＋装飾パス` / `装飾パスのみ` に切り替える。
+5. 各状態で「Proと応援」のステータス文言と表示される購入候補が自然か確認する。
+6. ホーム、カレンダー、統計、友達、プロフィールを一通り開き、既存UIの入口、スクロール、編集操作が変わっていないことを確認する。
+7. `実際の状態` に戻し、デバッグの疑似状態を残さない。
+
+この段階では商品取得、購入、復元、サブスクリプション管理の成功は確認対象外。
+
+## Release Hidden-Entry QA
+
+対象：`purchaseEntryPointIsEnabled == false` の Release ビルド。目的は、アップデートしても既存体験が変わらないことを確認すること。
+
+1. Release ビルドで起動する。
+2. 設定に「Proと応援」が表示されないことを確認する。
+3. 起動直後、バックグラウンド復帰時に StoreKit 商品取得や権利更新由来のメッセージが出ないことを確認する。
+4. ホーム、カレンダー、統計、友達、プロフィールカード、設定の既存項目を開く。
+5. 統計タブが現行通り表示され、Pro案内やロック画面に変わっていないことを確認する。
+6. カレンダーの月間、日間タイムライン、週間タイムラインの切り替え、横スワイプ、予定編集が現行通り動くことを確認する。
+
+## Local StoreKit QA
+
+対象：`liminalog.storekit` 作成後。目的は、購入画面とローカル権利反映を確認すること。
+
+事前条件：
+
+- `swift Scripts/validate-storekit-config.swift --validate-products-doc` が成功している。
+- `swift Scripts/validate-storekit-config.swift liminalog.storekit` が成功している。
+- Xcode scheme の Run > Options > StoreKit Configuration に `liminalog.storekit` が設定されている。
+
+確認項目：
+
+- 商品取得成功時、Pro、ライフタイム、装飾パス、支援が意図した順で表示される。
+- 価格表示が `AppStore/PurchaseProducts.md` の参照価格と大きくずれていない。
+- Pro月額 / Pro年額購入後、ステータスが Pro 有効になる。
+- ライフタイム購入後、ステータスがライフタイム所有になる。
+- ライフタイム所有後だけ装飾パスが表示される。
+- 装飾パスのみでは Pro 機能権利にならない。
+- 支援チップ購入後、恒久権利は増えず、完了メッセージだけ表示される。
+- 購入キャンセルでエラー表示にならない。
+- 復元なしは「復元できる購入は見つかりませんでした。」として扱われる。
+- 復元ありで権利が再読込される。
+- サブスクリプション管理ボタンが StoreKit 管理画面を開ける。
+
+## Real Device QA
+
+実機で確認する時は、Simulator での確認が終わってから行う。
+
+1. 使用端末、OS、Apple ID / Sandbox Account、ビルド種別、git SHA を記録する。
+2. リリース済みデータが入った個人端末に上書きする場合は、ユーザーに確認してから実行する。
+3. 可能なら確認用端末か、データを失ってもよい Simulator / Sandbox 環境を使う。
+4. 最初に既存機能のスモーク確認を行う。
+5. 課金UIを開いた後、戻った画面で既存のタブ、ナビゲーションバー、タブバー、スクロールが変わっていないことを確認する。
+6. 購入テスト後は、App Store の Sandbox 購入履歴とアプリ内表示が一致することを確認する。
+
+## Evidence Template
+
+| 項目 | 記録 |
+|---|---|
+| Git SHA |  |
+| Build | DEBUG / Release |
+| Device |  |
+| OS |  |
+| StoreKit Source | none / local `.storekit` / Sandbox |
+| Purchase Entry | hidden / visible |
+| Feature Restrictions | off / on |
+| Result | pass / fail |
+| Notes |  |
+
+## Stop Conditions
+
+次のどれかが起きたら、購入導線を開く前に修正する。
+
+- Release で `purchaseEntryPointIsEnabled == false` なのに「Proと応援」が出る。
+- Release で既存機能がPro向け表示やロック表示に変わる。
+- 課金UIを開いただけでホーム、カレンダー、統計、友達、プロフィールの操作が重くなる。
+- DEBUG の疑似課金状態が `実際の状態` に戻しても残る。
+- Product ID、商品種別、サブスクリプショングループが `AppStore/PurchaseProducts.md` と一致しない。
