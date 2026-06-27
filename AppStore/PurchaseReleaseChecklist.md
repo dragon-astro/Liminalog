@@ -129,6 +129,7 @@ featureRestrictionsAreEnabled: true
 
 検証：
 
+- `Scripts/prepare-purchase-gate3-code-change.sh` が成功。
 - `PurchaseAccessPolicyTests`
 - `PurchaseConfigurationTests`
 - 統計タブ入口の回帰テスト

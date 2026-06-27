@@ -158,5 +158,5 @@ xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -configuration Debug -
 3. LP の `/terms` を App Store Connect に登録する。
 4. `Scripts/prepare-purchase-gate1-code-change.sh` を通してから、Gate 1 のコード変更だけを入れ、Releaseで購入導線がまだ出ないことを確認する。
 5. Local StoreKit購入操作ができる環境で、Pro / ライフタイム / 装飾パス / 支援の購入・復元・期限切れを確認し、`Scripts/prepare-purchase-gate2-code-change.sh` を通してからGate 2のコード変更を入れ、Purchase UI QA後に `Scripts/validate-purchase-readiness.sh --gate2-ready` を通す。
-6. 統計Pro制限をReleaseでONにする前に、Gate 3 QA証跡を埋めて `Scripts/validate-purchase-readiness.sh --gate3-ready` を通す。
+6. 統計Pro制限をReleaseでONにする前に、Gate 3 QA証跡を埋めて `Scripts/prepare-purchase-gate3-code-change.sh` を通してからGate 3のコード変更を入れ、`Scripts/validate-purchase-readiness.sh --gate3-ready` を通す。
 7. プレミアム装飾を `UnlockGalleryView` へ合流する前に、表示モデルとフォールバック適用点を小さく実装する。
