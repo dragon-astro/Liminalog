@@ -191,6 +191,7 @@ Liminalog の課金設計の初版。**戦略・価格・機能ティア・packa
 - **Small Business Program** 登録（手数料15%）。
 - **レンタル判定**：サブ（フル/装飾どちらか）有効中のみプレミアム装飾を装着可能にするゲート。失効時の装着リセット＋単品所有の永続を両立。
 - **プレミアム装飾のデータ設計（v0）**：
+  - 詳細設計は `20-premium-decoration-data.md`。
   - `PremiumDecorationProduct` は StoreKit 商品ID、対象 `UnlockKind`、装着先 `targetID`、表示名を持つ。商品IDは `liminalog.decoration.` prefix の非消耗型だけをプレミアム単品として扱う。
   - `PremiumDecorationAccessPolicy` は `unavailable / rented / owned` の3状態を返す。単品所有がある場合は、同時にProサブや装飾サブが有効でも `owned` を優先する。
   - Proサブまたは装飾サブは `rented`。ライフタイム単体は機能の買い切りであり、装飾レンタル権は付けない。

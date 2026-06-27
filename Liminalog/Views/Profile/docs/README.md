@@ -28,6 +28,7 @@
 | 17 | [17-monetization.md](17-monetization.md) | マネタイズ方針 v0（価格・機能ティア・サブ=装飾使い放題/単品=永久所有・じらしリワード・指標） | ✅ 初版 |
 | 18 | [18-landing-page.md](18-landing-page.md) | LP要件 v1（Vercel/Next.js・サポート/プライバシーURL兼用・近日公開・プライバシーポリシー本文ドラフト同梱） | ✅ 初版 |
 | 19 | [19-statistics-pro-gate.md](19-statistics-pro-gate.md) | 統計タブ Pro 化設計（タブは残す・ロック時は重い集計を構築しない・購入導線と機能制限を分離） | ✅ 初版 |
+| 20 | [20-premium-decoration-data.md](20-premium-decoration-data.md) | プレミアム装飾データ設計（獲得装飾と課金所有/レンタルを分離・失効時フォールバック） | ✅ 初版 |
 
 ---
 
