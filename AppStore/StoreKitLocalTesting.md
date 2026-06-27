@@ -118,6 +118,7 @@ xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -configuration Debug -
 
 この表を埋めるまでは、`AppStore/PurchaseReadinessAudit.md` の `StoreKitローカル購入テスト` を `Done` にしない。
 入力後は `swift Scripts/validate-storekit-config.swift --validate-storekit-local-qa-complete` を通す。Gate 2 へ進む直前は `Scripts/validate-purchase-readiness.sh --gate2-ready` を使う。
+`fill manually`、空欄、`pass / fail` のようなテンプレ値が残っている場合は未完了として扱う。
 
 ### XcodeBuildMCP Attempt Log
 

@@ -636,7 +636,7 @@ private func validateStoreKitLocalQAEvidenceComplete(at path: String) -> Never {
     var failures: [String] = []
 
     for field in requiredMetadataFields {
-        if metadata[field, default: ""].isEmpty {
+        if isPlaceholderMetadataValue(metadata[field]) {
             failures.append("StoreKit QA metadata is missing \(field)")
         }
     }
@@ -720,7 +720,7 @@ private func validatePurchaseUIQAEvidenceComplete(at path: String) -> Never {
     var failures: [String] = []
 
     for field in requiredMetadataFields {
-        if metadata[field, default: ""].isEmpty {
+        if isPlaceholderMetadataValue(metadata[field]) {
             failures.append("Purchase UI QA metadata is missing \(field)")
         }
     }
@@ -814,7 +814,7 @@ private func validateStatisticsProQAEvidenceComplete(at path: String) -> Never {
     var failures: [String] = []
 
     for field in requiredMetadataFields {
-        if metadata[field, default: ""].isEmpty {
+        if isPlaceholderMetadataValue(metadata[field]) {
             failures.append("Statistics Pro QA metadata is missing \(field)")
         }
     }
@@ -1618,6 +1618,23 @@ private func normalizeMarkdownCell(_ value: String) -> String {
     value
         .trimmingCharacters(in: .whitespacesAndNewlines)
         .replacingOccurrences(of: "`", with: "")
+}
+
+private func isPlaceholderMetadataValue(_ value: String?) -> Bool {
+    guard let value else { return true }
+    let normalized = normalizeMarkdownCell(value).lowercased()
+    if normalized.isEmpty {
+        return true
+    }
+
+    let placeholderValues: Set<String> = [
+        "fill manually",
+        "tbd",
+        "todo",
+        "-"
+    ]
+    return placeholderValues.contains(normalized)
+        || normalized.contains("fill manually")
 }
 
 private func printUsage() {
