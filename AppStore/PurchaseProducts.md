@@ -80,6 +80,6 @@ App Store Connect で商品を確認した後だけ、アプリ側で次を更�
 
 - `PurchaseConfiguration.current.productIDsAreConfirmedForAppStoreConnect = true`
 - `PurchaseConfiguration.current.subscriptionGroupName = "Liminalog Pro"`
-- `PurchaseConfiguration.current.legalLinks.termsOfUseURL = URL(string: "https://liminalog.vercel.app/terms")`
+- `PurchaseConfiguration.current.legalLinks.termsOfUseURL = URL(string: "https://liminalog-lp.vercel.app/terms")`
 
 まだ購入導線を出さない場合は、`purchaseEntryPointIsEnabled` は false のままにする。

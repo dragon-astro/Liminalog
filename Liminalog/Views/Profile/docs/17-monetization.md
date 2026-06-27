@@ -145,7 +145,7 @@ Liminalog の課金設計の初版。**戦略・価格・機能ティア・packa
 - **獲得テーマ：極光（7日）のみ**（2026-06-12）。テーマは「観客不要で売れる最強の単品」なので課金カタログの主力に。無料は教材として入口の1つだけ残し、暁・茜・朧・残照・月白はカタログから除外して課金候補に温存（定義・パレットはコードに残置）。ローンチ前に整理したのは §7 グランドファーザリング原則（既存から奪わない）を発動させないため。
 
 ### 残課題（ローンチ前 TODO）
-- **法務**：プライバシーポリシーURLは `https://liminalog.vercel.app/privacy`。利用規約はLP側に `/terms` ドラフトを追加済みだが、本文承認まではアプリ側 `termsOfUseURL` は nil のままにする。
+- **法務**：プライバシーポリシーURLは `https://liminalog-lp.vercel.app/privacy`。利用規約はLP側に `/terms` ドラフトを追加済みだが、本文承認まではアプリ側 `termsOfUseURL` は nil のままにする。`https://liminalog-lp.vercel.app/terms` は公開済み。
 - **サポート窓口**：`yuhlab.dev@gmail.com`（SettingsView `supportEmailAddress`・お問い合わせ＋プライバシーポリシー連絡先で共用）。
 - **将来レバー**：ロイヤル層LTVを伸ばすなら新規のみライフタイム¥7,800等へ／ローンチ記念で期間限定¥4,800セール（恒常値下げでなく演出。年額を食う注意）。価格は高めスタート＋セールで下げる（緩めるのは楽・上げるのは新規のみ＝§1）。
 
@@ -174,7 +174,7 @@ Liminalog の課金設計の初版。**戦略・価格・機能ティア・packa
   - 無料体験：年額Proに7日無料を付けるかは未確定。App Store Connectで確定後、アプリ内文言へ反映する。
   - 注意：装飾パスは「買い切り所有者向け」にアプリ側で表示制御する。App Store Connect上では商品として作り、表示対象は `PurchaseOfferingCatalog` で絞る。
 - 単品プレミアム装飾は `liminalog.decoration.` prefix の権利モデルだけ実装済み。初期の商品取得リスト/購入UIにはまだ個別IDを列挙していないため、単品装飾を売る時は `PurchaseConfiguration.current.productIDs` と購入UI側の商品定義追加が必要。
-- **本番課金設定の注入点**：`PurchaseConfiguration.current`。本番 Product ID 確認フラグ、サブスクリプショングループ名、利用規約URL、プライバシーポリシーURL、購入導線ON/OFF、機能制限ON/OFF、起動時StoreKit更新ON/OFFをここに集約し、未確定の間は有料リリース準備完了にならない。商品IDの空値/重複/未対応ID、法務URLの非HTTPSもRelease導線を開かない条件としてテストで固定済み。公開前の不足要件は `PurchasePaidReleaseRequirement` として型付きで保持し、DEBUG表示では `displayName` と `resolutionHint` を出す。StoreKitへ渡す商品IDは前後空白を除去してから使う。プライバシーポリシーURLは既存LPの `https://liminalog.vercel.app/privacy` を設定済み。Product ID/法務URLが揃っても `purchaseEntryPointIsEnabled` を true にするまではReleaseの設定画面に購入導線を出さない。
+- **本番課金設定の注入点**：`PurchaseConfiguration.current`。本番 Product ID 確認フラグ、サブスクリプショングループ名、利用規約URL、プライバシーポリシーURL、購入導線ON/OFF、機能制限ON/OFF、起動時StoreKit更新ON/OFFをここに集約し、未確定の間は有料リリース準備完了にならない。商品IDの空値/重複/未対応ID、法務URLの非HTTPSもRelease導線を開かない条件としてテストで固定済み。公開前の不足要件は `PurchasePaidReleaseRequirement` として型付きで保持し、DEBUG表示では `displayName` と `resolutionHint` を出す。StoreKitへ渡す商品IDは前後空白を除去してから使う。プライバシーポリシーURLは既存LPの `https://liminalog-lp.vercel.app/privacy` を設定済み。Product ID/法務URLが揃っても `purchaseEntryPointIsEnabled` を true にするまではReleaseの設定画面に購入導線を出さない。
 - **リリース準備状態の確認**：`PurchaseConfiguration.releaseReadinessSnapshot` が `missingRequiredMetadata` / `metadataReadyWaitingForGoLive` / `purchaseEntryPointReady` / `featureRestrictionsReady` を返す。これにより、App Store Connect と法務URLの準備完了、購入導線の公開、既存機能へのPro制限適用を別チェックポイントとして扱える。`PurchaseActivationPolicy` はこの snapshot を通して Release の StoreKit 実行・機能制限・バックグラウンド権利更新を判定するため、メタデータだけ揃っても既存機能は自動で変わらない。
 - **Release切り替え手順**：`AppStore/PurchaseReleaseChecklist.md`。メタデータ準備、購入導線公開、機能制限ONを3段階に分ける。
 - **課金入口とStoreKitランタイムの露出**：`PurchaseActivationPolicy` で制御する。Releaseでは `PurchaseConfiguration.current.canExposePurchaseEntryPoint` が true になるまで設定内の「Proと応援」を出さず、`PurchaseStoreRuntimePolicy` 経由で起動時/復帰時のStoreKit権利確認も走らせない。購入画面でのStoreKit操作、既存機能のPro制限、起動時/復帰時のバックグラウンド権利確認は別スイッチに分ける。`PurchaseStore` 自体も同じランタイムポリシーを持ち、将来別の購入導線を追加しても未準備Releaseで商品取得・購入・復元・サブスク管理が直接走らないようにする。DEBUGでは未設定確認と表示検証のため購入画面のStoreKit操作だけ常に有効化する。
@@ -204,7 +204,7 @@ Liminalog の課金設計の初版。**戦略・価格・機能ティア・packa
 - **サーバー方針（初期）**：独自サーバーなし。StoreKit2 の `Transaction.currentEntitlements` と `Transaction.updates` を正とし、端末には表示高速化用キャッシュだけを持つ。App Store Server API / Server Notifications は、独自アカウント横断同期・返金/解約イベントのサーバー保管・詳細な課金分析が必要になってから検討。
 - **購入状態更新**：起動時はキャッシュを即時表示する。StoreKit確認は購入画面表示時に行い、`backgroundEntitlementRefreshIsEnabled` または機能制限を明示的にONにした後だけ、起動時/復帰時のバックグラウンド確認を行う。復帰時は最終確認から6時間以上経っている場合だけ再確認し、既存画面の操作を待たせない。
 - **サブスク管理**：アプリ内の「Proと応援」から StoreKit の管理画面を開く。解約・更新・プラン変更はApp Store側に寄せ、Liminalog側で独自サーバーや独自解約UIは持たない。
-- **利用規約**：LP 側に `/terms` ドラフトを追加済み。App Store Connect とアプリ内導線から参照する候補URLは `https://liminalog.vercel.app/terms`。ただし本文承認までは `PurchaseConfiguration.current.legalLinks.termsOfUseURL` を nil のままにしてRelease導線を開かない。
+- **利用規約**：LP 側に `/terms` ドラフトを追加済み。App Store Connect とアプリ内導線から参照する候補URLは `https://liminalog-lp.vercel.app/terms`。ただし本文承認までは `PurchaseConfiguration.current.legalLinks.termsOfUseURL` を nil のままにしてRelease導線を開かない。
 - **ローカル課金テスト**：Xcode の StoreKit Configuration は未追加。現在の環境では `xcrun storekit` が使えず、既存 `.storekit` 雛形も見つからなかったため、推測の手書き設定は入れない。Xcode GUI または確実な雛形で `liminalog.storekit` を作成し、shared scheme の LaunchAction に紐づけてから購入画面の実購入フローを検証する。
   - Xcode GUI手順：File > New > File... > StoreKit Configuration File で `liminalog.storekit` を作成し、上記の商品ID・種別・価格を追加する。
   - Scheme手順：Edit Scheme... > Run > Options > StoreKit Configuration で `liminalog.storekit` を選ぶ。`Liminalog.xcscheme` には現時点でStoreKit設定の参照は入っていない。

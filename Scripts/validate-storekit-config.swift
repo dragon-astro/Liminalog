@@ -290,7 +290,7 @@ private func validateReleaseSafetyConfiguration(at path: String) -> Never {
         ("App Store Connect product confirmation remains off", "productIDsAreConfirmedForAppStoreConnect: false"),
         ("subscription group remains unset", "subscriptionGroupName: nil"),
         ("terms URL remains unset", "termsOfUseURL: nil"),
-        ("privacy URL points to the published LP", #"privacyPolicyURL: URL(string: "https://liminalog.vercel.app/privacy")"#),
+        ("privacy URL points to the published LP", #"privacyPolicyURL: URL(string: "https://liminalog-lp.vercel.app/privacy")"#),
         ("purchase entry point remains off", "purchaseEntryPointIsEnabled: false"),
         ("feature restrictions remain off", "featureRestrictionsAreEnabled: false"),
         ("background entitlement refresh remains off", "backgroundEntitlementRefreshIsEnabled: false")

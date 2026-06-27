@@ -22,4 +22,4 @@ Liminalog offers optional in-app purchases for Pro features, lifetime support, d
 
 Pro subscriptions and lifetime purchase unlock deeper analysis features once feature restrictions are explicitly enabled. Lifetime purchase does not include premium decoration rental. Decoration pass subscriptions are shown in the app only for lifetime owners and provide decoration rental access while active. Support tips are voluntary consumables and do not grant permanent feature access.
 
-The privacy policy is available in Settings > Privacy Policy. Terms of use must be available at `https://liminalog.vercel.app/terms` before the paid release is submitted. Support contact: yuhlab.dev@gmail.com.
+The privacy policy is available in Settings > Privacy Policy. Terms of use must be available at `https://liminalog-lp.vercel.app/terms` before the paid release is submitted. Support contact: yuhlab.dev@gmail.com.

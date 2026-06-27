@@ -19,7 +19,8 @@ Liminalog の課金基盤 v0 を、現時点の証拠ベースで監査するた
 |---|---|---|---|
 | 課金基盤 v0 | Done | `PurchaseStore`, `PurchaseProductID`, `PurchaseConfiguration`, `PurchaseActivationPolicy`, `PurchaseFeatureGate`, `SupportLiminalogView` が追加済み | StoreKit実購入での権利反映確認 |
 | Release安全状態 | Done | `swift Scripts/validate-storekit-config.swift --validate-release-safety` が成功 | Gate 1 以降で値を変えたら再実行 |
-| LP 利用規約ソース | Prepared | LP repo に `app/terms/page.tsx` が存在。`ReviewNotes.md` は課金リリース時の利用規約URLを `https://liminalog.vercel.app/terms` として扱う | 本文承認、公開URLの本番確認、LP repo の push/deploy |
+| LP 利用規約ページ | Done | LP repo の `5d46da9 feat: add terms page` を `origin/main` へpush済み。`https://liminalog-lp.vercel.app/terms` は 200 応答 | 本文承認後にApp Store Connectへ登録 |
+| LP プライバシーポリシーURL | Done | `https://liminalog-lp.vercel.app/privacy` は 200 応答。`PurchaseConfiguration.current.privacyPolicyURL` はこのURLを参照 | カスタムドメインを使う場合はコード・docs・App Store Connectを同時更新 |
 | App Store Connect商品準備 | Prepared | `AppStore/PurchaseProducts.md`、`--app-store-connect-tsv`、Confirmation Sheet | App Store Connect で商品8件と `Liminalog Pro` group を実作成し、各行を確認 |
 | 商品ドキュメント整合性 | Done | `swift Scripts/validate-storekit-config.swift --validate-products-doc` が成功 | 商品・価格・種別を変えたら再実行 |
 | StoreKitローカル設定 | Blocked | repo 内に `liminalog.storekit` は未存在。`xcrun storekit` も現在の環境にない | Xcode GUI で `liminalog.storekit` を作成し、scheme に設定 |
@@ -61,5 +62,5 @@ swift Scripts/validate-storekit-config.swift liminalog.storekit
 2. `swift Scripts/validate-storekit-config.swift liminalog.storekit` を通す。
 3. Simulator DEBUG で `AppStore/PurchaseUIQA.md` の Local StoreKit QA を実施する。
 4. App Store Connect で商品を作成し、`AppStore/PurchaseProducts.md` の Confirmation Sheet を埋める。
-5. 利用規約本文を承認し、LP の `/terms` が本番URLで見えることを確認する。
+5. 利用規約本文を承認し、LP の `/terms` を App Store Connect に登録する。
 6. Gate 1 のコード変更だけを入れ、Releaseで購入導線がまだ出ないことを確認する。

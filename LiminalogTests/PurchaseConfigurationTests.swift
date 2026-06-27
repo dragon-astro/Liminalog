@@ -18,7 +18,7 @@ struct PurchaseConfigurationTests {
 
         #expect(!PurchaseConfiguration.current.isReadyForPaidRelease)
         #expect(!PurchaseConfiguration.current.canExposePurchaseEntryPoint)
-        #expect(PurchaseConfiguration.current.legalLinks.privacyPolicyURL == URL(string: "https://liminalog.vercel.app/privacy"))
+        #expect(PurchaseConfiguration.current.legalLinks.privacyPolicyURL == URL(string: "https://liminalog-lp.vercel.app/privacy"))
         #expect(!PurchaseConfiguration.current.purchaseEntryPointIsEnabled)
         #expect(!PurchaseConfiguration.current.featureRestrictionsAreEnabled)
         #expect(!PurchaseConfiguration.current.backgroundEntitlementRefreshIsEnabled)
@@ -63,7 +63,7 @@ struct PurchaseConfigurationTests {
             subscriptionGroupName: "Liminalog Pro",
             legalLinks: PurchaseLegalLinks(
                 termsOfUseURL: nil,
-                privacyPolicyURL: URL(string: "https://liminalog.vercel.app/privacy")
+                privacyPolicyURL: URL(string: "https://liminalog-lp.vercel.app/privacy")
             )
         )
         let policy = PurchaseActivationPolicy(

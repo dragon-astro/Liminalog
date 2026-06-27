@@ -26,8 +26,8 @@
 - `AppStore/PurchaseProducts.md` の商品が App Store Connect に作成済み。
 - `Liminalog Pro` の Subscription Group が作成済み。
 - 利用規約本文が承認済み。
-- `https://liminalog.vercel.app/terms` が公開済み。
-- `https://liminalog.vercel.app/privacy` が公開済み。
+- `https://liminalog-lp.vercel.app/terms` が公開済み。
+- `https://liminalog-lp.vercel.app/privacy` が公開済み。
 - ローカル `liminalog.storekit` が作成済み。
 - `swift Scripts/validate-storekit-config.swift liminalog.storekit` が成功。
 
@@ -37,8 +37,8 @@
 productIDsAreConfirmedForAppStoreConnect: true
 subscriptionGroupName: "Liminalog Pro"
 legalLinks: PurchaseLegalLinks(
-    termsOfUseURL: URL(string: "https://liminalog.vercel.app/terms"),
-    privacyPolicyURL: URL(string: "https://liminalog.vercel.app/privacy")
+    termsOfUseURL: URL(string: "https://liminalog-lp.vercel.app/terms"),
+    privacyPolicyURL: URL(string: "https://liminalog-lp.vercel.app/privacy")
 )
 purchaseEntryPointIsEnabled: false
 featureRestrictionsAreEnabled: false
