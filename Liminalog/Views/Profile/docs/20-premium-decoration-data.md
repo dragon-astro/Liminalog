@@ -152,11 +152,12 @@ struct PremiumDecorationCatalogItem: Identifiable, Codable, Equatable {
 1. [x] `PremiumDecorationCatalog` を静的カタログとして追加する。
 2. [x] 既存カタログIDと衝突しない productID / targetID 命名を決める。
 3. [x] 表示用の `DecorationAccessDisplayState` を作り、獲得/課金/未所持を統合する。
-4. `UnlockGalleryView` の対象タブに課金装飾を合流する。
-5. 装着時に `PremiumDecorationAccessPolicy` を通す。
-6. [x] 失効時フォールバックのテストを追加する。
-7. StoreKitローカル購入テストで単品所有とレンタルの両方を確認する。
-8. UI接続前は `Scripts/validate-purchase-readiness.sh` で未接続状態を維持する。
+4. [x] UI接続前に、単品装飾が現行購入設定・StoreKit取得対象へ混ざらないことをテストで固定する。
+5. `UnlockGalleryView` の対象タブに課金装飾を合流する。
+6. 装着時に `PremiumDecorationAccessPolicy` を通す。
+7. [x] 失効時フォールバックのテストを追加する。
+8. StoreKitローカル購入テストで単品所有とレンタルの両方を確認する。
+9. UI接続前は `Scripts/validate-purchase-readiness.sh` で未接続状態を維持する。
 
 ## テスト観点
 
@@ -167,6 +168,8 @@ struct PremiumDecorationCatalogItem: Identifiable, Codable, Equatable {
 - ライフタイムのみでは課金装飾は `unavailable` のまま。
 - StoreKit商品IDが `liminalog.decoration.` prefix でなければ課金装飾として扱わない。
 - 課金権利がない状態で課金装飾 targetID が `UserSettings` に残っていても、表示は default/none へ戻る。
+- UI接続前は、`PurchaseConfiguration.current.storeKitProductIDs` と `PurchaseProductID.storeKitProductIDs` に単品装飾IDを含めない。
+- 単品装飾カタログは kind + targetID と kind + sortOrder を一意に保ち、フレーム/カードの表示順レンジを分ける。
 
 ## やらないこと
 

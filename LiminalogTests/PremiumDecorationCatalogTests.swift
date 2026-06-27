@@ -48,6 +48,34 @@ struct PremiumDecorationCatalogTests {
     }
 
     @Test
+    func catalogUsesStableKindedTargetsAndSortOrders() {
+        let kindedTargets = PremiumDecorationCatalog.items.map { "\($0.kind.rawValue):\($0.targetID)" }
+        let kindedSortOrders = PremiumDecorationCatalog.items.map { "\($0.kind.rawValue):\($0.sortOrder)" }
+
+        #expect(kindedTargets.count == Set(kindedTargets).count)
+        #expect(kindedSortOrders.count == Set(kindedSortOrders).count)
+
+        for item in PremiumDecorationCatalog.items {
+            switch item.kind {
+            case .iconFrame:
+                #expect((100..<200).contains(item.sortOrder))
+            case .cardStyle:
+                #expect((200..<300).contains(item.sortOrder))
+            case .theme, .nameBadge, .streakIcon, .iconSet, .barStyle, .monthArt:
+                Issue.record("Premium decoration catalog should not expose \(item.kind.rawValue) yet.")
+            }
+        }
+    }
+
+    @Test
+    func premiumDecorationProductsRemainOutsideCurrentPurchaseConfiguration() {
+        let premiumProductIDs = Set(PremiumDecorationCatalog.productIDs)
+
+        #expect(premiumProductIDs.isDisjoint(with: Set(PurchaseProductID.storeKitProductIDs)))
+        #expect(premiumProductIDs.isDisjoint(with: Set(PurchaseConfiguration.current.storeKitProductIDs)))
+    }
+
+    @Test
     func catalogLookupIsStableByProductIDAndKindedTargetID() throws {
         let auroraFrame = try #require(PremiumDecorationCatalog.item(forProductID: "liminalog.decoration.frame.aurora_wreath"))
         let auroraCard = try #require(PremiumDecorationCatalog.item(forProductID: "liminalog.decoration.card.aurora_panel"))
