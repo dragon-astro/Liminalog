@@ -73,6 +73,7 @@ xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -configuration Debug -
 ## 5. ローカル購入テストケース
 
 - 商品取得成功：購入画面に Pro、ライフタイム、装飾パス、支援が表示される。
+- DEBUG商品取得診断：購入画面の `StoreKit商品取得診断` で要求ID数、取得数、有効数、未取得ID、型不一致/未対応IDを確認する。
 - Pro月額購入：`entitlements.isProActive == true` になり、サブスク状態として表示される。
 - Pro年額購入：月額と同じ Pro 権利になる。
 - ライフタイム購入：`hasLifetime == true` になり、Pro権利は永続扱いになる。
@@ -94,6 +95,7 @@ xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -configuration Debug -
 |---|---|---|---|---|---|---|
 | 2026-06-27 | `4230b478` | DEBUG | iPhone 17 Pro Simulator / iOS 26.5 | scheme expects `liminalog.storekit` | blocked | XcodeBuildMCP でビルド・起動し、設定の `Proと応援` から課金画面へ遷移できることは確認。商品取得は `商品情報を取得できませんでした` 表示になったため、購入操作QAは未完了のまま。Xcode の通常 Run で StoreKit Configuration を適用して再確認する。 |
 | 2026-06-27 | working tree after `8373462` | DEBUG | iPhone 17 Pro Simulator / iOS 26.5 | scheme expects `liminalog.storekit` | blocked | DEBUG OSLog 診断を追加して XcodeBuildMCP で再確認。`LiminalogPurchaseDebug productLoad ... loadedCount=0 ... validCount=0` だったため、商品種別フィルタではなく `Product.products(for:)` 自体にローカルStoreKit商品が入っていない。XcodeBuildMCP 起動では StoreKit Configuration が適用されないため、Xcode通常RunまたはSandboxで購入操作QAを行う。 |
+| 2026-06-27 | working tree after `084ddd5` | DEBUG | iPhone 17 Pro Simulator / iOS 26.5 | scheme expects `liminalog.storekit` | blocked | DEBUG購入画面の `StoreKit商品取得診断` で、要求ID 8、取得 0、有効 0、未取得ID一覧が表示されることを XcodeBuildMCP で確認。XcodeBuildMCP 起動では商品注入がないため購入操作QAは未完了だが、手動QA時の切り分け表示は確認済み。Releaseには出ない。 |
 
 | 項目 | 記録 |
 |---|---|

@@ -35,6 +35,53 @@ struct PurchaseStoreDebugTests {
     }
 
     @Test
+    func productLoadDiagnosticsReportsMissingAndRejectedProducts() {
+        let diagnostics = PurchaseProductLoadDiagnostics(
+            requestedProductIDs: [
+                PurchaseProductID.proMonthly.rawValue,
+                PurchaseProductID.proYearly.rawValue,
+                PurchaseProductID.lifetime.rawValue
+            ],
+            loadedProducts: [
+                PurchaseProductLoadDiagnostics.LoadedProduct(
+                    id: PurchaseProductID.proMonthly.rawValue,
+                    productTypeDescription: "autoRenewable"
+                ),
+                PurchaseProductLoadDiagnostics.LoadedProduct(
+                    id: PurchaseProductID.lifetime.rawValue,
+                    productTypeDescription: "consumable"
+                )
+            ],
+            validProductIDs: [PurchaseProductID.proMonthly.rawValue],
+            errorDescription: nil,
+            recordedAt: Date(timeIntervalSince1970: 0)
+        )
+
+        #expect(diagnostics.missingRequestedProductIDs == [PurchaseProductID.proYearly.rawValue])
+        #expect(diagnostics.rejectedLoadedProducts == [
+            PurchaseProductLoadDiagnostics.LoadedProduct(
+                id: PurchaseProductID.lifetime.rawValue,
+                productTypeDescription: "consumable"
+            )
+        ])
+    }
+
+    @Test
+    func productLoadDiagnosticsKeepsStoreKitErrorContext() {
+        let diagnostics = PurchaseProductLoadDiagnostics(
+            requestedProductIDs: PurchaseProductID.storeKitProductIDs,
+            loadedProducts: [],
+            validProductIDs: [],
+            errorDescription: "StoreKit failed",
+            recordedAt: Date(timeIntervalSince1970: 0)
+        )
+
+        #expect(diagnostics.missingRequestedProductIDs == PurchaseProductID.storeKitProductIDs)
+        #expect(diagnostics.rejectedLoadedProducts.isEmpty)
+        #expect(diagnostics.errorDescription == "StoreKit failed")
+    }
+
+    @Test
     func debugOverrideChangesEntitlementsWithoutStoreKitRefresh() {
         let store = PurchaseStore(
             productIDs: PurchaseProductID.storeKitProductIDs,

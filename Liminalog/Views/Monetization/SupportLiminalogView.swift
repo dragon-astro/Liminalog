@@ -33,6 +33,9 @@ struct SupportLiminalogView: View {
             }
 
             #if DEBUG
+            if let diagnostics = purchaseStore.debugProductLoadDiagnostics {
+                debugProductLoadDiagnosticsSection(diagnostics)
+            }
             if !purchaseConfiguration.isReadyForPaidRelease {
                 debugReadinessSection
             }
@@ -237,6 +240,53 @@ struct SupportLiminalogView: View {
     }
 
     #if DEBUG
+    private func debugProductLoadDiagnosticsSection(_ diagnostics: PurchaseProductLoadDiagnostics) -> some View {
+        Section {
+            LabeledContent("要求ID", value: "\(diagnostics.requestedProductIDs.count)")
+            LabeledContent("取得", value: "\(diagnostics.loadedProducts.count)")
+            LabeledContent("有効", value: "\(diagnostics.validProductIDs.count)")
+            LabeledContent("確認時刻", value: diagnostics.recordedAt.formatted(date: .omitted, time: .standard))
+
+            if !diagnostics.missingRequestedProductIDs.isEmpty {
+                debugDiagnosticList(
+                    title: "未取得ID",
+                    values: diagnostics.missingRequestedProductIDs
+                )
+            }
+
+            if !diagnostics.rejectedLoadedProducts.isEmpty {
+                debugDiagnosticList(
+                    title: "型不一致/未対応",
+                    values: diagnostics.rejectedLoadedProducts.map { "\($0.id) (\($0.productTypeDescription))" }
+                )
+            }
+
+            if let errorDescription = diagnostics.errorDescription {
+                debugDiagnosticList(
+                    title: "エラー",
+                    values: [errorDescription]
+                )
+            }
+        } header: {
+            Text("StoreKit商品取得診断")
+        } footer: {
+            Text("DEBUGビルド限定です。取得が0件の場合は、App Store Connect商品未作成か、XcodeのStoreKit Configurationが実行時に適用されていない可能性があります。")
+        }
+    }
+
+    private func debugDiagnosticList(title: String, values: [String]) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(title)
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(LiminalTheme.text)
+            Text(values.joined(separator: "\n"))
+                .font(.caption.monospaced())
+                .foregroundStyle(LiminalTheme.secondaryText)
+                .textSelection(.enabled)
+        }
+        .padding(.vertical, 2)
+    }
+
     private var debugReadinessSection: some View {
         let snapshot = purchaseConfiguration.releaseReadinessSnapshot
 

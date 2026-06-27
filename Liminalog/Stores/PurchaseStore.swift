@@ -4,6 +4,29 @@ import StoreKit
 import UIKit
 
 #if DEBUG
+struct PurchaseProductLoadDiagnostics: Equatable {
+    struct LoadedProduct: Equatable, Identifiable {
+        var id: String
+        var productTypeDescription: String
+    }
+
+    var requestedProductIDs: [String]
+    var loadedProducts: [LoadedProduct]
+    var validProductIDs: [String]
+    var errorDescription: String?
+    var recordedAt: Date
+
+    var missingRequestedProductIDs: [String] {
+        let loadedIDs = Set(loadedProducts.map(\.id))
+        return requestedProductIDs.filter { !loadedIDs.contains($0) }
+    }
+
+    var rejectedLoadedProducts: [LoadedProduct] {
+        let validIDs = Set(validProductIDs)
+        return loadedProducts.filter { !validIDs.contains($0.id) }
+    }
+}
+
 enum DebugPurchaseEntitlementsOverride: String, CaseIterable, Identifiable {
     case system
     case pro
@@ -101,6 +124,7 @@ final class PurchaseStore {
     @ObservationIgnored private var debugEntitlementsOverride: PurchaseEntitlements?
     @ObservationIgnored private var entitlementsBeforeDebugOverride: PurchaseEntitlements?
     private(set) var debugEntitlementsOverrideKind: DebugPurchaseEntitlementsOverride = .system
+    private(set) var debugProductLoadDiagnostics: PurchaseProductLoadDiagnostics?
     #endif
 
     private(set) var products: [Product] = []
@@ -387,6 +411,20 @@ final class PurchaseStore {
 
     private func logProductLoadResult(loadedProducts: [Product], validProducts: [Product]) {
         #if DEBUG
+        let loadedDiagnosticProducts = loadedProducts.map {
+            PurchaseProductLoadDiagnostics.LoadedProduct(
+                id: $0.id,
+                productTypeDescription: "\($0.type)"
+            )
+        }
+        debugProductLoadDiagnostics = PurchaseProductLoadDiagnostics(
+            requestedProductIDs: productIDs,
+            loadedProducts: loadedDiagnosticProducts,
+            validProductIDs: validProducts.map(\.id),
+            errorDescription: nil,
+            recordedAt: Date()
+        )
+
         let requestedIDs = productIDs.joined(separator: ",")
         let loadedSummary = loadedProducts
             .map { "\($0.id):\($0.type)" }
@@ -411,6 +449,13 @@ final class PurchaseStore {
     private func logProductLoadError(_ error: Error) {
         #if DEBUG
         let errorDescription = String(describing: error)
+        debugProductLoadDiagnostics = PurchaseProductLoadDiagnostics(
+            requestedProductIDs: productIDs,
+            loadedProducts: [],
+            validProductIDs: [],
+            errorDescription: errorDescription,
+            recordedAt: Date()
+        )
         print("LiminalogPurchaseDebug productLoadError \(errorDescription)")
         Self.debugLogger.error("LiminalogPurchaseDebug productLoadError \(errorDescription, privacy: .public)")
         #endif
