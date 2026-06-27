@@ -22,7 +22,7 @@ Liminalog の課金基盤 v0 を、現時点の証拠ベースで監査するた
 | Release build | Done | `xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -configuration Release -destination "generic/platform=iOS" -derivedDataPath /private/tmp/LiminalogMonetizationReleaseDerivedData build` が成功 | App Store提出前はArchive/exportで再検証 |
 | LP 利用規約ページ | Done | LP repo の `5d46da9 feat: add terms page` を `origin/main` へpush済み。`https://liminalog-lp.vercel.app/terms` は 200 応答 | 本文承認後にApp Store Connectへ登録 |
 | LP プライバシーポリシーURL | Done | `https://liminalog-lp.vercel.app/privacy` は 200 応答。`PurchaseConfiguration.current.privacyPolicyURL` はこのURLを参照 | カスタムドメインを使う場合はコード・docs・App Store Connectを同時更新 |
-| App Store Connect商品準備 | Prepared | `AppStore/PurchaseProducts.md`、`--app-store-connect-tsv`、Confirmation Sheet。`Scripts/validate-purchase-readiness.sh` でTSV出力を確認済み | App Store Connect で商品8件と `Liminalog Pro` group を実作成し、各行を確認 |
+| App Store Connect商品準備 | Prepared | `AppStore/PurchaseProducts.md`、`--app-store-connect-tsv`、`--app-store-connect-confirmation-md`、Confirmation Sheet。`Scripts/validate-purchase-readiness.sh` でTSV出力を確認済み | App Store Connect で商品8件と `Liminalog Pro` group を実作成し、各行を確認 |
 | 商品ドキュメント整合性 | Done | `Scripts/validate-purchase-readiness.sh` が 2026-06-27 に成功。`--validate-products-doc` も含めて確認済み | 商品・価格・種別を変えたら再実行 |
 | StoreKitローカル設定 | Prepared | repo 直下に `liminalog.storekit` を追加。Shared scheme の Run に `liminalog.storekit` を接続。`Scripts/validate-purchase-readiness.sh` が 2026-06-27 に `billingPlans` 検査込みで成功 | Xcode editorが `.storekit` を書き換えた場合は再検査 |
 | StoreKitローカル購入テスト | Prepared | `liminalog.storekit`、`AppStore/StoreKitLocalTesting.md`、`AppStore/PurchaseUIQA.md` に手順あり。`xcodebuild test` + `SKTestSession(contentsOf:)` は 2026-06-27 に `app.YasudaRyuga.Liminalog is not installed for development` で商品取得不可だったため自動テスト化しない | Xcode Run のStoreKit設定、またはApp Store Connect Sandboxで購入、復元、期限切れ、キャンセルを確認 |
@@ -44,6 +44,7 @@ The aggregate command runs:
 swift Scripts/validate-storekit-config.swift --validate-products-doc
 swift Scripts/validate-storekit-config.swift --validate-release-safety
 swift Scripts/validate-storekit-config.swift --app-store-connect-tsv
+swift Scripts/validate-storekit-config.swift --app-store-connect-confirmation-md
 Scripts/validate-purchase-legal-urls.sh
 git diff --check
 ```
@@ -90,7 +91,7 @@ xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -configuration Debug -
 ## Next Best Steps
 
 1. Simulator DEBUG を Xcode からRunし、`AppStore/PurchaseUIQA.md` の Local StoreKit QA を実施する。
-2. App Store Connect で商品を作成し、`AppStore/PurchaseProducts.md` の Confirmation Sheet を埋める。
+2. App Store Connect で商品を作成し、`swift Scripts/validate-storekit-config.swift --app-store-connect-confirmation-md` の Confirmation Sheet を埋める。
 3. 利用規約本文を承認し、LP の `/terms` を App Store Connect に登録する。
 4. Gate 1 のコード変更だけを入れ、Releaseで購入導線がまだ出ないことを確認する。
 5. DEBUG の `Pro制限を試す` と `-LiminalogDebugPurchaseState` を組み合わせ、Proサブ / ライフタイム / 装飾パスのみの統計タブ表示も目視QAする。

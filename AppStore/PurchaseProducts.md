@@ -52,6 +52,12 @@ App Store Connect へ転記するためのTSVは、同じ期待商品リスト�
 swift Scripts/validate-storekit-config.swift --app-store-connect-tsv
 ```
 
+App Store Connect で作成後に使う確認シートも、同じ期待商品リストから生成できる。
+
+```sh
+swift Scripts/validate-storekit-config.swift --app-store-connect-confirmation-md
+```
+
 StoreKit Configuration 作成後は、同じ期待商品リストで `.storekit` も検査する。
 
 ```sh

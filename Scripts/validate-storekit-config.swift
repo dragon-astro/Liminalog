@@ -119,6 +119,11 @@ if arguments.contains("--app-store-connect-tsv") {
     exit(EXIT_SUCCESS)
 }
 
+if arguments.contains("--app-store-connect-confirmation-md") {
+    printAppStoreConnectConfirmationMarkdown()
+    exit(EXIT_SUCCESS)
+}
+
 if let docsFlagIndex = arguments.firstIndex(of: "--validate-products-doc") {
     let path = arguments.dropFirst(docsFlagIndex + 1).first ?? "AppStore/PurchaseProducts.md"
     validatePurchaseProductsDocument(at: path)
@@ -429,6 +434,7 @@ private func printUsage() {
       swift Scripts/validate-storekit-config.swift <path-to-liminalog.storekit>
       swift Scripts/validate-storekit-config.swift --expected
       swift Scripts/validate-storekit-config.swift --app-store-connect-tsv
+      swift Scripts/validate-storekit-config.swift --app-store-connect-confirmation-md
       swift Scripts/validate-storekit-config.swift --validate-products-doc [path-to-PurchaseProducts.md]
       swift Scripts/validate-storekit-config.swift --validate-release-safety [path-to-PurchaseConfiguration.swift]
 
@@ -451,6 +457,51 @@ private func printAppStoreConnectTSV() {
         let notes = appStoreConnectNotes(for: product)
         print("\(product.productID)\t\(product.displayName)\t\(product.kind)\t\(product.referencePrice)\t\(group)\t\(notes)")
     }
+}
+
+private func printAppStoreConnectConfirmationMarkdown() {
+    print("""
+    # App Store Connect Product Confirmation
+
+    App Store Connect で商品を作成した後、この表を確認する。すべて確認できるまで `PurchaseConfiguration.current.productIDsAreConfirmedForAppStoreConnect` は `true` にしない。
+
+    ## Subscription Group
+
+    | Check | Field | Expected |
+    |---|---|---|
+    | [ ] | Group Reference Name | `Liminalog Pro` |
+    | [ ] | Contains Products | Proサブと装飾パスが同じグループに入っている |
+
+    ## Products
+
+    | Check | Product ID | Reference Name | Type | Reference Price | Subscription Group | Notes |
+    |---|---|---|---|---:|---|---|
+    """)
+
+    for product in expectedProducts {
+        let group = product.subscriptionGroup ?? "-"
+        let notes = appStoreConnectNotes(for: product)
+        print("| [ ] | `\(product.productID)` | \(product.displayName) | \(product.kind) | \(product.referencePrice) | \(group) | \(notes) |")
+    }
+
+    print("""
+
+    ## Gate 1 App Code Change After Confirmation
+
+    ```swift
+    productIDsAreConfirmedForAppStoreConnect: true
+    subscriptionGroupName: "Liminalog Pro"
+    legalLinks: PurchaseLegalLinks(
+        termsOfUseURL: URL(string: "https://liminalog-lp.vercel.app/terms"),
+        privacyPolicyURL: URL(string: "https://liminalog-lp.vercel.app/privacy")
+    )
+    purchaseEntryPointIsEnabled: false
+    featureRestrictionsAreEnabled: false
+    backgroundEntitlementRefreshIsEnabled: false
+    ```
+
+    Gate 1 では購入導線をまだ出さない。`purchaseEntryPointIsEnabled` と `featureRestrictionsAreEnabled` は `false` のままにする。
+    """)
 }
 
 private func appStoreConnectNotes(for product: ExpectedProduct) -> String {

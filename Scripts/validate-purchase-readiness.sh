@@ -48,6 +48,9 @@ run_step "Validate Release purchase safety switches" \
 run_step "Print App Store Connect product TSV" \
   swift Scripts/validate-storekit-config.swift --app-store-connect-tsv
 
+run_step "Print App Store Connect confirmation sheet" \
+  swift Scripts/validate-storekit-config.swift --app-store-connect-confirmation-md
+
 run_step "Validate legal URLs" \
   Scripts/validate-purchase-legal-urls.sh
 
