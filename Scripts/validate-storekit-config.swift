@@ -9,6 +9,8 @@ struct ExpectedProduct {
     let referencePrice: String
     let subscriptionGroup: String?
     let billingPlanType: String?
+    let appStoreDescription: String
+    let introductoryOffer: String
     let kindTokens: [String]
 }
 
@@ -40,6 +42,8 @@ let expectedProducts: [ExpectedProduct] = [
         referencePrice: "¥400",
         subscriptionGroup: "Liminalog Pro",
         billingPlanType: "monthly",
+        appStoreDescription: "統計などのPro機能とプレミアム装飾を月ごとに利用できます。",
+        introductoryOffer: "-",
         kindTokens: autoRenewableSubscriptionTokens
     ),
     ExpectedProduct(
@@ -49,6 +53,8 @@ let expectedProducts: [ExpectedProduct] = [
         referencePrice: "¥2,900",
         subscriptionGroup: "Liminalog Pro",
         billingPlanType: "upfront",
+        appStoreDescription: "統計などのPro機能とプレミアム装飾を年ごとに利用できます。",
+        introductoryOffer: "未確定（付ける場合はアプリ内文言とQA表も同時更新）",
         kindTokens: autoRenewableSubscriptionTokens
     ),
     ExpectedProduct(
@@ -58,6 +64,8 @@ let expectedProducts: [ExpectedProduct] = [
         referencePrice: "¥6,800",
         subscriptionGroup: nil,
         billingPlanType: nil,
+        appStoreDescription: "Pro機能を買い切りで利用できます。",
+        introductoryOffer: "-",
         kindTokens: nonConsumableTokens
     ),
     ExpectedProduct(
@@ -67,6 +75,8 @@ let expectedProducts: [ExpectedProduct] = [
         referencePrice: "¥200",
         subscriptionGroup: "Liminalog Pro",
         billingPlanType: "monthly",
+        appStoreDescription: "ライフタイム所有者向けにプレミアム装飾を月ごとに利用できます。",
+        introductoryOffer: "-",
         kindTokens: autoRenewableSubscriptionTokens
     ),
     ExpectedProduct(
@@ -76,6 +86,8 @@ let expectedProducts: [ExpectedProduct] = [
         referencePrice: "¥1,500",
         subscriptionGroup: "Liminalog Pro",
         billingPlanType: "upfront",
+        appStoreDescription: "ライフタイム所有者向けにプレミアム装飾を年ごとに利用できます。",
+        introductoryOffer: "-",
         kindTokens: autoRenewableSubscriptionTokens
     ),
     ExpectedProduct(
@@ -85,6 +97,8 @@ let expectedProducts: [ExpectedProduct] = [
         referencePrice: "¥250",
         subscriptionGroup: nil,
         billingPlanType: nil,
+        appStoreDescription: "機能解放なしでLiminalogを応援します。",
+        introductoryOffer: "-",
         kindTokens: consumableTokens
     ),
     ExpectedProduct(
@@ -94,6 +108,8 @@ let expectedProducts: [ExpectedProduct] = [
         referencePrice: "¥600",
         subscriptionGroup: nil,
         billingPlanType: nil,
+        appStoreDescription: "機能解放なしでLiminalogを応援します。",
+        introductoryOffer: "-",
         kindTokens: consumableTokens
     ),
     ExpectedProduct(
@@ -103,6 +119,8 @@ let expectedProducts: [ExpectedProduct] = [
         referencePrice: "¥1,200",
         subscriptionGroup: nil,
         billingPlanType: nil,
+        appStoreDescription: "機能解放なしでLiminalogを応援します。",
+        introductoryOffer: "-",
         kindTokens: consumableTokens
     )
 ]
@@ -418,6 +436,29 @@ private func validatePurchaseProductsDocument(at path: String) -> Never {
     let expectedGroupNames = Set(expectedProducts.compactMap(\.subscriptionGroup))
     for groupName in expectedGroupNames where !text.contains(groupName) {
         failures.append("missing subscription group text: \(groupName)")
+    }
+
+    let localizationRows = productLocalizationRows(in: text)
+    if fileURL.lastPathComponent == "AppStoreConnectProductSetup.md", localizationRows.isEmpty {
+        failures.append("missing App Store product localization table")
+    }
+    if !localizationRows.isEmpty {
+        if localizationRows.count != expectedProducts.count {
+            failures.append("expected \(expectedProducts.count) localization rows, found \(localizationRows.count)")
+        }
+        for (index, expected) in expectedProducts.enumerated() {
+            guard localizationRows.indices.contains(index) else { continue }
+            let row = localizationRows[index]
+            if row.productID != expected.productID {
+                failures.append("localization row \(index + 1) product ID mismatch: expected \(expected.productID), found \(row.productID)")
+            }
+            if row.displayName != expected.displayName {
+                failures.append("localization row \(index + 1) display name mismatch for \(expected.productID): expected \(expected.displayName), found \(row.displayName)")
+            }
+            if row.description != expected.appStoreDescription {
+                failures.append("localization row \(index + 1) description mismatch for \(expected.productID)")
+            }
+        }
     }
 
     if failures.isEmpty {
@@ -1159,6 +1200,12 @@ private struct ProductSourceRow {
     var subscriptionGroup: String?
 }
 
+private struct ProductLocalizationRow {
+    var productID: String
+    var displayName: String
+    var description: String
+}
+
 private struct ConfirmationProductRow {
     var productID: String
     var referenceName: String
@@ -1271,6 +1318,26 @@ private func productRows(in markdown: String, sectionName: String = "Products") 
                 type: columns[2],
                 price: columns[3],
                 subscriptionGroup: columns[4] == "-" ? nil : columns[4]
+            )
+        }
+}
+
+private func productLocalizationRows(in markdown: String) -> [ProductLocalizationRow] {
+    markdownSection(named: "App Store Localization", in: markdown)
+        .split(separator: "\n", omittingEmptySubsequences: false)
+        .compactMap { rawLine -> ProductLocalizationRow? in
+            let line = String(rawLine)
+            guard line.hasPrefix("| `liminalog.") else { return nil }
+            let columns = line
+                .split(separator: "|", omittingEmptySubsequences: false)
+                .dropFirst()
+                .dropLast()
+                .map { normalizeMarkdownCell(String($0)) }
+            guard columns.count == 3 else { return nil }
+            return ProductLocalizationRow(
+                productID: columns[0],
+                displayName: columns[1],
+                description: columns[2]
             )
         }
 }
@@ -1587,11 +1654,11 @@ private func printExpectedProducts() {
 }
 
 private func printAppStoreConnectTSV() {
-    print("Product ID\tReference Name\tType\tReference Price\tSubscription Group\tNotes")
+    print("Product ID\tReference Name\tType\tReference Price\tSubscription Group\tDisplay Name\tDescription\tIntroductory Offer\tNotes")
     for product in expectedProducts {
         let group = product.subscriptionGroup ?? "-"
         let notes = appStoreConnectNotes(for: product)
-        print("\(product.productID)\t\(product.displayName)\t\(product.kind)\t\(product.referencePrice)\t\(group)\t\(notes)")
+        print("\(product.productID)\t\(product.displayName)\t\(product.kind)\t\(product.referencePrice)\t\(group)\t\(product.displayName)\t\(product.appStoreDescription)\t\(product.introductoryOffer)\t\(notes)")
     }
 }
 

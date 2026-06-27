@@ -64,6 +64,8 @@ App Store Connect で商品を作成する時は、商品IDと価格だけでな
 - Review Information は、提出対象の商品にレビュー用スクリーンショットとメモを付ける。
 - Introductory Offer は、初回リリースで付ける/付けないを確定する。年額Proの無料体験を付ける場合は、App Store Connect、アプリ内文言、QA表を同じチェックポイントで更新する。
 
+## App Store Localization
+
 初期ローカライズ案。最終文言を変える場合は、アプリ内の購入画面文言と `AppStore/PurchaseProducts.md` も同時に見直す。
 
 | Product ID | Display Name | Description |
