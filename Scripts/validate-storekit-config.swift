@@ -124,6 +124,12 @@ if arguments.contains("--app-store-connect-confirmation-md") {
     exit(EXIT_SUCCESS)
 }
 
+if let confirmationTemplateFlagIndex = arguments.firstIndex(of: "--validate-app-store-connect-confirmation-template") {
+    let candidatePath = arguments.dropFirst(confirmationTemplateFlagIndex + 1).first
+    let path = candidatePath?.hasPrefix("-") == false ? candidatePath! : "AppStore/AppStoreConnectProductConfirmation.md"
+    validateAppStoreConnectConfirmationTemplate(at: path)
+}
+
 if let docsFlagIndex = arguments.firstIndex(of: "--validate-products-doc") {
     let path = arguments.dropFirst(docsFlagIndex + 1).first ?? "AppStore/PurchaseProducts.md"
     validatePurchaseProductsDocument(at: path)
@@ -401,6 +407,61 @@ private func validatePurchaseProductSource(at path: String) -> Never {
     exit(EXIT_FAILURE)
 }
 
+private func validateAppStoreConnectConfirmationTemplate(at path: String) -> Never {
+    let fileURL = URL(fileURLWithPath: path)
+    guard let text = try? String(contentsOf: fileURL, encoding: .utf8) else {
+        print("error: App Store Connect confirmation template not found at \(fileURL.path)")
+        exit(EXIT_FAILURE)
+    }
+
+    let rows = appStoreConnectConfirmationRows(in: text)
+    var failures: [String] = []
+
+    if rows.count != expectedProducts.count {
+        failures.append("expected \(expectedProducts.count) confirmation product rows, found \(rows.count)")
+    }
+
+    for (index, expected) in expectedProducts.enumerated() {
+        guard rows.indices.contains(index) else { continue }
+        let row = rows[index]
+
+        if row.productID != expected.productID {
+            failures.append("confirmation row \(index + 1) product ID mismatch: expected \(expected.productID), found \(row.productID)")
+        }
+        if row.referenceName != expected.displayName {
+            failures.append("confirmation row \(index + 1) reference name mismatch for \(expected.productID): expected \(expected.displayName), found \(row.referenceName)")
+        }
+        if row.type != expected.kind {
+            failures.append("confirmation row \(index + 1) type mismatch for \(expected.productID): expected \(expected.kind), found \(row.type)")
+        }
+        if row.price != expected.referencePrice {
+            failures.append("confirmation row \(index + 1) price mismatch for \(expected.productID): expected \(expected.referencePrice), found \(row.price)")
+        }
+        if row.subscriptionGroup != expected.subscriptionGroup {
+            let expectedGroup = expected.subscriptionGroup ?? "-"
+            let foundGroup = row.subscriptionGroup ?? "-"
+            failures.append("confirmation row \(index + 1) group mismatch for \(expected.productID): expected \(expectedGroup), found \(foundGroup)")
+        }
+        if row.notes != appStoreConnectNotes(for: expected) {
+            failures.append("confirmation row \(index + 1) notes mismatch for \(expected.productID)")
+        }
+    }
+
+    if !text.contains("Group Reference Name") || !text.contains("Liminalog Pro") {
+        failures.append("missing Liminalog Pro subscription group confirmation")
+    }
+
+    if failures.isEmpty {
+        print("App Store Connect confirmation template matches planned Liminalog product specifications.")
+        exit(EXIT_SUCCESS)
+    }
+
+    for failure in failures {
+        print("error: \(failure)")
+    }
+    exit(EXIT_FAILURE)
+}
+
 private func validatePremiumDecorationProductsDocument(at path: String, catalogPath: String) -> Never {
     let fileURL = URL(fileURLWithPath: path)
     guard let text = try? String(contentsOf: fileURL, encoding: .utf8) else {
@@ -567,6 +628,15 @@ private struct ProductSourceRow {
     var subscriptionGroup: String?
 }
 
+private struct ConfirmationProductRow {
+    var productID: String
+    var referenceName: String
+    var type: String
+    var price: String
+    var subscriptionGroup: String?
+    var notes: String
+}
+
 private struct PremiumDecorationSourceItem {
     var productID: String
     var displayName: String
@@ -590,6 +660,29 @@ private func productRows(in markdown: String, sectionName: String = "Products") 
                 type: columns[2],
                 price: columns[3],
                 subscriptionGroup: columns[4] == "-" ? nil : columns[4]
+            )
+        }
+}
+
+private func appStoreConnectConfirmationRows(in markdown: String) -> [ConfirmationProductRow] {
+    markdownSection(named: "Products", in: markdown)
+        .split(separator: "\n", omittingEmptySubsequences: false)
+        .compactMap { rawLine -> ConfirmationProductRow? in
+            let line = String(rawLine)
+            guard line.contains("| `liminalog.") else { return nil }
+            let columns = line
+                .split(separator: "|", omittingEmptySubsequences: false)
+                .dropFirst()
+                .dropLast()
+                .map { normalizeMarkdownCell(String($0)) }
+            guard columns.count == 7 else { return nil }
+            return ConfirmationProductRow(
+                productID: columns[1],
+                referenceName: columns[2],
+                type: columns[3],
+                price: columns[4],
+                subscriptionGroup: columns[5] == "-" ? nil : columns[5],
+                notes: columns[6]
             )
         }
 }
@@ -799,6 +892,7 @@ private func printUsage() {
       swift Scripts/validate-storekit-config.swift --expected
       swift Scripts/validate-storekit-config.swift --app-store-connect-tsv
       swift Scripts/validate-storekit-config.swift --app-store-connect-confirmation-md
+      swift Scripts/validate-storekit-config.swift --validate-app-store-connect-confirmation-template [path-to-AppStoreConnectProductConfirmation.md]
       swift Scripts/validate-storekit-config.swift --validate-products-doc [path-to-PurchaseProducts.md]
       swift Scripts/validate-storekit-config.swift --validate-product-source [path-to-PurchaseProduct.swift]
       swift Scripts/validate-storekit-config.swift --validate-premium-decoration-products-doc [path-to-PurchaseProducts.md]

@@ -56,6 +56,7 @@ App Review に課金の意図を説明する時の下書き。
 - 年額Proの無料体験を付けるか確定している。
 - 利用規約URLが公開済みで、App Store Connect とアプリ内設定の両方から参照できる。
 - ローカル StoreKit Configuration で同じ商品IDを作り、`Scripts/validate-storekit-config.swift` を通している。
+- App Store Connect で作成した後、`AppStore/AppStoreConnectProductConfirmation.md` を埋める。
 
 ## Local Validation
 
@@ -63,6 +64,7 @@ App Review に課金の意図を説明する時の下書き。
 
 ```sh
 swift Scripts/validate-storekit-config.swift --validate-products-doc
+swift Scripts/validate-storekit-config.swift --validate-app-store-connect-confirmation-template
 swift Scripts/validate-storekit-config.swift --validate-product-source
 swift Scripts/validate-storekit-config.swift --validate-premium-decoration-products-doc
 ```
@@ -73,7 +75,7 @@ App Store Connect へ転記するためのTSVは、同じ期待商品リスト�
 swift Scripts/validate-storekit-config.swift --app-store-connect-tsv
 ```
 
-App Store Connect で作成後に使う確認シートも、同じ期待商品リストから生成できる。
+App Store Connect で作成後に使う確認シートも、同じ期待商品リストから生成できる。実際の確認記録は `AppStore/AppStoreConnectProductConfirmation.md` に残す。
 
 ```sh
 swift Scripts/validate-storekit-config.swift --app-store-connect-confirmation-md

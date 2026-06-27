@@ -42,6 +42,9 @@ run_step() {
 run_step "Validate purchase product document" \
   swift Scripts/validate-storekit-config.swift --validate-products-doc
 
+run_step "Validate App Store Connect confirmation template" \
+  swift Scripts/validate-storekit-config.swift --validate-app-store-connect-confirmation-template
+
 run_step "Validate purchase product source" \
   swift Scripts/validate-storekit-config.swift --validate-product-source
 
