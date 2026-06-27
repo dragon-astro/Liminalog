@@ -42,6 +42,9 @@ run_step() {
 run_step "Validate purchase product document" \
   swift Scripts/validate-storekit-config.swift --validate-products-doc
 
+run_step "Validate premium decoration product document" \
+  swift Scripts/validate-storekit-config.swift --validate-premium-decoration-products-doc
+
 run_step "Validate Release purchase safety switches" \
   swift Scripts/validate-storekit-config.swift --validate-release-safety
 

@@ -129,6 +129,15 @@ if let docsFlagIndex = arguments.firstIndex(of: "--validate-products-doc") {
     validatePurchaseProductsDocument(at: path)
 }
 
+if let premiumDecorationDocsFlagIndex = arguments.firstIndex(of: "--validate-premium-decoration-products-doc") {
+    let candidatePath = arguments.dropFirst(premiumDecorationDocsFlagIndex + 1).first
+    let path = candidatePath?.hasPrefix("-") == false ? candidatePath! : "AppStore/PurchaseProducts.md"
+    validatePremiumDecorationProductsDocument(
+        at: path,
+        catalogPath: "Liminalog/Stores/PremiumDecorationCatalog.swift"
+    )
+}
+
 if let safetyFlagIndex = arguments.firstIndex(of: "--validate-release-safety") {
     let path = arguments.dropFirst(safetyFlagIndex + 1).first ?? "Liminalog/Stores/PurchaseConfiguration.swift"
     validateReleaseSafetyConfiguration(at: path)
@@ -334,6 +343,64 @@ private func validatePurchaseProductsDocument(at path: String) -> Never {
     exit(EXIT_FAILURE)
 }
 
+private func validatePremiumDecorationProductsDocument(at path: String, catalogPath: String) -> Never {
+    let fileURL = URL(fileURLWithPath: path)
+    guard let text = try? String(contentsOf: fileURL, encoding: .utf8) else {
+        print("error: purchase products document not found at \(fileURL.path)")
+        exit(EXIT_FAILURE)
+    }
+
+    let catalogURL = URL(fileURLWithPath: catalogPath)
+    guard let catalogSource = try? String(contentsOf: catalogURL, encoding: .utf8) else {
+        print("error: premium decoration catalog source not found at \(catalogURL.path)")
+        exit(EXIT_FAILURE)
+    }
+
+    let expectedRows = premiumDecorationCatalogItems(in: catalogSource)
+    let rows = productRows(in: text, sectionName: "Premium Decoration Single Products")
+    var failures: [String] = []
+
+    if expectedRows.isEmpty {
+        failures.append("could not parse premium decoration products from \(catalogPath)")
+    }
+
+    if rows.count != expectedRows.count {
+        failures.append("expected \(expectedRows.count) premium decoration rows, found \(rows.count)")
+    }
+
+    for (index, expected) in expectedRows.enumerated() {
+        guard rows.indices.contains(index) else { continue }
+        let row = rows[index]
+
+        if row.productID != expected.productID {
+            failures.append("premium row \(index + 1) product ID mismatch: expected \(expected.productID), found \(row.productID)")
+        }
+        if row.referenceName != expected.displayName {
+            failures.append("premium row \(index + 1) reference name mismatch for \(expected.productID): expected \(expected.displayName), found \(row.referenceName)")
+        }
+        if row.type != "Non-Consumable" {
+            failures.append("premium row \(index + 1) type mismatch for \(expected.productID): expected Non-Consumable, found \(row.type)")
+        }
+        if row.price != "¥120" {
+            failures.append("premium row \(index + 1) price mismatch for \(expected.productID): expected ¥120, found \(row.price)")
+        }
+        if row.subscriptionGroup != nil {
+            let foundGroup = row.subscriptionGroup ?? "-"
+            failures.append("premium row \(index + 1) group mismatch for \(expected.productID): expected -, found \(foundGroup)")
+        }
+    }
+
+    if failures.isEmpty {
+        print("Premium decoration product document matches PremiumDecorationCatalog.")
+        exit(EXIT_SUCCESS)
+    }
+
+    for failure in failures {
+        print("error: \(failure)")
+    }
+    exit(EXIT_FAILURE)
+}
+
 private func validateReleaseSafetyConfiguration(at path: String) -> Never {
     let fileURL = URL(fileURLWithPath: path)
     guard let text = try? String(contentsOf: fileURL, encoding: .utf8) else {
@@ -434,8 +501,13 @@ private struct ProductDocumentRow {
     var subscriptionGroup: String?
 }
 
-private func productRows(in markdown: String) -> [ProductDocumentRow] {
-    markdownSection(named: "Products", in: markdown)
+private struct PremiumDecorationSourceItem {
+    var productID: String
+    var displayName: String
+}
+
+private func productRows(in markdown: String, sectionName: String = "Products") -> [ProductDocumentRow] {
+    markdownSection(named: sectionName, in: markdown)
         .split(separator: "\n", omittingEmptySubsequences: false)
         .compactMap { rawLine -> ProductDocumentRow? in
             let line = String(rawLine)
@@ -454,6 +526,22 @@ private func productRows(in markdown: String) -> [ProductDocumentRow] {
                 subscriptionGroup: columns[4] == "-" ? nil : columns[4]
             )
         }
+}
+
+private func premiumDecorationCatalogItems(in source: String) -> [PremiumDecorationSourceItem] {
+    let pattern = #"\.(iconFrame|cardStyle)\(\s*productID:\s*"([^"]+)",\s*targetID:\s*"([^"]+)",\s*displayName:\s*"([^"]+)",\s*sortOrder:\s*\d+\s*\)"#
+    guard let regex = try? NSRegularExpression(pattern: pattern) else {
+        return []
+    }
+
+    let nsSource = source as NSString
+    let range = NSRange(location: 0, length: nsSource.length)
+    return regex.matches(in: source, range: range).map { match in
+        PremiumDecorationSourceItem(
+            productID: nsSource.substring(with: match.range(at: 2)),
+            displayName: nsSource.substring(with: match.range(at: 4))
+        )
+    }
 }
 
 private func markdownSection(named heading: String, in markdown: String) -> String {
@@ -484,6 +572,7 @@ private func printUsage() {
       swift Scripts/validate-storekit-config.swift --app-store-connect-tsv
       swift Scripts/validate-storekit-config.swift --app-store-connect-confirmation-md
       swift Scripts/validate-storekit-config.swift --validate-products-doc [path-to-PurchaseProducts.md]
+      swift Scripts/validate-storekit-config.swift --validate-premium-decoration-products-doc [path-to-PurchaseProducts.md]
       swift Scripts/validate-storekit-config.swift --validate-release-safety [path-to-PurchaseConfiguration.swift]
       swift Scripts/validate-storekit-config.swift --validate-xcode-scheme-storekit [path-to-Liminalog.xcscheme]
 
