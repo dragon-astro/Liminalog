@@ -61,6 +61,8 @@ Scripts/validate-purchase-readiness.sh --gate1-ready
 xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -destination "platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5" build-for-testing -only-testing:LiminalogTests/PurchaseConfigurationTests
 ```
 
+`--gate1-ready` は `PurchaseConfiguration.current` が Gate 1 のメタデータ準備済み状態であることも検査する。通常時の closed 状態検査ではない。
+
 ## Gate 2: Purchase Entry Point
 
 目的：設定内に購入導線を出し、StoreKit操作を可能にする。既存機能の制限はまだ入れない。
@@ -96,6 +98,8 @@ backgroundEntitlementRefreshIsEnabled: true
 - `Scripts/validate-purchase-readiness.sh --gate2-ready` が成功。
 - 既存タブのスモーク確認。
 
+`--gate2-ready` は Gate 1 条件に加えて、購入導線ON、機能制限OFF、起動時/復帰時の権利更新ONの状態を検査する。
+
 ## Gate 3: Feature Restrictions
 
 目的：統計タブなど、Pro対象機能の制限を初めて有効化する。
@@ -128,6 +132,8 @@ featureRestrictionsAreEnabled: true
 - `Scripts/validate-purchase-readiness.sh --gate3-ready` が成功。
 - Release build
 - 実機QA
+
+`--gate3-ready` は Gate 2 条件に加えて、機能制限ONの状態を検査する。
 
 ## Rollback
 

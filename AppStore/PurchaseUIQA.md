@@ -44,7 +44,7 @@ Liminalog の課金UIを既存機能に影響させず確認するための手�
 ビルド前に、Release の課金入口がソース上で閉じていることも確認する。
 
 ```sh
-swift Scripts/validate-storekit-config.swift --validate-release-safety
+swift Scripts/validate-storekit-config.swift --validate-release-gate-state closed
 ```
 
 ## Local StoreKit QA

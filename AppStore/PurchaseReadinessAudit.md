@@ -18,7 +18,7 @@ Liminalog の課金基盤 v0 を、現時点の証拠ベースで監査するた
 | Area | Status | Evidence | Remaining Work |
 |---|---|---|---|
 | 課金基盤 v0 | Done | `PurchaseStore`, `PurchaseProductID`, `PurchaseConfiguration`, `PurchaseActivationPolicy`, `PurchaseFeatureGate`, `SupportLiminalogView` が追加済み | StoreKit実購入での権利反映確認 |
-| Release安全状態 | Done | `Scripts/validate-purchase-readiness.sh` が 2026-06-27 に成功。`--validate-release-safety` も含めて確認済み | Gate 1 以降で値を変えたら再実行 |
+| Release安全状態 | Done | `Scripts/validate-purchase-readiness.sh` が 2026-06-27 に成功。通常時は `--validate-release-gate-state closed`、Gate 1/2/3 ready時は対応するGate状態を検査する | Gate 1 以降で値を変えたら対応する ready check を再実行 |
 | Release build | Done | `Scripts/validate-purchase-readiness.sh --release-build` が 2026-06-27 に working tree after `8373462` で成功。Release safety、StoreKit設定、法務URL、商品ドキュメント、App Store Connect転記シート、Release build をまとめて確認済み | App Store提出前はArchive/exportで再検証 |
 | LP 利用規約ページ | Done | LP repo の `5d46da9 feat: add terms page` を `origin/main` へpush済み。`https://liminalog-lp.vercel.app/terms` は 200 応答 | 本文承認後にApp Store Connectへ登録 |
 | LP プライバシーポリシーURL | Done | `https://liminalog-lp.vercel.app/privacy` は 200 応答。`PurchaseConfiguration.current.privacyPolicyURL` はこのURLを参照 | カスタムドメインを使う場合はコード・docs・App Store Connectを同時更新 |
@@ -48,7 +48,7 @@ swift Scripts/validate-storekit-config.swift --validate-product-source
 swift Scripts/validate-storekit-config.swift --validate-premium-decoration-products-doc
 swift Scripts/validate-storekit-config.swift --validate-premium-decoration-ui-disconnected
 swift Scripts/validate-storekit-config.swift --validate-premium-decoration-inactive liminalog.storekit
-swift Scripts/validate-storekit-config.swift --validate-release-safety
+swift Scripts/validate-storekit-config.swift --validate-release-gate-state closed
 swift Scripts/validate-storekit-config.swift --validate-xcode-scheme-storekit
 swift Scripts/validate-storekit-config.swift --app-store-connect-tsv
 swift Scripts/validate-storekit-config.swift --app-store-connect-confirmation-md

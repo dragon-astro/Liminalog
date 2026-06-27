@@ -6,6 +6,7 @@ run_release_build=false
 run_gate1_ready=false
 run_gate2_ready=false
 run_gate3_ready=false
+release_gate_state="closed"
 storekit_path="${LIMINALOG_STOREKIT_CONFIG:-liminalog.storekit}"
 swift_module_cache_path="${LIMINALOG_SWIFT_MODULE_CACHE_PATH:-/private/tmp/liminalog-swift-module-cache}"
 
@@ -42,6 +43,7 @@ The StoreKit configuration check is skipped with a note when the file is absent.
 Use --gate1-ready only after App Store Connect products are created and the confirmation sheet is filled.
 Use --gate2-ready only after Local StoreKit purchase QA evidence is complete.
 Use --gate3-ready only after Statistics Pro restriction QA evidence is complete.
+Gate ready checks validate the matching PurchaseConfiguration.current state instead of the initial closed state.
 USAGE
       exit 0
       ;;
@@ -51,6 +53,14 @@ USAGE
       ;;
   esac
 done
+
+if [[ "$run_gate3_ready" == true ]]; then
+  release_gate_state="gate3"
+elif [[ "$run_gate2_ready" == true ]]; then
+  release_gate_state="gate2"
+elif [[ "$run_gate1_ready" == true ]]; then
+  release_gate_state="gate1"
+fi
 
 run_step() {
   local title="$1"
@@ -83,8 +93,8 @@ run_step "Validate premium decoration product document" \
 run_step "Validate premium decoration UI remains disconnected" \
   run_swift_validator --validate-premium-decoration-ui-disconnected
 
-run_step "Validate Release purchase safety switches" \
-  run_swift_validator --validate-release-safety
+run_step "Validate Release purchase gate state: $release_gate_state" \
+  run_swift_validator --validate-release-gate-state "$release_gate_state"
 
 run_step "Validate Xcode scheme StoreKit link" \
   run_swift_validator --validate-xcode-scheme-storekit

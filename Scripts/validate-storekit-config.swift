@@ -109,6 +109,11 @@ let expectedProducts: [ExpectedProduct] = [
 
 let arguments = Array(CommandLine.arguments.dropFirst())
 
+if arguments.contains("--help") || arguments.contains("-h") {
+    printUsage()
+    exit(EXIT_SUCCESS)
+}
+
 if arguments.contains("--expected") {
     printExpectedProducts()
     exit(EXIT_SUCCESS)
@@ -186,6 +191,17 @@ if let premiumDecorationUIDisconnectedFlagIndex = arguments.firstIndex(of: "--va
 if let safetyFlagIndex = arguments.firstIndex(of: "--validate-release-safety") {
     let path = arguments.dropFirst(safetyFlagIndex + 1).first ?? "Liminalog/Stores/PurchaseConfiguration.swift"
     validateReleaseSafetyConfiguration(at: path)
+}
+
+if let gateStateFlagIndex = arguments.firstIndex(of: "--validate-release-gate-state") {
+    let candidateState = arguments.dropFirst(gateStateFlagIndex + 1).first
+    guard let state = candidateState, !state.hasPrefix("-") else {
+        print("error: --validate-release-gate-state requires one of: closed, gate1, gate2, gate3")
+        exit(EXIT_FAILURE)
+    }
+    let candidatePath = arguments.dropFirst(gateStateFlagIndex + 2).first
+    let path = candidatePath?.hasPrefix("-") == false ? candidatePath! : "Liminalog/Stores/PurchaseConfiguration.swift"
+    validateReleaseGateConfiguration(at: path, expectedState: state)
 }
 
 if let schemeFlagIndex = arguments.firstIndex(of: "--validate-xcode-scheme-storekit") {
@@ -866,6 +882,10 @@ private func validatePremiumDecorationUIDisconnected(in path: String) -> Never {
 }
 
 private func validateReleaseSafetyConfiguration(at path: String) -> Never {
+    validateReleaseGateConfiguration(at: path, expectedState: "closed")
+}
+
+private func validateReleaseGateConfiguration(at path: String, expectedState: String) -> Never {
     let fileURL = URL(fileURLWithPath: path)
     guard let text = try? String(contentsOf: fileURL, encoding: .utf8) else {
         print("error: purchase configuration source not found at \(fileURL.path)")
@@ -877,16 +897,14 @@ private func validateReleaseSafetyConfiguration(at path: String) -> Never {
         exit(EXIT_FAILURE)
     }
 
-    let requiredSnippets: [(label: String, snippet: String)] = [
-        ("StoreKit product IDs remain code-owned", "productIDs: PurchaseProductID.storeKitProductIDs"),
-        ("App Store Connect product confirmation remains off", "productIDsAreConfirmedForAppStoreConnect: false"),
-        ("subscription group remains unset", "subscriptionGroupName: nil"),
-        ("terms URL remains unset", "termsOfUseURL: nil"),
-        ("privacy URL points to the published LP", #"privacyPolicyURL: URL(string: "https://liminalog-lp.vercel.app/privacy")"#),
-        ("purchase entry point remains off", "purchaseEntryPointIsEnabled: false"),
-        ("feature restrictions remain off", "featureRestrictionsAreEnabled: false"),
-        ("background entitlement refresh remains off", "backgroundEntitlementRefreshIsEnabled: false")
-    ]
+    let expectedGate = ReleaseGateExpectation(rawValue: expectedState)
+    guard let expectedGate else {
+        print("error: unknown release gate state: \(expectedState)")
+        print("error: expected one of: closed, gate1, gate2, gate3")
+        exit(EXIT_FAILURE)
+    }
+
+    let requiredSnippets = expectedGate.requiredSnippets
 
     let failures = requiredSnippets.compactMap { requirement -> String? in
         currentConfiguration.contains(requirement.snippet)
@@ -895,7 +913,7 @@ private func validateReleaseSafetyConfiguration(at path: String) -> Never {
     }
 
     if failures.isEmpty {
-        print("Release purchase safety configuration is closed for current Liminalog builds.")
+        print("Release purchase configuration matches expected state: \(expectedGate.displayName).")
         exit(EXIT_SUCCESS)
     }
 
@@ -1010,6 +1028,78 @@ private struct StoreKitQAEvidenceRow {
     var evidence: String
     var result: String
     var notes: String
+}
+
+private enum ReleaseGateExpectation: String {
+    case closed
+    case gate1
+    case gate2
+    case gate3
+
+    var displayName: String {
+        switch self {
+        case .closed:
+            return "closed"
+        case .gate1:
+            return "gate1 metadata ready"
+        case .gate2:
+            return "gate2 purchase entry point ready"
+        case .gate3:
+            return "gate3 feature restrictions ready"
+        }
+    }
+
+    var requiredSnippets: [(label: String, snippet: String)] {
+        switch self {
+        case .closed:
+            return commonProductSnippets + [
+                ("App Store Connect product confirmation remains off", "productIDsAreConfirmedForAppStoreConnect: false"),
+                ("subscription group remains unset", "subscriptionGroupName: nil"),
+                ("terms URL remains unset", "termsOfUseURL: nil"),
+                privacyURLSnippet,
+                ("purchase entry point remains off", "purchaseEntryPointIsEnabled: false"),
+                ("feature restrictions remain off", "featureRestrictionsAreEnabled: false"),
+                ("background entitlement refresh remains off", "backgroundEntitlementRefreshIsEnabled: false")
+            ]
+        case .gate1:
+            return metadataReadySnippets + [
+                ("purchase entry point remains off for Gate 1", "purchaseEntryPointIsEnabled: false"),
+                ("feature restrictions remain off for Gate 1", "featureRestrictionsAreEnabled: false"),
+                ("background entitlement refresh remains off for Gate 1", "backgroundEntitlementRefreshIsEnabled: false")
+            ]
+        case .gate2:
+            return metadataReadySnippets + [
+                ("purchase entry point is enabled for Gate 2", "purchaseEntryPointIsEnabled: true"),
+                ("feature restrictions remain off for Gate 2", "featureRestrictionsAreEnabled: false"),
+                ("background entitlement refresh is enabled for Gate 2", "backgroundEntitlementRefreshIsEnabled: true")
+            ]
+        case .gate3:
+            return metadataReadySnippets + [
+                ("purchase entry point is enabled for Gate 3", "purchaseEntryPointIsEnabled: true"),
+                ("feature restrictions are enabled for Gate 3", "featureRestrictionsAreEnabled: true"),
+                ("background entitlement refresh is enabled for Gate 3", "backgroundEntitlementRefreshIsEnabled: true")
+            ]
+        }
+    }
+
+    private var commonProductSnippets: [(label: String, snippet: String)] {
+        [
+            ("StoreKit product IDs remain code-owned", "productIDs: PurchaseProductID.storeKitProductIDs")
+        ]
+    }
+
+    private var metadataReadySnippets: [(label: String, snippet: String)] {
+        commonProductSnippets + [
+            ("App Store Connect product confirmation is on", "productIDsAreConfirmedForAppStoreConnect: true"),
+            ("subscription group is configured", #"subscriptionGroupName: "Liminalog Pro""#),
+            ("terms URL points to the published LP", #"termsOfUseURL: URL(string: "https://liminalog-lp.vercel.app/terms")"#),
+            privacyURLSnippet
+        ]
+    }
+
+    private var privacyURLSnippet: (label: String, snippet: String) {
+        ("privacy URL points to the published LP", #"privacyPolicyURL: URL(string: "https://liminalog-lp.vercel.app/privacy")"#)
+    }
 }
 
 private func productRows(in markdown: String, sectionName: String = "Products") -> [ProductDocumentRow] {
@@ -1329,6 +1419,7 @@ private func printUsage() {
       swift Scripts/validate-storekit-config.swift --validate-premium-decoration-inactive [path-to-liminalog.storekit]
       swift Scripts/validate-storekit-config.swift --validate-premium-decoration-ui-disconnected [path-to-profile-views]
       swift Scripts/validate-storekit-config.swift --validate-release-safety [path-to-PurchaseConfiguration.swift]
+      swift Scripts/validate-storekit-config.swift --validate-release-gate-state <closed|gate1|gate2|gate3> [path-to-PurchaseConfiguration.swift]
       swift Scripts/validate-storekit-config.swift --validate-xcode-scheme-storekit [path-to-Liminalog.xcscheme]
 
     Create the StoreKit configuration in Xcode first, then run this validator.
