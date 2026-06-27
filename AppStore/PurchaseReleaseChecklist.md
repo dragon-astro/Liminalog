@@ -25,6 +25,7 @@
 
 - `AppStore/PurchaseProducts.md` の商品が App Store Connect に作成済み。
 - `Liminalog Pro` の Subscription Group が作成済み。
+- `AppStore/AppStoreConnectProductConfirmation.md` の全チェックが埋まり、`swift Scripts/validate-storekit-config.swift --validate-app-store-connect-confirmation-complete` が成功している。
 - 利用規約本文が承認済み。
 - `https://liminalog-lp.vercel.app/terms` が公開済み。
 - `https://liminalog-lp.vercel.app/privacy` が公開済み。
