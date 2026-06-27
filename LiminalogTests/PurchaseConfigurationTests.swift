@@ -179,6 +179,58 @@ struct PurchaseConfigurationTests {
     }
 
     @Test
+    func releaseGateStagesMatchChecklistActivationOrder() {
+        let gate1Configuration = readyConfiguration()
+        let gate1Policy = PurchaseActivationPolicy(
+            configuration: gate1Configuration,
+            buildMode: .release
+        )
+        let gate1RuntimePolicy = PurchaseStoreRuntimePolicy(activationPolicy: gate1Policy)
+
+        #expect(gate1Configuration.releaseReadinessSnapshot.state == .metadataReadyWaitingForGoLive)
+        #expect(!gate1Policy.shouldShowSettingsEntryPoint)
+        #expect(!gate1Policy.shouldUseStoreKitRuntime)
+        #expect(!gate1Policy.shouldEnforceFeatureRestrictions)
+        #expect(!gate1Policy.shouldRefreshEntitlementsInBackground)
+        #expect(!gate1RuntimePolicy.shouldStartStoreKitOnAppLaunch)
+
+        let gate2Configuration = readyConfiguration(
+            purchaseEntryPointIsEnabled: true,
+            backgroundEntitlementRefreshIsEnabled: true
+        )
+        let gate2Policy = PurchaseActivationPolicy(
+            configuration: gate2Configuration,
+            buildMode: .release
+        )
+        let gate2RuntimePolicy = PurchaseStoreRuntimePolicy(activationPolicy: gate2Policy)
+
+        #expect(gate2Configuration.releaseReadinessSnapshot.state == .purchaseEntryPointReady)
+        #expect(gate2Policy.shouldShowSettingsEntryPoint)
+        #expect(gate2Policy.shouldUseStoreKitRuntime)
+        #expect(!gate2Policy.shouldEnforceFeatureRestrictions)
+        #expect(gate2Policy.shouldRefreshEntitlementsInBackground)
+        #expect(gate2RuntimePolicy.shouldStartStoreKitOnAppLaunch)
+
+        let gate3Configuration = readyConfiguration(
+            purchaseEntryPointIsEnabled: true,
+            featureRestrictionsAreEnabled: true,
+            backgroundEntitlementRefreshIsEnabled: true
+        )
+        let gate3Policy = PurchaseActivationPolicy(
+            configuration: gate3Configuration,
+            buildMode: .release
+        )
+        let gate3RuntimePolicy = PurchaseStoreRuntimePolicy(activationPolicy: gate3Policy)
+
+        #expect(gate3Configuration.releaseReadinessSnapshot.state == .featureRestrictionsReady)
+        #expect(gate3Policy.shouldShowSettingsEntryPoint)
+        #expect(gate3Policy.shouldUseStoreKitRuntime)
+        #expect(gate3Policy.shouldEnforceFeatureRestrictions)
+        #expect(gate3Policy.shouldRefreshEntitlementsInBackground)
+        #expect(gate3RuntimePolicy.shouldStartStoreKitOnAppLaunch)
+    }
+
+    @Test
     func purchaseEntryPointCannotBypassMissingReleaseMetadata() {
         let configuration = PurchaseConfiguration(
             productIDs: PurchaseProductID.storeKitProductIDs,
