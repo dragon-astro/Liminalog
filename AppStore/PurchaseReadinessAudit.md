@@ -37,6 +37,7 @@ Liminalog の課金基盤 v0 を、現時点の証拠ベースで監査するた
 swift Scripts/validate-storekit-config.swift --validate-products-doc
 swift Scripts/validate-storekit-config.swift --validate-release-safety
 swift Scripts/validate-storekit-config.swift --app-store-connect-tsv
+Scripts/validate-purchase-legal-urls.sh
 git diff --check
 ```
 
