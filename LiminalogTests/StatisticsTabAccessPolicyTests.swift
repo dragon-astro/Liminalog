@@ -103,6 +103,21 @@ struct StatisticsTabAccessPolicyTests {
         #expect(policy.destination(entitlements: PurchaseEntitlements()) == .dashboard)
     }
 
+    #if DEBUG
+    @Test
+    func debugForcedFeatureRestrictionsAllowVisualQaOfStatisticsPreview() {
+        let policy = StatisticsTabDebugAccess.forcedFeatureRestrictionsPolicy
+        let pro = PurchaseEntitlements(
+            activeProductIDs: [PurchaseProductID.proMonthly.rawValue],
+            ownedNonConsumableProductIDs: [],
+            lastVerifiedAt: Date()
+        )
+
+        #expect(policy.destination(entitlements: PurchaseEntitlements()) == .proPreview)
+        #expect(policy.destination(entitlements: pro) == .dashboard)
+    }
+    #endif
+
     private func readyConfiguration(
         purchaseEntryPointIsEnabled: Bool = false,
         featureRestrictionsAreEnabled: Bool = false

@@ -24,3 +24,28 @@ struct StatisticsTabAccessPolicy: Equatable {
         return decision.isAllowed ? .dashboard : .proPreview
     }
 }
+
+#if DEBUG
+enum StatisticsTabDebugAccess {
+    static let enforceFeatureRestrictionsKey = "debug.purchase.enforceFeatureRestrictions"
+
+    static var forcedFeatureRestrictionsPolicy: StatisticsTabAccessPolicy {
+        StatisticsTabAccessPolicy(
+            activationPolicy: PurchaseActivationPolicy(
+                configuration: PurchaseConfiguration(
+                    productIDs: PurchaseProductID.storeKitProductIDs,
+                    productIDsAreConfirmedForAppStoreConnect: true,
+                    subscriptionGroupName: "Liminalog Pro",
+                    legalLinks: PurchaseLegalLinks(
+                        termsOfUseURL: URL(string: "https://example.com/terms")!,
+                        privacyPolicyURL: URL(string: "https://example.com/privacy")!
+                    ),
+                    purchaseEntryPointIsEnabled: true,
+                    featureRestrictionsAreEnabled: true
+                ),
+                buildMode: .release
+            )
+        )
+    }
+}
+#endif

@@ -22,8 +22,10 @@ Liminalog の課金UIを既存機能に影響させず確認するための手�
 3. 「Proと応援」を開き、準備中の説明、規約リンク、未設定項目が表示されることを確認する。
 4. 設定 > デバッグ > 課金状態を試す を `実際の状態` / `Proサブ` / `ライフタイム` / `ライフタイム＋装飾パス` / `装飾パスのみ` に切り替える。
 5. 各状態で「Proと応援」のステータス文言と表示される購入候補が自然か確認する。
-6. ホーム、カレンダー、統計、友達、プロフィールを一通り開き、既存UIの入口、スクロール、編集操作が変わっていないことを確認する。
-7. `実際の状態` に戻し、デバッグの疑似状態を残さない。
+6. 設定 > デバッグ > Pro制限を試す をONにし、無料状態では統計タブが軽いPro案内になることを確認する。
+7. Proサブ / ライフタイムでは統計タブが既存の統計画面になること、装飾パスのみではPro案内になることを確認する。
+8. ホーム、カレンダー、統計、友達、プロフィールを一通り開き、既存UIの入口、スクロール、編集操作が変わっていないことを確認する。
+9. `実際の状態` に戻し、`Pro制限を試す` をOFFにして、デバッグの疑似状態を残さない。
 
 この段階では商品取得、購入、復元、サブスクリプション管理の成功は確認対象外。
 
@@ -92,6 +94,12 @@ swift Scripts/validate-storekit-config.swift --validate-release-safety
 | Feature Restrictions | off / on |
 | Result | pass / fail |
 | Notes |  |
+
+## Evidence Log
+
+| Date | Git SHA | Build | Device | StoreKit Source | Purchase Entry | Feature Restrictions | Result | Notes |
+|---|---|---|---|---|---|---|---|---|
+| 2026-06-27 | working tree after `6007e98` | DEBUG | iPhone 17 Pro Simulator / iOS 26.5 | none | visible | DEBUG forced on | pass | `debug.purchase.enforceFeatureRestrictions = true` と `-LiminalogInitialRootTab dashboard` で起動し、無料状態の統計タブが `StatisticsProPreviewView` になることを確認。確認後フラグはOFFへ戻した。 |
 
 ## Stop Conditions
 

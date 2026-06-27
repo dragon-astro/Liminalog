@@ -76,7 +76,7 @@ if decision.isAllowed {
 
 - `purchaseEntryPointIsEnabled == false` の Release では、そもそも `featureRestrictionsAreEnabled` も false にしておく。
 - `featureRestrictionsAreEnabled == true` にする時は、同じリリースで `purchaseEntryPointIsEnabled == true`、利用規約URL、App Store Connect 商品確定が揃っていることを前提にする。
-- DEBUG では既存の課金状態切替で無料/Pro/ライフタイムの表示を確認する。
+- DEBUG では設定の「Pro制限を試す」と「課金状態を試す」を組み合わせ、無料/Pro/ライフタイム/装飾パスの表示を確認する。
 
 ### 4. カスタマイズUIの扱い
 
@@ -112,8 +112,13 @@ if decision.isAllowed {
 1. [x] `StatisticsProPreviewView` を軽量な独立Viewとして作る。
 2. [x] `RootTabView` の統計タブ入口で `PurchaseFeatureGate` を見る。
 3. [x] ロック時の入口が `proPreview` になり、現行Releaseでは `dashboard` のままであることをテストする。
-4. DEBUG の課金状態切替で無料/Pro/ライフタイム/装飾パスを確認する。
-5. Release build で `featureRestrictionsAreEnabled == false` の時に既存統計が変わらないことを確認する。
+4. [x] DEBUG で `Pro制限を試す` をONにできる確認導線を作る。
+5. DEBUG の課金状態切替で無料/Pro/ライフタイム/装飾パスを目視確認する。
+6. Release build で `featureRestrictionsAreEnabled == false` の時に既存統計が変わらないことを確認する。
+
+## QAメモ
+
+- 2026-06-27: XcodeBuildMCP / iPhone 17 Pro Simulator / Debug で `debug.purchase.enforceFeatureRestrictions = true`、`-LiminalogInitialRootTab dashboard` を指定して起動し、無料状態で `StatisticsProPreviewView` が表示されることを確認した。確認後、同フラグは `false` に戻した。
 
 ## やらないこと
 

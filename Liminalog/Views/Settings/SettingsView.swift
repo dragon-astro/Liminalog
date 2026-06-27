@@ -8,6 +8,7 @@ struct SettingsView: View {
     #if DEBUG
     @AppStorage("debug.unlocks.allowLockedDecorations") private var allowsLockedDecorationTesting = false
     @AppStorage(PreviewSupport.devDataFlagKey) private var debugDevDataEnabled = false
+    @AppStorage(StatisticsTabDebugAccess.enforceFeatureRestrictionsKey) private var debugEnforcesFeatureRestrictions = false
     @Environment(\.modelContext) private var modelContext
     @Query private var settings: [UserSettings]
     @State private var isResettingCloudUserID = false
@@ -149,6 +150,10 @@ struct SettingsView: View {
                 }
                 .pickerStyle(.menu)
 
+                Toggle(isOn: $debugEnforcesFeatureRestrictions) {
+                    Label("Pro制限を試す", systemImage: "lock")
+                }
+
                 Button(role: .destructive) {
                     showCloudUserIDResetConfirmation = true
                 } label: {
@@ -168,7 +173,7 @@ struct SettingsView: View {
             } header: {
                 Text("デバッグ")
             } footer: {
-                Text("DEBUGビルド限定です。ダミーデータはデモ由来の予定と実績だけを追加・削除します。課金状態は購入画面の表示確認用で、実際の購入状態は保存しません。ユーザーIDリセットは開発中のCloudKit登録を消して、同じApple IDでID作成をやり直すための操作です。")
+                Text("DEBUGビルド限定です。ダミーデータはデモ由来の予定と実績だけを追加・削除します。課金状態とPro制限は表示確認用で、実際の購入状態は保存しません。ユーザーIDリセットは開発中のCloudKit登録を消して、同じApple IDでID作成をやり直すための操作です。")
             }
             .confirmationDialog("CloudKitユーザーIDをリセットしますか？", isPresented: $showCloudUserIDResetConfirmation, titleVisibility: .visible) {
                 Button("リセットする", role: .destructive) {

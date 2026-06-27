@@ -3,14 +3,26 @@ import SwiftUI
 struct StatisticsTabContent: View {
     let purchaseStore: PurchaseStore
     var accessPolicy = StatisticsTabAccessPolicy()
+    #if DEBUG
+    @AppStorage(StatisticsTabDebugAccess.enforceFeatureRestrictionsKey) private var debugEnforcesFeatureRestrictions = false
+    #endif
 
     var body: some View {
-        switch accessPolicy.destination(entitlements: purchaseStore.entitlements) {
+        switch effectiveAccessPolicy.destination(entitlements: purchaseStore.entitlements) {
         case .dashboard:
             DashboardView()
         case .proPreview:
             StatisticsProPreviewView(purchaseStore: purchaseStore)
         }
+    }
+
+    private var effectiveAccessPolicy: StatisticsTabAccessPolicy {
+        #if DEBUG
+        if debugEnforcesFeatureRestrictions {
+            return StatisticsTabDebugAccess.forcedFeatureRestrictionsPolicy
+        }
+        #endif
+        return accessPolicy
     }
 }
 
