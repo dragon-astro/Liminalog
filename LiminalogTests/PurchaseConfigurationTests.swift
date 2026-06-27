@@ -114,6 +114,70 @@ struct PurchaseConfigurationTests {
     }
 
     @Test
+    func currentReleaseReadinessSnapshotKeepsPurchaseClosed() {
+        let snapshot = PurchaseConfiguration.current.releaseReadinessSnapshot
+
+        #expect(snapshot.state == .missingRequiredMetadata)
+        #expect(!snapshot.hasRequiredMetadata)
+        #expect(!snapshot.canExposePurchaseEntryPoint)
+        #expect(!snapshot.shouldEnforceFeatureRestrictions)
+        #expect(!snapshot.shouldRefreshEntitlementsInBackground)
+        #expect(snapshot.missingRequirements == PurchaseConfiguration.current.missingPaidReleaseRequirementItems)
+    }
+
+    @Test
+    func releaseReadinessSnapshotWaitsForExplicitGoLiveAfterMetadataIsReady() {
+        let configuration = readyConfiguration()
+        let snapshot = configuration.releaseReadinessSnapshot
+
+        #expect(snapshot.state == .metadataReadyWaitingForGoLive)
+        #expect(snapshot.hasRequiredMetadata)
+        #expect(!snapshot.canExposePurchaseEntryPoint)
+        #expect(!snapshot.shouldEnforceFeatureRestrictions)
+        #expect(!snapshot.shouldRefreshEntitlementsInBackground)
+        #expect(configuration.isReadyForPaidRelease)
+        #expect(!configuration.canExposePurchaseEntryPoint)
+    }
+
+    @Test
+    func releaseReadinessSnapshotSeparatesPurchaseEntryPointFromFeatureRestrictions() {
+        let configuration = readyConfiguration(purchaseEntryPointIsEnabled: true)
+        let snapshot = configuration.releaseReadinessSnapshot
+
+        #expect(snapshot.state == .purchaseEntryPointReady)
+        #expect(snapshot.canExposePurchaseEntryPoint)
+        #expect(!snapshot.shouldEnforceFeatureRestrictions)
+        #expect(!snapshot.shouldRefreshEntitlementsInBackground)
+        #expect(configuration.canExposePurchaseEntryPoint)
+    }
+
+    @Test
+    func releaseReadinessSnapshotReportsFeatureRestrictionsAfterPurchaseEntryPointIsReady() {
+        let configuration = readyConfiguration(
+            purchaseEntryPointIsEnabled: true,
+            featureRestrictionsAreEnabled: true
+        )
+        let snapshot = configuration.releaseReadinessSnapshot
+
+        #expect(snapshot.state == .featureRestrictionsReady)
+        #expect(snapshot.canExposePurchaseEntryPoint)
+        #expect(snapshot.shouldEnforceFeatureRestrictions)
+        #expect(snapshot.shouldRefreshEntitlementsInBackground)
+    }
+
+    @Test
+    func releaseReadinessSnapshotDoesNotLetBackgroundRefreshBypassGoLive() {
+        let configuration = readyConfiguration(backgroundEntitlementRefreshIsEnabled: true)
+        let snapshot = configuration.releaseReadinessSnapshot
+
+        #expect(snapshot.state == .metadataReadyWaitingForGoLive)
+        #expect(snapshot.hasRequiredMetadata)
+        #expect(!snapshot.canExposePurchaseEntryPoint)
+        #expect(!snapshot.shouldEnforceFeatureRestrictions)
+        #expect(!snapshot.shouldRefreshEntitlementsInBackground)
+    }
+
+    @Test
     func storeKitProductIDsAreTrimmedBeforeRuntimeUse() {
         let configuration = PurchaseConfiguration(
             productIDs: [
@@ -408,5 +472,24 @@ struct PurchaseConfigurationTests {
         let policy = PurchaseActivationPolicy.current(configuration: configuration)
 
         #expect(policy.configuration == configuration)
+    }
+
+    private func readyConfiguration(
+        purchaseEntryPointIsEnabled: Bool = false,
+        featureRestrictionsAreEnabled: Bool = false,
+        backgroundEntitlementRefreshIsEnabled: Bool = false
+    ) -> PurchaseConfiguration {
+        PurchaseConfiguration(
+            productIDs: PurchaseProductID.storeKitProductIDs,
+            productIDsAreConfirmedForAppStoreConnect: true,
+            subscriptionGroupName: "Liminalog Pro",
+            legalLinks: PurchaseLegalLinks(
+                termsOfUseURL: termsURL,
+                privacyPolicyURL: privacyURL
+            ),
+            purchaseEntryPointIsEnabled: purchaseEntryPointIsEnabled,
+            featureRestrictionsAreEnabled: featureRestrictionsAreEnabled,
+            backgroundEntitlementRefreshIsEnabled: backgroundEntitlementRefreshIsEnabled
+        )
     }
 }

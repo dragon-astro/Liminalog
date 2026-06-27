@@ -238,21 +238,52 @@ struct SupportLiminalogView: View {
 
     #if DEBUG
     private var debugReadinessSection: some View {
-        Section {
-            ForEach(purchaseConfiguration.missingPaidReleaseRequirementItems) { requirement in
-                HStack(alignment: .top, spacing: 10) {
-                    Image(systemName: "exclamationmark.triangle")
+        let snapshot = purchaseConfiguration.releaseReadinessSnapshot
+
+        return Section {
+            HStack(spacing: 10) {
+                Image(systemName: snapshot.hasRequiredMetadata ? "checkmark.seal" : "hourglass")
+                    .font(.footnote)
+                    .foregroundStyle(LiminalTheme.secondaryText)
+                    .frame(width: 18)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(snapshot.state.displayName)
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(LiminalTheme.text)
+                    Text("購入導線、機能制限、起動時の権利確認は別スイッチで管理しています。")
+                        .font(.caption)
+                        .foregroundStyle(LiminalTheme.secondaryText)
+                }
+            }
+
+            if snapshot.missingRequirements.isEmpty {
+                HStack(spacing: 10) {
+                    Image(systemName: "checkmark.circle")
                         .font(.footnote)
                         .foregroundStyle(LiminalTheme.secondaryText)
                         .frame(width: 18)
 
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(requirement.displayName)
-                            .font(.footnote.weight(.semibold))
-                            .foregroundStyle(LiminalTheme.text)
-                        Text(requirement.resolutionHint)
-                            .font(.caption)
+                    Text("未設定項目はありません。")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(LiminalTheme.text)
+                }
+            } else {
+                ForEach(snapshot.missingRequirements) { requirement in
+                    HStack(alignment: .top, spacing: 10) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.footnote)
                             .foregroundStyle(LiminalTheme.secondaryText)
+                            .frame(width: 18)
+
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(requirement.displayName)
+                                .font(.footnote.weight(.semibold))
+                                .foregroundStyle(LiminalTheme.text)
+                            Text(requirement.resolutionHint)
+                                .font(.caption)
+                                .foregroundStyle(LiminalTheme.secondaryText)
+                        }
                     }
                 }
             }

@@ -65,6 +65,65 @@ enum PurchasePaidReleaseRequirement: String, Codable, CaseIterable, Identifiable
     }
 }
 
+enum PurchaseReleaseReadinessState: String, Codable, CaseIterable, Identifiable, Equatable {
+    case missingRequiredMetadata
+    case metadataReadyWaitingForGoLive
+    case purchaseEntryPointReady
+    case featureRestrictionsReady
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .missingRequiredMetadata:
+            "未設定あり"
+        case .metadataReadyWaitingForGoLive:
+            "本番メタデータ準備済み"
+        case .purchaseEntryPointReady:
+            "購入導線ON"
+        case .featureRestrictionsReady:
+            "機能制限ON"
+        }
+    }
+}
+
+struct PurchaseReleaseReadinessSnapshot: Equatable, Codable {
+    var missingRequirements: [PurchasePaidReleaseRequirement]
+    var purchaseEntryPointIsEnabled: Bool
+    var featureRestrictionsAreEnabled: Bool
+    var backgroundEntitlementRefreshIsEnabled: Bool
+
+    var hasRequiredMetadata: Bool {
+        missingRequirements.isEmpty
+    }
+
+    var state: PurchaseReleaseReadinessState {
+        guard hasRequiredMetadata else {
+            return .missingRequiredMetadata
+        }
+        guard canExposePurchaseEntryPoint else {
+            return .metadataReadyWaitingForGoLive
+        }
+        if shouldEnforceFeatureRestrictions {
+            return .featureRestrictionsReady
+        }
+        return .purchaseEntryPointReady
+    }
+
+    var canExposePurchaseEntryPoint: Bool {
+        hasRequiredMetadata && purchaseEntryPointIsEnabled
+    }
+
+    var shouldEnforceFeatureRestrictions: Bool {
+        canExposePurchaseEntryPoint && featureRestrictionsAreEnabled
+    }
+
+    var shouldRefreshEntitlementsInBackground: Bool {
+        canExposePurchaseEntryPoint
+            && (backgroundEntitlementRefreshIsEnabled || shouldEnforceFeatureRestrictions)
+    }
+}
+
 struct PurchaseConfiguration: Equatable, Codable {
     var productIDs: [String]
     var productIDsAreConfirmedForAppStoreConnect: Bool
@@ -139,8 +198,17 @@ struct PurchaseConfiguration: Equatable, Codable {
         missingPaidReleaseRequirementItems.isEmpty
     }
 
+    var releaseReadinessSnapshot: PurchaseReleaseReadinessSnapshot {
+        PurchaseReleaseReadinessSnapshot(
+            missingRequirements: missingPaidReleaseRequirementItems,
+            purchaseEntryPointIsEnabled: purchaseEntryPointIsEnabled,
+            featureRestrictionsAreEnabled: featureRestrictionsAreEnabled,
+            backgroundEntitlementRefreshIsEnabled: backgroundEntitlementRefreshIsEnabled
+        )
+    }
+
     var canExposePurchaseEntryPoint: Bool {
-        isReadyForPaidRelease && purchaseEntryPointIsEnabled
+        releaseReadinessSnapshot.canExposePurchaseEntryPoint
     }
 
     private static func isHTTPSURL(_ url: URL) -> Bool {

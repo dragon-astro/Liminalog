@@ -40,13 +40,17 @@ struct PurchaseActivationPolicy: Equatable {
         case .development:
             return false
         case .release:
-            return configuration.canExposePurchaseEntryPoint && configuration.featureRestrictionsAreEnabled
+            return configuration.releaseReadinessSnapshot.shouldEnforceFeatureRestrictions
         }
     }
 
     var shouldRefreshEntitlementsInBackground: Bool {
-        shouldUseStoreKitRuntime
-            && (configuration.backgroundEntitlementRefreshIsEnabled || shouldEnforceFeatureRestrictions)
+        switch buildMode {
+        case .development:
+            return false
+        case .release:
+            return configuration.releaseReadinessSnapshot.shouldRefreshEntitlementsInBackground
+        }
     }
 }
 
