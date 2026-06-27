@@ -130,6 +130,7 @@ featureRestrictionsAreEnabled: true
 
 検証：
 
+- Gate 2 のコード状態で `Scripts/prepare-statistics-pro-qa.sh` が成功。
 - `Scripts/prepare-purchase-gate3-code-change.sh` が成功。
 - `PurchaseAccessPolicyTests`
 - `PurchaseConfigurationTests`
