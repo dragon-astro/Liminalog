@@ -1,14 +1,13 @@
 # StoreKit Local Testing
 
-Liminalog のローカル課金テスト準備メモ。`.storekit` ファイル形式は Xcode の StoreKit editor が管理するため、推測で手書きせず、Xcode GUI で作成してから検査スクリプトで商品IDの抜けを確認する。
+Liminalog のローカル課金テスト準備メモ。repo 直下に `liminalog.storekit` を置き、検査スクリプトで商品IDの抜けを確認する。Xcode の StoreKit editor がファイルを更新した場合は、必ず検査を再実行してからコミットする。
 
 ## 1. StoreKit Configuration を作成する
 
-1. Xcode で `Liminalog.xcodeproj` を開く。
-2. File > New > File... > StoreKit Configuration File を選ぶ。
-3. ファイル名は `liminalog.storekit` にする。
-4. 保存先は repo 直下、または Xcode が提案する project 配下にする。
-5. Shared scheme の Run > Options > StoreKit Configuration に `liminalog.storekit` を設定する。
+1. repo 直下の `liminalog.storekit` を使う。
+2. Xcode で `Liminalog.xcodeproj` を開く。
+3. Shared scheme の Run > Options > StoreKit Configuration に `liminalog.storekit` を設定する。
+4. Xcode が `.storekit` を書き換えた場合は、差分を確認してから `Scripts/validate-purchase-readiness.sh` を実行する。
 
 `xcrun storekit` は現在の開発環境では見つからないため、CLI生成は使わない。
 
@@ -35,10 +34,16 @@ Liminalog のローカル課金テスト準備メモ。`.storekit` ファイル�
 swift Scripts/validate-storekit-config.swift --validate-products-doc
 ```
 
-`.storekit` を作成したら、repo root で次を実行する。
+`.storekit` を更新したら、repo root で次を実行する。
 
 ```sh
 swift Scripts/validate-storekit-config.swift liminalog.storekit
+```
+
+課金リリース前チェック一式として確認する場合：
+
+```sh
+Scripts/validate-purchase-readiness.sh
 ```
 
 期待商品を確認したいだけなら次を使う。
@@ -48,6 +53,12 @@ swift Scripts/validate-storekit-config.swift --expected
 ```
 
 スクリプトは、予定している商品IDと `Liminalog Pro` のサブスクリプショングループが StoreKit Configuration に含まれるか確認する。Xcode の内部表現が変わる可能性があるため、商品種別は確認できない場合に warning として扱う。
+
+購入導線や機能制限の安全弁が開いていないことも確認する。
+
+```sh
+xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -configuration Debug -destination "platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5" -derivedDataPath /private/tmp/LiminalogMonetizationStoreKitDerivedData -only-testing:LiminalogTests/PurchaseConfigurationTests -only-testing:LiminalogTests/PurchaseOfferingCatalogTests -only-testing:LiminalogTests/PurchaseAccessPolicyTests -only-testing:LiminalogTests/PurchaseEntitlementTests -only-testing:LiminalogTests/PurchaseRefreshPolicyTests test
+```
 
 ## 4. ローカル購入テストケース
 

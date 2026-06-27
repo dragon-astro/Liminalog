@@ -1,0 +1,218 @@
+{
+  "appPolicies" : {
+    "eula" : "",
+    "policies" : [
+      {
+        "locale" : "ja_JP",
+        "policyText" : "",
+        "policyURL" : "https://liminalog-lp.vercel.app/terms"
+      }
+    ]
+  },
+  "identifier" : "4C494D30",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+    {
+      "displayPrice" : "6800",
+      "familyShareable" : false,
+      "internalID" : "1000000003",
+      "localizations" : [
+        {
+          "description" : "Liminalog の機能を一度だけ応援します。",
+          "displayName" : "ライフタイム",
+          "locale" : "ja_JP"
+        }
+      ],
+      "productID" : "liminalog.lifetime",
+      "referenceName" : "ライフタイム",
+      "type" : "NonConsumable"
+    },
+    {
+      "displayPrice" : "250",
+      "familyShareable" : false,
+      "internalID" : "1000000006",
+      "localizations" : [
+        {
+          "description" : "Liminalog を少し応援します。機能解放はありません。",
+          "displayName" : "小さく応援",
+          "locale" : "ja_JP"
+        }
+      ],
+      "productID" : "liminalog.support.small",
+      "referenceName" : "小さく応援",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "600",
+      "familyShareable" : false,
+      "internalID" : "1000000007",
+      "localizations" : [
+        {
+          "description" : "Liminalog のこれからの開発を応援します。機能解放はありません。",
+          "displayName" : "しっかり応援",
+          "locale" : "ja_JP"
+        }
+      ],
+      "productID" : "liminalog.support.medium",
+      "referenceName" : "しっかり応援",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "1200",
+      "familyShareable" : false,
+      "internalID" : "1000000008",
+      "localizations" : [
+        {
+          "description" : "Liminalog の開発を大きめに応援します。機能解放はありません。",
+          "displayName" : "大きく応援",
+          "locale" : "ja_JP"
+        }
+      ],
+      "productID" : "liminalog.support.large",
+      "referenceName" : "大きく応援",
+      "type" : "Consumable"
+    }
+  ],
+  "settings" : {
+    "_askToBuyEnabled" : false,
+    "_billingGracePeriodEnabled" : false,
+    "_billingIssuesEnabled" : false,
+    "_disableDialogs" : false,
+    "_failTransactionsEnabled" : false,
+    "_locale" : "ja_JP",
+    "_renewalBillingIssuesEnabled" : false,
+    "_storefront" : "JPN",
+    "_storeKitErrors" : [
+      {
+        "current" : {
+          "index" : 2,
+          "type" : "generic"
+        },
+        "enabled" : false,
+        "name" : "Load Products"
+      },
+      {
+        "enabled" : false,
+        "name" : "Purchase"
+      },
+      {
+        "enabled" : false,
+        "name" : "Verification"
+      },
+      {
+        "enabled" : false,
+        "name" : "App Store Sync"
+      },
+      {
+        "enabled" : false,
+        "name" : "Subscription Status"
+      },
+      {
+        "enabled" : false,
+        "name" : "App Transaction"
+      },
+      {
+        "enabled" : false,
+        "name" : "Manage Subscriptions Sheet"
+      },
+      {
+        "enabled" : false,
+        "name" : "Refund Request Sheet"
+      },
+      {
+        "enabled" : false,
+        "name" : "Offer Code Redeem Sheet"
+      }
+    ],
+    "_timeRate" : 0
+  },
+  "subscriptionGroups" : [
+    {
+      "groupNumber" : 1,
+      "localizations" : [
+        {
+          "locale" : "ja_JP",
+          "name" : "Liminalog Pro"
+        }
+      ],
+      "referenceName" : "Liminalog Pro",
+      "subscriptionGroupID" : "liminalog.pro.group",
+      "subscriptions" : [
+        {
+          "displayPrice" : "400",
+          "familyShareable" : false,
+          "internalID" : "1000000001",
+          "localizations" : [
+            {
+              "description" : "深い統計とプレミアム装飾を、月ごとに使います。",
+              "displayName" : "Liminalog Pro 月額",
+              "locale" : "ja_JP"
+            }
+          ],
+          "productID" : "liminalog.pro.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Liminalog Pro 月額",
+          "subscriptionGroupID" : "liminalog.pro.group",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "displayPrice" : "2900",
+          "familyShareable" : false,
+          "internalID" : "1000000002",
+          "localizations" : [
+            {
+              "description" : "Proを長く使う人向け。年ごとに更新します。",
+              "displayName" : "Liminalog Pro 年額",
+              "locale" : "ja_JP"
+            }
+          ],
+          "productID" : "liminalog.pro.yearly",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "Liminalog Pro 年額",
+          "subscriptionGroupID" : "liminalog.pro.group",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "displayPrice" : "200",
+          "familyShareable" : false,
+          "internalID" : "1000000004",
+          "localizations" : [
+            {
+              "description" : "ライフタイム所有者向けの装飾使い放題です。",
+              "displayName" : "装飾パス 月額",
+              "locale" : "ja_JP"
+            }
+          ],
+          "productID" : "liminalog.decorations.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "装飾パス 月額",
+          "subscriptionGroupID" : "liminalog.pro.group",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "displayPrice" : "1500",
+          "familyShareable" : false,
+          "internalID" : "1000000005",
+          "localizations" : [
+            {
+              "description" : "装飾使い放題を年単位で使います。",
+              "displayName" : "装飾パス 年額",
+              "locale" : "ja_JP"
+            }
+          ],
+          "productID" : "liminalog.decorations.yearly",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "装飾パス 年額",
+          "subscriptionGroupID" : "liminalog.pro.group",
+          "type" : "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 5,
+    "minor" : 0
+  }
+}
