@@ -1215,7 +1215,7 @@ private func validateReleaseGateConfiguration(at path: String, expectedState: St
     let failures = requiredSnippets.compactMap { requirement -> String? in
         currentConfiguration.contains(requirement.snippet)
             ? nil
-            : "release gate setting mismatch: \(requirement.label)"
+            : "missing expected release gate setting for \(expectedGate.displayName): \(requirement.label) (expected `\(requirement.snippet)`)"
     }
 
     if failures.isEmpty {
