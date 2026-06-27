@@ -64,11 +64,26 @@ swift Scripts/validate-storekit-config.swift --expected
 
 2026-06-27 に `xcodebuild test` から `SKTestSession(contentsOf:)` を使う自動購入テストを試したが、Simulator の `storekitd` が `app.YasudaRyuga.Liminalog is not installed for development` を返し、`Product.products` が空になった。失敗するテストをリポジトリに残さないため、現時点ではXcode RunのStoreKit Configurationで手動QAする。
 
+XcodeBuildMCP / CLI の build-install-launch 経路は、shared scheme に `liminalog.storekit` が設定されていても Xcode の StoreKit Configuration を実行時注入しない。MCPで課金画面まで開けても `Product.products(for:)` が `loadedCount=0` の場合は、アプリ側の商品種別フィルタではなく実行経路の問題として扱う。
+
 購入導線や機能制限の安全弁が開いていないことも確認する。
 
 ```sh
 xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -configuration Debug -destination "platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5" -derivedDataPath /private/tmp/LiminalogMonetizationStoreKitDerivedData -only-testing:LiminalogTests/PurchaseConfigurationTests -only-testing:LiminalogTests/PurchaseOfferingCatalogTests -only-testing:LiminalogTests/PurchaseAccessPolicyTests -only-testing:LiminalogTests/PurchaseEntitlementTests -only-testing:LiminalogTests/PurchaseRefreshPolicyTests test
 ```
+
+### Xcode Normal Run 手順
+
+ローカル購入QAはこの手順を正とする。
+
+1. `git status --short` を確認し、課金QAと無関係なアプリコード差分がある場合は、証跡に dirty 状態を記録する。可能ならクリーンな課金チェックポイントで実施する。
+2. Xcode で `Liminalog.xcodeproj` を開く。
+3. Scheme を `Liminalog`、Run destination を購入QA用 Simulator にする。
+4. Edit Scheme > Run > Options > StoreKit Configuration が `liminalog.storekit` であることを確認する。
+5. Product > Run で起動する。
+6. 設定 > Proと応援 を開く。
+7. DEBUG の `StoreKit商品取得診断` が `要求ID 8 / 取得 8 / 有効 8` 相当で、未取得IDと型不一致が空であることを確認する。
+8. 取得が0件の時は、XcodeのRun経路か、StoreKit Configurationの選択状態を先に疑う。MCP/CLI起動の結果だけでアプリ側バグ扱いしない。
 
 ## 5. ローカル購入テストケース
 
@@ -96,6 +111,7 @@ xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -configuration Debug -
 | 2026-06-27 | `4230b478` | DEBUG | iPhone 17 Pro Simulator / iOS 26.5 | scheme expects `liminalog.storekit` | blocked | XcodeBuildMCP でビルド・起動し、設定の `Proと応援` から課金画面へ遷移できることは確認。商品取得は `商品情報を取得できませんでした` 表示になったため、購入操作QAは未完了のまま。Xcode の通常 Run で StoreKit Configuration を適用して再確認する。 |
 | 2026-06-27 | working tree after `8373462` | DEBUG | iPhone 17 Pro Simulator / iOS 26.5 | scheme expects `liminalog.storekit` | blocked | DEBUG OSLog 診断を追加して XcodeBuildMCP で再確認。`LiminalogPurchaseDebug productLoad ... loadedCount=0 ... validCount=0` だったため、商品種別フィルタではなく `Product.products(for:)` 自体にローカルStoreKit商品が入っていない。XcodeBuildMCP 起動では StoreKit Configuration が適用されないため、Xcode通常RunまたはSandboxで購入操作QAを行う。 |
 | 2026-06-27 | working tree after `084ddd5` | DEBUG | iPhone 17 Pro Simulator / iOS 26.5 | scheme expects `liminalog.storekit` | blocked | DEBUG購入画面の `StoreKit商品取得診断` で、要求ID 8、取得 0、有効 0、未取得ID一覧が表示されることを XcodeBuildMCP で確認。XcodeBuildMCP 起動では商品注入がないため購入操作QAは未完了だが、手動QA時の切り分け表示は確認済み。Releaseには出ない。 |
+| 2026-06-28 | `3925ef7` + dirty `CategoryStore.swift` | DEBUG | iPhone 17 Pro Simulator / iOS 26.5 | scheme expects `liminalog.storekit` | blocked | XcodeBuildMCP `build_run_sim` で設定 > `Proと応援` へ遷移。OSLog は `LiminalogPurchaseDebug productLoad requested=[8 ids] loadedCount=0 loaded=[] validCount=0 valid=[]`。MCP/CLI経路ではStoreKit Configurationが注入されないため、ローカル購入操作QAは未完了。 |
 
 | 項目 | 記録 |
 |---|---|

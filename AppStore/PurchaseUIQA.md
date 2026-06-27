@@ -137,6 +137,7 @@ Gate 2 で `purchaseEntryPointIsEnabled` と `backgroundEntitlementRefreshIsEnab
 | 2026-06-27 | working tree after `8373462` | DEBUG | iPhone 17 Pro Simulator / iOS 26.5 | scheme expects local `.storekit` | visible | off | blocked | DEBUG OSLog 診断で `Product.products(for:)` の戻りが `loadedCount=0` であることを確認。アプリ側の商品種別フィルタではなく、XcodeBuildMCP 起動にローカル StoreKit Configuration が適用されていない状態。 |
 | 2026-06-27 | working tree after `084ddd5` | DEBUG | iPhone 17 Pro Simulator / iOS 26.5 | scheme expects local `.storekit` | visible | off | pass | XcodeBuildMCP で設定の `Proと応援` へ遷移し、`StoreKit商品取得診断` に要求ID 8、取得 0、有効 0、未取得ID一覧が出ることを確認。商品注入がないため購入操作QAは未完了だが、DEBUG診断表示は確認済み。Releaseには出ない。 |
 | 2026-06-27 | `6c055a6c` | DEBUG | iPhone 17 Pro Simulator / iOS 26.5 | failed local `.storekit` attempt | visible | off | pass | 課金画面表示後にホーム、カレンダー、統計、友達、プロフィールへ移動できることを確認。統計はPro案内ではなく既存ダッシュボード表示。編集や購入操作は未実施。 |
+| 2026-06-28 | `3925ef7` + dirty `CategoryStore.swift` | DEBUG | iPhone 17 Pro Simulator / iOS 26.5 | scheme expects local `.storekit` | visible | off | blocked | XcodeBuildMCP `build_run_sim` で課金画面まで遷移できるが、OSLog は `loadedCount=0` / `validCount=0`。MCP/CLI経路ではStoreKit Configurationが注入されないため、Local StoreKit購入操作QAはXcode通常Run待ち。 |
 
 ## Stop Conditions
 
