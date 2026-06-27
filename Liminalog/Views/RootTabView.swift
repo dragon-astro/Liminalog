@@ -98,6 +98,7 @@ struct RootTabView: View {
                         .badge(freshUnlockCount)
                     }
                     .environment(store)
+                    .environment(appStores.purchaseStore)
                 } else {
                     ProgressView()
                 }
@@ -121,6 +122,12 @@ struct RootTabView: View {
                 }
                 #endif
                 appStores = initializedStores
+                let purchaseRuntimePolicy = PurchaseStoreRuntimePolicy.current()
+                if purchaseRuntimePolicy.shouldStartStoreKitOnAppLaunch {
+                    Task {
+                        await initializedStores.purchaseStore.start()
+                    }
+                }
                 if SharedModelContainer.storageMode != .cloudSync {
                     isShowingStorageFallbackNotice = true
                 }
@@ -146,7 +153,15 @@ struct RootTabView: View {
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active {
                     consumePendingShortcutRoute()
-                    if appStores != nil {
+                    if let appStores {
+                        let purchaseRuntimePolicy = PurchaseStoreRuntimePolicy.current()
+                        if purchaseRuntimePolicy.shouldRefreshEntitlementsOnSceneActivation {
+                            Task {
+                                await appStores.purchaseStore.refreshEntitlementsIfStale(
+                                    maxAge: purchaseRuntimePolicy.sceneActivationRefreshMaxAge
+                                )
+                            }
+                        }
                         scheduleRemoteChangeDuplicateMerge(
                             reason: "scene active",
                             activeDelay: 35,

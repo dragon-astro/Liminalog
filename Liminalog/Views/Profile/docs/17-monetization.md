@@ -3,7 +3,7 @@
 Liminalog の課金設計の初版。**戦略・価格・機能ティア・packaging・接客・指標**を一望できる土台。
 前提：[13-visual-identity.md](13-visual-identity.md)（世界観＝静謐・搾取的にしない）、[09-profile-design.md](09-profile-design.md)（装飾アイテム経済）、[16-collection-decoration-art.md](16-collection-decoration-art.md)（装飾の作り）。
 
-> ステータス：**方針合意済み・未実装**。実装（StoreKit2＋計測）は別タスク。本書は数字で調整するための基準。
+> ステータス：**方針合意済み・一部実装中**。StoreKit2 の購入土台・権利判定・設定内導線は `codex/monetization-foundation` で着手済み。実際の機能制限、計測、利用規約URL、LP更新は別タスク。
 > 開発者は学生・個人。固定費は実質 **ADP 年¥15,000前後のみ**（CloudKit/App Groups でサーバー代≒0）。まず ADP 回収、加えて“α”の収入を狙う。
 
 ---
@@ -154,13 +154,31 @@ Liminalog の課金設計の初版。**戦略・価格・機能ティア・packa
 ## 10. 実装メモ（将来・Codex引き継ぎ用）
 
 - **StoreKit2 商品**：
-  - フルサブ（月/年・7日無料）＝機能＋装飾使い放題
+  - フルサブ（月/年）＝機能＋装飾使い放題。無料体験の有無・期間はApp Store Connect確定後に反映する。
   - **装飾サブ（買い切り所有者限定・月¥200/年¥1,500）**＝装飾レンタルのみ
   - Non-Consumable：ライフタイム・各プレミアム装飾（永久所有）
   - Consumable：支援チップ
+- **仮商品ID（2026-06-27）**：
+  - `liminalog.pro.monthly` / `liminalog.pro.yearly`
+  - `liminalog.lifetime`
+  - `liminalog.decorations.monthly` / `liminalog.decorations.yearly`
+  - `liminalog.support.small` / `liminalog.support.medium` / `liminalog.support.large`
+- 単品プレミアム装飾は `liminalog.decoration.` prefix の権利モデルだけ実装済み。初期の商品取得リスト/購入UIにはまだ個別IDを列挙していないため、単品装飾を売る時は `PurchaseConfiguration.current.productIDs` と購入UI側の商品定義追加が必要。
+- **本番課金設定の注入点**：`PurchaseConfiguration.current`。本番 Product ID 確認フラグ、サブスクリプショングループ名、利用規約URL、プライバシーポリシーURL、購入導線ON/OFF、機能制限ON/OFF、起動時StoreKit更新ON/OFFをここに集約し、未確定の間は有料リリース準備完了にならない。商品IDの空値/重複/未対応ID、法務URLの非HTTPSもRelease導線を開かない条件としてテストで固定済み。公開前の不足要件は `PurchasePaidReleaseRequirement` として型付きで保持し、DEBUG表示では `displayName` と `resolutionHint` を出す。StoreKitへ渡す商品IDは前後空白を除去してから使う。プライバシーポリシーURLは既存LPの `https://liminalog.vercel.app/privacy` を設定済み。Product ID/法務URLが揃っても `purchaseEntryPointIsEnabled` を true にするまではReleaseの設定画面に購入導線を出さない。
+- **課金入口とStoreKitランタイムの露出**：`PurchaseActivationPolicy` で制御する。Releaseでは `PurchaseConfiguration.current.canExposePurchaseEntryPoint` が true になるまで設定内の「Proと応援」を出さず、`PurchaseStoreRuntimePolicy` 経由で起動時/復帰時のStoreKit権利確認も走らせない。購入画面でのStoreKit操作、既存機能のPro制限、起動時/復帰時のバックグラウンド権利確認は別スイッチに分ける。`PurchaseStore` 自体も同じランタイムポリシーを持ち、将来別の購入導線を追加しても未準備Releaseで商品取得・購入・復元・サブスク管理が直接走らないようにする。DEBUGでは未設定確認と表示検証のため購入画面のStoreKit操作だけ常に有効化する。
+- **購入面のUI制御**：`SupportLiminalogView` は `PurchaseSupportSurfacePolicy` を通して商品、復元、サブスクリプション管理の表示/実行可否を判断する。未準備Releaseでは商品取得済みのように見える状態でも `.disabled` になり、StoreKit操作ボタンを出さないことをテストで固定済み。
+- **機能制限の安全弁**：UIで実際に制限する時は `PurchaseFeatureGate` を通す。内部の生ポリシーは外から直接触れないようにし、課金未有効のRelease/DEBUGでは既存機能をロックしない。購入導線を開いた後も `PurchaseConfiguration.current.featureRestrictionsAreEnabled` を true にするまでは統計タブやカテゴリセット上限などのPro制限は適用しない。
+- **StoreKit商品種別**：ローカルでは Pro/月額年額 と装飾パス/月額年額を自動更新サブスクリプション、ライフタイムと単品プレミアム装飾を非消耗型、支援を消耗型として扱う。StoreKitから返った商品IDまたは商品タイプが期待値と違う場合は購入候補・権利キャッシュの両方から外し、App Store Connect / StoreKit Configuration の設定ミスとしてログに出す。
 - **ペイウォール出し分け**：**買い切り所有→装飾サブを表示／未所有→フルサブを表示**（買い切り勢にフルサブを見せない＝過払い防止）。
   - エッジケース：フルサブ中に買い切り購入→装飾サブへ乗換え提案（機能ぶんの払い続けを避ける）。
 - **Small Business Program** 登録（手数料15%）。
 - **レンタル判定**：サブ（フル/装飾どちらか）有効中のみプレミアム装飾を装着可能にするゲート。失効時の装着リセット＋単品所有の永続を両立。
 - 既存の装飾解放機構（`UnlockRules`/`ProfileDecorationUnlocks`/`UnlockGalleryView`）に**課金所有/レンタルの軸を追加**（獲得とは別系統）。
 - 計測：ペイウォール露出・転換・継続/招待を最小イベントで。
+- **サーバー方針（初期）**：独自サーバーなし。StoreKit2 の `Transaction.currentEntitlements` と `Transaction.updates` を正とし、端末には表示高速化用キャッシュだけを持つ。App Store Server API / Server Notifications は、独自アカウント横断同期・返金/解約イベントのサーバー保管・詳細な課金分析が必要になってから検討。
+- **購入状態更新**：起動時はキャッシュを即時表示する。StoreKit確認は購入画面表示時に行い、`backgroundEntitlementRefreshIsEnabled` または機能制限を明示的にONにした後だけ、起動時/復帰時のバックグラウンド確認を行う。復帰時は最終確認から6時間以上経っている場合だけ再確認し、既存画面の操作を待たせない。
+- **サブスク管理**：アプリ内の「Proと応援」から StoreKit の管理画面を開く。解約・更新・プラン変更はApp Store側に寄せ、Liminalog側で独自サーバーや独自解約UIは持たない。
+- **利用規約**：課金導入前に LP 側へ `/terms` を追加し、App Store Connect とアプリ内導線から参照できるようにする。LP は Next.js App Router 構成で `/Users/ryu/Documents/X-code/LP/liminalog_lp/app/privacy/page.tsx` と `/support` が既存。自然な追加先は `app/terms/page.tsx` と `app/content.ts` の `termsSections`。アプリ側の候補URLは `https://liminalog.vercel.app/terms` だが、本文が確定するまでは `PurchaseConfiguration.current.legalLinks.termsOfUseURL` を nil のままにしてRelease導線を開かない。
+- **ローカル課金テスト**：Xcode の StoreKit Configuration は未追加。現在の環境では `xcrun storekit` が使えず、既存 `.storekit` 雛形も見つからなかったため、推測の手書き設定は入れない。Xcode GUI または確実な雛形で `liminalog.storekit` を作成し、shared scheme の LaunchAction に紐づけてから購入画面の実購入フローを検証する。
+- **DEBUG表示検証**：StoreKit Configuration 作成前でも、設定 > デバッグ > 課金状態を試す から無料/Pro/ライフタイム/装飾パスありの表示状態を一時確認できる。これは DEBUG ビルド限定・非永続・実購入の代替ではない。
+- **未決確認**：本番 Product ID、サブスクリプショングループ名、利用規約本文/URL、App Store Connect の価格帯はユーザー確認後に確定する。LPは `/Users/ryu/Documents/X-code/LP/liminalog_lp` にあり、`/privacy` と `/support` は既に存在する。`/terms` はLP側BRIEFでも課金更新前に追加予定のルート扱いで、本文はまだ未確定。

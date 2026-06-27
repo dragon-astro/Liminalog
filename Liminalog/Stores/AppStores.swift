@@ -9,6 +9,7 @@ final class AppStores {
     let planStore: PlanStore
     let scoreStore: ScoreStore
     let unlockStore: UnlockStore
+    let purchaseStore: PurchaseStore
     let streakNotificationStore: StreakNotificationStore
     let liveActivityCoordinator: LiveActivityCoordinator
     let chapterStore: ChapterStore
@@ -20,6 +21,11 @@ final class AppStores {
         let planStore = PlanStore(modelContext: modelContext, clock: clock)
         let scoreStore = ScoreStore(modelContext: modelContext, clock: clock)
         let unlockStore = UnlockStore(modelContext: modelContext)
+        let purchaseConfiguration = PurchaseConfiguration.current
+        let purchaseStore = PurchaseStore(
+            productIDs: purchaseConfiguration.storeKitProductIDs,
+            userDefaults: UserDefaults(suiteName: SharedModelContainer.appGroupID)
+        )
         let streakNotificationStore = StreakNotificationStore(modelContext: modelContext)
         let liveActivityCoordinator = LiveActivityCoordinator(categorySetStore: categorySetStore)
         let chapterStore = ChapterStore(
@@ -42,6 +48,7 @@ final class AppStores {
         self.planStore = planStore
         self.scoreStore = scoreStore
         self.unlockStore = unlockStore
+        self.purchaseStore = purchaseStore
         self.streakNotificationStore = streakNotificationStore
         self.liveActivityCoordinator = liveActivityCoordinator
         self.chapterStore = chapterStore

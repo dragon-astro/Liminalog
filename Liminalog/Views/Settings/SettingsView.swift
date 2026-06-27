@@ -3,6 +3,8 @@ import SwiftUI
 import UIKit
 
 struct SettingsView: View {
+    @Environment(PurchaseStore.self) private var purchaseStore
+
     #if DEBUG
     @AppStorage("debug.unlocks.allowLockedDecorations") private var allowsLockedDecorationTesting = false
     @AppStorage(PreviewSupport.devDataFlagKey) private var debugDevDataEnabled = false
@@ -26,6 +28,24 @@ struct SettingsView: View {
         let subject = "Liminalog お問い合わせ（v\(versionText)）"
         let encoded = subject.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
         return URL(string: "mailto:\(supportEmailAddress)?subject=\(encoded)")
+    }
+
+    private var shouldShowPurchaseEntryPoint: Bool {
+        PurchaseActivationPolicy.current().shouldShowSettingsEntryPoint
+    }
+
+    private var purchaseSection: some View {
+        Section {
+            NavigationLink {
+                SupportLiminalogView(purchaseStore: purchaseStore)
+            } label: {
+                Label("Proと応援", systemImage: "sparkles")
+            }
+        } header: {
+            Text("応援")
+        } footer: {
+            Text("記録、カレンダー、友達、シェアは無料のまま使えます。Proは深い分析や装飾でLiminalogを支えるための入口です。")
+        }
     }
 
     var body: some View {
@@ -90,6 +110,10 @@ struct SettingsView: View {
                 }
             }
 
+            if shouldShowPurchaseEntryPoint {
+                purchaseSection
+            }
+
             #if DEBUG
             Section {
                 Toggle(isOn: $allowsLockedDecorationTesting) {
@@ -115,6 +139,16 @@ struct SettingsView: View {
                     applyDebugSeedToggle(isEnabled)
                 }
 
+                Picker(selection: debugPurchaseStateBinding) {
+                    ForEach(DebugPurchaseEntitlementsOverride.allCases) { state in
+                        Text(state.title)
+                            .tag(state)
+                    }
+                } label: {
+                    Label("課金状態を試す", systemImage: "creditcard")
+                }
+                .pickerStyle(.menu)
+
                 Button(role: .destructive) {
                     showCloudUserIDResetConfirmation = true
                 } label: {
@@ -134,7 +168,7 @@ struct SettingsView: View {
             } header: {
                 Text("デバッグ")
             } footer: {
-                Text("DEBUGビルド限定です。ダミーデータはデモ由来の予定と実績だけを追加・削除します。ユーザーIDリセットは開発中のCloudKit登録を消して、同じApple IDでID作成をやり直すための操作です。")
+                Text("DEBUGビルド限定です。ダミーデータはデモ由来の予定と実績だけを追加・削除します。課金状態は購入画面の表示確認用で、実際の購入状態は保存しません。ユーザーIDリセットは開発中のCloudKit登録を消して、同じApple IDでID作成をやり直すための操作です。")
             }
             .confirmationDialog("CloudKitユーザーIDをリセットしますか？", isPresented: $showCloudUserIDResetConfirmation, titleVisibility: .visible) {
                 Button("リセットする", role: .destructive) {
@@ -167,6 +201,13 @@ struct SettingsView: View {
     }
 
     #if DEBUG
+    private var debugPurchaseStateBinding: Binding<DebugPurchaseEntitlementsOverride> {
+        Binding(
+            get: { purchaseStore.debugEntitlementsOverrideKind },
+            set: { purchaseStore.applyDebugEntitlementsOverride($0) }
+        )
+    }
+
     private func applyDebugSeedToggle(_ isEnabled: Bool) {
         if isEnabled {
             let didSeedPlans = PreviewSupport.seedPreviewPlansIfNeeded(in: modelContext)

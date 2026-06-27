@@ -219,5 +219,6 @@ extension View {
     func liminalogPreviewEnvironment() -> some View {
         modelContainer(PreviewSupport.container)
             .environment(PreviewSupport.store)
+            .environment(PurchaseStore.preview)
     }
 }
