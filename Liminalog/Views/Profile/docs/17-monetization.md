@@ -179,6 +179,7 @@ Liminalog の課金設計の初版。**戦略・価格・機能ティア・packa
 - **購入面のUI制御**：`SupportLiminalogView` は `PurchaseSupportSurfacePolicy` を通して商品、復元、サブスクリプション管理の表示/実行可否を判断する。未準備Releaseでは商品取得済みのように見える状態でも `.disabled` になり、StoreKit操作ボタンを出さないことをテストで固定済み。
 - **機能制限の安全弁**：UIで実際に制限する時は `PurchaseFeatureGate` を通す。内部の生ポリシーは外から直接触れないようにし、課金未有効のRelease/DEBUGでは既存機能をロックしない。購入導線を開いた後も `PurchaseConfiguration.current.featureRestrictionsAreEnabled` を true にするまでは統計タブやカテゴリセット上限などのPro制限は適用しない。
 - **統計タブPro化の実装方針（未適用）**：
+  - 詳細設計は `19-statistics-pro-gate.md`。
   - タブ自体は消さない。無料ユーザーに「統計がある」ことは見せ、タブを開いた時にPro案内へ分岐する。
   - ただし無料ユーザーで制限が有効な時は `DashboardPeriodContent` を構築しない。統計の @Query / 集計を走らせず、データ漏れと重さを避ける。
   - 当日スコア、ストリーク、デイリーカード、カレンダー上の自分の過去データ閲覧は無料のまま。`statisticsTab` のゲートは「週/月/年の深い分析画面」だけにかける。
