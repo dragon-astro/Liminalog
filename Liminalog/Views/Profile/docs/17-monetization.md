@@ -204,6 +204,7 @@ Liminalog の課金設計の初版。**戦略・価格・機能ティア・packa
 - **ローカル課金テスト**：Xcode の StoreKit Configuration は未追加。現在の環境では `xcrun storekit` が使えず、既存 `.storekit` 雛形も見つからなかったため、推測の手書き設定は入れない。Xcode GUI または確実な雛形で `liminalog.storekit` を作成し、shared scheme の LaunchAction に紐づけてから購入画面の実購入フローを検証する。
   - Xcode GUI手順：File > New > File... > StoreKit Configuration File で `liminalog.storekit` を作成し、上記の商品ID・種別・価格を追加する。
   - Scheme手順：Edit Scheme... > Run > Options > StoreKit Configuration で `liminalog.storekit` を選ぶ。`Liminalog.xcscheme` には現時点でStoreKit設定の参照は入っていない。
+  - 詳細手順と検査コマンドは `AppStore/StoreKitLocalTesting.md`。作成後は `swift Scripts/validate-storekit-config.swift liminalog.storekit` で商品IDとサブスクリプショングループの抜けを確認する。
   - 検証ケース：商品取得成功、Pro月額/年額購入、ライフタイム購入、装飾パス購入、支援チップ購入、復元なし、復元あり、サブスク期限切れ、非消耗型の永続保持、StoreKit商品種別不一致時に購入候補/権利キャッシュから外れること。
 - **DEBUG表示検証**：StoreKit Configuration 作成前でも、設定 > デバッグ > 課金状態を試す から無料/Pro/ライフタイム/装飾パスありの表示状態を一時確認できる。これは DEBUG ビルド限定・非永続・実購入の代替ではない。
 - **未決確認**：本番 Product ID、サブスクリプショングループ名、利用規約本文/URL、App Store Connect の価格帯はユーザー確認後に確定する。LPは `/Users/ryu/Documents/X-code/LP/liminalog_lp` にあり、`/privacy` と `/support` は既に存在する。`/terms` はLP側BRIEFでも課金更新前に追加予定のルート扱いで、本文はまだ未確定。
