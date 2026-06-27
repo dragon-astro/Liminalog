@@ -38,6 +38,12 @@ Liminalog の課金基盤 v0 を、現時点の証拠ベースで監査するた
 Scripts/validate-purchase-readiness.sh
 ```
 
+未完了Gateの不足項目を失敗終了せず一覧化する場合：
+
+```sh
+Scripts/validate-purchase-readiness.sh --status
+```
+
 The aggregate command runs:
 
 ```sh

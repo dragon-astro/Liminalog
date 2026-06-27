@@ -6,6 +6,7 @@ run_release_build=false
 run_gate1_ready=false
 run_gate2_ready=false
 run_gate3_ready=false
+run_status=false
 release_gate_state="closed"
 storekit_path="${LIMINALOG_STOREKIT_CONFIG:-liminalog.storekit}"
 swift_module_cache_path="${LIMINALOG_SWIFT_MODULE_CACHE_PATH:-/private/tmp/liminalog-swift-module-cache}"
@@ -30,13 +31,16 @@ for argument in "$@"; do
       run_gate3_ready=true
       run_release_build=true
       ;;
+    --status)
+      run_status=true
+      ;;
     --storekit=*)
       storekit_path="${argument#--storekit=}"
       ;;
     --help|-h)
       cat <<'USAGE'
 usage:
-  Scripts/validate-purchase-readiness.sh [--release-build] [--gate1-ready] [--gate2-ready] [--gate3-ready] [--storekit=path/to/liminalog.storekit]
+  Scripts/validate-purchase-readiness.sh [--release-build] [--gate1-ready] [--gate2-ready] [--gate3-ready] [--status] [--storekit=path/to/liminalog.storekit]
 
 Runs the purchase-release checks that do not require App Store Connect access.
 The StoreKit configuration check is skipped with a note when the file is absent.
@@ -44,6 +48,7 @@ Use --gate1-ready only after App Store Connect products are created and the conf
 Use --gate2-ready only after Local StoreKit purchase QA and Purchase UI QA evidence are complete.
 Use --gate3-ready only after Statistics Pro restriction QA evidence is complete.
 Gate ready checks validate the matching PurchaseConfiguration.current state instead of the initial closed state.
+Use --status to print current gate blockers without failing on incomplete future gates.
 USAGE
       exit 0
       ;;
@@ -74,6 +79,70 @@ run_step() {
 run_swift_validator() {
   swift -module-cache-path "$swift_module_cache_path" Scripts/validate-storekit-config.swift "$@"
 }
+
+run_status_check() {
+  local title="$1"
+  shift
+  local output
+
+  if output=$("$@" 2>&1); then
+    echo "PASS: $title"
+  else
+    echo "BLOCKED: $title"
+  fi
+
+  if [[ -n "$output" ]]; then
+    echo "$output" | sed 's/^/  /'
+  fi
+}
+
+print_purchase_status() {
+  echo "Purchase readiness status"
+  echo
+
+  run_status_check "Current Release gate is closed" \
+    run_swift_validator --validate-release-gate-state closed
+
+  run_status_check "Legal URLs are reachable" \
+    Scripts/validate-purchase-legal-urls.sh
+
+  if [[ -f "$storekit_path" ]]; then
+    run_status_check "StoreKit configuration is present and valid: $storekit_path" \
+      run_swift_validator "$storekit_path"
+
+    run_status_check "Premium decoration single products remain inactive" \
+      run_swift_validator --validate-premium-decoration-inactive "$storekit_path"
+  else
+    echo "BLOCKED: StoreKit configuration is present and valid: $storekit_path"
+    echo "  StoreKit configuration not found."
+  fi
+
+  run_status_check "Gate 1 App Store Connect confirmation is complete" \
+    run_swift_validator --validate-app-store-connect-confirmation-complete
+
+  run_status_check "Gate 1 code state is applied" \
+    run_swift_validator --validate-release-gate-state gate1
+
+  run_status_check "Gate 2 Local StoreKit QA evidence is complete" \
+    run_swift_validator --validate-storekit-local-qa-complete
+
+  run_status_check "Gate 2 Purchase UI QA evidence is complete" \
+    run_swift_validator --validate-purchase-ui-qa-complete
+
+  run_status_check "Gate 2 code state is applied" \
+    run_swift_validator --validate-release-gate-state gate2
+
+  run_status_check "Gate 3 Statistics Pro QA evidence is complete" \
+    run_swift_validator --validate-statistics-pro-qa-complete
+
+  run_status_check "Gate 3 code state is applied" \
+    run_swift_validator --validate-release-gate-state gate3
+}
+
+if [[ "$run_status" == true ]]; then
+  print_purchase_status
+  exit 0
+fi
 
 run_step "Validate purchase product document" \
   run_swift_validator --validate-products-doc
