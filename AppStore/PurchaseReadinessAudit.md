@@ -24,8 +24,8 @@ Liminalog の課金基盤 v0 を、現時点の証拠ベースで監査するた
 | LP プライバシーポリシーURL | Done | `https://liminalog-lp.vercel.app/privacy` は 200 応答。`PurchaseConfiguration.current.privacyPolicyURL` はこのURLを参照 | カスタムドメインを使う場合はコード・docs・App Store Connectを同時更新 |
 | App Store Connect商品準備 | Prepared | `AppStore/PurchaseProducts.md`、`--app-store-connect-tsv`、Confirmation Sheet。`Scripts/validate-purchase-readiness.sh` でTSV出力を確認済み | App Store Connect で商品8件と `Liminalog Pro` group を実作成し、各行を確認 |
 | 商品ドキュメント整合性 | Done | `Scripts/validate-purchase-readiness.sh` が 2026-06-27 に成功。`--validate-products-doc` も含めて確認済み | 商品・価格・種別を変えたら再実行 |
-| StoreKitローカル設定 | Prepared | repo 直下に `liminalog.storekit` を追加。`Scripts/validate-purchase-readiness.sh` が 2026-06-27 に `liminalog.storekit` 検査込みで成功 | Xcode Shared scheme の Run > Options に `liminalog.storekit` を設定し、Xcode editorが書き換えた場合は再検査 |
-| StoreKitローカル購入テスト | Prepared | `liminalog.storekit`、`AppStore/StoreKitLocalTesting.md`、`AppStore/PurchaseUIQA.md` に手順あり | Simulator/実機で購入、復元、期限切れ、キャンセルを確認 |
+| StoreKitローカル設定 | Prepared | repo 直下に `liminalog.storekit` を追加。Shared scheme の Run に `liminalog.storekit` を接続。`Scripts/validate-purchase-readiness.sh` が 2026-06-27 に `billingPlans` 検査込みで成功 | Xcode editorが `.storekit` を書き換えた場合は再検査 |
+| StoreKitローカル購入テスト | Prepared | `liminalog.storekit`、`AppStore/StoreKitLocalTesting.md`、`AppStore/PurchaseUIQA.md` に手順あり。`xcodebuild test` + `SKTestSession(contentsOf:)` は 2026-06-27 に `app.YasudaRyuga.Liminalog is not installed for development` で商品取得不可だったため自動テスト化しない | Xcode Run のStoreKit設定、またはApp Store Connect Sandboxで購入、復元、期限切れ、キャンセルを確認 |
 | Release課金導線準備 | Prepared | `PurchaseReleaseChecklist.md` の Gate 1 / Gate 2 / Gate 3、`PurchaseConfiguration.current` の段階フラグ | App Store Connect と利用規約確定後に Gate 1 へ進める |
 | 課金UI QA | Prepared | `AppStore/PurchaseUIQA.md` | Simulator DEBUG、Release hidden-entry、Local StoreKit、実機QAを実行して証跡を残す |
 | 統計Pro化設計 | Prepared | `Liminalog/Views/Profile/docs/19-statistics-pro-gate.md` | `StatisticsProPreviewView` と `RootTabView` 分岐は未実装 |
@@ -74,16 +74,15 @@ xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -configuration Debug -
 - `purchaseEntryPointIsEnabled` は false のまま。Releaseでは購入画面を出さない。
 - `featureRestrictionsAreEnabled` は false のまま。統計タブやカテゴリセット上限をまだロックしない。
 - `backgroundEntitlementRefreshIsEnabled` は false のまま。起動時や復帰時にStoreKit権利更新を走らせない。
-- `liminalog.storekit` は追加・検査済みだが、Xcode scheme への接続とローカル購入テストは未完了。
+- `liminalog.storekit` は追加・検査済みで、Xcode scheme の Run へ接続済み。ただしローカル購入操作そのもののQAは未完了。
+- 2026-06-27 に `xcodebuild test` で `SKTestSession(contentsOf:)` による自動購入テストを試したが、Simulator の `storekitd` が `app.YasudaRyuga.Liminalog is not installed for development` を返した。失敗するテストを残さないため、現時点では手動StoreKit QAへ戻す。
 - 2026-06-27 に購入基盤のユニットテスト69件は成功。ただしこれはStoreKit購入操作そのもののQAではない。
 - 実機QAは、既存リリースデータへ触れる可能性があるため明示承認後に行う。
 - Release build 成功時点のワークツリーには、課金作業と無関係な `Liminalog/Stores/CategoryStore.swift` の未コミット差分が残っていた。この差分は課金コミットには含めない。
 
 ## Next Best Steps
 
-1. Xcode Shared scheme の Run > Options に `liminalog.storekit` を設定する。
-2. `Scripts/validate-purchase-readiness.sh` を再実行する。
-3. Simulator DEBUG で `AppStore/PurchaseUIQA.md` の Local StoreKit QA を実施する。
-4. App Store Connect で商品を作成し、`AppStore/PurchaseProducts.md` の Confirmation Sheet を埋める。
-5. 利用規約本文を承認し、LP の `/terms` を App Store Connect に登録する。
-6. Gate 1 のコード変更だけを入れ、Releaseで購入導線がまだ出ないことを確認する。
+1. Simulator DEBUG を Xcode からRunし、`AppStore/PurchaseUIQA.md` の Local StoreKit QA を実施する。
+2. App Store Connect で商品を作成し、`AppStore/PurchaseProducts.md` の Confirmation Sheet を埋める。
+3. 利用規約本文を承認し、LP の `/terms` を App Store Connect に登録する。
+4. Gate 1 のコード変更だけを入れ、Releaseで購入導線がまだ出ないことを確認する。

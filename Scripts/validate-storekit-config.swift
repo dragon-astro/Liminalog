@@ -8,6 +8,7 @@ struct ExpectedProduct {
     let kind: String
     let referencePrice: String
     let subscriptionGroup: String?
+    let billingPlanType: String?
     let kindTokens: [String]
 }
 
@@ -38,6 +39,7 @@ let expectedProducts: [ExpectedProduct] = [
         kind: "Auto-Renewable Subscription",
         referencePrice: "¥400",
         subscriptionGroup: "Liminalog Pro",
+        billingPlanType: "monthly",
         kindTokens: autoRenewableSubscriptionTokens
     ),
     ExpectedProduct(
@@ -46,6 +48,7 @@ let expectedProducts: [ExpectedProduct] = [
         kind: "Auto-Renewable Subscription",
         referencePrice: "¥2,900",
         subscriptionGroup: "Liminalog Pro",
+        billingPlanType: "upfront",
         kindTokens: autoRenewableSubscriptionTokens
     ),
     ExpectedProduct(
@@ -54,6 +57,7 @@ let expectedProducts: [ExpectedProduct] = [
         kind: "Non-Consumable",
         referencePrice: "¥6,800",
         subscriptionGroup: nil,
+        billingPlanType: nil,
         kindTokens: nonConsumableTokens
     ),
     ExpectedProduct(
@@ -62,6 +66,7 @@ let expectedProducts: [ExpectedProduct] = [
         kind: "Auto-Renewable Subscription",
         referencePrice: "¥200",
         subscriptionGroup: "Liminalog Pro",
+        billingPlanType: "monthly",
         kindTokens: autoRenewableSubscriptionTokens
     ),
     ExpectedProduct(
@@ -70,6 +75,7 @@ let expectedProducts: [ExpectedProduct] = [
         kind: "Auto-Renewable Subscription",
         referencePrice: "¥1,500",
         subscriptionGroup: "Liminalog Pro",
+        billingPlanType: "upfront",
         kindTokens: autoRenewableSubscriptionTokens
     ),
     ExpectedProduct(
@@ -78,6 +84,7 @@ let expectedProducts: [ExpectedProduct] = [
         kind: "Consumable",
         referencePrice: "¥250",
         subscriptionGroup: nil,
+        billingPlanType: nil,
         kindTokens: consumableTokens
     ),
     ExpectedProduct(
@@ -86,6 +93,7 @@ let expectedProducts: [ExpectedProduct] = [
         kind: "Consumable",
         referencePrice: "¥600",
         subscriptionGroup: nil,
+        billingPlanType: nil,
         kindTokens: consumableTokens
     ),
     ExpectedProduct(
@@ -94,6 +102,7 @@ let expectedProducts: [ExpectedProduct] = [
         kind: "Consumable",
         referencePrice: "¥1,200",
         subscriptionGroup: nil,
+        billingPlanType: nil,
         kindTokens: consumableTokens
     )
 ]
@@ -146,10 +155,18 @@ do {
             continue
         }
 
-        if let productDictionary = dictionaries.first(where: { collectStrings($0).contains(product.productID) }) {
+        if let productDictionary = productDictionary(for: product.productID, in: dictionaries) {
             let productStrings = collectStrings(productDictionary)
             if !product.kindTokens.contains(where: productStrings.contains) {
                 warnings.append("could not confirm StoreKit kind for \(product.productID); expected \(product.kind)")
+            }
+            if let billingPlanType = product.billingPlanType {
+                validateBillingPlan(
+                    in: productDictionary,
+                    product: product,
+                    expectedType: billingPlanType,
+                    failures: &failures
+                )
             }
         } else {
             warnings.append("could not locate product block for \(product.productID)")
@@ -218,6 +235,40 @@ private func collectDictionaries(_ value: Any) -> [[String: Any]] {
 
     walk(value)
     return dictionaries
+}
+
+private func productDictionary(for productID: String, in dictionaries: [[String: Any]]) -> [String: Any]? {
+    if let directProduct = dictionaries.first(where: { ($0["productID"] as? String) == productID }) {
+        return directProduct
+    }
+    return dictionaries.first(where: { collectStrings($0).contains(productID) })
+}
+
+private func validateBillingPlan(
+    in productDictionary: [String: Any],
+    product: ExpectedProduct,
+    expectedType: String,
+    failures: inout [String]
+) {
+    guard let billingPlans = productDictionary["billingPlans"] as? [[String: Any]], !billingPlans.isEmpty else {
+        failures.append("missing billingPlans for recurring subscription: \(product.productID)")
+        return
+    }
+
+    let hasExpectedType = billingPlans.contains { plan in
+        (plan["billingPlanType"] as? String) == expectedType
+    }
+    if !hasExpectedType {
+        failures.append("missing billingPlanType \(expectedType) for \(product.productID)")
+    }
+
+    let hasDisplayPrice = billingPlans.contains { plan in
+        guard let displayPrice = plan["displayPrice"] as? String else { return false }
+        return !displayPrice.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+    if !hasDisplayPrice {
+        failures.append("missing billing plan displayPrice for \(product.productID)")
+    }
 }
 
 private func validatePurchaseProductsDocument(at path: String) -> Never {

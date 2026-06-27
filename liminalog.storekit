@@ -152,6 +152,14 @@
             }
           ],
           "productID" : "liminalog.pro.monthly",
+          "billingPlans" : [
+            {
+              "billingPlanType" : "monthly",
+              "displayPrice" : "400",
+              "internalID" : "1000000101",
+              "isEnabled" : true
+            }
+          ],
           "recurringSubscriptionPeriod" : "P1M",
           "referenceName" : "Liminalog Pro 月額",
           "subscriptionGroupID" : "liminalog.pro.group",
@@ -169,6 +177,14 @@
             }
           ],
           "productID" : "liminalog.pro.yearly",
+          "billingPlans" : [
+            {
+              "billingPlanType" : "upfront",
+              "displayPrice" : "2900",
+              "internalID" : "1000000102",
+              "isEnabled" : true
+            }
+          ],
           "recurringSubscriptionPeriod" : "P1Y",
           "referenceName" : "Liminalog Pro 年額",
           "subscriptionGroupID" : "liminalog.pro.group",
@@ -186,6 +202,14 @@
             }
           ],
           "productID" : "liminalog.decorations.monthly",
+          "billingPlans" : [
+            {
+              "billingPlanType" : "monthly",
+              "displayPrice" : "200",
+              "internalID" : "1000000104",
+              "isEnabled" : true
+            }
+          ],
           "recurringSubscriptionPeriod" : "P1M",
           "referenceName" : "装飾パス 月額",
           "subscriptionGroupID" : "liminalog.pro.group",
@@ -203,6 +227,14 @@
             }
           ],
           "productID" : "liminalog.decorations.yearly",
+          "billingPlans" : [
+            {
+              "billingPlanType" : "upfront",
+              "displayPrice" : "1500",
+              "internalID" : "1000000105",
+              "isEnabled" : true
+            }
+          ],
           "recurringSubscriptionPeriod" : "P1Y",
           "referenceName" : "装飾パス 年額",
           "subscriptionGroupID" : "liminalog.pro.group",

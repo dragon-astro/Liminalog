@@ -6,7 +6,7 @@ Liminalog のローカル課金テスト準備メモ。repo 直下に `liminalog
 
 1. repo 直下の `liminalog.storekit` を使う。
 2. Xcode で `Liminalog.xcodeproj` を開く。
-3. Shared scheme の Run > Options > StoreKit Configuration に `liminalog.storekit` を設定する。
+3. Shared scheme の Run > Options > StoreKit Configuration に `liminalog.storekit` が設定されていることを確認する。
 4. Xcode が `.storekit` を書き換えた場合は、差分を確認してから `Scripts/validate-purchase-readiness.sh` を実行する。
 
 `xcrun storekit` は現在の開発環境では見つからないため、CLI生成は使わない。
@@ -52,7 +52,11 @@ Scripts/validate-purchase-readiness.sh
 swift Scripts/validate-storekit-config.swift --expected
 ```
 
-スクリプトは、予定している商品IDと `Liminalog Pro` のサブスクリプショングループが StoreKit Configuration に含まれるか確認する。Xcode の内部表現が変わる可能性があるため、商品種別は確認できない場合に warning として扱う。
+スクリプトは、予定している商品ID、`Liminalog Pro` のサブスクリプショングループ、サブスク商品の `billingPlans` が StoreKit Configuration に含まれるか確認する。Xcode の内部表現が変わる可能性があるため、商品種別は確認できない場合に warning として扱う。
+
+## 4. 自動テスト化について
+
+2026-06-27 に `xcodebuild test` から `SKTestSession(contentsOf:)` を使う自動購入テストを試したが、Simulator の `storekitd` が `app.YasudaRyuga.Liminalog is not installed for development` を返し、`Product.products` が空になった。失敗するテストをリポジトリに残さないため、現時点ではXcode RunのStoreKit Configurationで手動QAする。
 
 購入導線や機能制限の安全弁が開いていないことも確認する。
 
@@ -60,7 +64,7 @@ swift Scripts/validate-storekit-config.swift --expected
 xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -configuration Debug -destination "platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5" -derivedDataPath /private/tmp/LiminalogMonetizationStoreKitDerivedData -only-testing:LiminalogTests/PurchaseConfigurationTests -only-testing:LiminalogTests/PurchaseOfferingCatalogTests -only-testing:LiminalogTests/PurchaseAccessPolicyTests -only-testing:LiminalogTests/PurchaseEntitlementTests -only-testing:LiminalogTests/PurchaseRefreshPolicyTests test
 ```
 
-## 4. ローカル購入テストケース
+## 5. ローカル購入テストケース
 
 - 商品取得成功：購入画面に Pro、ライフタイム、装飾パス、支援が表示される。
 - Pro月額購入：`entitlements.isProActive == true` になり、サブスク状態として表示される。
@@ -73,7 +77,7 @@ xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -configuration Debug -
 - サブスク期限切れ：Pro/装飾レンタル権が外れる。
 - 商品種別不一致：アプリ側の商品候補と権利キャッシュから外れる。
 
-## 5. Release への接続条件
+## 6. Release への接続条件
 
 StoreKit ローカル購入テストが通っても、次が揃うまでは Release の購入導線は開かない。
 
