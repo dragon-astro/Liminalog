@@ -127,7 +127,7 @@ if decision.isAllowed {
 ## Gate 3 QA Evidence Sheet
 
 Gate 3 で `featureRestrictionsAreEnabled` を true にする直前に埋める。入力後は `swift Scripts/validate-storekit-config.swift --validate-statistics-pro-qa-complete` を通す。Gate 3 へ進む直前は `Scripts/validate-purchase-readiness.sh --gate3-ready` を使う。
-`fill manually`、空欄、`enabled / disabled` のようなテンプレ値が残っている場合は未完了として扱う。
+`fill manually`、`TBD`、`TODO`、空欄、`screenshot / note`、`command output`、`enabled / disabled` のようなテンプレ値が残っている場合は未完了として扱う。
 
 | 項目 | 記録 |
 |---|---|

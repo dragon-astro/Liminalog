@@ -663,7 +663,7 @@ private func validateStoreKitLocalQAEvidenceComplete(at path: String) -> Never {
             failures.append("missing StoreKit QA evidence case: \(caseName)")
             continue
         }
-        if row.evidence.isEmpty || row.evidence == "screenshot / note" || row.evidence == "command output" {
+        if isPlaceholderEvidenceValue(row.evidence) {
             failures.append("StoreKit QA evidence is missing concrete proof for \(caseName)")
         }
         if row.result.lowercased() != "pass" {
@@ -756,7 +756,7 @@ private func validatePurchaseUIQAEvidenceComplete(at path: String) -> Never {
             failures.append("missing Purchase UI QA evidence case: \(caseName)")
             continue
         }
-        if row.evidence.isEmpty || row.evidence == "screenshot / note" || row.evidence == "command output" {
+        if isPlaceholderEvidenceValue(row.evidence) {
             failures.append("Purchase UI QA evidence is missing concrete proof for \(caseName)")
         }
         if row.result.lowercased() != "pass" {
@@ -844,7 +844,7 @@ private func validateStatisticsProQAEvidenceComplete(at path: String) -> Never {
             failures.append("missing Statistics Pro QA evidence case: \(caseName)")
             continue
         }
-        if row.evidence.isEmpty || row.evidence == "screenshot / note" || row.evidence == "command output" {
+        if isPlaceholderEvidenceValue(row.evidence) {
             failures.append("Statistics Pro QA evidence is missing concrete proof for \(caseName)")
         }
         if row.result.lowercased() != "pass" {
@@ -1649,6 +1649,24 @@ private func isPlaceholderMetadataValue(_ value: String?) -> Bool {
     }
 
     let placeholderValues: Set<String> = [
+        "fill manually",
+        "tbd",
+        "todo",
+        "-"
+    ]
+    return placeholderValues.contains(normalized)
+        || normalized.contains("fill manually")
+}
+
+private func isPlaceholderEvidenceValue(_ value: String) -> Bool {
+    let normalized = normalizeMarkdownCell(value).lowercased()
+    if normalized.isEmpty {
+        return true
+    }
+
+    let placeholderValues: Set<String> = [
+        "screenshot / note",
+        "command output",
         "fill manually",
         "tbd",
         "todo",
