@@ -24,6 +24,7 @@ App Store Connect で課金商品を作成した後に埋める確認表。す�
 |---|---|---|
 | [ ] | Group Reference Name | `Liminalog Pro` |
 | [ ] | Contains Products | Proサブと装飾パスが同じグループに入っている |
+| [ ] | Subscription Relationship | 同じグループ内の代替プランとして、Proサブと装飾パスの期間、表示順、レベル/アップグレード関係が意図と矛盾しない |
 
 ## Products
 
@@ -44,6 +45,7 @@ App Store Connect で課金商品を作成した後に埋める確認表。す�
 |---|---|---|
 | [ ] | Product Edit Permission | The App Store Connect account used for setup can add and edit in-app purchase products |
 | [ ] | Product Metadata | Display names, descriptions, durations, prices, and availability are filled for all App Store Connect products |
+| [ ] | Introductory Offer Decision | 年額Proの無料体験を付ける/付けないを確定し、付ける場合はアプリ内文言とQA表も同時更新している |
 | [ ] | Review Information | Review screenshot and review notes are attached for products submitted to App Review |
 | [ ] | Sandbox Propagation | After metadata edits, allow up to 1 hour before treating Sandbox product fetch failures as app bugs |
 

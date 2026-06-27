@@ -855,11 +855,21 @@ private func appStoreConnectConfirmationTemplateFailures(in text: String) -> [St
     if !text.contains("Group Reference Name") || !text.contains("Liminalog Pro") {
         failures.append("missing Liminalog Pro subscription group confirmation")
     }
+    let subscriptionGroupSection = markdownSection(named: "Subscription Group", in: text)
+    let requiredSubscriptionGroupChecks = [
+        "Group Reference Name",
+        "Contains Products",
+        "Subscription Relationship"
+    ]
+    for check in requiredSubscriptionGroupChecks where !subscriptionGroupSection.contains(check) {
+        failures.append("missing subscription group confirmation row: \(check)")
+    }
 
     let creationMetadataSection = markdownSection(named: "Creation Metadata", in: text)
     let requiredCreationMetadataChecks = [
         "Product Edit Permission",
         "Product Metadata",
+        "Introductory Offer Decision",
         "Review Information",
         "Sandbox Propagation"
     ]
@@ -1597,6 +1607,7 @@ private func printAppStoreConnectConfirmationMarkdown() {
     |---|---|---|
     | [ ] | Group Reference Name | `Liminalog Pro` |
     | [ ] | Contains Products | Proサブと装飾パスが同じグループに入っている |
+    | [ ] | Subscription Relationship | 同じグループ内の代替プランとして、Proサブと装飾パスの期間、表示順、レベル/アップグレード関係が意図と矛盾しない |
 
     ## Products
 
@@ -1618,6 +1629,7 @@ private func printAppStoreConnectConfirmationMarkdown() {
     |---|---|---|
     | [ ] | Product Edit Permission | The App Store Connect account used for setup can add and edit in-app purchase products |
     | [ ] | Product Metadata | Display names, descriptions, durations, prices, and availability are filled for all App Store Connect products |
+    | [ ] | Introductory Offer Decision | 年額Proの無料体験を付ける/付けないを確定し、付ける場合はアプリ内文言とQA表も同時更新している |
     | [ ] | Review Information | Review screenshot and review notes are attached for products submitted to App Review |
     | [ ] | Sandbox Propagation | After metadata edits, allow up to 1 hour before treating Sandbox product fetch failures as app bugs |
 

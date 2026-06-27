@@ -21,6 +21,10 @@ App Store Connect で Liminalog の課金商品を作る時の転記シート。
 | Includes | `liminalog.pro.monthly`, `liminalog.pro.yearly`, `liminalog.decorations.monthly`, `liminalog.decorations.yearly` |
 | Does Not Include | `liminalog.lifetime`, support tips, premium decoration single products |
 
+### Subscription Relationship
+
+同じ Subscription Group 内の商品は、App Store Connect / StoreKit 上では同時加入ではなく同じファミリー内の代替プランとして扱われる。Liminalog では Pro サブが「Pro機能 + プレミアム装飾レンタル」、装飾パスが「ライフタイム所有者向けのプレミアム装飾レンタルのみ」なので、この4商品を同じ `Liminalog Pro` group に置く。App Store Connect では、同じグループに入っていること、期間、表示順、レベル/アップグレード関係が意図と矛盾しないことを確認する。
+
 ## Products
 
 この表の値を App Store Connect に作成する。転記元は `PurchaseProductID.appStoreConnectSpecifications`。
@@ -56,8 +60,9 @@ App Store Connect で商品を作成する時は、商品IDと価格だけでな
 - App Store Connect で商品を追加・編集できる権限のアカウントで作業する。
 - Auto-Renewable Subscription は先に `Liminalog Pro` の Subscription Group を作り、Proサブと装飾パスを同じグループへ入れる。
 - Product Metadata は、表示名、説明、期間、価格、販売状態を確認する。
+- Subscription Relationship は、Pro月額/年額と装飾パス月額/年額が同じ `Liminalog Pro` group 内で代替プランとして扱われることを確認する。
 - Review Information は、提出対象の商品にレビュー用スクリーンショットとメモを付ける。
-- 年額Proの無料体験を付ける場合は、App Store Connect、アプリ内文言、QA表を同じチェックポイントで更新する。
+- Introductory Offer は、初回リリースで付ける/付けないを確定する。年額Proの無料体験を付ける場合は、App Store Connect、アプリ内文言、QA表を同じチェックポイントで更新する。
 
 初期ローカライズ案。最終文言を変える場合は、アプリ内の購入画面文言と `AppStore/PurchaseProducts.md` も同時に見直す。
 

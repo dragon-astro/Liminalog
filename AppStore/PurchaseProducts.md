@@ -10,6 +10,8 @@ Liminalog の App Store Connect 商品作成用メモ。アプリ内の転記元
 | 用途 | Proサブと装飾パスを同一グループで管理する |
 | 注意 | 装飾パスはアプリ側でライフタイム所有者向けに表示制御する |
 
+同じ Subscription Group 内の商品は同じファミリーの代替プランとして扱う。Proサブは「Pro機能 + プレミアム装飾レンタル」、装飾パスは「ライフタイム所有者向けのプレミアム装飾レンタルのみ」なので、App Store Connect 作成時に期間、表示順、レベル/アップグレード関係がこの意図と矛盾しないことを確認する。
+
 ## Products
 
 現在の購入導線と StoreKit Configuration に入れる主要商品。転記元は `PurchaseProductID.appStoreConnectSpecifications`。
@@ -53,9 +55,10 @@ App Review に課金の意図を説明する時の下書き。
 - 商品種別が `PurchaseProductID.expectedStoreKitProductKind(for:)` と一致している。
 - サブスクリプション商品が `Liminalog Pro` グループに入っている。
 - 表示名、説明、価格、販売状態、サブスク期間、レビュー用スクリーンショット/メモを App Store Connect で確認している。
+- 同じ `Liminalog Pro` group 内で、Proサブと装飾パスが代替プランとして扱われることを確認している。
 - メタデータ変更後、Sandbox 反映待ちとして最大1時間程度を見込んでから商品取得QAを行う。
 - 単品装飾を有効化する場合は、`liminalog.decoration.` prefix の商品が Non-Consumable として作成されている。
-- 年額Proの無料体験を付けるか確定している。
+- 年額Proの無料体験を付けるか確定し、付ける場合は App Store Connect、アプリ内文言、QA表を同時に更新している。
 - 利用規約URLが公開済みで、App Store Connect とアプリ内設定の両方から参照できる。
 - ローカル StoreKit Configuration で同じ商品IDを作り、`Scripts/validate-storekit-config.swift` を通している。
 - App Store Connect で作成した後、`AppStore/AppStoreConnectProductConfirmation.md` を埋める。
