@@ -78,6 +78,8 @@ swift Scripts/validate-storekit-config.swift --expected
 
 XcodeBuildMCP / CLI の build-install-launch 経路は、shared scheme に `liminalog.storekit` が設定されていても Xcode の StoreKit Configuration を実行時注入しない。MCPで課金画面まで開けても `Product.products(for:)` が `loadedCount=0` の場合は、アプリ側の商品種別フィルタではなく実行経路の問題として扱う。
 
+Simulator の Octane persistence へ `.storekit` を直コピーする検証は、通常商品だけなら読めることがあるが、サブスクリプションは Xcode の変換後形式と差が出る。ローカル購入QAの正規手順は Xcode 通常 Run とし、`subscriptionOffersKeyPair` は introductory / promotional / offer code / winback offer を実際に設定するまで `.storekit` に含めない。
+
 購入導線や機能制限の安全弁が開いていないことも確認する。
 
 ```sh

@@ -64,7 +64,7 @@
          </BuildableReference>
       </BuildableProductRunnable>
       <StoreKitConfigurationFileReference
-         identifier = "container:liminalog.storekit">
+         identifier = "../../liminalog.storekit">
       </StoreKitConfigurationFileReference>
    </LaunchAction>
    <ProfileAction

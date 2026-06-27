@@ -45,6 +45,7 @@
 		425397A62FBECFB600C94B4E /* Liminalog.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Liminalog.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A10000022FBECFB600C94B4E /* LiminalogWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = LiminalogWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		B20000012FCE000000000001 /* LiminalogTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LiminalogTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		C0DE00102FDF000000000001 /* liminalog.storekit */ = {isa = PBXFileReference; lastKnownFileType = file.storekit; path = liminalog.storekit; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -127,6 +128,7 @@
 				425397A82FBECFB600C94B4E /* Liminalog */,
 				A10000012FBECFB600C94B4E /* LiminalogWidget */,
 				B20000022FCE000000000001 /* LiminalogTests */,
+				C0DE00102FDF000000000001 /* liminalog.storekit */,
 				425397A72FBECFB600C94B4E /* Products */,
 			);
 			sourceTree = "<group>";

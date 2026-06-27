@@ -230,10 +230,16 @@ guard FileManager.default.fileExists(atPath: fileURL.path) else {
 do {
     let data = try Data(contentsOf: fileURL)
     let configuration = try loadConfiguration(from: data)
-    let allStrings = collectStrings(configuration)
-    let dictionaries = collectDictionaries(configuration)
     var failures: [String] = []
     var warnings: [String] = []
+
+    if let configurationDictionary = configuration as? [String: Any],
+       configurationDictionary.keys.contains("subscriptionOffersKeyPair"),
+       !containsConfiguredSubscriptionOffer(in: configurationDictionary) {
+        failures.append("subscriptionOffersKeyPair is present without configured subscription offers")
+    }
+    let allStrings = collectStrings(configuration)
+    let dictionaries = collectDictionaries(configuration)
 
     for product in expectedProducts {
         guard allStrings.contains(product.productID) else {
@@ -321,6 +327,21 @@ private func collectDictionaries(_ value: Any) -> [[String: Any]] {
 
     walk(value)
     return dictionaries
+}
+
+private func containsConfiguredSubscriptionOffer(in configuration: [String: Any]) -> Bool {
+    let offerKeys = [
+        "adHocOffers",
+        "codeOffers",
+        "introductoryOffers",
+        "winbackOffers"
+    ]
+    return collectDictionaries(configuration).contains { dictionary in
+        offerKeys.contains { key in
+            guard let offers = dictionary[key] as? [Any] else { return false }
+            return !offers.isEmpty
+        }
+    }
 }
 
 private func productDictionary(for productID: String, in dictionaries: [[String: Any]]) -> [String: Any]? {
@@ -1047,15 +1068,18 @@ private func validateXcodeSchemeStoreKitReference(at path: String) -> Never {
         exit(EXIT_FAILURE)
     }
 
-    let requiredSnippets: [(label: String, snippet: String)] = [
-        ("StoreKit configuration reference", "StoreKitConfigurationFileReference"),
-        ("liminalog.storekit scheme link", #"identifier = "container:liminalog.storekit""#)
-    ]
+    var failures: [String] = []
 
-    let failures = requiredSnippets.compactMap { requirement -> String? in
-        text.contains(requirement.snippet)
-            ? nil
-            : "missing scheme setting: \(requirement.label)"
+    if !text.contains("StoreKitConfigurationFileReference") {
+        failures.append("missing scheme setting: StoreKit configuration reference")
+    }
+
+    let acceptedIdentifiers = [
+        #"identifier = "container:liminalog.storekit""#,
+        #"identifier = "../../liminalog.storekit""#
+    ]
+    if !acceptedIdentifiers.contains(where: text.contains) {
+        failures.append("missing scheme setting: liminalog.storekit scheme link")
     }
 
     if failures.isEmpty {

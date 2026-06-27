@@ -9,6 +9,9 @@
       }
     ]
   },
+  "assets" : [
+
+  ],
   "identifier" : "4C494D30",
   "nonRenewingSubscriptions" : [
 
@@ -26,6 +29,7 @@
         }
       ],
       "productID" : "liminalog.lifetime",
+      "promotionalImageID" : "",
       "referenceName" : "ライフタイム",
       "type" : "NonConsumable"
     },
@@ -41,6 +45,7 @@
         }
       ],
       "productID" : "liminalog.support.small",
+      "promotionalImageID" : "",
       "referenceName" : "小さく応援",
       "type" : "Consumable"
     },
@@ -56,6 +61,7 @@
         }
       ],
       "productID" : "liminalog.support.medium",
+      "promotionalImageID" : "",
       "referenceName" : "しっかり応援",
       "type" : "Consumable"
     },
@@ -71,6 +77,7 @@
         }
       ],
       "productID" : "liminalog.support.large",
+      "promotionalImageID" : "",
       "referenceName" : "大きく応援",
       "type" : "Consumable"
     }
@@ -143,7 +150,17 @@
         {
           "displayPrice" : "400",
           "familyShareable" : false,
+          "groupNumber" : 1,
           "internalID" : "1000000001",
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "introductoryOffers" : [
+
+          ],
           "localizations" : [
             {
               "description" : "深い統計とプレミアム装飾を、月ごとに使います。",
@@ -152,9 +169,11 @@
             }
           ],
           "productID" : "liminalog.pro.monthly",
+          "promotionalImageID" : "",
           "billingPlans" : [
             {
               "billingPlanType" : "monthly",
+              "commitmentDisplayPrice" : "",
               "displayPrice" : "400",
               "internalID" : "1000000101",
               "isEnabled" : true
@@ -163,12 +182,25 @@
           "recurringSubscriptionPeriod" : "P1M",
           "referenceName" : "Liminalog Pro 月額",
           "subscriptionGroupID" : "liminalog.pro.group",
-          "type" : "RecurringSubscription"
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
         },
         {
           "displayPrice" : "2900",
           "familyShareable" : false,
+          "groupNumber" : 1,
           "internalID" : "1000000002",
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "introductoryOffers" : [
+
+          ],
           "localizations" : [
             {
               "description" : "Proを長く使う人向け。年ごとに更新します。",
@@ -177,9 +209,11 @@
             }
           ],
           "productID" : "liminalog.pro.yearly",
+          "promotionalImageID" : "",
           "billingPlans" : [
             {
               "billingPlanType" : "upfront",
+              "commitmentDisplayPrice" : "",
               "displayPrice" : "2900",
               "internalID" : "1000000102",
               "isEnabled" : true
@@ -188,12 +222,25 @@
           "recurringSubscriptionPeriod" : "P1Y",
           "referenceName" : "Liminalog Pro 年額",
           "subscriptionGroupID" : "liminalog.pro.group",
-          "type" : "RecurringSubscription"
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
         },
         {
           "displayPrice" : "200",
           "familyShareable" : false,
+          "groupNumber" : 1,
           "internalID" : "1000000004",
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "introductoryOffers" : [
+
+          ],
           "localizations" : [
             {
               "description" : "ライフタイム所有者向けの装飾使い放題です。",
@@ -202,9 +249,11 @@
             }
           ],
           "productID" : "liminalog.decorations.monthly",
+          "promotionalImageID" : "",
           "billingPlans" : [
             {
               "billingPlanType" : "monthly",
+              "commitmentDisplayPrice" : "",
               "displayPrice" : "200",
               "internalID" : "1000000104",
               "isEnabled" : true
@@ -213,12 +262,25 @@
           "recurringSubscriptionPeriod" : "P1M",
           "referenceName" : "装飾パス 月額",
           "subscriptionGroupID" : "liminalog.pro.group",
-          "type" : "RecurringSubscription"
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
         },
         {
           "displayPrice" : "1500",
           "familyShareable" : false,
+          "groupNumber" : 1,
           "internalID" : "1000000005",
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "introductoryOffers" : [
+
+          ],
           "localizations" : [
             {
               "description" : "装飾使い放題を年単位で使います。",
@@ -227,9 +289,11 @@
             }
           ],
           "productID" : "liminalog.decorations.yearly",
+          "promotionalImageID" : "",
           "billingPlans" : [
             {
               "billingPlanType" : "upfront",
+              "commitmentDisplayPrice" : "",
               "displayPrice" : "1500",
               "internalID" : "1000000105",
               "isEnabled" : true
@@ -238,7 +302,10 @@
           "recurringSubscriptionPeriod" : "P1Y",
           "referenceName" : "装飾パス 年額",
           "subscriptionGroupID" : "liminalog.pro.group",
-          "type" : "RecurringSubscription"
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
         }
       ]
     }
