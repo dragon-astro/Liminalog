@@ -188,6 +188,12 @@ if let monetizationDocFlagIndex = arguments.firstIndex(of: "--validate-monetizat
     validateMonetizationDocument(at: path)
 }
 
+if let reviewNotesFlagIndex = arguments.firstIndex(of: "--validate-review-notes") {
+    let candidatePath = arguments.dropFirst(reviewNotesFlagIndex + 1).first
+    let path = candidatePath?.hasPrefix("-") == false ? candidatePath! : "AppStore/ReviewNotes.md"
+    validateReviewNotesDocument(at: path)
+}
+
 if let productSourceFlagIndex = arguments.firstIndex(of: "--validate-product-source") {
     let candidatePath = arguments.dropFirst(productSourceFlagIndex + 1).first
     let path = candidatePath?.hasPrefix("-") == false ? candidatePath! : "Liminalog/Stores/PurchaseProduct.swift"
@@ -515,6 +521,64 @@ private func validateMonetizationDocument(at path: String) -> Never {
 
     if failures.isEmpty {
         print("Monetization document matches current purchase product decisions.")
+        exit(EXIT_SUCCESS)
+    }
+
+    for failure in failures {
+        print("error: \(failure)")
+    }
+    exit(EXIT_FAILURE)
+}
+
+private func validateReviewNotesDocument(at path: String) -> Never {
+    let fileURL = URL(fileURLWithPath: path)
+    guard let text = try? String(contentsOf: fileURL, encoding: .utf8) else {
+        print("error: App Review notes document not found at \(fileURL.path)")
+        exit(EXIT_FAILURE)
+    }
+
+    let currentSubmissionSection = markdownSection(named: "Current No-Paid-Release Submission", in: text)
+    let paidReleaseSection = markdownSection(named: "Paid Release Draft", in: text)
+    var failures: [String] = []
+
+    if currentSubmissionSection.isEmpty {
+        failures.append("missing Current No-Paid-Release Submission section")
+    } else {
+        let requiredCurrentSubmissionText = [
+            "does not use in-app purchases",
+            "does not use in-app purchases, ads, third-party tracking SDKs, or social login",
+            "iCloud/CloudKit",
+            "mutual consent",
+            "report inappropriate profiles or shared content",
+            "Privacy Policy"
+        ]
+        for requiredText in requiredCurrentSubmissionText where !currentSubmissionSection.contains(requiredText) {
+            failures.append("current no-paid release notes must mention: \(requiredText)")
+        }
+    }
+
+    if paidReleaseSection.isEmpty {
+        failures.append("missing Paid Release Draft section")
+    } else {
+        let requiredPaidReleaseText = [
+            "Use this only after the in-app purchase products are created in App Store Connect",
+            "purchaseEntryPointIsEnabled",
+            "Core logging, calendar browsing, friends, and daily card sharing remain available without purchase",
+            "does not use external payment links",
+            "outside StoreKit",
+            "Lifetime purchase does not include premium decoration rental",
+            "Decoration pass subscriptions are shown in the app only for lifetime owners",
+            "Support tips are voluntary consumables",
+            "https://liminalog-lp.vercel.app/terms",
+            "Privacy Policy"
+        ]
+        for requiredText in requiredPaidReleaseText where !paidReleaseSection.contains(requiredText) {
+            failures.append("paid release notes must mention: \(requiredText)")
+        }
+    }
+
+    if failures.isEmpty {
+        print("App Review notes match current paid-release safety decisions.")
         exit(EXIT_SUCCESS)
     }
 
@@ -1794,6 +1858,7 @@ private func printUsage() {
       swift Scripts/validate-storekit-config.swift --validate-statistics-pro-qa-complete [path-to-19-statistics-pro-gate.md]
       swift Scripts/validate-storekit-config.swift --validate-products-doc [path-to-PurchaseProducts.md]
       swift Scripts/validate-storekit-config.swift --validate-monetization-doc [path-to-17-monetization.md]
+      swift Scripts/validate-storekit-config.swift --validate-review-notes [path-to-ReviewNotes.md]
       swift Scripts/validate-storekit-config.swift --validate-product-source [path-to-PurchaseProduct.swift]
       swift Scripts/validate-storekit-config.swift --validate-premium-decoration-products-doc [path-to-PurchaseProducts.md]
       swift Scripts/validate-storekit-config.swift --validate-premium-decoration-inactive [path-to-liminalog.storekit]

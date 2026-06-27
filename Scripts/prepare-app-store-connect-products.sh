@@ -86,6 +86,9 @@ run_step "Validate App Store Connect confirmation template" \
 run_step "Validate monetization policy document" \
   run_swift_validator --validate-monetization-doc
 
+run_step "Validate App Review notes" \
+  run_swift_validator --validate-review-notes
+
 run_step "Validate purchase product source" \
   run_swift_validator --validate-product-source
 
