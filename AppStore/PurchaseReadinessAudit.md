@@ -19,7 +19,7 @@ Liminalog の課金基盤 v0 を、現時点の証拠ベースで監査するた
 |---|---|---|---|
 | 課金基盤 v0 | Done | `PurchaseStore`, `PurchaseProductID`, `PurchaseConfiguration`, `PurchaseActivationPolicy`, `PurchaseFeatureGate`, `SupportLiminalogView` が追加済み | StoreKit実購入での権利反映確認 |
 | Release安全状態 | Done | `Scripts/validate-purchase-readiness.sh` が 2026-06-27 に成功。`--validate-release-safety` も含めて確認済み | Gate 1 以降で値を変えたら再実行 |
-| Release build | Done | `xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -configuration Release -destination "generic/platform=iOS" -derivedDataPath /private/tmp/LiminalogMonetizationReleaseDerivedData build` が成功 | App Store提出前はArchive/exportで再検証 |
+| Release build | Done | `Scripts/validate-purchase-readiness.sh --release-build` が 2026-06-27 に成功。Release safety、StoreKit設定、法務URL、商品ドキュメント、Release build をまとめて確認済み | App Store提出前はArchive/exportで再検証 |
 | LP 利用規約ページ | Done | LP repo の `5d46da9 feat: add terms page` を `origin/main` へpush済み。`https://liminalog-lp.vercel.app/terms` は 200 応答 | 本文承認後にApp Store Connectへ登録 |
 | LP プライバシーポリシーURL | Done | `https://liminalog-lp.vercel.app/privacy` は 200 応答。`PurchaseConfiguration.current.privacyPolicyURL` はこのURLを参照 | カスタムドメインを使う場合はコード・docs・App Store Connectを同時更新 |
 | App Store Connect商品準備 | Prepared | `AppStore/PurchaseProducts.md`、`--app-store-connect-tsv`、`--app-store-connect-confirmation-md`、Confirmation Sheet。`Scripts/validate-purchase-readiness.sh` でTSV出力を確認済み | App Store Connect で商品8件と `Liminalog Pro` group を実作成し、各行を確認 |
@@ -92,6 +92,7 @@ xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -configuration Debug -
 - 2026-06-27 に装飾課金カタログ/アクセス判定を含む対象テスト47件は成功。ただし UI 接続と StoreKit 単品購入QAは未完了。
 - 2026-06-27 に `DecorationAccessDisplayPolicy` と表示状態テストを追加。`xcodebuild build-for-testing` と `Scripts/validate-purchase-readiness.sh` は成功。Simulator の対象テスト実行は `The test runner hung before establishing connection.` と install/launch 待ちで完走しなかったため、実行成功としては扱わない。
 - 2026-06-27 に `AppStore/PurchaseProducts.md` へ単品プレミアム装飾の商品候補を別枠で追加。まだ `PurchaseConfiguration.current.productIDs`、`liminalog.storekit`、購入UIには含めない。同日、`--validate-premium-decoration-products-doc` を追加して `PremiumDecorationCatalog` と候補表のズレを検出するようにした。
+- 2026-06-27 に `Scripts/validate-purchase-readiness.sh --release-build` が成功。実行時点の git HEAD は `0f31867` で、課金作業と無関係な `Liminalog/Stores/CategoryStore.swift` の未コミット差分は残っていた。
 - 実機QAは、既存リリースデータへ触れる可能性があるため明示承認後に行う。
 - Release build 成功時点のワークツリーには、課金作業と無関係な `Liminalog/Stores/CategoryStore.swift` の未コミット差分が残っていた。この差分は課金コミットには含めない。
 
