@@ -29,8 +29,8 @@ Liminalog の課金基盤 v0 を、現時点の証拠ベースで監査するた
 | Release課金導線準備 | Prepared | `PurchaseReleaseChecklist.md` の Gate 1 / Gate 2 / Gate 3、`PurchaseConfiguration.current` の段階フラグ | App Store Connect と利用規約確定後に Gate 1 へ進める |
 | 課金UI QA | Prepared | `AppStore/PurchaseUIQA.md`。2026-06-27 に XcodeBuildMCP / iPhone 17 Pro Simulator で DEBUG の設定入口表示と課金画面遷移、Release の設定入口非表示を確認 | Local StoreKit購入操作、実機QA、既存タブの広範囲スモークを実行して証跡を残す |
 | 統計Pro化設計 | Prepared | `Liminalog/Views/Profile/docs/19-statistics-pro-gate.md` | `StatisticsProPreviewView` と `RootTabView` 分岐は未実装 |
-| 装飾課金データ設計 | Prepared | `Liminalog/Views/Profile/docs/20-premium-decoration-data.md`、`PremiumDecorationAccessPolicy` | `PremiumDecorationCatalog`、UI接続、単品商品ID列挙、失効時フォールバックは未実装 |
-| 既存機能への影響抑制 | Prepared | Release安全状態は閉じている。`featureRestrictionsAreEnabled == false`。購入まわりのユニットテスト69件が成功 | Gate変更時に既存タブのスモークQAが必要 |
+| 装飾課金データ設計 | Prepared | `Liminalog/Views/Profile/docs/20-premium-decoration-data.md`、`PremiumDecorationAccessPolicy`、`PremiumDecorationCatalog`、`PremiumDecorationEquippingPolicy`。2026-06-27 に `PremiumDecorationCatalogTests` を含む対象テスト47件が成功 | UI接続、App Store Connect 単品商品作成、StoreKitローカル購入QA、表示時フォールバックの実画面適用は未実装 |
+| 既存機能への影響抑制 | Prepared | Release安全状態は閉じている。`featureRestrictionsAreEnabled == false`。装飾カタログは UI 未接続。購入まわりのユニットテスト69件と装飾課金対象テスト47件が成功 | Gate変更時に既存タブのスモークQAが必要 |
 
 ## Commands To Re-Run Before Each Gate
 
@@ -79,6 +79,7 @@ xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -configuration Debug -
 - 2026-06-27 に XcodeBuildMCP の DEBUG 起動で「Proと応援」入口と画面遷移は確認済み。ただし XcodeBuildMCP 起動では StoreKit Configuration が適用されず商品取得は失敗表示だったため、Local StoreKit購入QAは未完了。
 - 2026-06-27 に XcodeBuildMCP の Release 起動で、設定画面に「Proと応援」が表示されないことを確認済み。
 - 2026-06-27 に購入基盤のユニットテスト69件は成功。ただしこれはStoreKit購入操作そのもののQAではない。
+- 2026-06-27 に装飾課金カタログ/アクセス判定を含む対象テスト47件は成功。ただし UI 接続と StoreKit 単品購入QAは未完了。
 - 実機QAは、既存リリースデータへ触れる可能性があるため明示承認後に行う。
 - Release build 成功時点のワークツリーには、課金作業と無関係な `Liminalog/Stores/CategoryStore.swift` の未コミット差分が残っていた。この差分は課金コミットには含めない。
 
@@ -88,3 +89,4 @@ xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -configuration Debug -
 2. App Store Connect で商品を作成し、`AppStore/PurchaseProducts.md` の Confirmation Sheet を埋める。
 3. 利用規約本文を承認し、LP の `/terms` を App Store Connect に登録する。
 4. Gate 1 のコード変更だけを入れ、Releaseで購入導線がまだ出ないことを確認する。
+5. プレミアム装飾を `UnlockGalleryView` へ合流する前に、表示モデルとフォールバック適用点を小さく実装する。

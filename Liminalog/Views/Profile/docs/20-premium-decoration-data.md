@@ -1,6 +1,6 @@
 # 20. プレミアム装飾データ設計
 
-プレミアム装飾（単品購入・Pro/装飾パス中のレンタル）を既存の獲得装飾と混ぜずに扱うための設計メモ。まだ UI 接続や保存モデル追加はしない。
+プレミアム装飾（単品購入・Pro/装飾パス中のレンタル）を既存の獲得装飾と混ぜずに扱うための設計メモ。`PremiumDecorationCatalog` と装着解決ポリシーは追加済みだが、まだ UI 接続や保存モデル追加はしない。
 
 ## ゴール
 
@@ -25,6 +25,13 @@
   - `PremiumDecorationProduct(productID, kind, targetID, displayName)` と `PurchaseEntitlements` から `unavailable / rented / owned` を返す。
   - `liminalog.decoration.` prefix 以外は課金装飾として扱わない。
   - 単品所有は Pro/装飾パスのレンタルより優先する。
+- `PremiumDecorationCatalog`
+  - 現時点では既存の非表示 `legacyItems` から、アイコンフレーム4件・カードスタイル4件を単品候補として列挙する。
+  - 既存の無料獲得カタログ `UnlockCatalog` とは targetID を衝突させない。
+  - UI にはまだ合流していないため、既存の装飾画面・プロフィール表示は変えない。
+- `PremiumDecorationEquippingPolicy`
+  - 保存済み targetID を、獲得済み / 単品所有 / レンタル中 / 権利なしの順に表示時解決するための純粋ロジック。
+  - 現時点では UI 未接続。課金権利がない場合に default/none へ戻す挙動だけをテストで固定している。
 
 ## データ境界
 
@@ -46,7 +53,7 @@
 
 ### 課金カタログ
 
-将来追加する `PremiumDecorationCatalog`。
+`PremiumDecorationCatalog`。
 
 最小フィールド：
 
@@ -63,7 +70,7 @@ struct PremiumDecorationCatalogItem: Identifiable, Codable, Equatable {
 
 対応関係：
 
-- `productID`: StoreKit の Non-Consumable ID。例: `liminalog.decoration.frame.aurora`
+- `productID`: StoreKit の Non-Consumable ID。例: `liminalog.decoration.frame.aurora_wreath`
 - `kind`: `iconFrame` / `cardStyle` / `theme` を中心に開始する。
 - `targetID`: 既存の表示カタログが使う ID。装着保存もこの ID を使う。
 - `assetName`: 必要な場合だけ。既存カタログの asset name で足りるなら持たない。
@@ -137,12 +144,12 @@ struct PremiumDecorationCatalogItem: Identifiable, Codable, Equatable {
 
 ## 実装順
 
-1. `PremiumDecorationCatalog` を静的カタログとして追加する。
-2. 既存カタログIDと衝突しない productID / targetID 命名を決める。
+1. [x] `PremiumDecorationCatalog` を静的カタログとして追加する。
+2. [x] 既存カタログIDと衝突しない productID / targetID 命名を決める。
 3. 表示用の `DecorationAccessDisplayState` を作り、獲得/課金/未所持を統合する。
 4. `UnlockGalleryView` の対象タブに課金装飾を合流する。
 5. 装着時に `PremiumDecorationAccessPolicy` を通す。
-6. 失効時フォールバックのテストを追加する。
+6. [x] 失効時フォールバックのテストを追加する。
 7. StoreKitローカル購入テストで単品所有とレンタルの両方を確認する。
 
 ## テスト観点
