@@ -49,6 +49,29 @@ App Store Connect で Liminalog の課金商品を作る時の転記シート。
 | `liminalog.support.medium` | 権利を増やさず完了メッセージだけ出す | 任意支援 |
 | `liminalog.support.large` | 権利を増やさず完了メッセージだけ出す | 任意支援 |
 
+## Creation Metadata
+
+App Store Connect で商品を作成する時は、商品IDと価格だけでなく次も埋める。メタデータ変更後、Sandbox に反映されるまで最大1時間程度待つ必要があるため、反映待ちの間に `Product.products(for:)` が空でもアプリ側バグとして扱わない。
+
+- App Store Connect で商品を追加・編集できる権限のアカウントで作業する。
+- Auto-Renewable Subscription は先に `Liminalog Pro` の Subscription Group を作り、Proサブと装飾パスを同じグループへ入れる。
+- Product Metadata は、表示名、説明、期間、価格、販売状態を確認する。
+- Review Information は、提出対象の商品にレビュー用スクリーンショットとメモを付ける。
+- 年額Proの無料体験を付ける場合は、App Store Connect、アプリ内文言、QA表を同じチェックポイントで更新する。
+
+初期ローカライズ案。最終文言を変える場合は、アプリ内の購入画面文言と `AppStore/PurchaseProducts.md` も同時に見直す。
+
+| Product ID | Display Name | Description |
+|---|---|---|
+| `liminalog.pro.monthly` | Liminalog Pro 月額 | 統計などのPro機能とプレミアム装飾を月ごとに利用できます。 |
+| `liminalog.pro.yearly` | Liminalog Pro 年額 | 統計などのPro機能とプレミアム装飾を年ごとに利用できます。 |
+| `liminalog.lifetime` | ライフタイム | Pro機能を買い切りで利用できます。 |
+| `liminalog.decorations.monthly` | 装飾パス 月額 | ライフタイム所有者向けにプレミアム装飾を月ごとに利用できます。 |
+| `liminalog.decorations.yearly` | 装飾パス 年額 | ライフタイム所有者向けにプレミアム装飾を年ごとに利用できます。 |
+| `liminalog.support.small` | 小さく応援 | 機能解放なしでLiminalogを応援します。 |
+| `liminalog.support.medium` | しっかり応援 | 機能解放なしでLiminalogを応援します。 |
+| `liminalog.support.large` | 大きく応援 | 機能解放なしでLiminalogを応援します。 |
+
 ## Premium Decoration Single Products
 
 単品プレミアム装飾は今後の候補。初回の購入導線には入れない。

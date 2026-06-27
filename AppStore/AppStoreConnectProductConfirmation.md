@@ -38,6 +38,15 @@ App Store Connect で課金商品を作成した後に埋める確認表。す�
 | [ ] | `liminalog.support.medium` | しっかり応援 | Consumable | ¥600 | - | 機能解放ではなく任意支援。恒久権利を付けない。 |
 | [ ] | `liminalog.support.large` | 大きく応援 | Consumable | ¥1,200 | - | 機能解放ではなく任意支援。恒久権利を付けない。 |
 
+## Creation Metadata
+
+| Check | Field | Expected |
+|---|---|---|
+| [ ] | Product Edit Permission | The App Store Connect account used for setup can add and edit in-app purchase products |
+| [ ] | Product Metadata | Display names, descriptions, durations, prices, and availability are filled for all App Store Connect products |
+| [ ] | Review Information | Review screenshot and review notes are attached for products submitted to App Review |
+| [ ] | Sandbox Propagation | After metadata edits, allow up to 1 hour before treating Sandbox product fetch failures as app bugs |
+
 ## Gate 1 App Code Change After Confirmation
 
 この表をすべて確認し、利用規約本文も承認した後だけ Gate 1 に進める。Gate 1 では購入導線をまだ出さない。

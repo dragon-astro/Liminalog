@@ -52,6 +52,8 @@ App Review に課金の意図を説明する時の下書き。
 - App Store Connect 上の商品IDがこの表と一致している。
 - 商品種別が `PurchaseProductID.expectedStoreKitProductKind(for:)` と一致している。
 - サブスクリプション商品が `Liminalog Pro` グループに入っている。
+- 表示名、説明、価格、販売状態、サブスク期間、レビュー用スクリーンショット/メモを App Store Connect で確認している。
+- メタデータ変更後、Sandbox 反映待ちとして最大1時間程度を見込んでから商品取得QAを行う。
 - 単品装飾を有効化する場合は、`liminalog.decoration.` prefix の商品が Non-Consumable として作成されている。
 - 年額Proの無料体験を付けるか確定している。
 - 利用規約URLが公開済みで、App Store Connect とアプリ内設定の両方から参照できる。

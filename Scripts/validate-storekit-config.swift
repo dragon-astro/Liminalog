@@ -510,6 +510,10 @@ private func validateAppStoreConnectConfirmationComplete(at path: String) -> Nev
         in: markdownSection(named: "Products", in: text),
         label: "product"
     ))
+    failures.append(contentsOf: uncheckedConfirmationRows(
+        in: markdownSection(named: "Creation Metadata", in: text),
+        label: "creation metadata"
+    ))
 
     if failures.isEmpty {
         print("App Store Connect confirmation sheet is complete.")
@@ -829,6 +833,20 @@ private func appStoreConnectConfirmationTemplateFailures(in text: String) -> [St
 
     if !text.contains("Group Reference Name") || !text.contains("Liminalog Pro") {
         failures.append("missing Liminalog Pro subscription group confirmation")
+    }
+
+    let creationMetadataSection = markdownSection(named: "Creation Metadata", in: text)
+    let requiredCreationMetadataChecks = [
+        "Product Edit Permission",
+        "Product Metadata",
+        "Review Information",
+        "Sandbox Propagation"
+    ]
+    if creationMetadataSection.isEmpty {
+        failures.append("missing creation metadata confirmation")
+    }
+    for check in requiredCreationMetadataChecks where !creationMetadataSection.contains(check) {
+        failures.append("missing creation metadata confirmation row: \(check)")
     }
 
     return failures
@@ -1569,6 +1587,15 @@ private func printAppStoreConnectConfirmationMarkdown() {
     }
 
     print("""
+
+    ## Creation Metadata
+
+    | Check | Field | Expected |
+    |---|---|---|
+    | [ ] | Product Edit Permission | The App Store Connect account used for setup can add and edit in-app purchase products |
+    | [ ] | Product Metadata | Display names, descriptions, durations, prices, and availability are filled for all App Store Connect products |
+    | [ ] | Review Information | Review screenshot and review notes are attached for products submitted to App Review |
+    | [ ] | Sandbox Propagation | After metadata edits, allow up to 1 hour before treating Sandbox product fetch failures as app bugs |
 
     ## Gate 1 App Code Change After Confirmation
 
