@@ -147,6 +147,12 @@ if let storeKitQAEvidenceFlagIndex = arguments.firstIndex(of: "--validate-storek
     validateStoreKitLocalQAEvidenceComplete(at: path)
 }
 
+if let purchaseUIQAEvidenceFlagIndex = arguments.firstIndex(of: "--validate-purchase-ui-qa-complete") {
+    let candidatePath = arguments.dropFirst(purchaseUIQAEvidenceFlagIndex + 1).first
+    let path = candidatePath?.hasPrefix("-") == false ? candidatePath! : "AppStore/PurchaseUIQA.md"
+    validatePurchaseUIQAEvidenceComplete(at: path)
+}
+
 if let statisticsProQAEvidenceFlagIndex = arguments.firstIndex(of: "--validate-statistics-pro-qa-complete") {
     let candidatePath = arguments.dropFirst(statisticsProQAEvidenceFlagIndex + 1).first
     let path = candidatePath?.hasPrefix("-") == false ? candidatePath! : "Liminalog/Views/Profile/docs/19-statistics-pro-gate.md"
@@ -597,6 +603,99 @@ private func validateStoreKitLocalQAEvidenceComplete(at path: String) -> Never {
 
     if failures.isEmpty {
         print("StoreKit local QA evidence sheet is complete.")
+        exit(EXIT_SUCCESS)
+    }
+
+    for failure in failures {
+        print("error: \(failure)")
+    }
+    exit(EXIT_FAILURE)
+}
+
+private func validatePurchaseUIQAEvidenceComplete(at path: String) -> Never {
+    let fileURL = URL(fileURLWithPath: path)
+    guard let text = try? String(contentsOf: fileURL, encoding: .utf8) else {
+        print("error: Purchase UI QA evidence sheet not found at \(fileURL.path)")
+        exit(EXIT_FAILURE)
+    }
+
+    let section = markdownSection(named: "Gate 2 Purchase UI QA Evidence Sheet", in: text)
+    let metadata = metadataRows(in: section)
+    let evidenceRows = storeKitQAEvidenceRows(in: section)
+    var rowsByCase: [String: StoreKitQAEvidenceRow] = [:]
+    var duplicateCases: [String] = []
+    for row in evidenceRows {
+        if rowsByCase[row.caseName] != nil {
+            duplicateCases.append(row.caseName)
+        }
+        rowsByCase[row.caseName] = row
+    }
+    let requiredMetadataFields = [
+        "Git SHA",
+        "Build",
+        "Device / OS",
+        "StoreKit Source",
+        "Purchase Entry",
+        "Feature Restrictions",
+        "Tester",
+        "Date"
+    ]
+    let requiredCases = [
+        "Release購入入口",
+        "商品取得と診断",
+        "購入画面表示",
+        "復元とサブスク管理",
+        "既存タブスモーク",
+        "既存機能の無料維持",
+        "疑似課金状態リセット",
+        "実機データ安全"
+    ]
+
+    var failures: [String] = []
+
+    for field in requiredMetadataFields {
+        if metadata[field, default: ""].isEmpty {
+            failures.append("Purchase UI QA metadata is missing \(field)")
+        }
+    }
+    if metadata["Purchase Entry"]?.lowercased() != "visible" {
+        failures.append("Purchase UI QA metadata Purchase Entry must be visible")
+    }
+    if metadata["Feature Restrictions"]?.lowercased() != "off" {
+        failures.append("Purchase UI QA metadata Feature Restrictions must be off")
+    }
+    if metadata["Build"]?.contains("/") == true {
+        failures.append("Purchase UI QA metadata Build must be a concrete build type, not the template options")
+    }
+    if metadata["StoreKit Source"]?.contains("/") == true {
+        failures.append("Purchase UI QA metadata StoreKit Source must be a concrete source, not the template options")
+    }
+    if metadata["StoreKit Source"]?.lowercased() == "none" {
+        failures.append("Purchase UI QA metadata StoreKit Source must not be none for Gate 2")
+    }
+
+    if evidenceRows.count != requiredCases.count {
+        failures.append("expected \(requiredCases.count) Purchase UI QA evidence rows, found \(evidenceRows.count)")
+    }
+    for duplicateCase in duplicateCases {
+        failures.append("duplicate Purchase UI QA evidence case: \(duplicateCase)")
+    }
+
+    for caseName in requiredCases {
+        guard let row = rowsByCase[caseName] else {
+            failures.append("missing Purchase UI QA evidence case: \(caseName)")
+            continue
+        }
+        if row.evidence.isEmpty || row.evidence == "screenshot / note" || row.evidence == "command output" {
+            failures.append("Purchase UI QA evidence is missing concrete proof for \(caseName)")
+        }
+        if row.result.lowercased() != "pass" {
+            failures.append("Purchase UI QA result must be pass for \(caseName)")
+        }
+    }
+
+    if failures.isEmpty {
+        print("Purchase UI QA evidence sheet is complete.")
         exit(EXIT_SUCCESS)
     }
 
@@ -1412,6 +1511,7 @@ private func printUsage() {
       swift Scripts/validate-storekit-config.swift --validate-app-store-connect-confirmation-template [path-to-AppStoreConnectProductConfirmation.md]
       swift Scripts/validate-storekit-config.swift --validate-app-store-connect-confirmation-complete [path-to-AppStoreConnectProductConfirmation.md]
       swift Scripts/validate-storekit-config.swift --validate-storekit-local-qa-complete [path-to-StoreKitLocalTesting.md]
+      swift Scripts/validate-storekit-config.swift --validate-purchase-ui-qa-complete [path-to-PurchaseUIQA.md]
       swift Scripts/validate-storekit-config.swift --validate-statistics-pro-qa-complete [path-to-19-statistics-pro-gate.md]
       swift Scripts/validate-storekit-config.swift --validate-products-doc [path-to-PurchaseProducts.md]
       swift Scripts/validate-storekit-config.swift --validate-product-source [path-to-PurchaseProduct.swift]

@@ -85,6 +85,32 @@ swift Scripts/validate-storekit-config.swift --validate-release-gate-state close
 5. 課金UIを開いた後、戻った画面で既存のタブ、ナビゲーションバー、タブバー、スクロールが変わっていないことを確認する。
 6. 購入テスト後は、App Store の Sandbox 購入履歴とアプリ内表示が一致することを確認する。
 
+## Gate 2 Purchase UI QA Evidence Sheet
+
+Gate 2 で `purchaseEntryPointIsEnabled` と `backgroundEntitlementRefreshIsEnabled` を true にする直前に埋める。入力後は `swift Scripts/validate-storekit-config.swift --validate-purchase-ui-qa-complete` を通す。Gate 2 へ進む直前は `Scripts/validate-purchase-readiness.sh --gate2-ready` を使う。
+
+| 項目 | 記録 |
+|---|---|
+| Git SHA |  |
+| Build | DEBUG / Release |
+| Device / OS |  |
+| StoreKit Source | local `.storekit` / Sandbox |
+| Purchase Entry | visible |
+| Feature Restrictions | off |
+| Tester |  |
+| Date |  |
+
+| Case | Required Result | Evidence | Result | Notes |
+|---|---|---|---|---|
+| Release購入入口 | Gate 2設定のReleaseで設定に「Proと応援」が表示される | screenshot / note |  |  |
+| 商品取得と診断 | 商品が表示される。失敗時はDEBUG診断で原因を切り分けられる | screenshot / note |  |  |
+| 購入画面表示 | Pro、ライフタイム、装飾パス、支援、規約、復元、管理が意図した位置に出る | screenshot / note |  |  |
+| 復元とサブスク管理 | 復元とサブスクリプション管理がStoreKit操作として実行できる | screenshot / note |  |  |
+| 既存タブスモーク | 購入画面から戻ってもホーム、カレンダー、統計、友達、プロフィールの入口とスクロールが変わらない | screenshot / note |  |  |
+| 既存機能の無料維持 | `featureRestrictionsAreEnabled == false` では統計、記録、カレンダー、友達、シェアがロックされない | screenshot / note |  |  |
+| 疑似課金状態リセット | DEBUGの疑似課金状態やPro制限テストを実際の状態/OFFへ戻せる | screenshot / note |  |  |
+| 実機データ安全 | リリース済みデータが入った実機で確認する場合は事前承認を記録し、未実施なら安全なSimulator/Sandboxで確認したことを記録する | screenshot / note |  |  |
+
 ## Evidence Template
 
 | 項目 | 記録 |

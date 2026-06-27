@@ -70,13 +70,13 @@ Scripts/validate-purchase-readiness.sh --gate1-ready
 
 このコマンドは `AppStore/AppStoreConnectProductConfirmation.md` の全チェック済み状態と Release build まで確認する。利用規約本文の承認自体は人間が確認する。
 
-StoreKit購入QA証跡記入後、Gate 2 へ進む直前：
+StoreKit購入QAと課金UI QA証跡記入後、Gate 2 へ進む直前：
 
 ```sh
 Scripts/validate-purchase-readiness.sh --gate2-ready
 ```
 
-このコマンドは Gate 1 条件に加えて `AppStore/StoreKitLocalTesting.md` の全QAケースが `pass` になっていることを確認する。
+このコマンドは Gate 1 条件に加えて `AppStore/StoreKitLocalTesting.md` と `AppStore/PurchaseUIQA.md` のGate 2証跡が `pass` になっていることを確認する。
 
 統計Pro制限QA証跡記入後、Gate 3 へ進む直前：
 
@@ -123,7 +123,7 @@ xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -configuration Debug -
 - 2026-06-27 に `Scripts/validate-purchase-readiness.sh --release-build` が成功。実行時点は working tree after `8373462` で、App Store Connect転記シート整合、Release safety、StoreKit設定、単品装飾の未接続状態、法務URL、Release build をまとめて確認した。課金作業と無関係な `Liminalog/Stores/CategoryStore.swift` の未コミット差分は残っていた。
 - 2026-06-27 に `AppStore/AppStoreConnectProductConfirmation.md` を追加。App Store Connect で商品を作成した後に埋める専用確認表で、`--validate-app-store-connect-confirmation-template` により商品定義とのズレを検査する。
 - 2026-06-27 に `--validate-app-store-connect-confirmation-complete` と `Scripts/validate-purchase-readiness.sh --gate1-ready` を追加。現時点では確認表が未記入のため、Gate 1 ready check は失敗するのが正しい。
-- 2026-06-27 に `--validate-storekit-local-qa-complete` と `Scripts/validate-purchase-readiness.sh --gate2-ready` を追加。現時点ではLocal StoreKit QA証跡表が未記入のため、Gate 2 ready check は失敗するのが正しい。
+- 2026-06-27 に `--validate-storekit-local-qa-complete`、`--validate-purchase-ui-qa-complete`、`Scripts/validate-purchase-readiness.sh --gate2-ready` を追加。現時点ではLocal StoreKit QA証跡表とPurchase UI QA証跡表が未記入のため、Gate 2 ready check は失敗するのが正しい。
 - 2026-06-27 に `--validate-statistics-pro-qa-complete` と `Scripts/validate-purchase-readiness.sh --gate3-ready` を追加。現時点ではGate 3 QA証跡表が未記入のため、Gate 3 ready check は失敗するのが正しい。
 - 実機QAは、既存リリースデータへ触れる可能性があるため明示承認後に行う。
 - Release build 成功時点のワークツリーには、課金作業と無関係な `Liminalog/Stores/CategoryStore.swift` の未コミット差分が残っていた。この差分は課金コミットには含めない。

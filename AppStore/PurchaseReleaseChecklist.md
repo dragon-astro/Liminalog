@@ -71,7 +71,7 @@ xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -destination "platform
 
 - Gate 1 が通っている。
 - StoreKitローカル購入テストが成功している。
-- `AppStore/PurchaseUIQA.md` の DEBUG / Release / Local StoreKit 確認が通っている。
+- `AppStore/PurchaseUIQA.md` の Gate 2 Purchase UI QA Evidence Sheet が埋まり、DEBUG / Release / Local StoreKit 確認が通っている。
 - Product取得失敗時の文言が自然。
 - 復元、サブスク管理、購入キャンセルの挙動を確認済み。
 
@@ -98,7 +98,7 @@ backgroundEntitlementRefreshIsEnabled: true
 - `Scripts/validate-purchase-readiness.sh --gate2-ready` が成功。
 - 既存タブのスモーク確認。
 
-`--gate2-ready` は Gate 1 条件に加えて、購入導線ON、機能制限OFF、起動時/復帰時の権利更新ONの状態を検査する。
+`--gate2-ready` は Gate 1 条件に加えて、購入導線ON、機能制限OFF、起動時/復帰時の権利更新ON、Local StoreKit QA証跡、Purchase UI QA証跡を検査する。
 
 ## Gate 3: Feature Restrictions
 
