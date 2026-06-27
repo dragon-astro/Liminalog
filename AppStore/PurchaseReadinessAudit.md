@@ -22,7 +22,7 @@ Liminalog の課金基盤 v0 を、現時点の証拠ベースで監査するた
 | Release build | Done | `Scripts/validate-purchase-readiness.sh --release-build` が 2026-06-27 に成功。Release safety、StoreKit設定、法務URL、商品ドキュメント、Release build をまとめて確認済み | App Store提出前はArchive/exportで再検証 |
 | LP 利用規約ページ | Done | LP repo の `5d46da9 feat: add terms page` を `origin/main` へpush済み。`https://liminalog-lp.vercel.app/terms` は 200 応答 | 本文承認後にApp Store Connectへ登録 |
 | LP プライバシーポリシーURL | Done | `https://liminalog-lp.vercel.app/privacy` は 200 応答。`PurchaseConfiguration.current.privacyPolicyURL` はこのURLを参照 | カスタムドメインを使う場合はコード・docs・App Store Connectを同時更新 |
-| App Store Connect商品準備 | Prepared | `AppStore/PurchaseProducts.md`、`AppStore/AppStoreConnectProductConfirmation.md`、`--app-store-connect-tsv`、`--app-store-connect-confirmation-md`、`--validate-app-store-connect-confirmation-complete`。`Scripts/validate-purchase-readiness.sh` でTSV出力と確認表テンプレート整合を確認済み | App Store Connect で商品8件と `Liminalog Pro` group を実作成し、各行を確認表へ記録してから `Scripts/validate-purchase-readiness.sh --gate1-ready` を通す |
+| App Store Connect商品準備 | Prepared | `AppStore/PurchaseProducts.md`、`AppStore/AppStoreConnectProductSetup.md`、`AppStore/AppStoreConnectProductConfirmation.md`、`--app-store-connect-tsv`、`--app-store-connect-confirmation-md`、`--validate-app-store-connect-confirmation-complete`。`Scripts/validate-purchase-readiness.sh` でTSV出力、作成前転記シート、確認表テンプレートの整合を確認済み | App Store Connect で商品8件と `Liminalog Pro` group を実作成し、各行を確認表へ記録してから `Scripts/validate-purchase-readiness.sh --gate1-ready` を通す |
 | 商品ドキュメント整合性 | Done | `Scripts/validate-purchase-readiness.sh` が 2026-06-27 に成功。`--validate-products-doc`、`--validate-app-store-connect-confirmation-template`、`--validate-product-source`、`--validate-premium-decoration-products-doc` も含めて確認済み | 商品・価格・種別を変えたら再実行 |
 | StoreKitローカル設定 | Prepared | repo 直下に `liminalog.storekit` を追加。Shared scheme の Run に `liminalog.storekit` を接続。`Scripts/validate-purchase-readiness.sh` が 2026-06-27 に `billingPlans` と scheme 参照の検査込みで成功 | Xcode editorが `.storekit` や scheme を書き換えた場合は再検査 |
 | StoreKitローカル購入テスト | Prepared | `liminalog.storekit`、`AppStore/StoreKitLocalTesting.md`、`AppStore/PurchaseUIQA.md` に手順と `Local StoreKit QA Evidence Sheet` あり。`xcodebuild test` + `SKTestSession(contentsOf:)` は 2026-06-27 に `app.YasudaRyuga.Liminalog is not installed for development` で商品取得不可だったため自動テスト化しない。証跡表の完了状態は `--validate-storekit-local-qa-complete` で検査する | Xcode Run のStoreKit設定、またはApp Store Connect Sandboxで購入、復元、期限切れ、キャンセルを確認し、証跡表を埋めて `Scripts/validate-purchase-readiness.sh --gate2-ready` を通す |
@@ -43,6 +43,7 @@ The aggregate command runs:
 ```sh
 swift Scripts/validate-storekit-config.swift --validate-products-doc
 swift Scripts/validate-storekit-config.swift --validate-app-store-connect-confirmation-template
+swift Scripts/validate-storekit-config.swift --validate-products-doc AppStore/AppStoreConnectProductSetup.md
 swift Scripts/validate-storekit-config.swift --validate-product-source
 swift Scripts/validate-storekit-config.swift --validate-premium-decoration-products-doc
 swift Scripts/validate-storekit-config.swift --validate-premium-decoration-ui-disconnected

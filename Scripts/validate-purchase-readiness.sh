@@ -71,6 +71,9 @@ run_step "Validate purchase product document" \
 run_step "Validate App Store Connect confirmation template" \
   run_swift_validator --validate-app-store-connect-confirmation-template
 
+run_step "Validate App Store Connect product setup sheet" \
+  run_swift_validator --validate-products-doc AppStore/AppStoreConnectProductSetup.md
+
 run_step "Validate purchase product source" \
   run_swift_validator --validate-product-source
 

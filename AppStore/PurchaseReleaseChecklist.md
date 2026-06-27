@@ -25,6 +25,7 @@
 必要条件：
 
 - `AppStore/PurchaseProducts.md` の商品が App Store Connect に作成済み。
+- `AppStore/AppStoreConnectProductSetup.md` を転記元として作成し、`Scripts/validate-purchase-readiness.sh` が成功している。
 - `Liminalog Pro` の Subscription Group が作成済み。
 - `AppStore/AppStoreConnectProductConfirmation.md` の全チェックが埋まり、`swift Scripts/validate-storekit-config.swift --validate-app-store-connect-confirmation-complete` が成功している。
 - 利用規約本文が承認済み。
