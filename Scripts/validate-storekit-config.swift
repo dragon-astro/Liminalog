@@ -666,9 +666,11 @@ private func validateStoreKitLocalQAEvidenceComplete(at path: String) -> Never {
         "Git SHA",
         "Build",
         "Device / OS",
+        "Run Path",
         "Xcode",
         "StoreKit Configuration",
         "StoreKit Config Validation",
+        "DEBUG Product Diagnostics",
         "Tester",
         "Date"
     ]
@@ -702,6 +704,12 @@ private func validateStoreKitLocalQAEvidenceComplete(at path: String) -> Never {
     if metadata["StoreKit Config Validation"]?.lowercased() != "pass" {
         failures.append("StoreKit QA metadata StoreKit Config Validation must be pass")
     }
+    if metadata["Run Path"] != "Xcode normal Run" {
+        failures.append("StoreKit QA metadata Run Path must be Xcode normal Run")
+    }
+    if !storeKitDiagnosticsConfirmAllProductsLoaded(metadata["DEBUG Product Diagnostics"]) {
+        failures.append("StoreKit QA metadata DEBUG Product Diagnostics must confirm requested 8, loaded 8, and valid 8")
+    }
 
     if evidenceRows.count != requiredCases.count {
         failures.append("expected \(requiredCases.count) StoreKit QA evidence rows, found \(evidenceRows.count)")
@@ -732,6 +740,42 @@ private func validateStoreKitLocalQAEvidenceComplete(at path: String) -> Never {
         print("error: \(failure)")
     }
     exit(EXIT_FAILURE)
+}
+
+private func storeKitDiagnosticsConfirmAllProductsLoaded(_ value: String?) -> Bool {
+    guard let value else { return false }
+    let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
+    if isPlaceholderMetadataValue(trimmedValue) || trimmedValue == "requested 8 / loaded 8 / valid 8" {
+        return false
+    }
+
+    let normalized = value
+        .lowercased()
+        .replacingOccurrences(of: "requestedcount", with: "requested")
+        .replacingOccurrences(of: "loadedcount", with: "loaded")
+        .replacingOccurrences(of: "validcount", with: "valid")
+        .replacingOccurrences(of: "要求id", with: "requested")
+        .replacingOccurrences(of: "要求", with: "requested")
+        .replacingOccurrences(of: "取得", with: "loaded")
+        .replacingOccurrences(of: "有効", with: "valid")
+        .replacingOccurrences(of: "：", with: ":")
+
+    return metadataDiagnosticValue(in: normalized, label: "requested") == 8
+        && metadataDiagnosticValue(in: normalized, label: "loaded") == 8
+        && metadataDiagnosticValue(in: normalized, label: "valid") == 8
+}
+
+private func metadataDiagnosticValue(in text: String, label: String) -> Int? {
+    let pattern = #"\b\#(label)\b\s*[:=]?\s*(\d+)"#
+    guard let regex = try? NSRegularExpression(pattern: pattern) else {
+        return nil
+    }
+    let nsText = text as NSString
+    let range = NSRange(location: 0, length: nsText.length)
+    guard let match = regex.firstMatch(in: text, range: range) else {
+        return nil
+    }
+    return Int(nsText.substring(with: match.range(at: 1)))
 }
 
 private func validatePurchaseUIQAEvidenceComplete(at path: String) -> Never {

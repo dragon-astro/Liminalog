@@ -134,9 +134,11 @@ xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -configuration Debug -
 | Git SHA |  |
 | Build | DEBUG |
 | Device / OS |  |
+| Run Path | Xcode normal Run |
 | Xcode |  |
 | StoreKit Configuration | `liminalog.storekit` |
 | StoreKit Config Validation | pass / fail |
+| DEBUG Product Diagnostics | fill manually after confirming requested 8 / loaded 8 / valid 8 |
 | Tester |  |
 | Date |  |
 

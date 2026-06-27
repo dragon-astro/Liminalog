@@ -99,9 +99,11 @@ Copy into AppStore/StoreKitLocalTesting.md after Xcode normal Run succeeds:
 | Git SHA | $git_sha$(if [[ -n "$git_status" ]]; then printf ' + dirty'; fi) |
 | Build | DEBUG |
 | Device / OS | fill manually |
+| Run Path | Xcode normal Run |
 | Xcode | $xcode_version |
 | StoreKit Configuration | \`$storekit_path\` |
 | StoreKit Config Validation | pass |
+| DEBUG Product Diagnostics | fill manually after confirming requested 8 / loaded 8 / valid 8 |
 | Tester | fill manually |
 | Date | $date_value |
 
