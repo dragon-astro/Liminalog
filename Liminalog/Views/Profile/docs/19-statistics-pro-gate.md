@@ -114,7 +114,7 @@ if decision.isAllowed {
 3. [x] ロック時の入口が `proPreview` になり、現行Releaseでは `dashboard` のままであることをテストする。
 4. [x] DEBUG で `Pro制限を試す` をONにできる確認導線を作る。
 5. [x] DEBUG の課金状態を起動時に注入できる確認導線を作る。
-6. DEBUG の課金状態切替で無料/Pro/ライフタイム/装飾パスを目視確認する。
+6. [x] DEBUG の課金状態切替で無料/Pro/ライフタイム/装飾パスを目視確認する。
 7. Release build で `featureRestrictionsAreEnabled == false` の時に既存統計が変わらないことを確認する。
 
 ## QAメモ
@@ -122,6 +122,7 @@ if decision.isAllowed {
 - 2026-06-27: XcodeBuildMCP / iPhone 17 Pro Simulator / Debug で `debug.purchase.enforceFeatureRestrictions = true`、`-LiminalogInitialRootTab dashboard` を指定して起動し、無料状態で `StatisticsProPreviewView` が表示されることを確認した。確認後、同フラグは `false` に戻した。
 - 2026-06-27: DEBUG 限定で `-LiminalogDebugPurchaseState` / `LiminalogDebugPurchaseState` を追加。設定画面の手動メニューと同じ `applyDebugEntitlementsOverride` を起動時に呼ぶだけなので、Release や実購入キャッシュには影響しない。
 - 2026-06-27: XcodeBuildMCP / iPhone 17 Pro Simulator / Debug で `debug.purchase.enforceFeatureRestrictions = true`、`-LiminalogInitialRootTab dashboard` と `-LiminalogDebugPurchaseState pro` を指定して統計本体、`decorationPassOnly` を指定して `StatisticsProPreviewView` が表示されることを確認した。確認後、同フラグは `false` に戻した。
+- 2026-06-27: XcodeBuildMCP / iPhone 17 Pro Simulator / Debug で `-LiminalogDebugPurchaseState lifetime` と `lifetimeWithDecorationPass` を指定して統計本体が表示されることを確認した。確認後、同フラグは `false` に戻した。
 
 ## やらないこと
 

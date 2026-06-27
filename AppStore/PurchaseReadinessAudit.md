@@ -27,8 +27,8 @@ Liminalog の課金基盤 v0 を、現時点の証拠ベースで監査するた
 | StoreKitローカル設定 | Prepared | repo 直下に `liminalog.storekit` を追加。Shared scheme の Run に `liminalog.storekit` を接続。`Scripts/validate-purchase-readiness.sh` が 2026-06-27 に `billingPlans` と scheme 参照の検査込みで成功 | Xcode editorが `.storekit` や scheme を書き換えた場合は再検査 |
 | StoreKitローカル購入テスト | Prepared | `liminalog.storekit`、`AppStore/StoreKitLocalTesting.md`、`AppStore/PurchaseUIQA.md` に手順あり。`xcodebuild test` + `SKTestSession(contentsOf:)` は 2026-06-27 に `app.YasudaRyuga.Liminalog is not installed for development` で商品取得不可だったため自動テスト化しない | Xcode Run のStoreKit設定、またはApp Store Connect Sandboxで購入、復元、期限切れ、キャンセルを確認 |
 | Release課金導線準備 | Prepared | `PurchaseReleaseChecklist.md` の Gate 1 / Gate 2 / Gate 3、`PurchaseConfiguration.current` の段階フラグ | App Store Connect と利用規約確定後に Gate 1 へ進める |
-| 課金UI QA | Prepared | `AppStore/PurchaseUIQA.md`。2026-06-27 に XcodeBuildMCP / iPhone 17 Pro Simulator で DEBUG の設定入口表示と課金画面遷移、統計Proプレビュー表示、Release の設定入口非表示を確認。DEBUG 起動引数 `-LiminalogDebugPurchaseState` で Pro / 装飾パスのみの統計表示も確認 | Local StoreKit購入操作、全課金状態の目視QA、実機QA、既存タブの広範囲スモークを実行して証跡を残す |
-| 統計Pro化設計 | Prepared | `Liminalog/Views/Profile/docs/19-statistics-pro-gate.md`、`StatisticsProPreviewView`、`StatisticsTabAccessPolicy`、`RootTabView` 統計タブ入口分岐、DEBUGの `Pro制限を試す` 導線、DEBUG 起動時の疑似課金状態注入。2026-06-27 に `StatisticsTabAccessPolicyTests` を含む対象テスト48件が成功し、iPhone 17 Pro Simulatorで無料/Pro/装飾パスのみの統計表示を目視確認 | `featureRestrictionsAreEnabled` はまだ false。ライフタイムを含む全課金状態の目視QA、実機QA、Gate変更時のReleaseスモークQAは未完了 |
+| 課金UI QA | Prepared | `AppStore/PurchaseUIQA.md`。2026-06-27 に XcodeBuildMCP / iPhone 17 Pro Simulator で DEBUG の設定入口表示と課金画面遷移、統計Proプレビュー表示、Release の設定入口非表示を確認。DEBUG 起動引数 `-LiminalogDebugPurchaseState` で無料 / Pro / ライフタイム / ライフタイム＋装飾パス / 装飾パスのみの統計表示を確認 | Local StoreKit購入操作、実機QA、既存タブの広範囲スモークを実行して証跡を残す |
+| 統計Pro化設計 | Prepared | `Liminalog/Views/Profile/docs/19-statistics-pro-gate.md`、`StatisticsProPreviewView`、`StatisticsTabAccessPolicy`、`RootTabView` 統計タブ入口分岐、DEBUGの `Pro制限を試す` 導線、DEBUG 起動時の疑似課金状態注入。2026-06-27 に `StatisticsTabAccessPolicyTests` を含む対象テスト48件が成功し、iPhone 17 Pro Simulatorで無料/Pro/ライフタイム/ライフタイム＋装飾パス/装飾パスのみの統計表示を目視確認 | `featureRestrictionsAreEnabled` はまだ false。実機QA、Gate変更時のReleaseスモークQAは未完了 |
 | 装飾課金データ設計 | Prepared | `Liminalog/Views/Profile/docs/20-premium-decoration-data.md`、`PremiumDecorationAccessPolicy`、`PremiumDecorationCatalog`、`PremiumDecorationEquippingPolicy`。2026-06-27 に `PremiumDecorationCatalogTests` を含む対象テスト47件が成功 | UI接続、App Store Connect 単品商品作成、StoreKitローカル購入QA、表示時フォールバックの実画面適用は未実装 |
 | 既存機能への影響抑制 | Prepared | Release安全状態は閉じている。`featureRestrictionsAreEnabled == false`。装飾カタログは UI 未接続。購入まわりのユニットテスト69件と装飾課金対象テスト47件が成功 | Gate変更時に既存タブのスモークQAが必要 |
 
@@ -86,6 +86,7 @@ xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -configuration Debug -
 - 2026-06-27 に XcodeBuildMCP / iPhone 17 Pro Simulator / Debug で `debug.purchase.enforceFeatureRestrictions = true`、`-LiminalogInitialRootTab dashboard` を指定して起動し、無料状態の統計タブが `StatisticsProPreviewView` になることを確認済み。確認後、同フラグは false に戻した。
 - 2026-06-27 に DEBUG 限定の `-LiminalogDebugPurchaseState` / `LiminalogDebugPurchaseState` を追加。起動直後の疑似課金状態を目視QAしやすくする入口で、Release にはコンパイルされず実購入キャッシュにも保存しない。
 - 2026-06-27 に XcodeBuildMCP / iPhone 17 Pro Simulator / Debug で `-LiminalogDebugPurchaseState pro` なら統計本体、`decorationPassOnly` なら `StatisticsProPreviewView` になることを確認済み。確認後、`debug.purchase.enforceFeatureRestrictions` は false に戻した。
+- 2026-06-27 に XcodeBuildMCP / iPhone 17 Pro Simulator / Debug で `-LiminalogDebugPurchaseState lifetime` と `lifetimeWithDecorationPass` でも統計本体になることを確認済み。確認後、`debug.purchase.enforceFeatureRestrictions` は false に戻した。
 - 2026-06-27 に装飾課金カタログ/アクセス判定を含む対象テスト47件は成功。ただし UI 接続と StoreKit 単品購入QAは未完了。
 - 実機QAは、既存リリースデータへ触れる可能性があるため明示承認後に行う。
 - Release build 成功時点のワークツリーには、課金作業と無関係な `Liminalog/Stores/CategoryStore.swift` の未コミット差分が残っていた。この差分は課金コミットには含めない。
@@ -96,5 +97,5 @@ xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -configuration Debug -
 2. App Store Connect で商品を作成し、`swift Scripts/validate-storekit-config.swift --app-store-connect-confirmation-md` の Confirmation Sheet を埋める。
 3. 利用規約本文を承認し、LP の `/terms` を App Store Connect に登録する。
 4. Gate 1 のコード変更だけを入れ、Releaseで購入導線がまだ出ないことを確認する。
-5. DEBUG の `Pro制限を試す` と `-LiminalogDebugPurchaseState` を組み合わせ、Proサブ / ライフタイム / 装飾パスのみの統計タブ表示も目視QAする。
+5. Local StoreKit購入操作ができる環境で、Pro / ライフタイム / 装飾パス / 支援の購入・復元・期限切れを確認する。
 6. プレミアム装飾を `UnlockGalleryView` へ合流する前に、表示モデルとフォールバック適用点を小さく実装する。
