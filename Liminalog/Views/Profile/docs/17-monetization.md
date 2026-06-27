@@ -169,6 +169,7 @@ Liminalog の課金設計の初版。**戦略・価格・機能ティア・packa
   - Auto-Renewable Subscription：`liminalog.decorations.monthly`（装飾パス 月額 / ¥200）、`liminalog.decorations.yearly`（装飾パス 年額 / ¥1,500）
   - Non-Consumable：`liminalog.lifetime`（ライフタイム / ¥6,800）
   - Consumable：`liminalog.support.small`（小さく応援 / ¥250）、`liminalog.support.medium`（しっかり応援 / ¥600）、`liminalog.support.large`（大きく応援 / ¥1,200）
+  - 転記元は `PurchaseProductID.appStoreConnectSpecifications`。商品ID、表示名、参照価格、StoreKit商品種別、サブスクリプショングループをコード側で固定し、ドキュメントだけが先に変わらないようにする。
   - 無料体験：年額Proに7日無料を付けるかは未確定。App Store Connectで確定後、アプリ内文言へ反映する。
   - 注意：装飾パスは「買い切り所有者向け」にアプリ側で表示制御する。App Store Connect上では商品として作り、表示対象は `PurchaseOfferingCatalog` で絞る。
 - 単品プレミアム装飾は `liminalog.decoration.` prefix の権利モデルだけ実装済み。初期の商品取得リスト/購入UIにはまだ個別IDを列挙していないため、単品装飾を売る時は `PurchaseConfiguration.current.productIDs` と購入UI側の商品定義追加が必要。

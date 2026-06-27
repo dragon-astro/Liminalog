@@ -47,6 +47,46 @@ struct PurchaseEntitlementTests {
     }
 
     @Test
+    func storeKitProductKindsExposeAppStoreConnectTypeNames() {
+        #expect(PurchaseStoreKitProductKind.autoRenewableSubscription.appStoreConnectProductTypeName == "Auto-Renewable Subscription")
+        #expect(PurchaseStoreKitProductKind.nonConsumable.appStoreConnectProductTypeName == "Non-Consumable")
+        #expect(PurchaseStoreKitProductKind.consumable.appStoreConnectProductTypeName == "Consumable")
+    }
+
+    @Test
+    func appStoreConnectSpecificationsCoverAllPrimaryProductsInDisplayOrder() {
+        let specs = PurchaseProductID.appStoreConnectSpecifications
+
+        #expect(specs.map(\.productID) == PurchaseProductID.primaryDisplayOrder.map(\.rawValue))
+        #expect(Set(specs.map(\.productID)).count == specs.count)
+        #expect(specs.map(\.displayName) == PurchaseProductID.primaryDisplayOrder.map(\.displayName))
+        #expect(specs.map(\.referencePriceText) == PurchaseProductID.primaryDisplayOrder.map(\.referencePriceText))
+    }
+
+    @Test
+    func appStoreConnectSpecificationsMatchPlannedProductTypesAndGroups() {
+        let specsByID = Dictionary(uniqueKeysWithValues: PurchaseProductID.appStoreConnectSpecifications.map { ($0.productID, $0) })
+
+        #expect(specsByID[PurchaseProductID.proMonthly.rawValue]?.storeKitProductKind == .autoRenewableSubscription)
+        #expect(specsByID[PurchaseProductID.proYearly.rawValue]?.storeKitProductKind == .autoRenewableSubscription)
+        #expect(specsByID[PurchaseProductID.decorationMonthly.rawValue]?.storeKitProductKind == .autoRenewableSubscription)
+        #expect(specsByID[PurchaseProductID.decorationYearly.rawValue]?.storeKitProductKind == .autoRenewableSubscription)
+        #expect(specsByID[PurchaseProductID.lifetime.rawValue]?.storeKitProductKind == .nonConsumable)
+        #expect(specsByID[PurchaseProductID.supportTipSmall.rawValue]?.storeKitProductKind == .consumable)
+        #expect(specsByID[PurchaseProductID.supportTipMedium.rawValue]?.storeKitProductKind == .consumable)
+        #expect(specsByID[PurchaseProductID.supportTipLarge.rawValue]?.storeKitProductKind == .consumable)
+
+        #expect(specsByID[PurchaseProductID.proMonthly.rawValue]?.subscriptionGroup == .liminalogPro)
+        #expect(specsByID[PurchaseProductID.proYearly.rawValue]?.subscriptionGroup == .liminalogPro)
+        #expect(specsByID[PurchaseProductID.decorationMonthly.rawValue]?.subscriptionGroup == .liminalogPro)
+        #expect(specsByID[PurchaseProductID.decorationYearly.rawValue]?.subscriptionGroup == .liminalogPro)
+        #expect(specsByID[PurchaseProductID.lifetime.rawValue]?.subscriptionGroup == nil)
+        #expect(specsByID[PurchaseProductID.supportTipSmall.rawValue]?.subscriptionGroup == nil)
+        #expect(specsByID[PurchaseProductID.supportTipMedium.rawValue]?.subscriptionGroup == nil)
+        #expect(specsByID[PurchaseProductID.supportTipLarge.rawValue]?.subscriptionGroup == nil)
+    }
+
+    @Test
     func productDescriptionsDoNotPromiseUnconfirmedIntroductoryOffers() {
         let descriptions = PurchaseProductID.allCases.map(\.shortDescription)
 

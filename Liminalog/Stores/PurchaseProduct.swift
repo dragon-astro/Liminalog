@@ -23,6 +23,31 @@ enum PurchaseStoreKitProductKind: String, Codable, CaseIterable {
     case consumable
     case nonConsumable
     case autoRenewableSubscription
+
+    var appStoreConnectProductTypeName: String {
+        switch self {
+        case .consumable:
+            "Consumable"
+        case .nonConsumable:
+            "Non-Consumable"
+        case .autoRenewableSubscription:
+            "Auto-Renewable Subscription"
+        }
+    }
+}
+
+enum PurchaseSubscriptionGroup: String, Codable, CaseIterable {
+    case liminalogPro = "Liminalog Pro"
+}
+
+struct PurchaseAppStoreConnectProductSpec: Equatable, Codable, Identifiable {
+    var id: String { productID }
+    var productID: String
+    var displayName: String
+    var productKind: PurchaseProductKind
+    var storeKitProductKind: PurchaseStoreKitProductKind
+    var referencePriceText: String
+    var subscriptionGroup: PurchaseSubscriptionGroup?
 }
 
 enum PurchaseProductID: String, Codable, CaseIterable, Identifiable {
@@ -50,6 +75,8 @@ enum PurchaseProductID: String, Codable, CaseIterable, Identifiable {
 
     static let storeKitProductIDs: [String] = primaryDisplayOrder.map(\.rawValue)
     static let premiumDecorationProductPrefix = "liminalog.decoration."
+
+    static let appStoreConnectSpecifications: [PurchaseAppStoreConnectProductSpec] = primaryDisplayOrder.map(\.appStoreConnectSpecification)
 
     static func kind(for rawProductID: String) -> PurchaseProductKind? {
         if let knownProduct = PurchaseProductID(rawValue: rawProductID) {
@@ -81,6 +108,17 @@ enum PurchaseProductID: String, Codable, CaseIterable, Identifiable {
         case .supportTipSmall, .supportTipMedium, .supportTipLarge:
             .supportTip
         }
+    }
+
+    var appStoreConnectSpecification: PurchaseAppStoreConnectProductSpec {
+        PurchaseAppStoreConnectProductSpec(
+            productID: rawValue,
+            displayName: displayName,
+            productKind: kind,
+            storeKitProductKind: kind.expectedStoreKitProductKind,
+            referencePriceText: referencePriceText,
+            subscriptionGroup: kind.usesSubscriptionGroup ? .liminalogPro : nil
+        )
     }
 
     var displayName: String {
@@ -197,6 +235,15 @@ private extension PurchaseProductKind {
             return .nonConsumable
         case .supportTip:
             return .consumable
+        }
+    }
+
+    var usesSubscriptionGroup: Bool {
+        switch self {
+        case .proSubscription, .decorationSubscription:
+            return true
+        case .lifetime, .premiumDecoration, .supportTip:
+            return false
         }
     }
 }
