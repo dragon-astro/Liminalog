@@ -2,6 +2,8 @@
 
 課金導線を Release に出す前のチェックリスト。Liminalog は既にリリース済みなので、購入導線と機能制限は段階を分けて入れる。
 
+現在の達成状況は `AppStore/PurchaseReadinessAudit.md` を見る。このチェックリストは次のGateへ進める時の手順、監査表は現時点で何が未完了かの証跡として使う。
+
 ## Current Safety State
 
 `PurchaseConfiguration.current` は次の状態を維持する。

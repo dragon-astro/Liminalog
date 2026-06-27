@@ -2,6 +2,8 @@
 
 Liminalog の課金UIを既存機能に影響させず確認するための手順。課金導線は段階的に開くため、今できる確認と StoreKit / App Store Connect 準備後の確認を分ける。
 
+現時点でどのQAが未完了かは `AppStore/PurchaseReadinessAudit.md` に集約する。
+
 ## Safety Rules
 
 - 既存ユーザーのリリースデータが入った実機にインストールして確認する場合は、事前に明示承認を取る。
