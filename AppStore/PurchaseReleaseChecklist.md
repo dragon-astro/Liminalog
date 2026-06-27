@@ -52,6 +52,7 @@ backgroundEntitlementRefreshIsEnabled: false
 検証：
 
 ```sh
+swift Scripts/validate-storekit-config.swift --validate-release-safety
 xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -configuration Release -destination "generic/platform=iOS" build
 xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -destination "platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5" build-for-testing -only-testing:LiminalogTests/PurchaseConfigurationTests
 ```

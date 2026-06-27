@@ -108,7 +108,11 @@ if arguments.contains("--expected") {
 if let docsFlagIndex = arguments.firstIndex(of: "--validate-products-doc") {
     let path = arguments.dropFirst(docsFlagIndex + 1).first ?? "AppStore/PurchaseProducts.md"
     validatePurchaseProductsDocument(at: path)
-    exit(EXIT_SUCCESS)
+}
+
+if let safetyFlagIndex = arguments.firstIndex(of: "--validate-release-safety") {
+    let path = arguments.dropFirst(safetyFlagIndex + 1).first ?? "Liminalog/Stores/PurchaseConfiguration.swift"
+    validateReleaseSafetyConfiguration(at: path)
 }
 
 guard let path = arguments.first, !path.hasPrefix("-") else {
@@ -264,6 +268,69 @@ private func validatePurchaseProductsDocument(at path: String) -> Never {
     exit(EXIT_FAILURE)
 }
 
+private func validateReleaseSafetyConfiguration(at path: String) -> Never {
+    let fileURL = URL(fileURLWithPath: path)
+    guard let text = try? String(contentsOf: fileURL, encoding: .utf8) else {
+        print("error: purchase configuration source not found at \(fileURL.path)")
+        exit(EXIT_FAILURE)
+    }
+
+    guard let currentConfiguration = purchaseConfigurationCurrentBlock(in: text) else {
+        print("error: could not locate PurchaseConfiguration.current in \(fileURL.path)")
+        exit(EXIT_FAILURE)
+    }
+
+    let requiredSnippets: [(label: String, snippet: String)] = [
+        ("StoreKit product IDs remain code-owned", "productIDs: PurchaseProductID.storeKitProductIDs"),
+        ("App Store Connect product confirmation remains off", "productIDsAreConfirmedForAppStoreConnect: false"),
+        ("subscription group remains unset", "subscriptionGroupName: nil"),
+        ("terms URL remains unset", "termsOfUseURL: nil"),
+        ("privacy URL points to the published LP", #"privacyPolicyURL: URL(string: "https://liminalog.vercel.app/privacy")"#),
+        ("purchase entry point remains off", "purchaseEntryPointIsEnabled: false"),
+        ("feature restrictions remain off", "featureRestrictionsAreEnabled: false"),
+        ("background entitlement refresh remains off", "backgroundEntitlementRefreshIsEnabled: false")
+    ]
+
+    let failures = requiredSnippets.compactMap { requirement -> String? in
+        currentConfiguration.contains(requirement.snippet)
+            ? nil
+            : "missing safety setting: \(requirement.label)"
+    }
+
+    if failures.isEmpty {
+        print("Release purchase safety configuration is closed for current Liminalog builds.")
+        exit(EXIT_SUCCESS)
+    }
+
+    for failure in failures {
+        print("error: \(failure)")
+    }
+    exit(EXIT_FAILURE)
+}
+
+private func purchaseConfigurationCurrentBlock(in source: String) -> String? {
+    let marker = "static let current = PurchaseConfiguration("
+    guard let markerRange = source.range(of: marker) else { return nil }
+
+    var depth = 1
+    var index = markerRange.upperBound
+
+    while index < source.endIndex {
+        let character = source[index]
+        if character == "(" {
+            depth += 1
+        } else if character == ")" {
+            depth -= 1
+            if depth == 0 {
+                return String(source[markerRange.lowerBound...index])
+            }
+        }
+        index = source.index(after: index)
+    }
+
+    return nil
+}
+
 private struct ProductDocumentRow {
     var productID: String
     var referenceName: String
@@ -306,6 +373,7 @@ private func printUsage() {
       swift Scripts/validate-storekit-config.swift <path-to-liminalog.storekit>
       swift Scripts/validate-storekit-config.swift --expected
       swift Scripts/validate-storekit-config.swift --validate-products-doc [path-to-PurchaseProducts.md]
+      swift Scripts/validate-storekit-config.swift --validate-release-safety [path-to-PurchaseConfiguration.swift]
 
     Create the StoreKit configuration in Xcode first, then run this validator.
     """)

@@ -36,6 +36,12 @@ Liminalog の課金UIを既存機能に影響させず確認するための手�
 5. 統計タブが現行通り表示され、Pro案内やロック画面に変わっていないことを確認する。
 6. カレンダーの月間、日間タイムライン、週間タイムラインの切り替え、横スワイプ、予定編集が現行通り動くことを確認する。
 
+ビルド前に、Release の課金入口がソース上で閉じていることも確認する。
+
+```sh
+swift Scripts/validate-storekit-config.swift --validate-release-safety
+```
+
 ## Local StoreKit QA
 
 対象：`liminalog.storekit` 作成後。目的は、購入画面とローカル権利反映を確認すること。
