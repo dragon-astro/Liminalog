@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 import StoreKit
 import UIKit
 
@@ -86,6 +87,12 @@ enum DebugPurchaseEntitlementsOverride: String, CaseIterable, Identifiable {
 @Observable
 final class PurchaseStore {
     @ObservationIgnored private static let cacheKey = "purchase.entitlements.cache.v1"
+    #if DEBUG
+    @ObservationIgnored private static let debugLogger = Logger(
+        subsystem: "app.YasudaRyuga.Liminalog",
+        category: "Purchase"
+    )
+    #endif
     @ObservationIgnored private let productIDs: [String]
     @ObservationIgnored private let userDefaults: UserDefaults?
     @ObservationIgnored private let runtimePolicy: PurchaseStoreRuntimePolicy
@@ -160,6 +167,7 @@ final class PurchaseStore {
             let validProducts = loadedProducts.filter { product in
                 acceptsStoreKitProduct(productID: product.id, productType: product.type)
             }
+            logProductLoadResult(loadedProducts: loadedProducts, validProducts: validProducts)
             products = validProducts.sorted {
                 PurchaseProductID.sortIndex(for: $0.id) < PurchaseProductID.sortIndex(for: $1.id)
             }
@@ -171,6 +179,7 @@ final class PurchaseStore {
             }
         } catch {
             userMessage = "商品情報を取得できませんでした。時間をおいてもう一度試してください。"
+            logProductLoadError(error)
             NSLog("Liminalog: failed to load StoreKit products: \(String(describing: error))")
         }
     }
@@ -374,6 +383,37 @@ final class PurchaseStore {
             return false
         }
         return true
+    }
+
+    private func logProductLoadResult(loadedProducts: [Product], validProducts: [Product]) {
+        #if DEBUG
+        let requestedIDs = productIDs.joined(separator: ",")
+        let loadedSummary = loadedProducts
+            .map { "\($0.id):\($0.type)" }
+            .joined(separator: ",")
+        let validIDs = validProducts
+            .map(\.id)
+            .joined(separator: ",")
+        print(
+            "LiminalogPurchaseDebug productLoad",
+            "requested=[\(requestedIDs)]",
+            "loadedCount=\(loadedProducts.count)",
+            "loaded=[\(loadedSummary)]",
+            "validCount=\(validProducts.count)",
+            "valid=[\(validIDs)]"
+        )
+        Self.debugLogger.info(
+            "LiminalogPurchaseDebug productLoad requested=[\(requestedIDs, privacy: .public)] loadedCount=\(loadedProducts.count, privacy: .public) loaded=[\(loadedSummary, privacy: .public)] validCount=\(validProducts.count, privacy: .public) valid=[\(validIDs, privacy: .public)]"
+        )
+        #endif
+    }
+
+    private func logProductLoadError(_ error: Error) {
+        #if DEBUG
+        let errorDescription = String(describing: error)
+        print("LiminalogPurchaseDebug productLoadError \(errorDescription)")
+        Self.debugLogger.error("LiminalogPurchaseDebug productLoadError \(errorDescription, privacy: .public)")
+        #endif
     }
 
     private static func cachedEntitlements(from userDefaults: UserDefaults?) -> PurchaseEntitlements {

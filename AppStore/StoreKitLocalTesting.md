@@ -93,6 +93,7 @@ xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -configuration Debug -
 | Date | Git SHA | Build | Device / OS | StoreKit Source | Result | Notes |
 |---|---|---|---|---|---|---|
 | 2026-06-27 | `4230b478` | DEBUG | iPhone 17 Pro Simulator / iOS 26.5 | scheme expects `liminalog.storekit` | blocked | XcodeBuildMCP でビルド・起動し、設定の `Proと応援` から課金画面へ遷移できることは確認。商品取得は `商品情報を取得できませんでした` 表示になったため、購入操作QAは未完了のまま。Xcode の通常 Run で StoreKit Configuration を適用して再確認する。 |
+| 2026-06-27 | working tree after `8373462` | DEBUG | iPhone 17 Pro Simulator / iOS 26.5 | scheme expects `liminalog.storekit` | blocked | DEBUG OSLog 診断を追加して XcodeBuildMCP で再確認。`LiminalogPurchaseDebug productLoad ... loadedCount=0 ... validCount=0` だったため、商品種別フィルタではなく `Product.products(for:)` 自体にローカルStoreKit商品が入っていない。XcodeBuildMCP 起動では StoreKit Configuration が適用されないため、Xcode通常RunまたはSandboxで購入操作QAを行う。 |
 
 | 項目 | 記録 |
 |---|---|
