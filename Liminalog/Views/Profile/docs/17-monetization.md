@@ -164,6 +164,7 @@ Liminalog の課金設計の初版。**戦略・価格・機能ティア・packa
   - `liminalog.decorations.monthly` / `liminalog.decorations.yearly`
   - `liminalog.support.small` / `liminalog.support.medium` / `liminalog.support.large`
 - **App Store Connect 商品作成メモ（未確定）**：
+  - 転記用の独立メモは `AppStore/PurchaseProducts.md`。
   - サブスクリプショングループ案：`Liminalog Pro`
   - Auto-Renewable Subscription：`liminalog.pro.monthly`（Liminalog Pro 月額 / ¥400）、`liminalog.pro.yearly`（Liminalog Pro 年額 / ¥2,900）
   - Auto-Renewable Subscription：`liminalog.decorations.monthly`（装飾パス 月額 / ¥200）、`liminalog.decorations.yearly`（装飾パス 年額 / ¥1,500）
@@ -175,6 +176,7 @@ Liminalog の課金設計の初版。**戦略・価格・機能ティア・packa
 - 単品プレミアム装飾は `liminalog.decoration.` prefix の権利モデルだけ実装済み。初期の商品取得リスト/購入UIにはまだ個別IDを列挙していないため、単品装飾を売る時は `PurchaseConfiguration.current.productIDs` と購入UI側の商品定義追加が必要。
 - **本番課金設定の注入点**：`PurchaseConfiguration.current`。本番 Product ID 確認フラグ、サブスクリプショングループ名、利用規約URL、プライバシーポリシーURL、購入導線ON/OFF、機能制限ON/OFF、起動時StoreKit更新ON/OFFをここに集約し、未確定の間は有料リリース準備完了にならない。商品IDの空値/重複/未対応ID、法務URLの非HTTPSもRelease導線を開かない条件としてテストで固定済み。公開前の不足要件は `PurchasePaidReleaseRequirement` として型付きで保持し、DEBUG表示では `displayName` と `resolutionHint` を出す。StoreKitへ渡す商品IDは前後空白を除去してから使う。プライバシーポリシーURLは既存LPの `https://liminalog.vercel.app/privacy` を設定済み。Product ID/法務URLが揃っても `purchaseEntryPointIsEnabled` を true にするまではReleaseの設定画面に購入導線を出さない。
 - **リリース準備状態の確認**：`PurchaseConfiguration.releaseReadinessSnapshot` が `missingRequiredMetadata` / `metadataReadyWaitingForGoLive` / `purchaseEntryPointReady` / `featureRestrictionsReady` を返す。これにより、App Store Connect と法務URLの準備完了、購入導線の公開、既存機能へのPro制限適用を別チェックポイントとして扱える。`PurchaseActivationPolicy` はこの snapshot を通して Release の StoreKit 実行・機能制限・バックグラウンド権利更新を判定するため、メタデータだけ揃っても既存機能は自動で変わらない。
+- **Release切り替え手順**：`AppStore/PurchaseReleaseChecklist.md`。メタデータ準備、購入導線公開、機能制限ONを3段階に分ける。
 - **課金入口とStoreKitランタイムの露出**：`PurchaseActivationPolicy` で制御する。Releaseでは `PurchaseConfiguration.current.canExposePurchaseEntryPoint` が true になるまで設定内の「Proと応援」を出さず、`PurchaseStoreRuntimePolicy` 経由で起動時/復帰時のStoreKit権利確認も走らせない。購入画面でのStoreKit操作、既存機能のPro制限、起動時/復帰時のバックグラウンド権利確認は別スイッチに分ける。`PurchaseStore` 自体も同じランタイムポリシーを持ち、将来別の購入導線を追加しても未準備Releaseで商品取得・購入・復元・サブスク管理が直接走らないようにする。DEBUGでは未設定確認と表示検証のため購入画面のStoreKit操作だけ常に有効化する。
 - **購入面のUI制御**：`SupportLiminalogView` は `PurchaseSupportSurfacePolicy` を通して商品、復元、サブスクリプション管理の表示/実行可否を判断する。未準備Releaseでは商品取得済みのように見える状態でも `.disabled` になり、StoreKit操作ボタンを出さないことをテストで固定済み。
 - **機能制限の安全弁**：UIで実際に制限する時は `PurchaseFeatureGate` を通す。内部の生ポリシーは外から直接触れないようにし、課金未有効のRelease/DEBUGでは既存機能をロックしない。購入導線を開いた後も `PurchaseConfiguration.current.featureRestrictionsAreEnabled` を true にするまでは統計タブやカテゴリセット上限などのPro制限は適用しない。
