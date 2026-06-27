@@ -63,6 +63,7 @@ App Review に課金の意図を説明する時の下書き。
 
 ```sh
 swift Scripts/validate-storekit-config.swift --validate-products-doc
+swift Scripts/validate-storekit-config.swift --validate-product-source
 swift Scripts/validate-storekit-config.swift --validate-premium-decoration-products-doc
 ```
 

@@ -129,6 +129,12 @@ if let docsFlagIndex = arguments.firstIndex(of: "--validate-products-doc") {
     validatePurchaseProductsDocument(at: path)
 }
 
+if let productSourceFlagIndex = arguments.firstIndex(of: "--validate-product-source") {
+    let candidatePath = arguments.dropFirst(productSourceFlagIndex + 1).first
+    let path = candidatePath?.hasPrefix("-") == false ? candidatePath! : "Liminalog/Stores/PurchaseProduct.swift"
+    validatePurchaseProductSource(at: path)
+}
+
 if let premiumDecorationDocsFlagIndex = arguments.firstIndex(of: "--validate-premium-decoration-products-doc") {
     let candidatePath = arguments.dropFirst(premiumDecorationDocsFlagIndex + 1).first
     let path = candidatePath?.hasPrefix("-") == false ? candidatePath! : "AppStore/PurchaseProducts.md"
@@ -343,6 +349,58 @@ private func validatePurchaseProductsDocument(at path: String) -> Never {
     exit(EXIT_FAILURE)
 }
 
+private func validatePurchaseProductSource(at path: String) -> Never {
+    let fileURL = URL(fileURLWithPath: path)
+    guard let source = try? String(contentsOf: fileURL, encoding: .utf8) else {
+        print("error: purchase product source not found at \(fileURL.path)")
+        exit(EXIT_FAILURE)
+    }
+
+    let sourceProducts = purchaseProductSourceSpecs(in: source)
+    var failures: [String] = []
+
+    if sourceProducts.isEmpty {
+        failures.append("could not parse PurchaseProductID.appStoreConnectSpecifications inputs from \(path)")
+    }
+
+    if sourceProducts.count != expectedProducts.count {
+        failures.append("expected \(expectedProducts.count) source products, found \(sourceProducts.count)")
+    }
+
+    for (index, expected) in expectedProducts.enumerated() {
+        guard sourceProducts.indices.contains(index) else { continue }
+        let sourceProduct = sourceProducts[index]
+
+        if sourceProduct.productID != expected.productID {
+            failures.append("source row \(index + 1) product ID mismatch: expected \(expected.productID), found \(sourceProduct.productID)")
+        }
+        if sourceProduct.displayName != expected.displayName {
+            failures.append("source row \(index + 1) display name mismatch for \(expected.productID): expected \(expected.displayName), found \(sourceProduct.displayName)")
+        }
+        if sourceProduct.kind != expected.kind {
+            failures.append("source row \(index + 1) type mismatch for \(expected.productID): expected \(expected.kind), found \(sourceProduct.kind)")
+        }
+        if sourceProduct.referencePrice != expected.referencePrice {
+            failures.append("source row \(index + 1) price mismatch for \(expected.productID): expected \(expected.referencePrice), found \(sourceProduct.referencePrice)")
+        }
+        if sourceProduct.subscriptionGroup != expected.subscriptionGroup {
+            let expectedGroup = expected.subscriptionGroup ?? "-"
+            let foundGroup = sourceProduct.subscriptionGroup ?? "-"
+            failures.append("source row \(index + 1) group mismatch for \(expected.productID): expected \(expectedGroup), found \(foundGroup)")
+        }
+    }
+
+    if failures.isEmpty {
+        print("Purchase product source matches planned Liminalog product specifications.")
+        exit(EXIT_SUCCESS)
+    }
+
+    for failure in failures {
+        print("error: \(failure)")
+    }
+    exit(EXIT_FAILURE)
+}
+
 private func validatePremiumDecorationProductsDocument(at path: String, catalogPath: String) -> Never {
     let fileURL = URL(fileURLWithPath: path)
     guard let text = try? String(contentsOf: fileURL, encoding: .utf8) else {
@@ -501,6 +559,14 @@ private struct ProductDocumentRow {
     var subscriptionGroup: String?
 }
 
+private struct ProductSourceRow {
+    var productID: String
+    var displayName: String
+    var kind: String
+    var referencePrice: String
+    var subscriptionGroup: String?
+}
+
 private struct PremiumDecorationSourceItem {
     var productID: String
     var displayName: String
@@ -526,6 +592,168 @@ private func productRows(in markdown: String, sectionName: String = "Products") 
                 subscriptionGroup: columns[4] == "-" ? nil : columns[4]
             )
         }
+}
+
+private func purchaseProductSourceSpecs(in source: String) -> [ProductSourceRow] {
+    let productIDsByCase = purchaseProductEnumCases(in: source)
+    let displayNames = stringSwitchValues(in: source, marker: "var displayName: String {")
+    let prices = stringSwitchValues(in: source, marker: "var referencePriceText: String {")
+    let productKinds = enumSwitchValues(in: source, marker: "var kind: PurchaseProductKind {")
+    let order = primaryDisplayOrder(in: source)
+
+    return order.compactMap { caseName in
+        guard
+            let productID = productIDsByCase[caseName],
+            let displayName = displayNames[caseName],
+            let referencePrice = prices[caseName],
+            let productKind = productKinds[caseName],
+            let storeKitKind = storeKitKindName(forProductKind: productKind)
+        else {
+            return nil
+        }
+
+        return ProductSourceRow(
+            productID: productID,
+            displayName: displayName,
+            kind: storeKitKind,
+            referencePrice: referencePrice,
+            subscriptionGroup: productKindUsesSubscriptionGroup(productKind) ? "Liminalog Pro" : nil
+        )
+    }
+}
+
+private func purchaseProductEnumCases(in source: String) -> [String: String] {
+    let pattern = #"\bcase\s+([A-Za-z0-9_]+)\s*=\s*"([^"]+)""#
+    guard let regex = try? NSRegularExpression(pattern: pattern) else {
+        return [:]
+    }
+    let nsSource = source as NSString
+    let range = NSRange(location: 0, length: nsSource.length)
+    return Dictionary(uniqueKeysWithValues: regex.matches(in: source, range: range).map { match in
+        (
+            nsSource.substring(with: match.range(at: 1)),
+            nsSource.substring(with: match.range(at: 2))
+        )
+    })
+}
+
+private func primaryDisplayOrder(in source: String) -> [String] {
+    let pattern = #"static let primaryDisplayOrder:\s*\[PurchaseProductID\]\s*=\s*\[(.*?)\]"#
+    guard
+        let regex = try? NSRegularExpression(pattern: pattern, options: [.dotMatchesLineSeparators]),
+        let match = regex.firstMatch(in: source, range: NSRange(location: 0, length: (source as NSString).length))
+    else {
+        return []
+    }
+
+    let nsSource = source as NSString
+    let block = nsSource.substring(with: match.range(at: 1))
+    return dotCaseNames(in: block)
+}
+
+private func stringSwitchValues(in source: String, marker: String) -> [String: String] {
+    guard let block = sourceBlock(in: source, startingAt: marker) else {
+        return [:]
+    }
+
+    let pattern = #"case\s+([^:]+):\s*"([^"]+)""#
+    guard let regex = try? NSRegularExpression(pattern: pattern, options: [.dotMatchesLineSeparators]) else {
+        return [:]
+    }
+
+    let nsBlock = block as NSString
+    let range = NSRange(location: 0, length: nsBlock.length)
+    var values: [String: String] = [:]
+    for match in regex.matches(in: block, range: range) {
+        let caseList = nsBlock.substring(with: match.range(at: 1))
+        let value = nsBlock.substring(with: match.range(at: 2))
+        for caseName in dotCaseNames(in: caseList) {
+            values[caseName] = value
+        }
+    }
+    return values
+}
+
+private func enumSwitchValues(in source: String, marker: String) -> [String: String] {
+    guard let block = sourceBlock(in: source, startingAt: marker) else {
+        return [:]
+    }
+
+    let pattern = #"case\s+([^:]+):\s*\.([A-Za-z0-9_]+)"#
+    guard let regex = try? NSRegularExpression(pattern: pattern, options: [.dotMatchesLineSeparators]) else {
+        return [:]
+    }
+
+    let nsBlock = block as NSString
+    let range = NSRange(location: 0, length: nsBlock.length)
+    var values: [String: String] = [:]
+    for match in regex.matches(in: block, range: range) {
+        let caseList = nsBlock.substring(with: match.range(at: 1))
+        let value = nsBlock.substring(with: match.range(at: 2))
+        for caseName in dotCaseNames(in: caseList) {
+            values[caseName] = value
+        }
+    }
+    return values
+}
+
+private func sourceBlock(in source: String, startingAt marker: String) -> String? {
+    guard let markerRange = source.range(of: marker),
+          let openingBrace = source[markerRange.lowerBound...].firstIndex(of: "{")
+    else {
+        return nil
+    }
+
+    var depth = 0
+    var index = openingBrace
+
+    while index < source.endIndex {
+        let character = source[index]
+        if character == "{" {
+            depth += 1
+        } else if character == "}" {
+            depth -= 1
+            if depth == 0 {
+                return String(source[openingBrace...index])
+            }
+        }
+        index = source.index(after: index)
+    }
+
+    return nil
+}
+
+private func dotCaseNames(in text: String) -> [String] {
+    text
+        .split(separator: ",")
+        .map {
+            $0
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .replacingOccurrences(of: ".", with: "")
+        }
+        .filter { !$0.isEmpty }
+}
+
+private func storeKitKindName(forProductKind productKind: String) -> String? {
+    switch productKind {
+    case "proSubscription", "decorationSubscription":
+        return "Auto-Renewable Subscription"
+    case "lifetime", "premiumDecoration":
+        return "Non-Consumable"
+    case "supportTip":
+        return "Consumable"
+    default:
+        return nil
+    }
+}
+
+private func productKindUsesSubscriptionGroup(_ productKind: String) -> Bool {
+    switch productKind {
+    case "proSubscription", "decorationSubscription":
+        return true
+    default:
+        return false
+    }
 }
 
 private func premiumDecorationCatalogItems(in source: String) -> [PremiumDecorationSourceItem] {
@@ -572,6 +800,7 @@ private func printUsage() {
       swift Scripts/validate-storekit-config.swift --app-store-connect-tsv
       swift Scripts/validate-storekit-config.swift --app-store-connect-confirmation-md
       swift Scripts/validate-storekit-config.swift --validate-products-doc [path-to-PurchaseProducts.md]
+      swift Scripts/validate-storekit-config.swift --validate-product-source [path-to-PurchaseProduct.swift]
       swift Scripts/validate-storekit-config.swift --validate-premium-decoration-products-doc [path-to-PurchaseProducts.md]
       swift Scripts/validate-storekit-config.swift --validate-release-safety [path-to-PurchaseConfiguration.swift]
       swift Scripts/validate-storekit-config.swift --validate-xcode-scheme-storekit [path-to-Liminalog.xcscheme]
