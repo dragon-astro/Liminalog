@@ -90,6 +90,12 @@ swift Scripts/validate-storekit-config.swift --validate-release-gate-state close
 Gate 2 で `purchaseEntryPointIsEnabled` と `backgroundEntitlementRefreshIsEnabled` を true にする直前に埋める。入力後は `swift Scripts/validate-storekit-config.swift --validate-purchase-ui-qa-complete` を通す。Gate 2 へ進む直前は `Scripts/validate-purchase-readiness.sh --gate2-ready` を使う。
 `fill manually`、`TBD`、`TODO`、空欄、`screenshot / note`、`command output`、`DEBUG / Release`、`local .storekit / Sandbox` のようなテンプレ値が残っている場合は未完了として扱う。
 
+Gate 2 のコード状態で購入UI QAを始める直前は、次を実行して App Store Connect 確認、Local StoreKit QA 証跡、Gate 2 状態、StoreKit 設定、法務URLが揃っていることを確認する。
+
+```sh
+Scripts/prepare-purchase-ui-qa.sh
+```
+
 | 項目 | 記録 |
 |---|---|
 | Git SHA |  |
