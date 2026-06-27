@@ -29,6 +29,12 @@ Liminalog のローカル課金テスト準備メモ。`.storekit` ファイル�
 
 ## 3. 作成後の検査
 
+まず App Store Connect 用メモが期待商品リストと一致しているか確認する。
+
+```sh
+swift Scripts/validate-storekit-config.swift --validate-products-doc
+```
+
 `.storekit` を作成したら、repo root で次を実行する。
 
 ```sh

@@ -105,6 +105,12 @@ if arguments.contains("--expected") {
     exit(EXIT_SUCCESS)
 }
 
+if let docsFlagIndex = arguments.firstIndex(of: "--validate-products-doc") {
+    let path = arguments.dropFirst(docsFlagIndex + 1).first ?? "AppStore/PurchaseProducts.md"
+    validatePurchaseProductsDocument(at: path)
+    exit(EXIT_SUCCESS)
+}
+
 guard let path = arguments.first, !path.hasPrefix("-") else {
     printUsage()
     exit(EXIT_FAILURE)
@@ -205,11 +211,101 @@ private func collectDictionaries(_ value: Any) -> [[String: Any]] {
     return dictionaries
 }
 
+private func validatePurchaseProductsDocument(at path: String) -> Never {
+    let fileURL = URL(fileURLWithPath: path)
+    guard let text = try? String(contentsOf: fileURL, encoding: .utf8) else {
+        print("error: purchase products document not found at \(fileURL.path)")
+        exit(EXIT_FAILURE)
+    }
+
+    let rows = productRows(in: text)
+    var failures: [String] = []
+
+    if rows.count != expectedProducts.count {
+        failures.append("expected \(expectedProducts.count) product rows, found \(rows.count)")
+    }
+
+    for (index, expected) in expectedProducts.enumerated() {
+        guard rows.indices.contains(index) else { continue }
+        let row = rows[index]
+
+        if row.productID != expected.productID {
+            failures.append("row \(index + 1) product ID mismatch: expected \(expected.productID), found \(row.productID)")
+        }
+        if row.referenceName != expected.displayName {
+            failures.append("row \(index + 1) reference name mismatch for \(expected.productID): expected \(expected.displayName), found \(row.referenceName)")
+        }
+        if row.type != expected.kind {
+            failures.append("row \(index + 1) type mismatch for \(expected.productID): expected \(expected.kind), found \(row.type)")
+        }
+        if row.price != expected.referencePrice {
+            failures.append("row \(index + 1) price mismatch for \(expected.productID): expected \(expected.referencePrice), found \(row.price)")
+        }
+        if row.subscriptionGroup != expected.subscriptionGroup {
+            let expectedGroup = expected.subscriptionGroup ?? "-"
+            let foundGroup = row.subscriptionGroup ?? "-"
+            failures.append("row \(index + 1) group mismatch for \(expected.productID): expected \(expectedGroup), found \(foundGroup)")
+        }
+    }
+
+    let expectedGroupNames = Set(expectedProducts.compactMap(\.subscriptionGroup))
+    for groupName in expectedGroupNames where !text.contains(groupName) {
+        failures.append("missing subscription group text: \(groupName)")
+    }
+
+    if failures.isEmpty {
+        print("Purchase products document matches planned Liminalog product specifications.")
+        exit(EXIT_SUCCESS)
+    }
+
+    for failure in failures {
+        print("error: \(failure)")
+    }
+    exit(EXIT_FAILURE)
+}
+
+private struct ProductDocumentRow {
+    var productID: String
+    var referenceName: String
+    var type: String
+    var price: String
+    var subscriptionGroup: String?
+}
+
+private func productRows(in markdown: String) -> [ProductDocumentRow] {
+    markdown
+        .split(separator: "\n", omittingEmptySubsequences: false)
+        .compactMap { rawLine -> ProductDocumentRow? in
+            let line = String(rawLine)
+            guard line.hasPrefix("| `liminalog.") else { return nil }
+            let columns = line
+                .split(separator: "|", omittingEmptySubsequences: false)
+                .dropFirst()
+                .dropLast()
+                .map { normalizeMarkdownCell(String($0)) }
+            guard columns.count == 5 else { return nil }
+            return ProductDocumentRow(
+                productID: columns[0],
+                referenceName: columns[1],
+                type: columns[2],
+                price: columns[3],
+                subscriptionGroup: columns[4] == "-" ? nil : columns[4]
+            )
+        }
+}
+
+private func normalizeMarkdownCell(_ value: String) -> String {
+    value
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+        .replacingOccurrences(of: "`", with: "")
+}
+
 private func printUsage() {
     print("""
     usage:
       swift Scripts/validate-storekit-config.swift <path-to-liminalog.storekit>
       swift Scripts/validate-storekit-config.swift --expected
+      swift Scripts/validate-storekit-config.swift --validate-products-doc [path-to-PurchaseProducts.md]
 
     Create the StoreKit configuration in Xcode first, then run this validator.
     """)

@@ -38,6 +38,20 @@ App Review に課金の意図を説明する時の下書き。
 - 利用規約URLが公開済みで、App Store Connect とアプリ内設定の両方から参照できる。
 - ローカル StoreKit Configuration で同じ商品IDを作り、`Scripts/validate-storekit-config.swift` を通している。
 
+## Local Validation
+
+このメモを編集したら、repo root で次を実行する。
+
+```sh
+swift Scripts/validate-storekit-config.swift --validate-products-doc
+```
+
+StoreKit Configuration 作成後は、同じ期待商品リストで `.storekit` も検査する。
+
+```sh
+swift Scripts/validate-storekit-config.swift liminalog.storekit
+```
+
 ## After App Store Connect Confirmation
 
 App Store Connect で商品を確認した後だけ、アプリ側で次を更新する。
