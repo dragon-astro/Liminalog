@@ -179,6 +179,61 @@ struct PurchaseConfigurationTests {
     }
 
     @Test
+    func purchaseEntryPointCannotBypassMissingReleaseMetadata() {
+        let configuration = PurchaseConfiguration(
+            productIDs: PurchaseProductID.storeKitProductIDs,
+            productIDsAreConfirmedForAppStoreConnect: false,
+            subscriptionGroupName: nil,
+            legalLinks: PurchaseLegalLinks(
+                termsOfUseURL: termsURL,
+                privacyPolicyURL: privacyURL
+            ),
+            purchaseEntryPointIsEnabled: true,
+            backgroundEntitlementRefreshIsEnabled: true
+        )
+        let snapshot = configuration.releaseReadinessSnapshot
+        let policy = PurchaseActivationPolicy(
+            configuration: configuration,
+            buildMode: .release
+        )
+        let runtimePolicy = PurchaseStoreRuntimePolicy(activationPolicy: policy)
+
+        #expect(snapshot.state == .missingRequiredMetadata)
+        #expect(!snapshot.hasRequiredMetadata)
+        #expect(!snapshot.canExposePurchaseEntryPoint)
+        #expect(!snapshot.shouldRefreshEntitlementsInBackground)
+        #expect(!configuration.canExposePurchaseEntryPoint)
+        #expect(!policy.shouldShowSettingsEntryPoint)
+        #expect(!policy.shouldUseStoreKitRuntime)
+        #expect(!runtimePolicy.allowsStoreKitOperations)
+        #expect(!runtimePolicy.shouldStartStoreKitOnAppLaunch)
+    }
+
+    @Test
+    func featureRestrictionsCannotBypassPurchaseEntryPointReadiness() {
+        let configuration = readyConfiguration(
+            purchaseEntryPointIsEnabled: false,
+            featureRestrictionsAreEnabled: true,
+            backgroundEntitlementRefreshIsEnabled: true
+        )
+        let snapshot = configuration.releaseReadinessSnapshot
+        let policy = PurchaseActivationPolicy(
+            configuration: configuration,
+            buildMode: .release
+        )
+
+        #expect(snapshot.state == .metadataReadyWaitingForGoLive)
+        #expect(snapshot.hasRequiredMetadata)
+        #expect(!snapshot.canExposePurchaseEntryPoint)
+        #expect(!snapshot.shouldEnforceFeatureRestrictions)
+        #expect(!snapshot.shouldRefreshEntitlementsInBackground)
+        #expect(!policy.shouldShowSettingsEntryPoint)
+        #expect(!policy.shouldUseStoreKitRuntime)
+        #expect(!policy.shouldEnforceFeatureRestrictions)
+        #expect(!policy.shouldRefreshEntitlementsInBackground)
+    }
+
+    @Test
     func storeKitProductIDsAreTrimmedBeforeRuntimeUse() {
         let configuration = PurchaseConfiguration(
             productIDs: [
