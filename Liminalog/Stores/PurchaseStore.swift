@@ -61,6 +61,24 @@ enum DebugPurchaseEntitlementsOverride: String, CaseIterable, Identifiable {
             )
         }
     }
+
+    static func launchOverride(
+        arguments: [String] = ProcessInfo.processInfo.arguments,
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> DebugPurchaseEntitlementsOverride? {
+        if let environmentValue = environment["LiminalogDebugPurchaseState"] {
+            return DebugPurchaseEntitlementsOverride(rawValue: environmentValue)
+        }
+
+        guard
+            let flagIndex = arguments.firstIndex(of: "-LiminalogDebugPurchaseState"),
+            arguments.indices.contains(arguments.index(after: flagIndex))
+        else {
+            return nil
+        }
+
+        return DebugPurchaseEntitlementsOverride(rawValue: arguments[arguments.index(after: flagIndex)])
+    }
 }
 #endif
 
@@ -287,6 +305,14 @@ final class PurchaseStore {
     }
 
     #if DEBUG
+    func applyDebugLaunchEntitlementsOverrideIfRequested() {
+        guard let override = DebugPurchaseEntitlementsOverride.launchOverride(),
+              override != .system
+        else { return }
+
+        applyDebugEntitlementsOverride(override)
+    }
+
     func applyDebugEntitlementsOverride(_ override: DebugPurchaseEntitlementsOverride) {
         if override == .system {
             debugEntitlementsOverrideKind = .system

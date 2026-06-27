@@ -9,6 +9,7 @@ Liminalog の課金UIを既存機能に影響させず確認するための手�
 - 既存ユーザーのリリースデータが入った実機にインストールして確認する場合は、事前に明示承認を取る。
 - 手元確認はまず Simulator の DEBUG ビルドで行う。
 - `.storekit` がない間は実購入フローを通さず、設定の DEBUG セクションにある「課金状態を試す」で表示状態だけを見る。
+- 起動直後の画面を撮る時だけ、DEBUG 起動引数 `-LiminalogDebugPurchaseState pro|lifetime|lifetimeWithDecorationPass|decorationPassOnly` を使って疑似課金状態を入れてよい。これは実購入状態やキャッシュを保存しない。
 - `PurchaseConfiguration.current.purchaseEntryPointIsEnabled == false` の間、Release では設定に「Proと応援」が出ないことを正とする。
 - `featureRestrictionsAreEnabled == false` の間、統計、記録、カレンダー、友達、プロフィールカード、シェアの既存機能はロックしない。
 - StoreKit の購入、復元、サブスクリプション管理を試すのは、`liminalog.storekit` 作成後、または App Store Connect Sandbox 準備後に限る。
@@ -20,7 +21,7 @@ Liminalog の課金UIを既存機能に影響させず確認するための手�
 1. DEBUG ビルドで起動する。
 2. 設定を開き、「Proと応援」が表示されることを確認する。
 3. 「Proと応援」を開き、準備中の説明、規約リンク、未設定項目が表示されることを確認する。
-4. 設定 > デバッグ > 課金状態を試す を `実際の状態` / `Proサブ` / `ライフタイム` / `ライフタイム＋装飾パス` / `装飾パスのみ` に切り替える。
+4. 設定 > デバッグ > 課金状態を試す を `実際の状態` / `Proサブ` / `ライフタイム` / `ライフタイム＋装飾パス` / `装飾パスのみ` に切り替える。起動直後から特定状態を見たい時は `-LiminalogDebugPurchaseState` を使う。
 5. 各状態で「Proと応援」のステータス文言と表示される購入候補が自然か確認する。
 6. 設定 > デバッグ > Pro制限を試す をONにし、無料状態では統計タブが軽いPro案内になることを確認する。
 7. Proサブ / ライフタイムでは統計タブが既存の統計画面になること、装飾パスのみではPro案内になることを確認する。
@@ -100,6 +101,7 @@ swift Scripts/validate-storekit-config.swift --validate-release-safety
 | Date | Git SHA | Build | Device | StoreKit Source | Purchase Entry | Feature Restrictions | Result | Notes |
 |---|---|---|---|---|---|---|---|---|
 | 2026-06-27 | working tree after `6007e98` | DEBUG | iPhone 17 Pro Simulator / iOS 26.5 | none | visible | DEBUG forced on | pass | `debug.purchase.enforceFeatureRestrictions = true` と `-LiminalogInitialRootTab dashboard` で起動し、無料状態の統計タブが `StatisticsProPreviewView` になることを確認。確認後フラグはOFFへ戻した。 |
+| 2026-06-27 | working tree after `497ca6a` | DEBUG | iPhone 17 Pro Simulator / iOS 26.5 | none | visible | DEBUG forced on | pass | `-LiminalogDebugPurchaseState pro` で統計本体、`decorationPassOnly` で `StatisticsProPreviewView` が表示されることを確認。確認後フラグはOFFへ戻した。 |
 
 ## Stop Conditions
 

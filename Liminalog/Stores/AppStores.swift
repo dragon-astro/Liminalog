@@ -26,6 +26,9 @@ final class AppStores {
             productIDs: purchaseConfiguration.storeKitProductIDs,
             userDefaults: UserDefaults(suiteName: SharedModelContainer.appGroupID)
         )
+        #if DEBUG
+        purchaseStore.applyDebugLaunchEntitlementsOverrideIfRequested()
+        #endif
         let streakNotificationStore = StreakNotificationStore(modelContext: modelContext)
         let liveActivityCoordinator = LiveActivityCoordinator(categorySetStore: categorySetStore)
         let chapterStore = ChapterStore(

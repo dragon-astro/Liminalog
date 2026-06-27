@@ -6,6 +6,35 @@ import Testing
 @MainActor
 struct PurchaseStoreDebugTests {
     @Test
+    func debugLaunchOverrideReadsEnvironmentValue() {
+        let override = DebugPurchaseEntitlementsOverride.launchOverride(
+            arguments: ["Liminalog"],
+            environment: ["LiminalogDebugPurchaseState": "lifetime"]
+        )
+
+        #expect(override == .lifetime)
+    }
+
+    @Test
+    func debugLaunchOverrideReadsLaunchArgumentValue() {
+        let override = DebugPurchaseEntitlementsOverride.launchOverride(
+            arguments: ["Liminalog", "-LiminalogDebugPurchaseState", "decorationPassOnly"],
+            environment: [:]
+        )
+
+        #expect(override == .decorationPassOnly)
+    }
+
+    @Test
+    func debugLaunchOverrideIgnoresMissingOrUnknownValues() {
+        #expect(DebugPurchaseEntitlementsOverride.launchOverride(arguments: ["Liminalog"], environment: [:]) == nil)
+        #expect(DebugPurchaseEntitlementsOverride.launchOverride(
+            arguments: ["Liminalog", "-LiminalogDebugPurchaseState", "unknown"],
+            environment: [:]
+        ) == nil)
+    }
+
+    @Test
     func debugOverrideChangesEntitlementsWithoutStoreKitRefresh() {
         let store = PurchaseStore(
             productIDs: PurchaseProductID.storeKitProductIDs,
