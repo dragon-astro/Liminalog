@@ -105,6 +105,11 @@ if arguments.contains("--expected") {
     exit(EXIT_SUCCESS)
 }
 
+if arguments.contains("--app-store-connect-tsv") {
+    printAppStoreConnectTSV()
+    exit(EXIT_SUCCESS)
+}
+
 if let docsFlagIndex = arguments.firstIndex(of: "--validate-products-doc") {
     let path = arguments.dropFirst(docsFlagIndex + 1).first ?? "AppStore/PurchaseProducts.md"
     validatePurchaseProductsDocument(at: path)
@@ -372,6 +377,7 @@ private func printUsage() {
     usage:
       swift Scripts/validate-storekit-config.swift <path-to-liminalog.storekit>
       swift Scripts/validate-storekit-config.swift --expected
+      swift Scripts/validate-storekit-config.swift --app-store-connect-tsv
       swift Scripts/validate-storekit-config.swift --validate-products-doc [path-to-PurchaseProducts.md]
       swift Scripts/validate-storekit-config.swift --validate-release-safety [path-to-PurchaseConfiguration.swift]
 
@@ -384,5 +390,27 @@ private func printExpectedProducts() {
     for product in expectedProducts {
         let group = product.subscriptionGroup ?? "-"
         print("- \(product.productID) | \(product.kind) | \(product.referencePrice) | group: \(group)")
+    }
+}
+
+private func printAppStoreConnectTSV() {
+    print("Product ID\tReference Name\tType\tReference Price\tSubscription Group\tNotes")
+    for product in expectedProducts {
+        let group = product.subscriptionGroup ?? "-"
+        let notes = appStoreConnectNotes(for: product)
+        print("\(product.productID)\t\(product.displayName)\t\(product.kind)\t\(product.referencePrice)\t\(group)\t\(notes)")
+    }
+}
+
+private func appStoreConnectNotes(for product: ExpectedProduct) -> String {
+    switch product.productID {
+    case "liminalog.pro.yearly":
+        return "7日無料体験は未確定。確定後にアプリ内文言へ反映する。"
+    case "liminalog.decorations.monthly", "liminalog.decorations.yearly":
+        return "アプリ側ではライフタイム所有者向けに表示制御する。"
+    case "liminalog.support.small", "liminalog.support.medium", "liminalog.support.large":
+        return "機能解放ではなく任意支援。恒久権利を付けない。"
+    default:
+        return ""
     }
 }

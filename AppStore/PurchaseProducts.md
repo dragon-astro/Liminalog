@@ -46,11 +46,33 @@ App Review に課金の意図を説明する時の下書き。
 swift Scripts/validate-storekit-config.swift --validate-products-doc
 ```
 
+App Store Connect へ転記するためのTSVは、同じ期待商品リストから生成する。
+
+```sh
+swift Scripts/validate-storekit-config.swift --app-store-connect-tsv
+```
+
 StoreKit Configuration 作成後は、同じ期待商品リストで `.storekit` も検査する。
 
 ```sh
 swift Scripts/validate-storekit-config.swift liminalog.storekit
 ```
+
+## Confirmation Sheet
+
+App Store Connect で作成した後、各行を確認する。すべて確認できるまで `PurchaseConfiguration.current.productIDsAreConfirmedForAppStoreConnect` は true にしない。
+
+| Product ID | ID | Type | Price | Group | Notes |
+|---|---|---|---|---|---|
+| `liminalog.pro.monthly` | [ ] | [ ] | [ ] | [ ] |  |
+| `liminalog.pro.yearly` | [ ] | [ ] | [ ] | [ ] | 7日無料体験の有無を確定 |
+| `liminalog.lifetime` | [ ] | [ ] | [ ] | - |  |
+| `liminalog.decorations.monthly` | [ ] | [ ] | [ ] | [ ] | ライフタイム所有者向け表示 |
+| `liminalog.decorations.yearly` | [ ] | [ ] | [ ] | [ ] | ライフタイム所有者向け表示 |
+| `liminalog.support.small` | [ ] | [ ] | [ ] | - | 権利付与なし |
+| `liminalog.support.medium` | [ ] | [ ] | [ ] | - | 権利付与なし |
+| `liminalog.support.large` | [ ] | [ ] | [ ] | - | 権利付与なし |
+| `Liminalog Pro` subscription group | - | - | - | [ ] | Proサブと装飾パスを同一グループに入れる |
 
 ## After App Store Connect Confirmation
 

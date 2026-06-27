@@ -1,5 +1,7 @@
 # App Review Notes Draft
 
+## Current No-Paid-Release Submission
+
 Liminalog is a native iOS time logging, calendar, stats, widget, and profile app.
 
 The app does not use in-app purchases, ads, third-party tracking SDKs, or social login.
@@ -11,3 +13,13 @@ Push notification capability and the `remote-notification` background mode are u
 The privacy policy is available in Settings > Privacy Policy. Support contact: yuhlab.dev@gmail.com.
 
 If friend sharing needs to be reviewed, use two iCloud-enabled devices or accounts, create user IDs on both devices, then send and approve a friend request from the Friends tab.
+
+## Paid Release Draft
+
+Use this only after the in-app purchase products are created in App Store Connect and `PurchaseConfiguration.current.purchaseEntryPointIsEnabled` is intentionally enabled.
+
+Liminalog offers optional in-app purchases for Pro features, lifetime support, decoration access, and voluntary support tips. Core logging, calendar browsing, friends, and daily card sharing remain available without purchase. The app does not use external payment links or unlock purchased content outside StoreKit.
+
+Pro subscriptions and lifetime purchase unlock deeper analysis features once feature restrictions are explicitly enabled. Lifetime purchase does not include premium decoration rental. Decoration pass subscriptions are shown in the app only for lifetime owners and provide decoration rental access while active. Support tips are voluntary consumables and do not grant permanent feature access.
+
+The privacy policy is available in Settings > Privacy Policy. Terms of use must be available at `https://liminalog.vercel.app/terms` before the paid release is submitted. Support contact: yuhlab.dev@gmail.com.
