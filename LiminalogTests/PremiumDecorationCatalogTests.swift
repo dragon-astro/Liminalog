@@ -141,4 +141,84 @@ struct PremiumDecorationCatalogTests {
             ) == fallbackID
         )
     }
+
+    @Test
+    func displayPolicyCombinesEarnedLockedAndPremiumUnavailableStates() throws {
+        let earnedFrames = Array(UnlockCatalog.items.filter { $0.kind == .iconFrame }.prefix(2))
+        let unlockedEarnedFrame = try #require(earnedFrames.first)
+        let lockedEarnedFrame = try #require(earnedFrames.dropFirst().first)
+        let premiumFrame = try #require(PremiumDecorationCatalog.items(kind: .iconFrame).first)
+        let policy = DecorationAccessDisplayPolicy()
+
+        let displayItems = policy.displayItems(
+            kind: .iconFrame,
+            earnedCatalogItems: earnedFrames,
+            unlockedEarnedTargetIDs: [unlockedEarnedFrame.targetID],
+            entitlements: PurchaseEntitlements()
+        )
+
+        let earnedItem = try #require(displayItems.first { $0.targetID == unlockedEarnedFrame.targetID })
+        let lockedItem = try #require(displayItems.first { $0.targetID == lockedEarnedFrame.targetID })
+        let premiumItem = try #require(displayItems.first { $0.targetID == premiumFrame.targetID })
+
+        #expect(earnedItem.state == .earned)
+        #expect(earnedItem.canEquip)
+        #expect(earnedItem.productID == nil)
+        #expect(lockedItem.state == .locked)
+        #expect(!lockedItem.canEquip)
+        #expect(lockedItem.productID == nil)
+        #expect(premiumItem.state == .premiumUnavailable)
+        #expect(!premiumItem.canEquip)
+        #expect(premiumItem.productID == premiumFrame.productID)
+    }
+
+    @Test
+    func displayPolicyMapsPremiumRentalAndOwnershipStates() throws {
+        let premiumCard = try #require(PremiumDecorationCatalog.items(kind: .cardStyle).first)
+        let policy = DecorationAccessDisplayPolicy()
+        let rentedEntitlements = PurchaseEntitlements(
+            activeProductIDs: [PurchaseProductID.proYearly.rawValue],
+            ownedNonConsumableProductIDs: [],
+            lastVerifiedAt: Date()
+        )
+        let ownedEntitlements = PurchaseEntitlements(
+            activeProductIDs: [premiumCard.productID],
+            ownedNonConsumableProductIDs: [premiumCard.productID],
+            lastVerifiedAt: Date()
+        )
+        let lifetimeOnlyEntitlements = PurchaseEntitlements(
+            activeProductIDs: [PurchaseProductID.lifetime.rawValue],
+            ownedNonConsumableProductIDs: [PurchaseProductID.lifetime.rawValue],
+            lastVerifiedAt: Date()
+        )
+
+        let rentedItem = try #require(policy.displayItems(
+            kind: .cardStyle,
+            earnedCatalogItems: [],
+            unlockedEarnedTargetIDs: [],
+            entitlements: rentedEntitlements
+        ).first)
+        let ownedItem = try #require(policy.displayItems(
+            kind: .cardStyle,
+            earnedCatalogItems: [],
+            unlockedEarnedTargetIDs: [],
+            entitlements: ownedEntitlements
+        ).first)
+        let lifetimeOnlyItem = try #require(policy.displayItems(
+            kind: .cardStyle,
+            earnedCatalogItems: [],
+            unlockedEarnedTargetIDs: [],
+            entitlements: lifetimeOnlyEntitlements
+        ).first)
+
+        #expect(rentedItem.targetID == premiumCard.targetID)
+        #expect(rentedItem.state == .premiumRented)
+        #expect(rentedItem.canEquip)
+        #expect(ownedItem.targetID == premiumCard.targetID)
+        #expect(ownedItem.state == .premiumOwned)
+        #expect(ownedItem.canEquip)
+        #expect(lifetimeOnlyItem.targetID == premiumCard.targetID)
+        #expect(lifetimeOnlyItem.state == .premiumUnavailable)
+        #expect(!lifetimeOnlyItem.canEquip)
+    }
 }

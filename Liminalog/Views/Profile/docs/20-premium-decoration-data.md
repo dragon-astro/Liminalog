@@ -29,6 +29,9 @@
   - 現時点では既存の非表示 `legacyItems` から、アイコンフレーム4件・カードスタイル4件を単品候補として列挙する。
   - 既存の無料獲得カタログ `UnlockCatalog` とは targetID を衝突させない。
   - UI にはまだ合流していないため、既存の装飾画面・プロフィール表示は変えない。
+- `DecorationAccessDisplayState` / `DecorationAccessDisplayPolicy`
+  - 獲得済み / 未獲得 / 課金未所持 / レンタル中 / 単品所有を、UI接続前の表示状態として統合する純粋ロジック。
+  - まだ `UnlockGalleryView` には接続していない。
 - `PremiumDecorationEquippingPolicy`
   - 保存済み targetID を、獲得済み / 単品所有 / レンタル中 / 権利なしの順に表示時解決するための純粋ロジック。
   - 現時点では UI 未接続。課金権利がない場合に default/none へ戻す挙動だけをテストで固定している。
@@ -146,7 +149,7 @@ struct PremiumDecorationCatalogItem: Identifiable, Codable, Equatable {
 
 1. [x] `PremiumDecorationCatalog` を静的カタログとして追加する。
 2. [x] 既存カタログIDと衝突しない productID / targetID 命名を決める。
-3. 表示用の `DecorationAccessDisplayState` を作り、獲得/課金/未所持を統合する。
+3. [x] 表示用の `DecorationAccessDisplayState` を作り、獲得/課金/未所持を統合する。
 4. `UnlockGalleryView` の対象タブに課金装飾を合流する。
 5. 装着時に `PremiumDecorationAccessPolicy` を通す。
 6. [x] 失効時フォールバックのテストを追加する。

@@ -20,6 +20,49 @@ struct PremiumDecorationCatalogItem: Equatable, Codable, Identifiable {
     }
 }
 
+enum DecorationAccessDisplayState: String, Codable, Equatable {
+    case earned
+    case locked
+    case premiumUnavailable
+    case premiumRented
+    case premiumOwned
+
+    var canEquip: Bool {
+        switch self {
+        case .earned, .premiumRented, .premiumOwned:
+            return true
+        case .locked, .premiumUnavailable:
+            return false
+        }
+    }
+
+    var isPremium: Bool {
+        switch self {
+        case .premiumUnavailable, .premiumRented, .premiumOwned:
+            return true
+        case .earned, .locked:
+            return false
+        }
+    }
+}
+
+struct DecorationAccessDisplayItem: Equatable, Codable, Identifiable {
+    var kind: UnlockKind
+    var targetID: String
+    var displayName: String
+    var sortOrder: Int
+    var state: DecorationAccessDisplayState
+    var productID: String?
+
+    var id: String {
+        "\(kind.rawValue):\(targetID)"
+    }
+
+    var canEquip: Bool {
+        state.canEquip
+    }
+}
+
 enum PremiumDecorationCatalog {
     static let items: [PremiumDecorationCatalogItem] = [
         .iconFrame(
@@ -129,6 +172,65 @@ struct PremiumDecorationEquippingPolicy: Equatable {
 
     private func catalogItem(forTargetID targetID: String, kind: UnlockKind) -> PremiumDecorationCatalogItem? {
         catalogItems.first { $0.targetID == targetID && $0.kind == kind }
+    }
+}
+
+struct DecorationAccessDisplayPolicy: Equatable {
+    var premiumCatalogItems: [PremiumDecorationCatalogItem] = PremiumDecorationCatalog.items
+    var accessPolicy = PremiumDecorationAccessPolicy()
+
+    func displayItems(
+        kind: UnlockKind,
+        earnedCatalogItems: [UnlockCatalogItem],
+        unlockedEarnedTargetIDs: Set<String>,
+        entitlements: PurchaseEntitlements
+    ) -> [DecorationAccessDisplayItem] {
+        let earnedItems = earnedCatalogItems
+            .filter { $0.kind == kind }
+            .map { item in
+                DecorationAccessDisplayItem(
+                    kind: item.kind,
+                    targetID: item.targetID,
+                    displayName: item.displayName,
+                    sortOrder: item.sortOrder,
+                    state: unlockedEarnedTargetIDs.contains(item.targetID) ? .earned : .locked,
+                    productID: nil
+                )
+            }
+
+        let premiumItems = premiumCatalogItems
+            .filter { $0.kind == kind }
+            .map { item in
+                DecorationAccessDisplayItem(
+                    kind: item.kind,
+                    targetID: item.targetID,
+                    displayName: item.displayName,
+                    sortOrder: item.sortOrder,
+                    state: displayState(for: item, entitlements: entitlements),
+                    productID: item.productID
+                )
+            }
+
+        return (earnedItems + premiumItems).sorted {
+            if $0.sortOrder == $1.sortOrder {
+                return $0.id < $1.id
+            }
+            return $0.sortOrder < $1.sortOrder
+        }
+    }
+
+    private func displayState(
+        for item: PremiumDecorationCatalogItem,
+        entitlements: PurchaseEntitlements
+    ) -> DecorationAccessDisplayState {
+        switch accessPolicy.state(for: item.product, entitlements: entitlements) {
+        case .unavailable:
+            return .premiumUnavailable
+        case .rented:
+            return .premiumRented
+        case .owned:
+            return .premiumOwned
+        }
     }
 }
 
