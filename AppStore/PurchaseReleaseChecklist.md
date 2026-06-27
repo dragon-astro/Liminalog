@@ -55,7 +55,7 @@ backgroundEntitlementRefreshIsEnabled: false
 検証：
 
 ```sh
-Scripts/validate-purchase-readiness.sh --release-build
+Scripts/validate-purchase-readiness.sh --gate1-ready
 xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -destination "platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5" build-for-testing -only-testing:LiminalogTests/PurchaseConfigurationTests
 ```
 

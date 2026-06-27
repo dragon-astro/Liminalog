@@ -3,11 +3,16 @@
 set -euo pipefail
 
 run_release_build=false
+run_gate1_ready=false
 storekit_path="${LIMINALOG_STOREKIT_CONFIG:-liminalog.storekit}"
 
 for argument in "$@"; do
   case "$argument" in
     --release-build)
+      run_release_build=true
+      ;;
+    --gate1-ready)
+      run_gate1_ready=true
       run_release_build=true
       ;;
     --storekit=*)
@@ -16,10 +21,11 @@ for argument in "$@"; do
     --help|-h)
       cat <<'USAGE'
 usage:
-  Scripts/validate-purchase-readiness.sh [--release-build] [--storekit=path/to/liminalog.storekit]
+  Scripts/validate-purchase-readiness.sh [--release-build] [--gate1-ready] [--storekit=path/to/liminalog.storekit]
 
 Runs the purchase-release checks that do not require App Store Connect access.
 The StoreKit configuration check is skipped with a note when the file is absent.
+Use --gate1-ready only after App Store Connect products are created and the confirmation sheet is filled.
 USAGE
       exit 0
       ;;
@@ -76,6 +82,11 @@ else
   echo
   echo "note: StoreKit configuration not found at $storekit_path"
   echo "note: local StoreKit purchase testing remains blocked until it is created in Xcode."
+fi
+
+if [[ "$run_gate1_ready" == true ]]; then
+  run_step "Validate App Store Connect confirmation is complete" \
+    swift Scripts/validate-storekit-config.swift --validate-app-store-connect-confirmation-complete
 fi
 
 run_step "Check whitespace in git diffs" \

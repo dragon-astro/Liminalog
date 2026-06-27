@@ -429,42 +429,7 @@ private func validateAppStoreConnectConfirmationTemplate(at path: String) -> Nev
         exit(EXIT_FAILURE)
     }
 
-    let rows = appStoreConnectConfirmationRows(in: text)
-    var failures: [String] = []
-
-    if rows.count != expectedProducts.count {
-        failures.append("expected \(expectedProducts.count) confirmation product rows, found \(rows.count)")
-    }
-
-    for (index, expected) in expectedProducts.enumerated() {
-        guard rows.indices.contains(index) else { continue }
-        let row = rows[index]
-
-        if row.productID != expected.productID {
-            failures.append("confirmation row \(index + 1) product ID mismatch: expected \(expected.productID), found \(row.productID)")
-        }
-        if row.referenceName != expected.displayName {
-            failures.append("confirmation row \(index + 1) reference name mismatch for \(expected.productID): expected \(expected.displayName), found \(row.referenceName)")
-        }
-        if row.type != expected.kind {
-            failures.append("confirmation row \(index + 1) type mismatch for \(expected.productID): expected \(expected.kind), found \(row.type)")
-        }
-        if row.price != expected.referencePrice {
-            failures.append("confirmation row \(index + 1) price mismatch for \(expected.productID): expected \(expected.referencePrice), found \(row.price)")
-        }
-        if row.subscriptionGroup != expected.subscriptionGroup {
-            let expectedGroup = expected.subscriptionGroup ?? "-"
-            let foundGroup = row.subscriptionGroup ?? "-"
-            failures.append("confirmation row \(index + 1) group mismatch for \(expected.productID): expected \(expectedGroup), found \(foundGroup)")
-        }
-        if row.notes != appStoreConnectNotes(for: expected) {
-            failures.append("confirmation row \(index + 1) notes mismatch for \(expected.productID)")
-        }
-    }
-
-    if !text.contains("Group Reference Name") || !text.contains("Liminalog Pro") {
-        failures.append("missing Liminalog Pro subscription group confirmation")
-    }
+    let failures = appStoreConnectConfirmationTemplateFailures(in: text)
 
     if failures.isEmpty {
         print("App Store Connect confirmation template matches planned Liminalog product specifications.")

@@ -60,6 +60,14 @@ Release build まで含める場合：
 Scripts/validate-purchase-readiness.sh --release-build
 ```
 
+App Store Connect 商品作成と確認表記入後、Gate 1 へ進む直前：
+
+```sh
+Scripts/validate-purchase-readiness.sh --gate1-ready
+```
+
+このコマンドは `AppStore/AppStoreConnectProductConfirmation.md` の全チェック済み状態と Release build まで確認する。利用規約本文の承認自体は人間が確認する。
+
 `liminalog.storekit` 作成後：
 
 ```sh
