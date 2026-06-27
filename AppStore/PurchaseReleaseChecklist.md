@@ -91,6 +91,7 @@ backgroundEntitlementRefreshIsEnabled: true
 - Release build 成功。
 - DEBUG StoreKit Configuration で商品取得成功。
 - `AppStore/PurchaseUIQA.md` に沿った購入/復元/管理画面の手動QA。
+- `Scripts/validate-purchase-readiness.sh --gate2-ready` が成功。
 - 既存タブのスモーク確認。
 
 ## Gate 3: Feature Restrictions

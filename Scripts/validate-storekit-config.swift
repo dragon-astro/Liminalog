@@ -136,6 +136,12 @@ if let confirmationCompleteFlagIndex = arguments.firstIndex(of: "--validate-app-
     validateAppStoreConnectConfirmationComplete(at: path)
 }
 
+if let storeKitQAEvidenceFlagIndex = arguments.firstIndex(of: "--validate-storekit-local-qa-complete") {
+    let candidatePath = arguments.dropFirst(storeKitQAEvidenceFlagIndex + 1).first
+    let path = candidatePath?.hasPrefix("-") == false ? candidatePath! : "AppStore/StoreKitLocalTesting.md"
+    validateStoreKitLocalQAEvidenceComplete(at: path)
+}
+
 if let docsFlagIndex = arguments.firstIndex(of: "--validate-products-doc") {
     let path = arguments.dropFirst(docsFlagIndex + 1).first ?? "AppStore/PurchaseProducts.md"
     validatePurchaseProductsDocument(at: path)
@@ -482,6 +488,96 @@ private func validateAppStoreConnectConfirmationComplete(at path: String) -> Nev
     exit(EXIT_FAILURE)
 }
 
+private func validateStoreKitLocalQAEvidenceComplete(at path: String) -> Never {
+    let fileURL = URL(fileURLWithPath: path)
+    guard let text = try? String(contentsOf: fileURL, encoding: .utf8) else {
+        print("error: StoreKit local QA evidence sheet not found at \(fileURL.path)")
+        exit(EXIT_FAILURE)
+    }
+
+    let section = markdownSection(named: "6. Local StoreKit QA Evidence Sheet", in: text)
+    let metadata = metadataRows(in: section)
+    let evidenceRows = storeKitQAEvidenceRows(in: section)
+    var rowsByCase: [String: StoreKitQAEvidenceRow] = [:]
+    var duplicateCases: [String] = []
+    for row in evidenceRows {
+        if rowsByCase[row.caseName] != nil {
+            duplicateCases.append(row.caseName)
+        }
+        rowsByCase[row.caseName] = row
+    }
+    let requiredMetadataFields = [
+        "Git SHA",
+        "Build",
+        "Device / OS",
+        "Xcode",
+        "StoreKit Configuration",
+        "StoreKit Config Validation",
+        "Tester",
+        "Date"
+    ]
+    let requiredCases = [
+        "商品取得",
+        "Pro月額購入",
+        "Pro年額購入",
+        "ライフタイム購入",
+        "ライフタイム後の装飾パス表示",
+        "装飾パス購入",
+        "支援チップ購入",
+        "購入キャンセル",
+        "復元なし",
+        "復元あり",
+        "サブスク期限切れ",
+        "サブスク管理",
+        "既存機能スモーク",
+        "商品種別不一致防止"
+    ]
+
+    var failures: [String] = []
+
+    for field in requiredMetadataFields {
+        if metadata[field, default: ""].isEmpty {
+            failures.append("StoreKit QA metadata is missing \(field)")
+        }
+    }
+    if metadata["StoreKit Configuration"] != "liminalog.storekit" {
+        failures.append("StoreKit QA metadata StoreKit Configuration must be liminalog.storekit")
+    }
+    if metadata["StoreKit Config Validation"]?.lowercased() != "pass" {
+        failures.append("StoreKit QA metadata StoreKit Config Validation must be pass")
+    }
+
+    if evidenceRows.count != requiredCases.count {
+        failures.append("expected \(requiredCases.count) StoreKit QA evidence rows, found \(evidenceRows.count)")
+    }
+    for duplicateCase in duplicateCases {
+        failures.append("duplicate StoreKit QA evidence case: \(duplicateCase)")
+    }
+
+    for caseName in requiredCases {
+        guard let row = rowsByCase[caseName] else {
+            failures.append("missing StoreKit QA evidence case: \(caseName)")
+            continue
+        }
+        if row.evidence.isEmpty || row.evidence == "screenshot / note" || row.evidence == "command output" {
+            failures.append("StoreKit QA evidence is missing concrete proof for \(caseName)")
+        }
+        if row.result.lowercased() != "pass" {
+            failures.append("StoreKit QA result must be pass for \(caseName)")
+        }
+    }
+
+    if failures.isEmpty {
+        print("StoreKit local QA evidence sheet is complete.")
+        exit(EXIT_SUCCESS)
+    }
+
+    for failure in failures {
+        print("error: \(failure)")
+    }
+    exit(EXIT_FAILURE)
+}
+
 private func appStoreConnectConfirmationTemplateFailures(in text: String) -> [String] {
     let rows = appStoreConnectConfirmationRows(in: text)
     var failures: [String] = []
@@ -744,6 +840,14 @@ private struct PremiumDecorationSourceItem {
     var displayName: String
 }
 
+private struct StoreKitQAEvidenceRow {
+    var caseName: String
+    var requiredResult: String
+    var evidence: String
+    var result: String
+    var notes: String
+}
+
 private func productRows(in markdown: String, sectionName: String = "Products") -> [ProductDocumentRow] {
     markdownSection(named: sectionName, in: markdown)
         .split(separator: "\n", omittingEmptySubsequences: false)
@@ -785,6 +889,28 @@ private func appStoreConnectConfirmationRows(in markdown: String) -> [Confirmati
                 price: columns[4],
                 subscriptionGroup: columns[5] == "-" ? nil : columns[5],
                 notes: columns[6]
+            )
+        }
+}
+
+private func storeKitQAEvidenceRows(in markdown: String) -> [StoreKitQAEvidenceRow] {
+    markdown
+        .split(separator: "\n", omittingEmptySubsequences: false)
+        .compactMap { rawLine -> StoreKitQAEvidenceRow? in
+            let line = String(rawLine)
+            guard line.hasPrefix("| "), !line.contains("---") else { return nil }
+            let columns = line
+                .split(separator: "|", omittingEmptySubsequences: false)
+                .dropFirst()
+                .dropLast()
+                .map { normalizeMarkdownCell(String($0)) }
+            guard columns.count == 5, columns[0] != "Case" else { return nil }
+            return StoreKitQAEvidenceRow(
+                caseName: columns[0],
+                requiredResult: columns[1],
+                evidence: columns[2],
+                result: columns[3],
+                notes: columns[4]
             )
         }
 }
@@ -1031,6 +1157,7 @@ private func printUsage() {
       swift Scripts/validate-storekit-config.swift --app-store-connect-confirmation-md
       swift Scripts/validate-storekit-config.swift --validate-app-store-connect-confirmation-template [path-to-AppStoreConnectProductConfirmation.md]
       swift Scripts/validate-storekit-config.swift --validate-app-store-connect-confirmation-complete [path-to-AppStoreConnectProductConfirmation.md]
+      swift Scripts/validate-storekit-config.swift --validate-storekit-local-qa-complete [path-to-StoreKitLocalTesting.md]
       swift Scripts/validate-storekit-config.swift --validate-products-doc [path-to-PurchaseProducts.md]
       swift Scripts/validate-storekit-config.swift --validate-product-source [path-to-PurchaseProduct.swift]
       swift Scripts/validate-storekit-config.swift --validate-premium-decoration-products-doc [path-to-PurchaseProducts.md]

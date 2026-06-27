@@ -25,7 +25,7 @@ Liminalog の課金基盤 v0 を、現時点の証拠ベースで監査するた
 | App Store Connect商品準備 | Prepared | `AppStore/PurchaseProducts.md`、`AppStore/AppStoreConnectProductConfirmation.md`、`--app-store-connect-tsv`、`--app-store-connect-confirmation-md`、`--validate-app-store-connect-confirmation-complete`。`Scripts/validate-purchase-readiness.sh` でTSV出力と確認表テンプレート整合を確認済み | App Store Connect で商品8件と `Liminalog Pro` group を実作成し、各行を確認表へ記録してから `Scripts/validate-purchase-readiness.sh --gate1-ready` を通す |
 | 商品ドキュメント整合性 | Done | `Scripts/validate-purchase-readiness.sh` が 2026-06-27 に成功。`--validate-products-doc`、`--validate-app-store-connect-confirmation-template`、`--validate-product-source`、`--validate-premium-decoration-products-doc` も含めて確認済み | 商品・価格・種別を変えたら再実行 |
 | StoreKitローカル設定 | Prepared | repo 直下に `liminalog.storekit` を追加。Shared scheme の Run に `liminalog.storekit` を接続。`Scripts/validate-purchase-readiness.sh` が 2026-06-27 に `billingPlans` と scheme 参照の検査込みで成功 | Xcode editorが `.storekit` や scheme を書き換えた場合は再検査 |
-| StoreKitローカル購入テスト | Prepared | `liminalog.storekit`、`AppStore/StoreKitLocalTesting.md`、`AppStore/PurchaseUIQA.md` に手順と `Local StoreKit QA Evidence Sheet` あり。`xcodebuild test` + `SKTestSession(contentsOf:)` は 2026-06-27 に `app.YasudaRyuga.Liminalog is not installed for development` で商品取得不可だったため自動テスト化しない | Xcode Run のStoreKit設定、またはApp Store Connect Sandboxで購入、復元、期限切れ、キャンセルを確認し、証跡表を埋める |
+| StoreKitローカル購入テスト | Prepared | `liminalog.storekit`、`AppStore/StoreKitLocalTesting.md`、`AppStore/PurchaseUIQA.md` に手順と `Local StoreKit QA Evidence Sheet` あり。`xcodebuild test` + `SKTestSession(contentsOf:)` は 2026-06-27 に `app.YasudaRyuga.Liminalog is not installed for development` で商品取得不可だったため自動テスト化しない。証跡表の完了状態は `--validate-storekit-local-qa-complete` で検査する | Xcode Run のStoreKit設定、またはApp Store Connect Sandboxで購入、復元、期限切れ、キャンセルを確認し、証跡表を埋めて `Scripts/validate-purchase-readiness.sh --gate2-ready` を通す |
 | Release課金導線準備 | Prepared | `PurchaseReleaseChecklist.md` の Gate 1 / Gate 2 / Gate 3、`PurchaseConfiguration.current` の段階フラグ | App Store Connect と利用規約確定後に Gate 1 へ進める |
 | 課金UI QA | Prepared | `AppStore/PurchaseUIQA.md`。2026-06-27 に XcodeBuildMCP / iPhone 17 Pro Simulator で DEBUG の設定入口表示と課金画面遷移、統計Proプレビュー表示、Release の設定入口非表示を確認。DEBUG 起動引数 `-LiminalogDebugPurchaseState` で無料 / Pro / ライフタイム / ライフタイム＋装飾パス / 装飾パスのみの統計表示を確認。課金画面表示後の主要タブ表示スモークも確認 | Local StoreKit購入操作、実機QA、既存タブの編集・スクロールを含む広範囲スモークを実行して証跡を残す |
 | 統計Pro化設計 | Prepared | `Liminalog/Views/Profile/docs/19-statistics-pro-gate.md`、`StatisticsProPreviewView`、`StatisticsTabAccessPolicy`、`RootTabView` 統計タブ入口分岐、DEBUGの `Pro制限を試す` 導線、DEBUG 起動時の疑似課金状態注入。2026-06-27 に `StatisticsTabAccessPolicyTests` を含む対象テスト48件が成功し、iPhone 17 Pro Simulatorで無料/Pro/ライフタイム/ライフタイム＋装飾パス/装飾パスのみの統計表示を目視確認 | `featureRestrictionsAreEnabled` はまだ false。実機QA、Gate変更時のReleaseスモークQAは未完了 |
@@ -68,6 +68,14 @@ Scripts/validate-purchase-readiness.sh --gate1-ready
 
 このコマンドは `AppStore/AppStoreConnectProductConfirmation.md` の全チェック済み状態と Release build まで確認する。利用規約本文の承認自体は人間が確認する。
 
+StoreKit購入QA証跡記入後、Gate 2 へ進む直前：
+
+```sh
+Scripts/validate-purchase-readiness.sh --gate2-ready
+```
+
+このコマンドは Gate 1 条件に加えて `AppStore/StoreKitLocalTesting.md` の全QAケースが `pass` になっていることを確認する。
+
 `liminalog.storekit` 作成後：
 
 ```sh
@@ -105,6 +113,7 @@ xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -configuration Debug -
 - 2026-06-27 に `Scripts/validate-purchase-readiness.sh --release-build` が成功。実行時点の git HEAD は `0f31867` で、課金作業と無関係な `Liminalog/Stores/CategoryStore.swift` の未コミット差分は残っていた。
 - 2026-06-27 に `AppStore/AppStoreConnectProductConfirmation.md` を追加。App Store Connect で商品を作成した後に埋める専用確認表で、`--validate-app-store-connect-confirmation-template` により商品定義とのズレを検査する。
 - 2026-06-27 に `--validate-app-store-connect-confirmation-complete` と `Scripts/validate-purchase-readiness.sh --gate1-ready` を追加。現時点では確認表が未記入のため、Gate 1 ready check は失敗するのが正しい。
+- 2026-06-27 に `--validate-storekit-local-qa-complete` と `Scripts/validate-purchase-readiness.sh --gate2-ready` を追加。現時点ではLocal StoreKit QA証跡表が未記入のため、Gate 2 ready check は失敗するのが正しい。
 - 実機QAは、既存リリースデータへ触れる可能性があるため明示承認後に行う。
 - Release build 成功時点のワークツリーには、課金作業と無関係な `Liminalog/Stores/CategoryStore.swift` の未コミット差分が残っていた。この差分は課金コミットには含めない。
 
@@ -114,5 +123,5 @@ xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -configuration Debug -
 2. App Store Connect で商品を作成し、`swift Scripts/validate-storekit-config.swift --app-store-connect-confirmation-md` の Confirmation Sheet を埋め、`Scripts/validate-purchase-readiness.sh --gate1-ready` を通す。
 3. 利用規約本文を承認し、LP の `/terms` を App Store Connect に登録する。
 4. Gate 1 のコード変更だけを入れ、Releaseで購入導線がまだ出ないことを確認する。
-5. Local StoreKit購入操作ができる環境で、Pro / ライフタイム / 装飾パス / 支援の購入・復元・期限切れを確認する。
+5. Local StoreKit購入操作ができる環境で、Pro / ライフタイム / 装飾パス / 支援の購入・復元・期限切れを確認し、`Scripts/validate-purchase-readiness.sh --gate2-ready` を通す。
 6. プレミアム装飾を `UnlockGalleryView` へ合流する前に、表示モデルとフォールバック適用点を小さく実装する。
