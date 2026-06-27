@@ -1,6 +1,6 @@
 # 19. 統計タブ Pro 化設計
 
-統計タブを Pro 対象にする時の設計メモ。まだ実装しない。既存ユーザー体験とパフォーマンスを壊さないため、購入状態分岐を入れる前に境界を固定する。
+統計タブを Pro 対象にする時の設計メモ。`StatisticsProPreviewView` と `RootTabView` の入口分岐は追加済み。ただし `featureRestrictionsAreEnabled == false` の間は既存ユーザー体験を変えず、統計タブは従来通り表示する。
 
 ## ゴール
 
@@ -11,10 +11,10 @@
 
 ## 現状コードの前提
 
-- `RootTabView` は `DashboardView()` を直接タブに置いている。
+- `RootTabView` は `StatisticsTabContent` を統計タブに置き、許可時だけ `DashboardView()` を構築する。
 - `DashboardView` は選択中の期間だけ `DashboardPeriodContent` を構築する。これは過去のタブ切り替え重さ対策なので維持する。
 - `DashboardPeriodContent` は `@Query` で `Chapter` / `PlanBlock` / `UserSettings` を読む。ロック画面でこれを構築すると、無料ユーザーにも統計集計コストが発生する。
-- `PurchaseFeatureGate.decision(for: .statisticsTab, entitlements:)` は既にある。
+- `StatisticsTabAccessPolicy` が `PurchaseFeatureGate.decision(for: .statisticsTab, entitlements:)` を使い、`dashboard / proPreview` を決める。
 - `PurchaseActivationPolicy.shouldEnforceFeatureRestrictions` が false の間は、すべての機能判定が無料扱いになる。
 
 ## 推奨構造
@@ -22,6 +22,12 @@
 ### 1. RootTabView で入口を分岐する
 
 `DashboardView` の内部でロックするのではなく、`RootTabView` の統計タブ入口で分岐する。
+
+実装済み：
+
+- `StatisticsTabContent(purchaseStore:)`
+- `StatisticsTabAccessPolicy`
+- `StatisticsProPreviewView`
 
 理由：
 
@@ -103,9 +109,9 @@ if decision.isAllowed {
 
 ## 実装順
 
-1. `StatisticsProPreviewView` を軽量な独立Viewとして作る。
-2. `RootTabView` の統計タブ入口で `PurchaseFeatureGate` を見る。
-3. ロック中に `DashboardView` / `DashboardPeriodContent` が構築されないテストを追加する。
+1. [x] `StatisticsProPreviewView` を軽量な独立Viewとして作る。
+2. [x] `RootTabView` の統計タブ入口で `PurchaseFeatureGate` を見る。
+3. [x] ロック時の入口が `proPreview` になり、現行Releaseでは `dashboard` のままであることをテストする。
 4. DEBUG の課金状態切替で無料/Pro/ライフタイム/装飾パスを確認する。
 5. Release build で `featureRestrictionsAreEnabled == false` の時に既存統計が変わらないことを確認する。
 

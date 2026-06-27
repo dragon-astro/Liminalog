@@ -84,7 +84,7 @@ struct RootTabView: View {
                                 .id(themeRefreshID(for: .calendar))
                         }
                         Tab("統計", systemImage: "chart.bar.fill", value: RootTab.dashboard) {
-                            DashboardView()
+                            StatisticsTabContent(purchaseStore: appStores.purchaseStore)
                                 .id(themeRefreshID(for: .dashboard))
                         }
                         Tab("友達", systemImage: "person.2.fill", value: RootTab.friends) {
