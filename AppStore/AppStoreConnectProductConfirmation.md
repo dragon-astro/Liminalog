@@ -7,6 +7,7 @@ App Store Connect で課金商品を作成した後に埋める確認表。す�
 - 商品ID、表示名、種別、価格、サブスクリプショングループの転記元は `PurchaseProductID.appStoreConnectSpecifications`。
 - この表の構造は `Scripts/validate-storekit-config.swift --validate-app-store-connect-confirmation-template` で検査する。
 - App Store Connect 作成後、Gate 1 に進む直前に `Scripts/validate-storekit-config.swift --validate-app-store-connect-confirmation-complete` を通す。
+- 完了検査では `fill manually`、`TBD`、`TODO`、`未確定` が残っている確認表を未完了扱いにする。
 - 単品プレミアム装飾は `AppStore/PurchaseProducts.md` の別表を使う。購入UIに入れない段階では `PurchaseConfiguration.current.productIDs` に追加しない。
 
 ## Confirmation Metadata

@@ -551,17 +551,21 @@ private func validateAppStoreConnectConfirmationComplete(at path: String) -> Nev
         exit(EXIT_FAILURE)
     }
 
-    var failures = appStoreConnectConfirmationTemplateFailures(in: text)
+    var failures = appStoreConnectConfirmationTemplateFailures(in: text, requiresTemplateNotes: false)
 
     let metadata = metadataRows(in: markdownSection(named: "Confirmation Metadata", in: text))
-    if metadata["Confirmed by", default: ""].isEmpty {
+    if isPlaceholderMetadataValue(metadata["Confirmed by"]) {
         failures.append("confirmation metadata is missing Confirmed by")
     }
-    if metadata["Confirmation date", default: ""].isEmpty {
+    if isPlaceholderMetadataValue(metadata["Confirmation date"]) {
         failures.append("confirmation metadata is missing Confirmation date")
     }
     if metadata["App Store Connect app"] != "Liminalog" {
         failures.append("confirmation metadata App Store Connect app must be Liminalog")
+    }
+
+    for row in appStoreConnectConfirmationRows(in: text) where containsUnresolvedCompletionMarker(row.notes) {
+        failures.append("confirmation product notes still contain unresolved decision text: \(row.productID)")
     }
 
     failures.append(contentsOf: uncheckedConfirmationRows(
@@ -859,12 +863,29 @@ private func validateStatisticsProQAEvidenceComplete(at path: String) -> Never {
     exit(EXIT_FAILURE)
 }
 
-private func appStoreConnectConfirmationTemplateFailures(in text: String) -> [String] {
+private func appStoreConnectConfirmationTemplateFailures(
+    in text: String,
+    requiresTemplateNotes: Bool = true
+) -> [String] {
     let rows = appStoreConnectConfirmationRows(in: text)
     var failures: [String] = []
 
     if rows.count != expectedProducts.count {
         failures.append("expected \(expectedProducts.count) confirmation product rows, found \(rows.count)")
+    }
+
+    let confirmationMetadataSection = markdownSection(named: "Confirmation Metadata", in: text)
+    let requiredConfirmationMetadataFields = [
+        "Confirmed by",
+        "Confirmation date",
+        "App Store Connect app",
+        "Notes"
+    ]
+    if confirmationMetadataSection.isEmpty {
+        failures.append("missing confirmation metadata")
+    }
+    for field in requiredConfirmationMetadataFields where !confirmationMetadataSection.contains(field) {
+        failures.append("missing confirmation metadata row: \(field)")
     }
 
     for (index, expected) in expectedProducts.enumerated() {
@@ -888,7 +909,7 @@ private func appStoreConnectConfirmationTemplateFailures(in text: String) -> [St
             let foundGroup = row.subscriptionGroup ?? "-"
             failures.append("confirmation row \(index + 1) group mismatch for \(expected.productID): expected \(expectedGroup), found \(foundGroup)")
         }
-        if row.notes != appStoreConnectNotes(for: expected) {
+        if requiresTemplateNotes && row.notes != appStoreConnectNotes(for: expected) {
             failures.append("confirmation row \(index + 1) notes mismatch for \(expected.productID)")
         }
     }
@@ -1637,6 +1658,14 @@ private func isPlaceholderMetadataValue(_ value: String?) -> Bool {
         || normalized.contains("fill manually")
 }
 
+private func containsUnresolvedCompletionMarker(_ value: String) -> Bool {
+    let normalized = normalizeMarkdownCell(value).lowercased()
+    return normalized.contains("未確定")
+        || normalized.contains("tbd")
+        || normalized.contains("todo")
+        || normalized.contains("fill manually")
+}
+
 private func printUsage() {
     print("""
     usage:
@@ -1683,7 +1712,24 @@ private func printAppStoreConnectConfirmationMarkdown() {
     print("""
     # App Store Connect Product Confirmation
 
-    App Store Connect で商品を作成した後、この表を確認する。すべて確認できるまで `PurchaseConfiguration.current.productIDsAreConfirmedForAppStoreConnect` は `true` にしない。
+    App Store Connect で課金商品を作成した後に埋める確認表。すべて確認できるまで `PurchaseConfiguration.current.productIDsAreConfirmedForAppStoreConnect` は `true` にしない。
+
+    ## Source Of Truth
+
+    - 商品ID、表示名、種別、価格、サブスクリプショングループの転記元は `PurchaseProductID.appStoreConnectSpecifications`。
+    - この表の構造は `Scripts/validate-storekit-config.swift --validate-app-store-connect-confirmation-template` で検査する。
+    - App Store Connect 作成後、Gate 1 に進む直前に `Scripts/validate-storekit-config.swift --validate-app-store-connect-confirmation-complete` を通す。
+    - 完了検査では `fill manually`、`TBD`、`TODO`、`未確定` が残っている確認表を未完了扱いにする。
+    - 単品プレミアム装飾は `AppStore/PurchaseProducts.md` の別表を使う。購入UIに入れない段階では `PurchaseConfiguration.current.productIDs` に追加しない。
+
+    ## Confirmation Metadata
+
+    | Field | Value |
+    |---|---|
+    | Confirmed by |  |
+    | Confirmation date |  |
+    | App Store Connect app | Liminalog |
+    | Notes |  |
 
     ## Subscription Group
 
