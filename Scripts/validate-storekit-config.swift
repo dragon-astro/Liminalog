@@ -1206,7 +1206,7 @@ private enum ReleaseGateExpectation: String {
             return commonProductSnippets + [
                 ("App Store Connect product confirmation remains off", "productIDsAreConfirmedForAppStoreConnect: false"),
                 ("subscription group remains unset", "subscriptionGroupName: nil"),
-                ("terms URL remains unset", "termsOfUseURL: nil"),
+                ("terms URL points to the published LP", #"termsOfUseURL: URL(string: "https://liminalog-lp.vercel.app/terms")"#),
                 privacyURLSnippet,
                 ("purchase entry point remains off", "purchaseEntryPointIsEnabled: false"),
                 ("feature restrictions remain off", "featureRestrictionsAreEnabled: false"),

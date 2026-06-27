@@ -145,7 +145,7 @@ Liminalog の課金設計の初版。**戦略・価格・機能ティア・packa
 - **獲得テーマ：極光（7日）のみ**（2026-06-12）。テーマは「観客不要で売れる最強の単品」なので課金カタログの主力に。無料は教材として入口の1つだけ残し、暁・茜・朧・残照・月白はカタログから除外して課金候補に温存（定義・パレットはコードに残置）。ローンチ前に整理したのは §7 グランドファーザリング原則（既存から奪わない）を発動させないため。
 
 ### 残課題（ローンチ前 TODO）
-- **法務**：プライバシーポリシーURLは `https://liminalog-lp.vercel.app/privacy`。利用規約はLP側に `/terms` ドラフトを追加済みだが、本文承認まではアプリ側 `termsOfUseURL` は nil のままにする。`https://liminalog-lp.vercel.app/terms` は公開済み。
+- **法務**：プライバシーポリシーURLは `https://liminalog-lp.vercel.app/privacy`。利用規約URLは `https://liminalog-lp.vercel.app/terms` をアプリ側に設定済み。課金導線は App Store Connect 商品確定、サブスクリプショングループ確定、QA、Go Live スイッチが揃うまで閉じたままにする。
 - **サポート窓口**：`yuhlab.dev@gmail.com`（SettingsView `supportEmailAddress`・お問い合わせ＋プライバシーポリシー連絡先で共用）。
 - **将来レバー**：ロイヤル層LTVを伸ばすなら新規のみライフタイム¥7,800等へ／ローンチ記念で期間限定¥4,800セール（恒常値下げでなく演出。年額を食う注意）。価格は高めスタート＋セールで下げる（緩めるのは楽・上げるのは新規のみ＝§1）。
 
@@ -204,10 +204,10 @@ Liminalog の課金設計の初版。**戦略・価格・機能ティア・packa
 - **サーバー方針（初期）**：独自サーバーなし。StoreKit2 の `Transaction.currentEntitlements` と `Transaction.updates` を正とし、端末には表示高速化用キャッシュだけを持つ。App Store Server API / Server Notifications は、独自アカウント横断同期・返金/解約イベントのサーバー保管・詳細な課金分析が必要になってから検討。
 - **購入状態更新**：起動時はキャッシュを即時表示する。StoreKit確認は購入画面表示時に行い、`backgroundEntitlementRefreshIsEnabled` または機能制限を明示的にONにした後だけ、起動時/復帰時のバックグラウンド確認を行う。復帰時は最終確認から6時間以上経っている場合だけ再確認し、既存画面の操作を待たせない。
 - **サブスク管理**：アプリ内の「Proと応援」から StoreKit の管理画面を開く。解約・更新・プラン変更はApp Store側に寄せ、Liminalog側で独自サーバーや独自解約UIは持たない。
-- **利用規約**：LP 側に `/terms` ドラフトを追加済み。App Store Connect とアプリ内導線から参照する候補URLは `https://liminalog-lp.vercel.app/terms`。ただし本文承認までは `PurchaseConfiguration.current.legalLinks.termsOfUseURL` を nil のままにしてRelease導線を開かない。
+- **利用規約**：LP 側に `/terms` を追加済み。App Store Connect とアプリ内導線から参照するURLは `https://liminalog-lp.vercel.app/terms`。このURLだけを設定しても、App Store Connect 商品確定、サブスクリプショングループ、購入導線ONが揃うまではRelease導線を開かない。
 - **ローカル課金テスト**：`liminalog.storekit` は repo 直下へ追加済みで、shared scheme の Run 設定も `liminalog.storekit` を参照している。`Scripts/validate-purchase-readiness.sh` は商品ID、サブスクリプショングループ、サブスク商品の `billingPlans`、scheme 参照を検査する。
   - 詳細手順と検査コマンドは `AppStore/StoreKitLocalTesting.md`。
   - 検証ケース：商品取得成功、Pro月額/年額購入、ライフタイム購入、装飾パス購入、支援チップ購入、復元なし、復元あり、サブスク期限切れ、非消耗型の永続保持、StoreKit商品種別不一致時に購入候補/権利キャッシュから外れること。
   - `xcodebuild test` + `SKTestSession(contentsOf:)` での自動購入テストは、2026-06-27 時点の Simulator が `app.YasudaRyuga.Liminalog is not installed for development` を返したため採用しない。失敗するテストを残さず、Xcode Run の StoreKit Configuration または App Store Connect Sandbox で手動QAする。
 - **DEBUG表示検証**：設定 > デバッグ > 課金状態を試す、または `-LiminalogDebugPurchaseState` から無料/Pro/ライフタイム/装飾パスありの表示状態を一時確認できる。これは DEBUG ビルド限定・非永続・実購入の代替ではない。
-- **未決確認**：本番 Product ID、サブスクリプショングループ名、利用規約本文/URL、App Store Connect の価格帯はユーザー確認後に確定する。LPは `/Users/ryu/Documents/X-code/LP/liminalog_lp` にあり、`/privacy` と `/support` は既に存在する。`/terms` はLP側BRIEFでも課金更新前に追加予定のルート扱いで、本文はまだ未確定。
+- **未決確認**：本番 Product ID、サブスクリプショングループ名、App Store Connect の価格帯、年額Proの無料体験有無はユーザー確認後に確定する。LPは `/Users/ryu/Documents/X-code/LP/liminalog_lp` にあり、`/privacy`、`/support`、`/terms` は公開済み。

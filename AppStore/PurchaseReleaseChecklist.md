@@ -8,7 +8,7 @@
 
 `PurchaseConfiguration.current` は次の状態を維持する。
 
-- `termsOfUseURL == nil`
+- `termsOfUseURL == https://liminalog-lp.vercel.app/terms`
 - `productIDsAreConfirmedForAppStoreConnect == false`
 - `subscriptionGroupName == nil`
 - `purchaseEntryPointIsEnabled == false`

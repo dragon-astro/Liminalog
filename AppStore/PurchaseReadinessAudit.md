@@ -20,7 +20,7 @@ Liminalog の課金基盤 v0 を、現時点の証拠ベースで監査するた
 | 課金基盤 v0 | Done | `PurchaseStore`, `PurchaseProductID`, `PurchaseConfiguration`, `PurchaseActivationPolicy`, `PurchaseFeatureGate`, `SupportLiminalogView` が追加済み | StoreKit実購入での権利反映確認 |
 | Release安全状態 | Done | `Scripts/validate-purchase-readiness.sh` が 2026-06-27 に成功。通常時は `--validate-release-gate-state closed`、Gate 1/2/3 ready時は対応するGate状態を検査する | Gate 1 以降で値を変えたら対応する ready check を再実行 |
 | Release build | Done | `Scripts/validate-purchase-readiness.sh --release-build` が 2026-06-27 に working tree after `8373462` で成功。Release safety、StoreKit設定、法務URL、商品ドキュメント、App Store Connect転記シート、Release build をまとめて確認済み | App Store提出前はArchive/exportで再検証 |
-| LP 利用規約ページ | Done | LP repo の `5d46da9 feat: add terms page` を `origin/main` へpush済み。2026-06-28 に `Scripts/validate-purchase-legal-urls.sh` で `https://liminalog-lp.vercel.app/terms` の 200 応答を確認 | 本文承認後にApp Store Connectへ登録 |
+| LP 利用規約ページ | Done | LP repo の `5d46da9 feat: add terms page` を `origin/main` へpush済み。2026-06-28 に `Scripts/validate-purchase-legal-urls.sh` で `https://liminalog-lp.vercel.app/terms` の 200 応答を確認。アプリ側 `PurchaseConfiguration.current.legalLinks.termsOfUseURL` も同URLへ設定済み | App Store Connectへ登録 |
 | LP プライバシーポリシーURL | Done | 2026-06-28 に `Scripts/validate-purchase-legal-urls.sh` で `https://liminalog-lp.vercel.app/privacy` の 200 応答を確認。`PurchaseConfiguration.current.privacyPolicyURL` はこのURLを参照 | カスタムドメインを使う場合はコード・docs・App Store Connectを同時更新 |
 | App Store Connect商品準備 | Prepared | `AppStore/PurchaseProducts.md`、`AppStore/AppStoreConnectProductSetup.md`、`AppStore/AppStoreConnectProductConfirmation.md`、`--app-store-connect-tsv`、`--app-store-connect-confirmation-md`、`--validate-app-store-connect-confirmation-complete`。`Scripts/validate-purchase-readiness.sh --release-build` が 2026-06-27 に working tree after `8373462` でTSV出力、作成前転記シート、確認表テンプレートの整合を確認済み。2026-06-28 に商品メタデータ、レビュー情報、Sandbox反映待ちもGate 1確認表へ追加 | App Store Connect で商品8件と `Liminalog Pro` group を実作成し、各行とCreation Metadataを確認表へ記録してから `Scripts/validate-purchase-readiness.sh --gate1-ready` を通す |
 | 商品ドキュメント整合性 | Done | `Scripts/validate-purchase-readiness.sh --release-build` が 2026-06-27 に working tree after `8373462` で成功。`--validate-products-doc`、`AppStore/AppStoreConnectProductSetup.md` の商品表、`--validate-app-store-connect-confirmation-template`、`--validate-product-source`、`--validate-premium-decoration-products-doc` も含めて確認済み | 商品・価格・種別を変えたら再実行 |
@@ -108,7 +108,7 @@ xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -configuration Debug -
 
 ## Known Non-Completion Items
 
-- `PurchaseConfiguration.current.termsOfUseURL` は nil のまま。本文承認と公開確認が終わるまで変更しない。
+- `PurchaseConfiguration.current.termsOfUseURL` は `https://liminalog-lp.vercel.app/terms`。公開確認済みURLだけを設定し、App Store Connect 商品確定・サブスクリプショングループ・Go Live スイッチは閉じたままにする。
 - `PurchaseConfiguration.current.productIDsAreConfirmedForAppStoreConnect` は false のまま。App Store Connect で商品作成後だけ true にする。
 - `purchaseEntryPointIsEnabled` は false のまま。Releaseでは購入画面を出さない。
 - `featureRestrictionsAreEnabled` は false のまま。統計タブやカテゴリセット上限をまだロックしない。
@@ -139,7 +139,7 @@ xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -configuration Debug -
 
 1. Simulator DEBUG を Xcode からRunし、`AppStore/PurchaseUIQA.md` の Local StoreKit QA を実施する。
 2. App Store Connect で商品を作成し、`swift Scripts/validate-storekit-config.swift --app-store-connect-confirmation-md` の Confirmation Sheet と Creation Metadata を埋め、`Scripts/validate-purchase-readiness.sh --gate1-ready` を通す。
-3. 利用規約本文を承認し、LP の `/terms` を App Store Connect に登録する。
+3. LP の `/terms` を App Store Connect に登録する。
 4. Gate 1 のコード変更だけを入れ、Releaseで購入導線がまだ出ないことを確認する。
 5. Local StoreKit購入操作ができる環境で、Pro / ライフタイム / 装飾パス / 支援の購入・復元・期限切れを確認し、`Scripts/validate-purchase-readiness.sh --gate2-ready` を通す。
 6. 統計Pro制限をReleaseでONにする前に、Gate 3 QA証跡を埋めて `Scripts/validate-purchase-readiness.sh --gate3-ready` を通す。

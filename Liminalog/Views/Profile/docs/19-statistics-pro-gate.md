@@ -157,4 +157,4 @@ Gate 3 で `featureRestrictionsAreEnabled` を true にする直前に埋める�
 - 既存のデータ閲覧をロックする。
 - `DashboardPeriodContent` 内に課金分岐を散らす。
 - StoreKit商品取得や復元処理を統計タブ専用に持つ。
-- 利用規約未確定、App Store Connect未確定の状態でRelease導線を開く。
+- App Store Connect未確定、QA未完了、Go Live未許可の状態でRelease導線を開く。

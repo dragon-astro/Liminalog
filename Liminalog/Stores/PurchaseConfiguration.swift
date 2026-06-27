@@ -138,7 +138,7 @@ struct PurchaseConfiguration: Equatable, Codable {
         productIDsAreConfirmedForAppStoreConnect: false,
         subscriptionGroupName: nil,
         legalLinks: PurchaseLegalLinks(
-            termsOfUseURL: nil,
+            termsOfUseURL: URL(string: "https://liminalog-lp.vercel.app/terms"),
             privacyPolicyURL: URL(string: "https://liminalog-lp.vercel.app/privacy")
         ),
         purchaseEntryPointIsEnabled: false,

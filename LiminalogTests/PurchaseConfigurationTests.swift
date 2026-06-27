@@ -18,13 +18,14 @@ struct PurchaseConfigurationTests {
 
         #expect(!PurchaseConfiguration.current.isReadyForPaidRelease)
         #expect(!PurchaseConfiguration.current.canExposePurchaseEntryPoint)
+        #expect(PurchaseConfiguration.current.legalLinks.termsOfUseURL == URL(string: "https://liminalog-lp.vercel.app/terms"))
         #expect(PurchaseConfiguration.current.legalLinks.privacyPolicyURL == URL(string: "https://liminalog-lp.vercel.app/privacy"))
         #expect(!PurchaseConfiguration.current.purchaseEntryPointIsEnabled)
         #expect(!PurchaseConfiguration.current.featureRestrictionsAreEnabled)
         #expect(!PurchaseConfiguration.current.backgroundEntitlementRefreshIsEnabled)
         #expect(missing.contains(.confirmedAppStoreConnectProductIDs))
         #expect(missing.contains(.subscriptionGroupName))
-        #expect(missing.contains(.termsOfUseURL))
+        #expect(!missing.contains(.termsOfUseURL))
         #expect(!missing.contains(.privacyPolicyURL))
         #expect(!missing.contains(.storeKitProductID))
     }
