@@ -2,7 +2,7 @@
 
 App Store Connect で Liminalog の課金商品を作る時の転記シート。作成作業中に商品名、ID、種別、価格、グループのズレを出さないためのもの。
 
-このファイルは作成前の入力値を固定するために使う。作成後の証跡は `AppStore/AppStoreConnectProductConfirmation.md` に残す。
+このファイルは作成前の入力値を固定するために使う。実作業の順序は `AppStore/AppStoreConnectProductRunbook.md`、作成後の証跡は `AppStore/AppStoreConnectProductConfirmation.md` に残す。
 
 ## Safety Rules
 
@@ -91,10 +91,11 @@ App Store Connect で商品を作成する時は、商品IDと価格だけでな
 
 App Store Connect で作成した後にやること。
 
-1. `AppStore/AppStoreConnectProductConfirmation.md` を埋める。
-2. `Scripts/validate-purchase-readiness.sh --gate1-ready` を通す。
-3. 利用規約本文が承認済みであることを確認する。
-4. Gate 1 のコード変更では、購入導線と機能制限をまだ開かない。
+1. `AppStore/AppStoreConnectProductRunbook.md` の Stop Conditions に該当しないことを確認する。
+2. `AppStore/AppStoreConnectProductConfirmation.md` を埋める。
+3. `Scripts/validate-purchase-readiness.sh --gate1-ready` を通す。
+4. 利用規約本文が承認済みであることを確認する。
+5. Gate 1 のコード変更では、購入導線と機能制限をまだ開かない。
 
 ## Local Validation
 
