@@ -177,6 +177,12 @@ if let premiumDecorationInactiveFlagIndex = arguments.firstIndex(of: "--validate
     )
 }
 
+if let premiumDecorationUIDisconnectedFlagIndex = arguments.firstIndex(of: "--validate-premium-decoration-ui-disconnected") {
+    let candidatePath = arguments.dropFirst(premiumDecorationUIDisconnectedFlagIndex + 1).first
+    let path = candidatePath?.hasPrefix("-") == false ? candidatePath! : "Liminalog/Views/Profile"
+    validatePremiumDecorationUIDisconnected(in: path)
+}
+
 if let safetyFlagIndex = arguments.firstIndex(of: "--validate-release-safety") {
     let path = arguments.dropFirst(safetyFlagIndex + 1).first ?? "Liminalog/Stores/PurchaseConfiguration.swift"
     validateReleaseSafetyConfiguration(at: path)
@@ -812,6 +818,53 @@ private func validatePremiumDecorationProductsInactive(in storeKitPath: String, 
     }
 }
 
+private func validatePremiumDecorationUIDisconnected(in path: String) -> Never {
+    let rootURL = URL(fileURLWithPath: path)
+    var isDirectory: ObjCBool = false
+    guard FileManager.default.fileExists(atPath: rootURL.path, isDirectory: &isDirectory), isDirectory.boolValue else {
+        print("error: premium decoration UI scan root not found at \(rootURL.path)")
+        exit(EXIT_FAILURE)
+    }
+
+    let forbiddenTokens = [
+        "PremiumDecorationCatalog",
+        "PremiumDecorationAccessPolicy",
+        "PremiumDecorationEquippingPolicy",
+        "DecorationAccessDisplayPolicy",
+        "DecorationAccessDisplayState",
+        "DecorationAccessDisplayItem",
+        "liminalog.decoration."
+    ]
+    let swiftFiles = swiftSourceFiles(in: rootURL)
+    var failures: [String] = []
+
+    if swiftFiles.isEmpty {
+        failures.append("no Swift files found under \(rootURL.path)")
+    }
+
+    for fileURL in swiftFiles {
+        guard let source = try? String(contentsOf: fileURL, encoding: .utf8) else {
+            failures.append("could not read \(fileURL.path)")
+            continue
+        }
+        let matchedTokens = forbiddenTokens.filter(source.contains)
+        guard !matchedTokens.isEmpty else { continue }
+
+        let relativePath = fileURL.path.replacingOccurrences(of: FileManager.default.currentDirectoryPath + "/", with: "")
+        failures.append("premium decoration UI is connected in \(relativePath): \(matchedTokens.joined(separator: ", "))")
+    }
+
+    if failures.isEmpty {
+        print("Premium decoration UI remains disconnected under \(path).")
+        exit(EXIT_SUCCESS)
+    }
+
+    for failure in failures {
+        print("error: \(failure)")
+    }
+    exit(EXIT_FAILURE)
+}
+
 private func validateReleaseSafetyConfiguration(at path: String) -> Never {
     let fileURL = URL(fileURLWithPath: path)
     guard let text = try? String(contentsOf: fileURL, encoding: .utf8) else {
@@ -879,6 +932,23 @@ private func validateXcodeSchemeStoreKitReference(at path: String) -> Never {
         print("error: \(failure)")
     }
     exit(EXIT_FAILURE)
+}
+
+private func swiftSourceFiles(in rootURL: URL) -> [URL] {
+    guard let enumerator = FileManager.default.enumerator(
+        at: rootURL,
+        includingPropertiesForKeys: [.isRegularFileKey],
+        options: [.skipsHiddenFiles]
+    ) else { return [] }
+
+    return enumerator.compactMap { entry -> URL? in
+        guard let fileURL = entry as? URL, fileURL.pathExtension == "swift" else {
+            return nil
+        }
+        let values = try? fileURL.resourceValues(forKeys: [.isRegularFileKey])
+        return values?.isRegularFile == true ? fileURL : nil
+    }
+    .sorted { $0.path < $1.path }
 }
 
 private func purchaseConfigurationCurrentBlock(in source: String) -> String? {
@@ -1257,6 +1327,7 @@ private func printUsage() {
       swift Scripts/validate-storekit-config.swift --validate-product-source [path-to-PurchaseProduct.swift]
       swift Scripts/validate-storekit-config.swift --validate-premium-decoration-products-doc [path-to-PurchaseProducts.md]
       swift Scripts/validate-storekit-config.swift --validate-premium-decoration-inactive [path-to-liminalog.storekit]
+      swift Scripts/validate-storekit-config.swift --validate-premium-decoration-ui-disconnected [path-to-profile-views]
       swift Scripts/validate-storekit-config.swift --validate-release-safety [path-to-PurchaseConfiguration.swift]
       swift Scripts/validate-storekit-config.swift --validate-xcode-scheme-storekit [path-to-Liminalog.xcscheme]
 

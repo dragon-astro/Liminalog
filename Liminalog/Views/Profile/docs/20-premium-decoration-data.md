@@ -29,6 +29,7 @@
   - 現時点では既存の非表示 `legacyItems` から、アイコンフレーム4件・カードスタイル4件を単品候補として列挙する。
   - 既存の無料獲得カタログ `UnlockCatalog` とは targetID を衝突させない。
   - UI にはまだ合流していないため、既存の装飾画面・プロフィール表示は変えない。
+  - `Scripts/validate-storekit-config.swift --validate-premium-decoration-ui-disconnected` で、プロフィール装飾UIへ誤って接続されていないことを検査する。
 - `DecorationAccessDisplayState` / `DecorationAccessDisplayPolicy`
   - 獲得済み / 未獲得 / 課金未所持 / レンタル中 / 単品所有を、UI接続前の表示状態として統合する純粋ロジック。
   - まだ `UnlockGalleryView` には接続していない。
@@ -116,6 +117,7 @@ struct PremiumDecorationCatalogItem: Identifiable, Codable, Equatable {
 - `rented` は「契約中のみ」と明記する。
 - `owned` はサブスク失効後も装着可。
 - ライフタイムは機能の買い切りであり、課金装飾レンタル権は付けない。
+- UI接続前は、`UnlockGalleryView` / `ProfileDecorations` 側に `PremiumDecorationCatalog` 系を参照させない。接続する時はこの検査を外すのではなく、表示/装着/失効時フォールバックのQAゲートに置き換える。
 
 ## 装着保存
 
@@ -154,6 +156,7 @@ struct PremiumDecorationCatalogItem: Identifiable, Codable, Equatable {
 5. 装着時に `PremiumDecorationAccessPolicy` を通す。
 6. [x] 失効時フォールバックのテストを追加する。
 7. StoreKitローカル購入テストで単品所有とレンタルの両方を確認する。
+8. UI接続前は `Scripts/validate-purchase-readiness.sh` で未接続状態を維持する。
 
 ## テスト観点
 

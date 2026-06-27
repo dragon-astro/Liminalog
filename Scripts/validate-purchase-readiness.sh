@@ -7,6 +7,7 @@ run_gate1_ready=false
 run_gate2_ready=false
 run_gate3_ready=false
 storekit_path="${LIMINALOG_STOREKIT_CONFIG:-liminalog.storekit}"
+swift_module_cache_path="${LIMINALOG_SWIFT_MODULE_CACHE_PATH:-/private/tmp/liminalog-swift-module-cache}"
 
 for argument in "$@"; do
   case "$argument" in
@@ -60,39 +61,46 @@ run_step() {
   "$@"
 }
 
+run_swift_validator() {
+  swift -module-cache-path "$swift_module_cache_path" Scripts/validate-storekit-config.swift "$@"
+}
+
 run_step "Validate purchase product document" \
-  swift Scripts/validate-storekit-config.swift --validate-products-doc
+  run_swift_validator --validate-products-doc
 
 run_step "Validate App Store Connect confirmation template" \
-  swift Scripts/validate-storekit-config.swift --validate-app-store-connect-confirmation-template
+  run_swift_validator --validate-app-store-connect-confirmation-template
 
 run_step "Validate purchase product source" \
-  swift Scripts/validate-storekit-config.swift --validate-product-source
+  run_swift_validator --validate-product-source
 
 run_step "Validate premium decoration product document" \
-  swift Scripts/validate-storekit-config.swift --validate-premium-decoration-products-doc
+  run_swift_validator --validate-premium-decoration-products-doc
+
+run_step "Validate premium decoration UI remains disconnected" \
+  run_swift_validator --validate-premium-decoration-ui-disconnected
 
 run_step "Validate Release purchase safety switches" \
-  swift Scripts/validate-storekit-config.swift --validate-release-safety
+  run_swift_validator --validate-release-safety
 
 run_step "Validate Xcode scheme StoreKit link" \
-  swift Scripts/validate-storekit-config.swift --validate-xcode-scheme-storekit
+  run_swift_validator --validate-xcode-scheme-storekit
 
 run_step "Print App Store Connect product TSV" \
-  swift Scripts/validate-storekit-config.swift --app-store-connect-tsv
+  run_swift_validator --app-store-connect-tsv
 
 run_step "Print App Store Connect confirmation sheet" \
-  swift Scripts/validate-storekit-config.swift --app-store-connect-confirmation-md
+  run_swift_validator --app-store-connect-confirmation-md
 
 run_step "Validate legal URLs" \
   Scripts/validate-purchase-legal-urls.sh
 
 if [[ -f "$storekit_path" ]]; then
   run_step "Validate StoreKit configuration: $storekit_path" \
-    swift Scripts/validate-storekit-config.swift "$storekit_path"
+    run_swift_validator "$storekit_path"
 
   run_step "Validate premium decoration products are inactive" \
-    swift Scripts/validate-storekit-config.swift --validate-premium-decoration-inactive "$storekit_path"
+    run_swift_validator --validate-premium-decoration-inactive "$storekit_path"
 else
   echo
   echo "note: StoreKit configuration not found at $storekit_path"
@@ -101,17 +109,17 @@ fi
 
 if [[ "$run_gate1_ready" == true ]]; then
   run_step "Validate App Store Connect confirmation is complete" \
-    swift Scripts/validate-storekit-config.swift --validate-app-store-connect-confirmation-complete
+    run_swift_validator --validate-app-store-connect-confirmation-complete
 fi
 
 if [[ "$run_gate2_ready" == true ]]; then
   run_step "Validate Local StoreKit QA evidence is complete" \
-    swift Scripts/validate-storekit-config.swift --validate-storekit-local-qa-complete
+    run_swift_validator --validate-storekit-local-qa-complete
 fi
 
 if [[ "$run_gate3_ready" == true ]]; then
   run_step "Validate Statistics Pro QA evidence is complete" \
-    swift Scripts/validate-storekit-config.swift --validate-statistics-pro-qa-complete
+    run_swift_validator --validate-statistics-pro-qa-complete
 fi
 
 run_step "Check whitespace in git diffs" \

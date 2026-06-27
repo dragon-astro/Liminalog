@@ -14,6 +14,7 @@
 - `purchaseEntryPointIsEnabled == false`
 - `featureRestrictionsAreEnabled == false`
 - `backgroundEntitlementRefreshIsEnabled == false`
+- 単品プレミアム装飾は `PurchaseConfiguration.current.productIDs` / `liminalog.storekit` / プロフィール装飾UIへまだ接続しない
 
 この状態では、Releaseビルドで購入導線、StoreKit商品取得、既存機能のPro制限、起動時権利更新は動かない。
 
