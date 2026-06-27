@@ -150,6 +150,15 @@ if let premiumDecorationDocsFlagIndex = arguments.firstIndex(of: "--validate-pre
     )
 }
 
+if let premiumDecorationInactiveFlagIndex = arguments.firstIndex(of: "--validate-premium-decoration-inactive") {
+    let candidatePath = arguments.dropFirst(premiumDecorationInactiveFlagIndex + 1).first
+    let path = candidatePath?.hasPrefix("-") == false ? candidatePath! : "liminalog.storekit"
+    validatePremiumDecorationProductsInactive(
+        in: path,
+        catalogPath: "Liminalog/Stores/PremiumDecorationCatalog.swift"
+    )
+}
+
 if let safetyFlagIndex = arguments.firstIndex(of: "--validate-release-safety") {
     let path = arguments.dropFirst(safetyFlagIndex + 1).first ?? "Liminalog/Stores/PurchaseConfiguration.swift"
     validateReleaseSafetyConfiguration(at: path)
@@ -518,6 +527,47 @@ private func validatePremiumDecorationProductsDocument(at path: String, catalogP
         print("error: \(failure)")
     }
     exit(EXIT_FAILURE)
+}
+
+private func validatePremiumDecorationProductsInactive(in storeKitPath: String, catalogPath: String) -> Never {
+    let storeKitURL = URL(fileURLWithPath: storeKitPath)
+    guard let data = try? Data(contentsOf: storeKitURL) else {
+        print("error: StoreKit configuration not found at \(storeKitURL.path)")
+        exit(EXIT_FAILURE)
+    }
+
+    let catalogURL = URL(fileURLWithPath: catalogPath)
+    guard let catalogSource = try? String(contentsOf: catalogURL, encoding: .utf8) else {
+        print("error: premium decoration catalog source not found at \(catalogURL.path)")
+        exit(EXIT_FAILURE)
+    }
+
+    let premiumItems = premiumDecorationCatalogItems(in: catalogSource)
+    guard !premiumItems.isEmpty else {
+        print("error: could not parse premium decoration products from \(catalogPath)")
+        exit(EXIT_FAILURE)
+    }
+
+    do {
+        let configuration = try loadConfiguration(from: data)
+        let allStrings = collectStrings(configuration)
+        let activeProductIDs = premiumItems
+            .map(\.productID)
+            .filter { allStrings.contains($0) }
+
+        if activeProductIDs.isEmpty {
+            print("Premium decoration single products are not active in \(storeKitPath).")
+            exit(EXIT_SUCCESS)
+        }
+
+        for productID in activeProductIDs {
+            print("error: premium decoration product is active before UI connection: \(productID)")
+        }
+        exit(EXIT_FAILURE)
+    } catch {
+        print("error: failed to read StoreKit configuration: \(error.localizedDescription)")
+        exit(EXIT_FAILURE)
+    }
 }
 
 private func validateReleaseSafetyConfiguration(at path: String) -> Never {
@@ -896,6 +946,7 @@ private func printUsage() {
       swift Scripts/validate-storekit-config.swift --validate-products-doc [path-to-PurchaseProducts.md]
       swift Scripts/validate-storekit-config.swift --validate-product-source [path-to-PurchaseProduct.swift]
       swift Scripts/validate-storekit-config.swift --validate-premium-decoration-products-doc [path-to-PurchaseProducts.md]
+      swift Scripts/validate-storekit-config.swift --validate-premium-decoration-inactive [path-to-liminalog.storekit]
       swift Scripts/validate-storekit-config.swift --validate-release-safety [path-to-PurchaseConfiguration.swift]
       swift Scripts/validate-storekit-config.swift --validate-xcode-scheme-storekit [path-to-Liminalog.xcscheme]
 

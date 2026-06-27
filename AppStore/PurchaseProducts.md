@@ -28,7 +28,7 @@ Liminalog の App Store Connect 商品作成用メモ。アプリ内の転記元
 ## Premium Decoration Single Products
 
 プレミアム装飾を単品販売する時の App Store Connect 作成候補。転記元は `PremiumDecorationCatalog.items`。
-現時点では `PurchaseConfiguration.current.productIDs`、`liminalog.storekit`、購入UIには入れない。UI接続と単品購入QAの直前に有効化する。
+現時点では `PurchaseConfiguration.current.productIDs`、`liminalog.storekit`、購入UIには入れない。UI接続と単品購入QAの直前に有効化する。現在の readiness check は `--validate-premium-decoration-inactive` で、単品装飾が `liminalog.storekit` に混ざっていないことも検査する。
 
 | Product ID | Reference Name | Type | Price | Group |
 |---|---|---|---:|---|

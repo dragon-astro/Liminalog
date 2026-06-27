@@ -69,6 +69,9 @@ run_step "Validate legal URLs" \
 if [[ -f "$storekit_path" ]]; then
   run_step "Validate StoreKit configuration: $storekit_path" \
     swift Scripts/validate-storekit-config.swift "$storekit_path"
+
+  run_step "Validate premium decoration products are inactive" \
+    swift Scripts/validate-storekit-config.swift --validate-premium-decoration-inactive "$storekit_path"
 else
   echo
   echo "note: StoreKit configuration not found at $storekit_path"
