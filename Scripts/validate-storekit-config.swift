@@ -134,6 +134,11 @@ if let safetyFlagIndex = arguments.firstIndex(of: "--validate-release-safety") {
     validateReleaseSafetyConfiguration(at: path)
 }
 
+if let schemeFlagIndex = arguments.firstIndex(of: "--validate-xcode-scheme-storekit") {
+    let path = arguments.dropFirst(schemeFlagIndex + 1).first ?? "Liminalog.xcodeproj/xcshareddata/xcschemes/Liminalog.xcscheme"
+    validateXcodeSchemeStoreKitReference(at: path)
+}
+
 guard let path = arguments.first, !path.hasPrefix("-") else {
     printUsage()
     exit(EXIT_FAILURE)
@@ -369,6 +374,35 @@ private func validateReleaseSafetyConfiguration(at path: String) -> Never {
     exit(EXIT_FAILURE)
 }
 
+private func validateXcodeSchemeStoreKitReference(at path: String) -> Never {
+    let fileURL = URL(fileURLWithPath: path)
+    guard let text = try? String(contentsOf: fileURL, encoding: .utf8) else {
+        print("error: Xcode scheme not found at \(fileURL.path)")
+        exit(EXIT_FAILURE)
+    }
+
+    let requiredSnippets: [(label: String, snippet: String)] = [
+        ("StoreKit configuration reference", "StoreKitConfigurationFileReference"),
+        ("liminalog.storekit scheme link", #"identifier = "container:liminalog.storekit""#)
+    ]
+
+    let failures = requiredSnippets.compactMap { requirement -> String? in
+        text.contains(requirement.snippet)
+            ? nil
+            : "missing scheme setting: \(requirement.label)"
+    }
+
+    if failures.isEmpty {
+        print("Xcode scheme is linked to liminalog.storekit for local StoreKit QA.")
+        exit(EXIT_SUCCESS)
+    }
+
+    for failure in failures {
+        print("error: \(failure)")
+    }
+    exit(EXIT_FAILURE)
+}
+
 private func purchaseConfigurationCurrentBlock(in source: String) -> String? {
     let marker = "static let current = PurchaseConfiguration("
     guard let markerRange = source.range(of: marker) else { return nil }
@@ -437,6 +471,7 @@ private func printUsage() {
       swift Scripts/validate-storekit-config.swift --app-store-connect-confirmation-md
       swift Scripts/validate-storekit-config.swift --validate-products-doc [path-to-PurchaseProducts.md]
       swift Scripts/validate-storekit-config.swift --validate-release-safety [path-to-PurchaseConfiguration.swift]
+      swift Scripts/validate-storekit-config.swift --validate-xcode-scheme-storekit [path-to-Liminalog.xcscheme]
 
     Create the StoreKit configuration in Xcode first, then run this validator.
     """)

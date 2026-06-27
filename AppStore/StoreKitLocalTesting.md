@@ -40,6 +40,12 @@ swift Scripts/validate-storekit-config.swift --validate-products-doc
 swift Scripts/validate-storekit-config.swift liminalog.storekit
 ```
 
+Shared scheme が `liminalog.storekit` を参照しているかだけを確認する場合：
+
+```sh
+swift Scripts/validate-storekit-config.swift --validate-xcode-scheme-storekit
+```
+
 課金リリース前チェック一式として確認する場合：
 
 ```sh
@@ -52,7 +58,7 @@ Scripts/validate-purchase-readiness.sh
 swift Scripts/validate-storekit-config.swift --expected
 ```
 
-スクリプトは、予定している商品ID、`Liminalog Pro` のサブスクリプショングループ、サブスク商品の `billingPlans` が StoreKit Configuration に含まれるか確認する。Xcode の内部表現が変わる可能性があるため、商品種別は確認できない場合に warning として扱う。
+スクリプトは、予定している商品ID、`Liminalog Pro` のサブスクリプショングループ、サブスク商品の `billingPlans` が StoreKit Configuration に含まれるか確認する。加えて readiness check では、shared scheme の Run 設定が `liminalog.storekit` を参照しているかも確認する。Xcode の内部表現が変わる可能性があるため、商品種別は確認できない場合に warning として扱う。
 
 ## 4. 自動テスト化について
 

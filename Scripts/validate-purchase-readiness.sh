@@ -45,6 +45,9 @@ run_step "Validate purchase product document" \
 run_step "Validate Release purchase safety switches" \
   swift Scripts/validate-storekit-config.swift --validate-release-safety
 
+run_step "Validate Xcode scheme StoreKit link" \
+  swift Scripts/validate-storekit-config.swift --validate-xcode-scheme-storekit
+
 run_step "Print App Store Connect product TSV" \
   swift Scripts/validate-storekit-config.swift --app-store-connect-tsv
 

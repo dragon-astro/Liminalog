@@ -24,7 +24,7 @@ Liminalog の課金基盤 v0 を、現時点の証拠ベースで監査するた
 | LP プライバシーポリシーURL | Done | `https://liminalog-lp.vercel.app/privacy` は 200 応答。`PurchaseConfiguration.current.privacyPolicyURL` はこのURLを参照 | カスタムドメインを使う場合はコード・docs・App Store Connectを同時更新 |
 | App Store Connect商品準備 | Prepared | `AppStore/PurchaseProducts.md`、`--app-store-connect-tsv`、`--app-store-connect-confirmation-md`、Confirmation Sheet。`Scripts/validate-purchase-readiness.sh` でTSV出力を確認済み | App Store Connect で商品8件と `Liminalog Pro` group を実作成し、各行を確認 |
 | 商品ドキュメント整合性 | Done | `Scripts/validate-purchase-readiness.sh` が 2026-06-27 に成功。`--validate-products-doc` も含めて確認済み | 商品・価格・種別を変えたら再実行 |
-| StoreKitローカル設定 | Prepared | repo 直下に `liminalog.storekit` を追加。Shared scheme の Run に `liminalog.storekit` を接続。`Scripts/validate-purchase-readiness.sh` が 2026-06-27 に `billingPlans` 検査込みで成功 | Xcode editorが `.storekit` を書き換えた場合は再検査 |
+| StoreKitローカル設定 | Prepared | repo 直下に `liminalog.storekit` を追加。Shared scheme の Run に `liminalog.storekit` を接続。`Scripts/validate-purchase-readiness.sh` が 2026-06-27 に `billingPlans` と scheme 参照の検査込みで成功 | Xcode editorが `.storekit` や scheme を書き換えた場合は再検査 |
 | StoreKitローカル購入テスト | Prepared | `liminalog.storekit`、`AppStore/StoreKitLocalTesting.md`、`AppStore/PurchaseUIQA.md` に手順あり。`xcodebuild test` + `SKTestSession(contentsOf:)` は 2026-06-27 に `app.YasudaRyuga.Liminalog is not installed for development` で商品取得不可だったため自動テスト化しない | Xcode Run のStoreKit設定、またはApp Store Connect Sandboxで購入、復元、期限切れ、キャンセルを確認 |
 | Release課金導線準備 | Prepared | `PurchaseReleaseChecklist.md` の Gate 1 / Gate 2 / Gate 3、`PurchaseConfiguration.current` の段階フラグ | App Store Connect と利用規約確定後に Gate 1 へ進める |
 | 課金UI QA | Prepared | `AppStore/PurchaseUIQA.md`。2026-06-27 に XcodeBuildMCP / iPhone 17 Pro Simulator で DEBUG の設定入口表示と課金画面遷移、統計Proプレビュー表示、Release の設定入口非表示を確認。DEBUG 起動引数 `-LiminalogDebugPurchaseState` で Pro / 装飾パスのみの統計表示も確認 | Local StoreKit購入操作、全課金状態の目視QA、実機QA、既存タブの広範囲スモークを実行して証跡を残す |
@@ -43,6 +43,7 @@ The aggregate command runs:
 ```sh
 swift Scripts/validate-storekit-config.swift --validate-products-doc
 swift Scripts/validate-storekit-config.swift --validate-release-safety
+swift Scripts/validate-storekit-config.swift --validate-xcode-scheme-storekit
 swift Scripts/validate-storekit-config.swift --app-store-connect-tsv
 swift Scripts/validate-storekit-config.swift --app-store-connect-confirmation-md
 Scripts/validate-purchase-legal-urls.sh
@@ -60,6 +61,7 @@ Scripts/validate-purchase-readiness.sh --release-build
 ```sh
 Scripts/validate-purchase-readiness.sh --storekit=liminalog.storekit
 swift Scripts/validate-storekit-config.swift liminalog.storekit
+swift Scripts/validate-storekit-config.swift --validate-xcode-scheme-storekit
 ```
 
 購入基盤の安全弁だけを再確認する場合：
