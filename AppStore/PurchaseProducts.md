@@ -78,6 +78,7 @@ App Store Connect へ転記するためのTSVは、同じ期待商品リスト�
 このTSVには、商品ID、種別、参照価格、サブスクリプショングループに加えて、ローカライズ用の表示名、説明文、無料体験の確認欄も含める。
 
 ```sh
+Scripts/prepare-app-store-connect-products.sh
 swift Scripts/validate-storekit-config.swift --app-store-connect-tsv
 ```
 

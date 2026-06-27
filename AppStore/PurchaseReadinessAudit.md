@@ -154,7 +154,7 @@ xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -configuration Debug -
 ## Next Best Steps
 
 1. Simulator DEBUG を Xcode から通常Runし、`AppStore/StoreKitLocalTesting.md` の Local StoreKit QA と `AppStore/PurchaseUIQA.md` の購入UI QAを実施する。
-2. `AppStore/AppStoreConnectProductRunbook.md` に沿って App Store Connect で商品を作成し、`swift Scripts/validate-storekit-config.swift --app-store-connect-confirmation-md` の Confirmation Sheet と Creation Metadata を埋め、`Scripts/validate-purchase-readiness.sh --gate1-ready` を通す。
+2. `Scripts/prepare-app-store-connect-products.sh` と `AppStore/AppStoreConnectProductRunbook.md` に沿って App Store Connect で商品を作成し、`swift Scripts/validate-storekit-config.swift --app-store-connect-confirmation-md` の Confirmation Sheet と Creation Metadata を埋め、`Scripts/validate-purchase-readiness.sh --gate1-ready` を通す。
 3. LP の `/terms` を App Store Connect に登録する。
 4. Gate 1 のコード変更だけを入れ、Releaseで購入導線がまだ出ないことを確認する。
 5. Local StoreKit購入操作ができる環境で、Pro / ライフタイム / 装飾パス / 支援の購入・復元・期限切れを確認し、`Scripts/validate-purchase-readiness.sh --gate2-ready` を通す。

@@ -102,6 +102,7 @@ App Store Connect で作成した後にやること。
 このファイルを編集したら、repo root で次を実行する。
 
 ```sh
+Scripts/prepare-app-store-connect-products.sh
 swift Scripts/validate-storekit-config.swift --validate-products-doc AppStore/AppStoreConnectProductSetup.md
 Scripts/validate-purchase-readiness.sh
 ```

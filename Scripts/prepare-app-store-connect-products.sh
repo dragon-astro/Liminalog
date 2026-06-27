@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_root"
+
+strict_clean=false
+swift_module_cache_path="${LIMINALOG_SWIFT_MODULE_CACHE_PATH:-/private/tmp/liminalog-swift-module-cache}"
+
+for argument in "$@"; do
+  case "$argument" in
+    --strict-clean)
+      strict_clean=true
+      ;;
+    --help|-h)
+      cat <<'USAGE'
+usage:
+  Scripts/prepare-app-store-connect-products.sh [--strict-clean]
+
+Runs the local checks that should pass before creating App Store Connect products.
+Use --strict-clean to fail when the working tree has uncommitted changes.
+USAGE
+      exit 0
+      ;;
+    *)
+      echo "error: unknown argument: $argument" >&2
+      exit 2
+      ;;
+  esac
+done
+
+run_step() {
+  local title="$1"
+  shift
+  echo
+  echo "==> $title"
+  "$@"
+}
+
+run_swift_validator() {
+  swift -module-cache-path "$swift_module_cache_path" Scripts/validate-storekit-config.swift "$@"
+}
+
+git_sha="$(git rev-parse --short HEAD)"
+git_status="$(git status --short)"
+date_value="$(date +%F)"
+
+echo "App Store Connect product setup preflight"
+echo
+echo "Git SHA: $git_sha"
+if [[ -n "$git_status" ]]; then
+  echo "Working tree: dirty"
+  echo "$git_status" | sed 's/^/  /'
+  if [[ "$strict_clean" == true ]]; then
+    echo "error: working tree is dirty. Commit, stash, or rerun without --strict-clean if this is intentional." >&2
+    exit 1
+  fi
+else
+  echo "Working tree: clean"
+fi
+echo "Date: $date_value"
+
+run_step "Validate purchase product document" \
+  run_swift_validator --validate-products-doc
+
+run_step "Validate App Store Connect product setup sheet" \
+  run_swift_validator --validate-products-doc AppStore/AppStoreConnectProductSetup.md
+
+run_step "Validate App Store Connect confirmation template" \
+  run_swift_validator --validate-app-store-connect-confirmation-template
+
+run_step "Validate monetization policy document" \
+  run_swift_validator --validate-monetization-doc
+
+run_step "Validate purchase product source" \
+  run_swift_validator --validate-product-source
+
+run_step "Validate premium decoration product document" \
+  run_swift_validator --validate-premium-decoration-products-doc
+
+run_step "Validate Release purchase gate state: closed" \
+  run_swift_validator --validate-release-gate-state closed
+
+run_step "Validate legal URLs" \
+  Scripts/validate-purchase-legal-urls.sh
+
+run_step "Check whitespace in git diffs" \
+  git diff --check
+
+cat <<REPORT
+
+App Store Connect product setup preflight completed.
+
+Transfer source:
+- AppStore/AppStoreConnectProductSetup.md
+- AppStore/AppStoreConnectProductRunbook.md
+- AppStore/ReviewNotes.md
+
+Generate TSV for App Store Connect:
+
+  swift Scripts/validate-storekit-config.swift --app-store-connect-tsv
+
+Generate the confirmation sheet template:
+
+  swift Scripts/validate-storekit-config.swift --app-store-connect-confirmation-md
+
+Next:
+1. Decide whether yearly Pro gets an introductory offer before creating liminalog.pro.yearly.
+2. Create the Liminalog Pro subscription group.
+3. Create the 8 current products from AppStore/AppStoreConnectProductSetup.md.
+4. Fill AppStore/AppStoreConnectProductConfirmation.md, including Creation Metadata.
+5. Run Scripts/validate-purchase-readiness.sh --gate1-ready before changing PurchaseConfiguration.current.
+REPORT

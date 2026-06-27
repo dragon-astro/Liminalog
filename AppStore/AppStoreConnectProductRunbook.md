@@ -19,7 +19,7 @@ App Store Connect で課金商品を実作成する時の手順。目的は、�
 ## Before Opening App Store Connect
 
 1. Current branch が `codex/monetization-foundation` で、課金作業以外の差分が混ざっていないことを確認する。
-2. `Scripts/validate-purchase-readiness.sh` を実行し、Release gate が closed のまま通ることを確認する。
+2. `Scripts/prepare-app-store-connect-products.sh` を実行し、商品表、確認表テンプレート、Release gate、法務URLが揃っていることを確認する。
 3. `swift Scripts/validate-storekit-config.swift --app-store-connect-tsv` を実行し、転記用TSVを手元に置く。
 4. `AppStore/AppStoreConnectProductSetup.md` の Products / App Store Localization / Product Notes を開いておく。
 5. `AppStore/ReviewNotes.md` の Paid Release Draft を開いておく。
