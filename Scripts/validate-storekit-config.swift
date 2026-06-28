@@ -54,7 +54,7 @@ let expectedProducts: [ExpectedProduct] = [
         subscriptionGroup: "Liminalog Pro",
         billingPlanType: "upfront",
         appStoreDescription: "統計などのPro機能とプレミアム装飾を年ごとに利用できます。",
-        introductoryOffer: "未確定（付ける場合はアプリ内文言とQA表も同時更新）",
+        introductoryOffer: "1週間無料体験",
         kindTokens: autoRenewableSubscriptionTokens
     ),
     ExpectedProduct(
@@ -501,11 +501,11 @@ private func validateMonetizationDocument(at path: String) -> Never {
     if yearlyRows.count != 1 {
         failures.append("expected one yearly subscription pricing row, found \(yearlyRows.count)")
     } else if let yearlyRow = yearlyRows.first {
-        if yearlyRow.contains("入口。7日無料") || yearlyRow.contains("7日無料。") {
-            failures.append("yearly subscription pricing row presents 7-day trial as decided")
+        if yearlyRow.contains("無料体験は未確定") {
+            failures.append("yearly subscription pricing row still treats the free trial as undecided")
         }
-        if !yearlyRow.contains("無料体験は未確定") {
-            failures.append("yearly subscription pricing row must keep the free-trial decision undecided")
+        if !yearlyRow.contains("1週間無料体験") {
+            failures.append("yearly subscription pricing row must mention the confirmed 1-week free trial")
         }
     }
 
@@ -515,8 +515,11 @@ private func validateMonetizationDocument(at path: String) -> Never {
     if !text.contains(lifetimePrice) {
         failures.append("monetization document must mention current lifetime reference price \(lifetimePrice)")
     }
-    if !text.contains("無料体験：年額Proに7日無料を付けるかは未確定") {
-        failures.append("monetization document must keep yearly Pro 7-day trial undecided until App Store Connect confirmation")
+    if !text.contains("無料体験：年額Proは1週間無料体験を付ける") {
+        failures.append("monetization document must mention the confirmed yearly Pro 1-week free trial")
+    }
+    if text.contains("無料体験：年額Proに7日無料を付けるかは未確定") {
+        failures.append("monetization document still contains the old undecided yearly Pro trial note")
     }
 
     if failures.isEmpty {
@@ -569,6 +572,8 @@ private func validateReviewNotesDocument(at path: String) -> Never {
             "Lifetime purchase does not include premium decoration rental",
             "Decoration pass subscriptions are shown in the app only for lifetime owners",
             "Support tips are voluntary consumables",
+            "yearly Pro subscription includes a one-week free trial",
+            "Monthly Pro, decoration pass subscriptions, lifetime purchase, and support tips do not include a free trial",
             "https://liminalog-lp.vercel.app/terms",
             "Privacy Policy"
         ]
@@ -742,6 +747,7 @@ private func validateStoreKitLocalQAEvidenceComplete(at path: String) -> Never {
         "商品取得",
         "Pro月額購入",
         "Pro年額購入",
+        "Pro年額無料体験",
         "ライフタイム購入",
         "ライフタイム後の装飾パス表示",
         "装飾パス購入",
@@ -1939,7 +1945,7 @@ private func printAppStoreConnectConfirmationMarkdown() {
     |---|---|---|
     | [ ] | Product Edit Permission | The App Store Connect account used for setup can add and edit in-app purchase products |
     | [ ] | Product Metadata | Display names, descriptions, durations, prices, and availability are filled for all App Store Connect products |
-    | [ ] | Introductory Offer Decision | 年額Proの無料体験を付ける/付けないを確定し、付ける場合はアプリ内文言とQA表も同時更新している |
+    | [ ] | Introductory Offer Decision | 年額ProのIntroductory Offerを Free Trial / 1 Week として作成し、アプリ内文言とQA表へ反映している |
     | [ ] | Review Information | Review screenshot and review notes are attached for products submitted to App Review |
     | [ ] | Sandbox Propagation | After metadata edits, allow up to 1 hour before treating Sandbox product fetch failures as app bugs |
 
@@ -1964,7 +1970,7 @@ private func printAppStoreConnectConfirmationMarkdown() {
 private func appStoreConnectNotes(for product: ExpectedProduct) -> String {
     switch product.productID {
     case "liminalog.pro.yearly":
-        return "7日無料体験は未確定。確定後にアプリ内文言へ反映する。"
+        return "Introductory Offer: Free Trial / 1 Week。アプリ内文言とQA表へ反映済み。"
     case "liminalog.decorations.monthly", "liminalog.decorations.yearly":
         return "アプリ側ではライフタイム所有者向けに表示制御する。"
     case "liminalog.support.small", "liminalog.support.medium", "liminalog.support.large":

@@ -24,7 +24,7 @@ Liminalog の課金設計の初版。**戦略・価格・機能ティア・packa
 | 商品 | 価格 | 備考 |
 |---|---|---|
 | 月額サブスク | **¥400** | 入口。×10アンカーで年が割安に見える |
-| 年額サブスク | **¥2,900** | 入口。無料体験は未確定。付ける場合はApp Store Connect・アプリ内文言・QA表を同時更新。実質¥242/月・約40%off。**¥3,000未満の「ためらいの壁」を越えさせない**＝無名・初アプリは信用の壁が既に高いので価格の壁を重ねない |
+| 年額サブスク | **¥2,900** | 入口。**初回1週間無料体験あり**。実質¥242/月・約40%off。**¥3,000未満の「ためらいの壁」を越えさせない**＝無名・初アプリは信用の壁が既に高いので価格の壁を重ねない |
 | ライフタイム（買い切り） | **¥6,800** | 主力（高意欲層の永久回収）。年額約2.3年分。**機能のみ永久・装飾は完全分離（甘味なし）**。買う人は意思決定済み＝価格感度が低いのでここで正当な額を取る |
 | 装飾サブ（**買い切り所有者限定**） | **¥200/月・¥1,500/年** | 機能は買い切り済みなので**装飾レンタル使い放題だけ**を格安で。二重課金回避＋買い切り勢から継続収益 |
 | プレミアム装飾：フレーム/カード | **¥120** | 永久所有。衝動買い帯 |
@@ -154,7 +154,7 @@ Liminalog の課金設計の初版。**戦略・価格・機能ティア・packa
 ## 10. 実装メモ（将来・Codex引き継ぎ用）
 
 - **StoreKit2 商品**：
-  - フルサブ（月/年）＝機能＋装飾使い放題。無料体験の有無・期間はApp Store Connect確定後に反映する。
+  - フルサブ（月/年）＝機能＋装飾使い放題。年額Proには初回1週間無料体験を付ける。
   - **装飾サブ（買い切り所有者限定・月¥200/年¥1,500）**＝装飾レンタルのみ
   - Non-Consumable：ライフタイム・各プレミアム装飾（永久所有）
   - Consumable：支援チップ
@@ -163,7 +163,7 @@ Liminalog の課金設計の初版。**戦略・価格・機能ティア・packa
   - `liminalog.lifetime`
   - `liminalog.decorations.monthly` / `liminalog.decorations.yearly`
   - `liminalog.support.small` / `liminalog.support.medium` / `liminalog.support.large`
-- **App Store Connect 商品作成メモ（未確定）**：
+- **App Store Connect 商品作成メモ**：
   - 転記用の独立メモは `AppStore/PurchaseProducts.md`。
   - サブスクリプショングループ案：`Liminalog Pro`
   - Auto-Renewable Subscription：`liminalog.pro.monthly`（Liminalog Pro 月額 / ¥400）、`liminalog.pro.yearly`（Liminalog Pro 年額 / ¥2,900）
@@ -171,7 +171,7 @@ Liminalog の課金設計の初版。**戦略・価格・機能ティア・packa
   - Non-Consumable：`liminalog.lifetime`（ライフタイム / ¥6,800）
   - Consumable：`liminalog.support.small`（小さく応援 / ¥250）、`liminalog.support.medium`（しっかり応援 / ¥600）、`liminalog.support.large`（大きく応援 / ¥1,200）
   - 転記元は `PurchaseProductID.appStoreConnectSpecifications`。商品ID、表示名、参照価格、StoreKit商品種別、サブスクリプショングループをコード側で固定し、ドキュメントだけが先に変わらないようにする。
-  - 無料体験：年額Proに7日無料を付けるかは未確定。App Store Connectで確定後、アプリ内文言へ反映する。
+  - 無料体験：年額Proは1週間無料体験を付ける。App Store Connect では `liminalog.pro.yearly` の Introductory Offer を Free Trial / 1 Week にする。
   - 注意：装飾パスは「買い切り所有者向け」にアプリ側で表示制御する。App Store Connect上では商品として作り、表示対象は `PurchaseOfferingCatalog` で絞る。
 - 単品プレミアム装飾は `liminalog.decoration.` prefix の権利モデルだけ実装済み。初期の商品取得リスト/購入UIにはまだ個別IDを列挙していないため、単品装飾を売る時は `PurchaseConfiguration.current.productIDs` と購入UI側の商品定義追加が必要。
 - **本番課金設定の注入点**：`PurchaseConfiguration.current`。本番 Product ID 確認フラグ、サブスクリプショングループ名、利用規約URL、プライバシーポリシーURL、購入導線ON/OFF、機能制限ON/OFF、起動時StoreKit更新ON/OFFをここに集約し、未確定の間は有料リリース準備完了にならない。商品IDの空値/重複/未対応ID、法務URLの非HTTPSもRelease導線を開かない条件としてテストで固定済み。公開前の不足要件は `PurchasePaidReleaseRequirement` として型付きで保持し、DEBUG表示では `displayName` と `resolutionHint` を出す。StoreKitへ渡す商品IDは前後空白を除去してから使う。プライバシーポリシーURLは既存LPの `https://liminalog-lp.vercel.app/privacy` を設定済み。Product ID/法務URLが揃っても `purchaseEntryPointIsEnabled` を true にするまではReleaseの設定画面に購入導線を出さない。
@@ -210,4 +210,4 @@ Liminalog の課金設計の初版。**戦略・価格・機能ティア・packa
   - 検証ケース：商品取得成功、Pro月額/年額購入、ライフタイム購入、装飾パス購入、支援チップ購入、復元なし、復元あり、サブスク期限切れ、非消耗型の永続保持、StoreKit商品種別不一致時に購入候補/権利キャッシュから外れること。
   - `xcodebuild test` + `SKTestSession(contentsOf:)` での自動購入テストは、2026-06-27 時点の Simulator が `app.YasudaRyuga.Liminalog is not installed for development` を返したため採用しない。失敗するテストを残さず、Xcode Run の StoreKit Configuration または App Store Connect Sandbox で手動QAする。
 - **DEBUG表示検証**：設定 > デバッグ > 課金状態を試す、または `-LiminalogDebugPurchaseState` から無料/Pro/ライフタイム/装飾パスありの表示状態を一時確認できる。これは DEBUG ビルド限定・非永続・実購入の代替ではない。
-- **未決確認**：本番 Product ID、サブスクリプショングループ名、App Store Connect の価格帯、年額Proの無料体験有無はユーザー確認後に確定する。LPは `/Users/ryu/Documents/X-code/LP/liminalog_lp` にあり、`/privacy`、`/support`、`/terms` は公開済み。
+- **未決確認**：本番 Product ID、サブスクリプショングループ名、App Store Connect の価格帯はユーザー確認後に確定する。年額Proは1週間無料体験ありで確定済み。LPは `/Users/ryu/Documents/X-code/LP/liminalog_lp` にあり、`/privacy`、`/support`、`/terms` は公開済み。

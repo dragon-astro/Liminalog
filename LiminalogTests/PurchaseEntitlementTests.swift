@@ -87,11 +87,14 @@ struct PurchaseEntitlementTests {
     }
 
     @Test
-    func productDescriptionsDoNotPromiseUnconfirmedIntroductoryOffers() {
-        let descriptions = PurchaseProductID.allCases.map(\.shortDescription)
+    func productDescriptionsReflectConfirmedYearlyIntroductoryOfferOnly() {
+        let descriptionsByID = Dictionary(uniqueKeysWithValues: PurchaseProductID.allCases.map { ($0, $0.shortDescription) })
 
-        #expect(!descriptions.contains { $0.contains("想定") })
-        #expect(!descriptions.contains { $0.contains("無料体験") })
+        #expect(descriptionsByID[.proYearly]?.contains("初回1週間無料") == true)
+        #expect(descriptionsByID[.proMonthly]?.contains("無料") == false)
+        #expect(descriptionsByID[.decorationMonthly]?.contains("無料") == false)
+        #expect(descriptionsByID[.decorationYearly]?.contains("無料") == false)
+        #expect(!descriptionsByID.values.contains { $0.contains("想定") })
     }
 
     @Test

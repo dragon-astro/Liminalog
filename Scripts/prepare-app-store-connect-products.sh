@@ -122,9 +122,9 @@ Generate the confirmation sheet template:
   swift Scripts/validate-storekit-config.swift --app-store-connect-confirmation-md
 
 Next:
-1. Decide whether yearly Pro gets an introductory offer before creating liminalog.pro.yearly.
-2. Create the Liminalog Pro subscription group.
-3. Create the 8 current products from AppStore/AppStoreConnectProductSetup.md.
+1. Create the Liminalog Pro subscription group.
+2. Create the 8 current products from AppStore/AppStoreConnectProductSetup.md.
+3. Set liminalog.pro.yearly Introductory Offer to Free Trial / 1 Week.
 4. Fill AppStore/AppStoreConnectProductConfirmation.md, including Creation Metadata.
 5. Run Scripts/validate-purchase-readiness.sh --gate1-ready before changing PurchaseConfiguration.current.
 REPORT

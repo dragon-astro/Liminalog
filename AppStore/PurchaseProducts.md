@@ -58,7 +58,7 @@ App Review に課金の意図を説明する時の下書き。
 - 同じ `Liminalog Pro` group 内で、Proサブと装飾パスが代替プランとして扱われることを確認している。
 - メタデータ変更後、Sandbox 反映待ちとして最大1時間程度を見込んでから商品取得QAを行う。
 - 単品装飾を有効化する場合は、`liminalog.decoration.` prefix の商品が Non-Consumable として作成されている。
-- 年額Proの無料体験を付けるか確定し、付ける場合は App Store Connect、アプリ内文言、QA表を同時に更新している。
+- 年額Proの Introductory Offer を Free Trial / 1 Week として作成し、App Store Connect、アプリ内文言、QA表を同時に更新している。
 - 利用規約URLが公開済みで、App Store Connect とアプリ内設定の両方から参照できる。
 - ローカル StoreKit Configuration で同じ商品IDを作り、`Scripts/validate-storekit-config.swift` を通している。
 - App Store Connect で作成した後、`AppStore/AppStoreConnectProductConfirmation.md` を埋める。
@@ -101,7 +101,7 @@ App Store Connect で作成した後、各行を確認する。すべて確認�
 | Product ID | ID | Type | Price | Group | Notes |
 |---|---|---|---|---|---|
 | `liminalog.pro.monthly` | [ ] | [ ] | [ ] | [ ] |  |
-| `liminalog.pro.yearly` | [ ] | [ ] | [ ] | [ ] | 7日無料体験の有無を確定 |
+| `liminalog.pro.yearly` | [ ] | [ ] | [ ] | [ ] | Introductory Offer: Free Trial / 1 Week |
 | `liminalog.lifetime` | [ ] | [ ] | [ ] | - |  |
 | `liminalog.decorations.monthly` | [ ] | [ ] | [ ] | [ ] | ライフタイム所有者向け表示 |
 | `liminalog.decorations.yearly` | [ ] | [ ] | [ ] | [ ] | ライフタイム所有者向け表示 |

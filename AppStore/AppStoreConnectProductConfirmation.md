@@ -32,7 +32,7 @@ App Store Connect で課金商品を作成した後に埋める確認表。す�
 | Check | Product ID | Reference Name | Type | Reference Price | Subscription Group | Notes |
 |---|---|---|---|---:|---|---|
 | [ ] | `liminalog.pro.monthly` | Liminalog Pro 月額 | Auto-Renewable Subscription | ¥400 | Liminalog Pro |  |
-| [ ] | `liminalog.pro.yearly` | Liminalog Pro 年額 | Auto-Renewable Subscription | ¥2,900 | Liminalog Pro | 7日無料体験は未確定。確定後にアプリ内文言へ反映する。 |
+| [ ] | `liminalog.pro.yearly` | Liminalog Pro 年額 | Auto-Renewable Subscription | ¥2,900 | Liminalog Pro | Introductory Offer: Free Trial / 1 Week。アプリ内文言とQA表へ反映済み。 |
 | [ ] | `liminalog.lifetime` | ライフタイム | Non-Consumable | ¥6,800 | - |  |
 | [ ] | `liminalog.decorations.monthly` | 装飾パス 月額 | Auto-Renewable Subscription | ¥200 | Liminalog Pro | アプリ側ではライフタイム所有者向けに表示制御する。 |
 | [ ] | `liminalog.decorations.yearly` | 装飾パス 年額 | Auto-Renewable Subscription | ¥1,500 | Liminalog Pro | アプリ側ではライフタイム所有者向けに表示制御する。 |
@@ -46,7 +46,7 @@ App Store Connect で課金商品を作成した後に埋める確認表。す�
 |---|---|---|
 | [ ] | Product Edit Permission | The App Store Connect account used for setup can add and edit in-app purchase products |
 | [ ] | Product Metadata | Display names, descriptions, durations, prices, and availability are filled for all App Store Connect products |
-| [ ] | Introductory Offer Decision | 年額Proの無料体験を付ける/付けないを確定し、付ける場合はアプリ内文言とQA表も同時更新している |
+| [ ] | Introductory Offer Decision | 年額ProのIntroductory Offerを Free Trial / 1 Week として作成し、アプリ内文言とQA表へ反映している |
 | [ ] | Review Information | Review screenshot and review notes are attached for products submitted to App Review |
 | [ ] | Sandbox Propagation | After metadata edits, allow up to 1 hour before treating Sandbox product fetch failures as app bugs |
 

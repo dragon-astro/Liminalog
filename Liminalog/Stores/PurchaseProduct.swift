@@ -147,7 +147,7 @@ enum PurchaseProductID: String, Codable, CaseIterable, Identifiable {
         case .proMonthly:
             "深い統計とプレミアム装飾を、月ごとに。"
         case .proYearly:
-            "Proを長く使う人向け。年ごとに更新します。"
+            "初回1週間無料。Proを長く使う人向け。"
         case .lifetime:
             "機能を一度だけ応援して、ずっと使う道。"
         case .decorationMonthly:

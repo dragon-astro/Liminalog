@@ -16,7 +16,7 @@ Liminalog のローカル課金テスト準備メモ。repo 直下に `liminalog
 | Product ID | 種別 | 参照価格 | Subscription Group |
 |---|---|---:|---|
 | `liminalog.pro.monthly` | Auto-Renewable Subscription | ¥400 | `Liminalog Pro` |
-| `liminalog.pro.yearly` | Auto-Renewable Subscription | ¥2,900 | `Liminalog Pro` |
+| `liminalog.pro.yearly` | Auto-Renewable Subscription | ¥2,900 | `Liminalog Pro` / Introductory Offer: Free Trial / 1 Week |
 | `liminalog.lifetime` | Non-Consumable | ¥6,800 | - |
 | `liminalog.decorations.monthly` | Auto-Renewable Subscription | ¥200 | `Liminalog Pro` |
 | `liminalog.decorations.yearly` | Auto-Renewable Subscription | ¥1,500 | `Liminalog Pro` |
@@ -109,6 +109,7 @@ xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -configuration Debug -
 - DEBUG商品取得診断：購入画面の `StoreKit商品取得診断` で要求ID数、取得数、有効数、未取得ID、型不一致/未対応IDを確認する。
 - Pro月額購入：`entitlements.isProActive == true` になり、サブスク状態として表示される。
 - Pro年額購入：月額と同じ Pro 権利になる。
+- Pro年額無料体験：購入確認画面またはStoreKitテスト上で、初回1週間無料体験が年額Proにだけ適用される。
 - ライフタイム購入：`hasLifetime == true` になり、Pro権利は永続扱いになる。
 - 装飾パス購入：`hasDecorationRental == true` になり、Pro機能権利とは分離される。
 - 支援チップ購入：権利を恒久付与せず、購入完了メッセージだけ表示される。
@@ -150,6 +151,7 @@ xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -configuration Debug -
 | 商品取得 | Pro、ライフタイム、装飾パス、支援が意図した順で表示される。ただし装飾パスはライフタイム所有時だけ表示される | screenshot / note |  |  |
 | Pro月額購入 | ステータスがPro有効になり、統計Pro権利が有効になる | screenshot / note |  |  |
 | Pro年額購入 | 月額と同じPro権利になる | screenshot / note |  |  |
+| Pro年額無料体験 | `liminalog.pro.yearly` の購入確認で初回1週間無料体験が表示/適用され、月額Proや装飾パスには無料体験が付かない | screenshot / note |  |  |
 | ライフタイム購入 | ステータスがライフタイム所有になり、Pro権利が永続扱いになる | screenshot / note |  |  |
 | ライフタイム後の装飾パス表示 | ライフタイム所有後だけ装飾パスが購入候補に出る | screenshot / note |  |  |
 | 装飾パス購入 | `hasDecorationRental == true` 相当の表示になり、Pro機能権利にはならない | screenshot / note |  |  |

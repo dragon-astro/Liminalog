@@ -9,7 +9,7 @@ App Store Connect で Liminalog の課金商品を作る時の転記シート。
 - App Store Connect で商品を作成しても、確認表が埋まるまで `PurchaseConfiguration.current.productIDsAreConfirmedForAppStoreConnect` は `false` のままにする。
 - Gate 1 では `purchaseEntryPointIsEnabled` と `featureRestrictionsAreEnabled` を `false` のままにする。
 - 単品プレミアム装飾は別枠候補として温存し、初回の `PurchaseConfiguration.current.productIDs` と `liminalog.storekit` には入れない。
-- 年額 Pro の無料体験は未確定。付ける場合は App Store Connect、アプリ内文言、QA表を同時に更新する。
+- 年額 Pro には 1週間無料体験を付ける。App Store Connect では `liminalog.pro.yearly` の Introductory Offer を Free Trial / 1 Week にする。
 - 支援チップは権利付与なしの Consumable として扱う。
 
 ## Subscription Group
@@ -45,7 +45,7 @@ App Store Connect で Liminalog の課金商品を作る時の転記シート。
 | Product ID | App Behavior | Creation Note |
 |---|---|---|
 | `liminalog.pro.monthly` | Pro機能とプレミアム装飾レンタルを有効化する | 月額の主要プラン |
-| `liminalog.pro.yearly` | Pro機能とプレミアム装飾レンタルを有効化する | 無料体験の有無を別途決める |
+| `liminalog.pro.yearly` | Pro機能とプレミアム装飾レンタルを有効化する | Introductory Offer: Free Trial / 1 Week |
 | `liminalog.lifetime` | Pro機能を永続解放する | プレミアム装飾レンタルは付けない |
 | `liminalog.decorations.monthly` | プレミアム装飾レンタルのみ有効化する | ライフタイム所有者向けに表示制御する |
 | `liminalog.decorations.yearly` | プレミアム装飾レンタルのみ有効化する | ライフタイム所有者向けに表示制御する |
@@ -62,7 +62,7 @@ App Store Connect で商品を作成する時は、商品IDと価格だけでな
 - Product Metadata は、表示名、説明、期間、価格、販売状態を確認する。
 - Subscription Relationship は、Pro月額/年額と装飾パス月額/年額が同じ `Liminalog Pro` group 内で代替プランとして扱われることを確認する。
 - Review Information は、提出対象の商品にレビュー用スクリーンショットとメモを付ける。
-- Introductory Offer は、初回リリースで付ける/付けないを確定する。年額Proの無料体験を付ける場合は、App Store Connect、アプリ内文言、QA表を同じチェックポイントで更新する。
+- Introductory Offer は、年額Proだけ Free Trial / 1 Week にする。月額Pro、装飾パス、支援チップ、ライフタイムには無料体験を付けない。
 
 ## App Store Localization
 

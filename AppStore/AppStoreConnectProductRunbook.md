@@ -14,7 +14,7 @@ App Store Connect で課金商品を実作成する時の手順。目的は、�
 - この作業では `purchaseEntryPointIsEnabled` を開かない。
 - この作業では `featureRestrictionsAreEnabled` を開かない。
 - 単品プレミアム装飾は作成候補として温存し、初回の購入導線・`liminalog.storekit`・`PurchaseConfiguration.current.productIDs` には入れない。
-- 年額Proの無料体験は、付ける/付けないを決めるまで App Store Connect に設定しない。付ける場合はアプリ内文言とQA表も同じチェックポイントで更新する。
+- 年額Proには1週間無料体験を付ける。App Store Connect では `liminalog.pro.yearly` の Introductory Offer を Free Trial / 1 Week にする。
 
 ## Before Opening App Store Connect
 
@@ -50,11 +50,11 @@ Create these as Auto-Renewable Subscriptions inside `Liminalog Pro`:
 | Product ID | Reference Name | Price | Duration | Note |
 |---|---|---:|---|---|
 | `liminalog.pro.monthly` | Liminalog Pro 月額 | ¥400 | Monthly | Pro機能とプレミアム装飾レンタル |
-| `liminalog.pro.yearly` | Liminalog Pro 年額 | ¥2,900 | Yearly | 無料体験は未確定 |
+| `liminalog.pro.yearly` | Liminalog Pro 年額 | ¥2,900 | Yearly | Introductory Offer: Free Trial / 1 Week |
 
-年額Proに無料体験を付ける場合だけ、次を同じチェックポイントで更新する：
+年額Proの無料体験はこのチェックポイントで確定済み。次が同時に更新されていることを確認する：
 
-- App Store Connect の Introductory Offer
+- App Store Connect の Introductory Offer: Free Trial / 1 Week
 - アプリ内の購入画面文言
 - `AppStore/AppStoreConnectProductConfirmation.md`
 - `AppStore/StoreKitLocalTesting.md`
@@ -106,7 +106,7 @@ App Store Connect の各商品に Review Information が必要な場合は、次
 2. Subscription Group の3行を確認済みにする。
 3. Products の全8商品について、ID、Reference Name、Type、Price、Subscription Group を確認済みにする。
 4. Creation Metadata の5行を確認済みにする。
-5. 年額ProのNotesは、無料体験の方針を確定した文言へ書き換える。`未確定` を残したまま Gate 1 へ進まない。
+5. 年額ProのNotesとIntroductory Offerが Free Trial / 1 Week になっていることを確認する。`未確定` を残したまま Gate 1 へ進まない。
 6. App Store Connect 反映待ちとして最大1時間程度待ってから、Sandbox / StoreKit 商品取得QAを行う。
 7. `Scripts/validate-purchase-readiness.sh --gate1-ready` を実行する。
 
@@ -115,7 +115,7 @@ App Store Connect の各商品に Review Information が必要な場合は、次
 次のどれかが起きたら、Gate 1 のコード変更をしない。
 
 - 商品ID、種別、価格、グループが `AppStore/AppStoreConnectProductSetup.md` と一致しない。
-- 年額Proの無料体験方針が未確定のまま。
+- 年額ProのIntroductory Offerが Free Trial / 1 Week になっていない。
 - 装飾パスがライフタイム所有者向け表示であることを説明できない。
 - 支援チップが権利付与なしであることを確認できない。
 - Review Information のスクリーンショットまたはメモが用意できない。
