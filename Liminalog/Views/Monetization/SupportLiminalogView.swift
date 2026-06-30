@@ -351,7 +351,7 @@ struct SupportLiminalogView: View {
 
     private var statusDetail: String {
         if purchaseStore.entitlements.hasLifetime {
-            return "ライフタイムを所有しています。"
+            return "Pro機能 買い切りを所有しています。"
         }
         if purchaseStore.entitlements.isProActive {
             return "サブスクリプションの購入状態を確認済みです。"

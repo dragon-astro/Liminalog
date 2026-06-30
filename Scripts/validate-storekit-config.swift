@@ -59,12 +59,12 @@ let expectedProducts: [ExpectedProduct] = [
     ),
     ExpectedProduct(
         productID: "liminalog.lifetime",
-        displayName: "ライフタイム",
+        displayName: "Pro機能 買い切り",
         kind: "Non-Consumable",
-        referencePrice: "¥6,800",
+        referencePrice: "¥7,800",
         subscriptionGroup: nil,
         billingPlanType: nil,
-        appStoreDescription: "Pro機能を買い切りで利用できます。",
+        appStoreDescription: "統計などのPro機能を一度だけの応援でずっと使えます。プレミアム装飾レンタルは含まれません。",
         introductoryOffer: "-",
         kindTokens: nonConsumableTokens
     ),
@@ -75,7 +75,7 @@ let expectedProducts: [ExpectedProduct] = [
         referencePrice: "¥200",
         subscriptionGroup: "Liminalog Pro",
         billingPlanType: "monthly",
-        appStoreDescription: "ライフタイム所有者向けにプレミアム装飾を月ごとに利用できます。",
+        appStoreDescription: "Pro機能 買い切り所有者向けにプレミアム装飾を月ごとに利用できます。",
         introductoryOffer: "-",
         kindTokens: autoRenewableSubscriptionTokens
     ),
@@ -86,40 +86,40 @@ let expectedProducts: [ExpectedProduct] = [
         referencePrice: "¥1,500",
         subscriptionGroup: "Liminalog Pro",
         billingPlanType: "upfront",
-        appStoreDescription: "ライフタイム所有者向けにプレミアム装飾を年ごとに利用できます。",
+        appStoreDescription: "Pro機能 買い切り所有者向けにプレミアム装飾を年ごとに利用できます。",
         introductoryOffer: "-",
         kindTokens: autoRenewableSubscriptionTokens
     ),
     ExpectedProduct(
         productID: "liminalog.support.small",
-        displayName: "小さく応援",
+        displayName: "開発応援チップ 小",
         kind: "Consumable",
-        referencePrice: "¥250",
+        referencePrice: "¥120",
         subscriptionGroup: nil,
         billingPlanType: nil,
-        appStoreDescription: "機能解放なしでLiminalogを応援します。",
+        appStoreDescription: "機能解放はありません。Liminalogの開発を応援するチップです。",
         introductoryOffer: "-",
         kindTokens: consumableTokens
     ),
     ExpectedProduct(
         productID: "liminalog.support.medium",
-        displayName: "しっかり応援",
+        displayName: "開発応援チップ 中",
         kind: "Consumable",
         referencePrice: "¥600",
         subscriptionGroup: nil,
         billingPlanType: nil,
-        appStoreDescription: "機能解放なしでLiminalogを応援します。",
+        appStoreDescription: "機能解放はありません。Liminalogの開発を応援するチップです。",
         introductoryOffer: "-",
         kindTokens: consumableTokens
     ),
     ExpectedProduct(
         productID: "liminalog.support.large",
-        displayName: "大きく応援",
+        displayName: "開発応援チップ 大",
         kind: "Consumable",
-        referencePrice: "¥1,200",
+        referencePrice: "¥1,000",
         subscriptionGroup: nil,
         billingPlanType: nil,
-        appStoreDescription: "機能解放なしでLiminalogを応援します。",
+        appStoreDescription: "機能解放はありません。Liminalogの開発を応援するチップです。",
         introductoryOffer: "-",
         kindTokens: consumableTokens
     )
@@ -492,11 +492,19 @@ private func validateMonetizationDocument(at path: String) -> Never {
     }
 
     var failures: [String] = []
-    let lifetimePrice = expectedProducts.first { $0.productID == "liminalog.lifetime" }?.referencePrice ?? "¥6,800"
+    let lifetimePrice = expectedProducts.first { $0.productID == "liminalog.lifetime" }?.referencePrice ?? "¥7,800"
     let yearlyRows = text
         .split(separator: "\n", omittingEmptySubsequences: false)
         .map(String.init)
         .filter { $0.hasPrefix("| 年額サブスク |") }
+    let lifetimeRows = text
+        .split(separator: "\n", omittingEmptySubsequences: false)
+        .map(String.init)
+        .filter { $0.hasPrefix("| ライフタイム（買い切り） |") }
+    let supportRows = text
+        .split(separator: "\n", omittingEmptySubsequences: false)
+        .map(String.init)
+        .filter { $0.hasPrefix("| 支援チップ |") }
 
     if yearlyRows.count != 1 {
         failures.append("expected one yearly subscription pricing row, found \(yearlyRows.count)")
@@ -509,11 +517,25 @@ private func validateMonetizationDocument(at path: String) -> Never {
         }
     }
 
-    if text.contains("¥5,800") {
-        failures.append("monetization document still contains stale lifetime price ¥5,800")
+    if lifetimeRows.count != 1 {
+        failures.append("expected one lifetime pricing row, found \(lifetimeRows.count)")
+    } else if let lifetimeRow = lifetimeRows.first {
+        if lifetimeRow.contains("¥5,800") || lifetimeRow.contains("¥6,800") {
+            failures.append("lifetime pricing row still contains a stale lifetime price")
+        }
+        if !lifetimeRow.contains(lifetimePrice) {
+            failures.append("lifetime pricing row must mention current reference price \(lifetimePrice)")
+        }
     }
-    if !text.contains(lifetimePrice) {
-        failures.append("monetization document must mention current lifetime reference price \(lifetimePrice)")
+    if supportRows.count != 1 {
+        failures.append("expected one support tip pricing row, found \(supportRows.count)")
+    } else if let supportRow = supportRows.first {
+        if supportRow.contains("¥250") || supportRow.contains("¥1,200") {
+            failures.append("support tip pricing row still contains a stale support tip price")
+        }
+        if !supportRow.contains("¥120 / ¥600 / ¥1,000") {
+            failures.append("support tip pricing row must mention current prices ¥120 / ¥600 / ¥1,000")
+        }
     }
     if !text.contains("無料体験：年額Proは1週間無料体験を付ける") {
         failures.append("monetization document must mention the confirmed yearly Pro 1-week free trial")
@@ -569,11 +591,11 @@ private func validateReviewNotesDocument(at path: String) -> Never {
             "Core logging, calendar browsing, friends, and daily card sharing remain available without purchase",
             "does not use external payment links",
             "outside StoreKit",
-            "Lifetime purchase does not include premium decoration rental",
-            "Decoration pass subscriptions are shown in the app only for lifetime owners",
+            "Pro feature lifetime purchase does not include premium decoration rental",
+            "Decoration pass subscriptions are shown in the app only for Pro feature lifetime owners",
             "Support tips are voluntary consumables",
             "yearly Pro subscription includes a one-week free trial",
-            "Monthly Pro, decoration pass subscriptions, lifetime purchase, and support tips do not include a free trial",
+            "Monthly Pro, decoration pass subscriptions, Pro feature lifetime purchase, and support tips do not include a free trial",
             "https://liminalog-lp.vercel.app/terms",
             "Privacy Policy"
         ]
@@ -748,8 +770,8 @@ private func validateStoreKitLocalQAEvidenceComplete(at path: String) -> Never {
         "Pro月額購入",
         "Pro年額購入",
         "Pro年額無料体験",
-        "ライフタイム購入",
-        "ライフタイム後の装飾パス表示",
+        "Pro機能 買い切り購入",
+        "Pro機能 買い切り後の装飾パス表示",
         "装飾パス購入",
         "支援チップ購入",
         "購入キャンセル",
@@ -1972,7 +1994,7 @@ private func appStoreConnectNotes(for product: ExpectedProduct) -> String {
     case "liminalog.pro.yearly":
         return "Introductory Offer: Free Trial / 1 Week。アプリ内文言とQA表へ反映済み。"
     case "liminalog.decorations.monthly", "liminalog.decorations.yearly":
-        return "アプリ側ではライフタイム所有者向けに表示制御する。"
+        return "アプリ側ではPro機能 買い切り所有者向けに表示制御する。"
     case "liminalog.support.small", "liminalog.support.medium", "liminalog.support.large":
         return "機能解放ではなく任意支援。恒久権利を付けない。"
     default:

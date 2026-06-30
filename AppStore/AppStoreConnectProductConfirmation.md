@@ -33,12 +33,12 @@ App Store Connect で課金商品を作成した後に埋める確認表。す�
 |---|---|---|---|---:|---|---|
 | [ ] | `liminalog.pro.monthly` | Liminalog Pro 月額 | Auto-Renewable Subscription | ¥400 | Liminalog Pro |  |
 | [ ] | `liminalog.pro.yearly` | Liminalog Pro 年額 | Auto-Renewable Subscription | ¥2,900 | Liminalog Pro | Introductory Offer: Free Trial / 1 Week。アプリ内文言とQA表へ反映済み。 |
-| [ ] | `liminalog.lifetime` | ライフタイム | Non-Consumable | ¥6,800 | - |  |
-| [ ] | `liminalog.decorations.monthly` | 装飾パス 月額 | Auto-Renewable Subscription | ¥200 | Liminalog Pro | アプリ側ではライフタイム所有者向けに表示制御する。 |
-| [ ] | `liminalog.decorations.yearly` | 装飾パス 年額 | Auto-Renewable Subscription | ¥1,500 | Liminalog Pro | アプリ側ではライフタイム所有者向けに表示制御する。 |
-| [ ] | `liminalog.support.small` | 小さく応援 | Consumable | ¥250 | - | 機能解放ではなく任意支援。恒久権利を付けない。 |
-| [ ] | `liminalog.support.medium` | しっかり応援 | Consumable | ¥600 | - | 機能解放ではなく任意支援。恒久権利を付けない。 |
-| [ ] | `liminalog.support.large` | 大きく応援 | Consumable | ¥1,200 | - | 機能解放ではなく任意支援。恒久権利を付けない。 |
+| [ ] | `liminalog.lifetime` | Pro機能 買い切り | Non-Consumable | ¥7,800 | - |  |
+| [ ] | `liminalog.decorations.monthly` | 装飾パス 月額 | Auto-Renewable Subscription | ¥200 | Liminalog Pro | アプリ側ではPro機能 買い切り所有者向けに表示制御する。 |
+| [ ] | `liminalog.decorations.yearly` | 装飾パス 年額 | Auto-Renewable Subscription | ¥1,500 | Liminalog Pro | アプリ側ではPro機能 買い切り所有者向けに表示制御する。 |
+| [ ] | `liminalog.support.small` | 開発応援チップ 小 | Consumable | ¥120 | - | 機能解放ではなく任意支援。恒久権利を付けない。 |
+| [ ] | `liminalog.support.medium` | 開発応援チップ 中 | Consumable | ¥600 | - | 機能解放ではなく任意支援。恒久権利を付けない。 |
+| [ ] | `liminalog.support.large` | 開発応援チップ 大 | Consumable | ¥1,000 | - | 機能解放ではなく任意支援。恒久権利を付けない。 |
 
 ## Creation Metadata
 

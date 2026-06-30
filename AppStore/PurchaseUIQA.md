@@ -62,12 +62,12 @@ swift Scripts/validate-storekit-config.swift --validate-release-gate-state close
 
 確認項目：
 
-- 商品取得成功時、Pro、ライフタイム、装飾パス、支援が意図した順で表示される。
+- 商品取得成功時、Pro、Pro機能 買い切り、装飾パス、支援が意図した順で表示される。
 - 価格表示が `AppStore/PurchaseProducts.md` の参照価格と大きくずれていない。
 - 年額Proに初回1週間無料体験が表示され、月額Proや装飾パスには無料体験が付かない。
 - Pro月額 / Pro年額購入後、ステータスが Pro 有効になる。
-- ライフタイム購入後、ステータスがライフタイム所有になる。
-- ライフタイム所有後だけ装飾パスが表示される。
+- Pro機能 買い切り購入後、ステータスがPro機能 買い切り所有になる。
+- Pro機能 買い切り所有後だけ装飾パスが表示される。
 - 装飾パスのみでは Pro 機能権利にならない。
 - 支援チップ購入後、恒久権利は増えず、完了メッセージだけ表示される。
 - 購入キャンセルでエラー表示にならない。
@@ -112,7 +112,7 @@ Scripts/prepare-purchase-ui-qa.sh
 |---|---|---|---|---|
 | Release購入入口 | Gate 2設定のReleaseで設定に「Proと応援」が表示される | screenshot / note |  |  |
 | 商品取得と診断 | 商品が表示される。失敗時はDEBUG診断で原因を切り分けられる | screenshot / note |  |  |
-| 購入画面表示 | Pro、ライフタイム、装飾パス、支援、規約、復元、管理が意図した位置に出る。年額Proの初回1週間無料体験が分かる | screenshot / note |  |  |
+| 購入画面表示 | Pro、Pro機能 買い切り、装飾パス、支援、規約、復元、管理が意図した位置に出る。年額Proの初回1週間無料体験が分かる | screenshot / note |  |  |
 | 復元とサブスク管理 | 復元とサブスクリプション管理がStoreKit操作として実行できる | screenshot / note |  |  |
 | 既存タブスモーク | 購入画面から戻ってもホーム、カレンダー、統計、友達、プロフィールの入口とスクロールが変わらない | screenshot / note |  |  |
 | 既存機能の無料維持 | `featureRestrictionsAreEnabled == false` では統計、記録、カレンダー、友達、シェアがロックされない | screenshot / note |  |  |

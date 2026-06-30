@@ -8,9 +8,9 @@ Liminalog の App Store Connect 商品作成用メモ。アプリ内の転記元
 |---|---|
 | Group Reference Name | `Liminalog Pro` |
 | 用途 | Proサブと装飾パスを同一グループで管理する |
-| 注意 | 装飾パスはアプリ側でライフタイム所有者向けに表示制御する |
+| 注意 | 装飾パスはアプリ側でPro機能 買い切り所有者向けに表示制御する |
 
-同じ Subscription Group 内の商品は同じファミリーの代替プランとして扱う。Proサブは「Pro機能 + プレミアム装飾レンタル」、装飾パスは「ライフタイム所有者向けのプレミアム装飾レンタルのみ」なので、App Store Connect 作成時に期間、表示順、レベル/アップグレード関係がこの意図と矛盾しないことを確認する。
+同じ Subscription Group 内の商品は同じファミリーの代替プランとして扱う。Proサブは「Pro機能 + プレミアム装飾レンタル」、装飾パスは「Pro機能 買い切り所有者向けのプレミアム装飾レンタルのみ」なので、App Store Connect 作成時に期間、表示順、レベル/アップグレード関係がこの意図と矛盾しないことを確認する。
 
 ## Products
 
@@ -20,12 +20,12 @@ Liminalog の App Store Connect 商品作成用メモ。アプリ内の転記元
 |---|---|---|---:|---|
 | `liminalog.pro.monthly` | Liminalog Pro 月額 | Auto-Renewable Subscription | ¥400 | `Liminalog Pro` |
 | `liminalog.pro.yearly` | Liminalog Pro 年額 | Auto-Renewable Subscription | ¥2,900 | `Liminalog Pro` |
-| `liminalog.lifetime` | ライフタイム | Non-Consumable | ¥6,800 | - |
+| `liminalog.lifetime` | Pro機能 買い切り | Non-Consumable | ¥7,800 | - |
 | `liminalog.decorations.monthly` | 装飾パス 月額 | Auto-Renewable Subscription | ¥200 | `Liminalog Pro` |
 | `liminalog.decorations.yearly` | 装飾パス 年額 | Auto-Renewable Subscription | ¥1,500 | `Liminalog Pro` |
-| `liminalog.support.small` | 小さく応援 | Consumable | ¥250 | - |
-| `liminalog.support.medium` | しっかり応援 | Consumable | ¥600 | - |
-| `liminalog.support.large` | 大きく応援 | Consumable | ¥1,200 | - |
+| `liminalog.support.small` | 開発応援チップ 小 | Consumable | ¥120 | - |
+| `liminalog.support.medium` | 開発応援チップ 中 | Consumable | ¥600 | - |
+| `liminalog.support.large` | 開発応援チップ 大 | Consumable | ¥1,000 | - |
 
 ## Premium Decoration Single Products
 
@@ -103,8 +103,8 @@ App Store Connect で作成した後、各行を確認する。すべて確認�
 | `liminalog.pro.monthly` | [ ] | [ ] | [ ] | [ ] |  |
 | `liminalog.pro.yearly` | [ ] | [ ] | [ ] | [ ] | Introductory Offer: Free Trial / 1 Week |
 | `liminalog.lifetime` | [ ] | [ ] | [ ] | - |  |
-| `liminalog.decorations.monthly` | [ ] | [ ] | [ ] | [ ] | ライフタイム所有者向け表示 |
-| `liminalog.decorations.yearly` | [ ] | [ ] | [ ] | [ ] | ライフタイム所有者向け表示 |
+| `liminalog.decorations.monthly` | [ ] | [ ] | [ ] | [ ] | Pro機能 買い切り所有者向け表示 |
+| `liminalog.decorations.yearly` | [ ] | [ ] | [ ] | [ ] | Pro機能 買い切り所有者向け表示 |
 | `liminalog.support.small` | [ ] | [ ] | [ ] | - | 権利付与なし |
 | `liminalog.support.medium` | [ ] | [ ] | [ ] | - | 権利付与なし |
 | `liminalog.support.large` | [ ] | [ ] | [ ] | - | 権利付与なし |

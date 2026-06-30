@@ -40,7 +40,7 @@ Create one subscription group:
 
 - Proサブと装飾パスが同じ subscription group に入っている。
 - Proサブは「Pro機能 + プレミアム装飾レンタル」。
-- 装飾パスは「ライフタイム所有者向けのプレミアム装飾レンタルのみ」。
+- 装飾パスは「Pro機能 買い切り所有者向けのプレミアム装飾レンタルのみ」。
 - App Store Connect 上の表示順やレベル/アップグレード関係が、アプリ内の表示制御と矛盾しない。
 
 ### 2. Pro Subscriptions
@@ -67,7 +67,7 @@ Create this as Non-Consumable:
 
 | Product ID | Reference Name | Price | Note |
 |---|---|---:|---|
-| `liminalog.lifetime` | ライフタイム | ¥6,800 | Pro機能の買い切り。プレミアム装飾レンタルは付けない |
+| `liminalog.lifetime` | Pro機能 買い切り | ¥7,800 | Pro機能の買い切り。プレミアム装飾レンタルは付けない |
 
 ### 4. Decoration Pass Subscriptions
 
@@ -75,10 +75,10 @@ Create these as Auto-Renewable Subscriptions inside `Liminalog Pro`:
 
 | Product ID | Reference Name | Price | Duration | Note |
 |---|---|---:|---|---|
-| `liminalog.decorations.monthly` | 装飾パス 月額 | ¥200 | Monthly | ライフタイム所有者向け表示 |
-| `liminalog.decorations.yearly` | 装飾パス 年額 | ¥1,500 | Yearly | ライフタイム所有者向け表示 |
+| `liminalog.decorations.monthly` | 装飾パス 月額 | ¥200 | Monthly | Pro機能 買い切り所有者向け表示 |
+| `liminalog.decorations.yearly` | 装飾パス 年額 | ¥1,500 | Yearly | Pro機能 買い切り所有者向け表示 |
 
-App Store Connect 上では商品として存在するが、アプリ内では `PurchaseOfferingCatalog` によりライフタイム所有者向けにだけ表示する。
+App Store Connect 上では商品として存在するが、アプリ内では `PurchaseOfferingCatalog` によりPro機能 買い切り所有者向けにだけ表示する。
 
 ### 5. Support Tips
 
@@ -86,11 +86,11 @@ Create these as Consumable:
 
 | Product ID | Reference Name | Price | Note |
 |---|---|---:|---|
-| `liminalog.support.small` | 小さく応援 | ¥250 | 権利付与なし |
-| `liminalog.support.medium` | しっかり応援 | ¥600 | 権利付与なし |
-| `liminalog.support.large` | 大きく応援 | ¥1,200 | 権利付与なし |
+| `liminalog.support.small` | 開発応援チップ 小 | ¥120 | 権利付与なし |
+| `liminalog.support.medium` | 開発応援チップ 中 | ¥600 | 権利付与なし |
+| `liminalog.support.large` | 開発応援チップ 大 | ¥1,000 | 権利付与なし |
 
-支援チップは任意支援であり、Pro機能、ライフタイム権利、装飾レンタル、単品所有を付与しない。
+支援チップは任意支援であり、Pro機能、Pro機能 買い切り権利、装飾レンタル、単品所有を付与しない。
 
 ## Review Information
 
@@ -116,7 +116,7 @@ App Store Connect の各商品に Review Information が必要な場合は、次
 
 - 商品ID、種別、価格、グループが `AppStore/AppStoreConnectProductSetup.md` と一致しない。
 - 年額ProのIntroductory Offerが Free Trial / 1 Week になっていない。
-- 装飾パスがライフタイム所有者向け表示であることを説明できない。
+- 装飾パスがPro機能 買い切り所有者向け表示であることを説明できない。
 - 支援チップが権利付与なしであることを確認できない。
 - Review Information のスクリーンショットまたはメモが用意できない。
 - `Scripts/validate-purchase-readiness.sh --gate1-ready` が失敗する。

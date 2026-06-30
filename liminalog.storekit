@@ -18,35 +18,35 @@
   ],
   "products" : [
     {
-      "displayPrice" : "6800",
+      "displayPrice" : "7800",
       "familyShareable" : false,
       "internalID" : "1000000003",
       "localizations" : [
         {
-          "description" : "Liminalog の機能を一度だけ応援します。",
-          "displayName" : "ライフタイム",
+          "description" : "統計などのPro機能を一度だけの応援でずっと使えます。プレミアム装飾レンタルは含まれません。",
+          "displayName" : "Pro機能 買い切り",
           "locale" : "ja_JP"
         }
       ],
       "productID" : "liminalog.lifetime",
       "promotionalImageID" : "",
-      "referenceName" : "ライフタイム",
+      "referenceName" : "Pro機能 買い切り",
       "type" : "NonConsumable"
     },
     {
-      "displayPrice" : "250",
+      "displayPrice" : "120",
       "familyShareable" : false,
       "internalID" : "1000000006",
       "localizations" : [
         {
-          "description" : "Liminalog を少し応援します。機能解放はありません。",
-          "displayName" : "小さく応援",
+          "description" : "機能解放はありません。Liminalogの開発を応援するチップです。",
+          "displayName" : "開発応援チップ 小",
           "locale" : "ja_JP"
         }
       ],
       "productID" : "liminalog.support.small",
       "promotionalImageID" : "",
-      "referenceName" : "小さく応援",
+      "referenceName" : "開発応援チップ 小",
       "type" : "Consumable"
     },
     {
@@ -55,30 +55,30 @@
       "internalID" : "1000000007",
       "localizations" : [
         {
-          "description" : "Liminalog のこれからの開発を応援します。機能解放はありません。",
-          "displayName" : "しっかり応援",
+          "description" : "機能解放はありません。Liminalogの開発を応援するチップです。",
+          "displayName" : "開発応援チップ 中",
           "locale" : "ja_JP"
         }
       ],
       "productID" : "liminalog.support.medium",
       "promotionalImageID" : "",
-      "referenceName" : "しっかり応援",
+      "referenceName" : "開発応援チップ 中",
       "type" : "Consumable"
     },
     {
-      "displayPrice" : "1200",
+      "displayPrice" : "1000",
       "familyShareable" : false,
       "internalID" : "1000000008",
       "localizations" : [
         {
-          "description" : "Liminalog の開発を大きめに応援します。機能解放はありません。",
-          "displayName" : "大きく応援",
+          "description" : "機能解放はありません。Liminalogの開発を応援するチップです。",
+          "displayName" : "開発応援チップ 大",
           "locale" : "ja_JP"
         }
       ],
       "productID" : "liminalog.support.large",
       "promotionalImageID" : "",
-      "referenceName" : "大きく応援",
+      "referenceName" : "開発応援チップ 大",
       "type" : "Consumable"
     }
   ],
@@ -243,7 +243,7 @@
           ],
           "localizations" : [
             {
-              "description" : "ライフタイム所有者向けの装飾使い放題です。",
+              "description" : "Pro機能 買い切り所有者向けの装飾使い放題です。",
               "displayName" : "装飾パス 月額",
               "locale" : "ja_JP"
             }
@@ -283,7 +283,7 @@
           ],
           "localizations" : [
             {
-              "description" : "装飾使い放題を年単位で使います。",
+              "description" : "Pro機能 買い切り所有者向けに、装飾使い放題を年単位で使います。",
               "displayName" : "装飾パス 年額",
               "locale" : "ja_JP"
             }

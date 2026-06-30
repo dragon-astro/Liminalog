@@ -13,7 +13,7 @@ enum PurchaseOfferingSectionKind: String, Codable, CaseIterable, Identifiable {
         case .pro:
             return "Liminalog Pro"
         case .lifetime:
-            return "ライフタイム"
+            return "Pro機能 買い切り"
         case .decorationPass:
             return "装飾パス"
         case .support:
@@ -28,7 +28,7 @@ enum PurchaseOfferingSectionKind: String, Codable, CaseIterable, Identifiable {
         case .lifetime:
             return "機能を一度だけ応援する道です。プレミアム装飾の使い放題はサブスクリプション側に分けます。"
         case .decorationPass:
-            return "ライフタイム所有者向けに、装飾だけを契約中使い放題にするプランです。"
+            return "Pro機能 買い切り所有者向けに、装飾だけを契約中使い放題にするプランです。"
         case .support:
             return "機能解放ではなく、Liminalogを続けていくための応援です。"
         }

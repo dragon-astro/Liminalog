@@ -23,7 +23,7 @@ App Store Connect で Liminalog の課金商品を作る時の転記シート。
 
 ### Subscription Relationship
 
-同じ Subscription Group 内の商品は、App Store Connect / StoreKit 上では同時加入ではなく同じファミリー内の代替プランとして扱われる。Liminalog では Pro サブが「Pro機能 + プレミアム装飾レンタル」、装飾パスが「ライフタイム所有者向けのプレミアム装飾レンタルのみ」なので、この4商品を同じ `Liminalog Pro` group に置く。App Store Connect では、同じグループに入っていること、期間、表示順、レベル/アップグレード関係が意図と矛盾しないことを確認する。
+同じ Subscription Group 内の商品は、App Store Connect / StoreKit 上では同時加入ではなく同じファミリー内の代替プランとして扱われる。Liminalog では Pro サブが「Pro機能 + プレミアム装飾レンタル」、装飾パスが「Pro機能 買い切り所有者向けのプレミアム装飾レンタルのみ」なので、この4商品を同じ `Liminalog Pro` group に置く。App Store Connect では、同じグループに入っていること、期間、表示順、レベル/アップグレード関係が意図と矛盾しないことを確認する。
 
 ## Products
 
@@ -33,12 +33,12 @@ App Store Connect で Liminalog の課金商品を作る時の転記シート。
 |---|---|---|---:|---|
 | `liminalog.pro.monthly` | Liminalog Pro 月額 | Auto-Renewable Subscription | ¥400 | `Liminalog Pro` |
 | `liminalog.pro.yearly` | Liminalog Pro 年額 | Auto-Renewable Subscription | ¥2,900 | `Liminalog Pro` |
-| `liminalog.lifetime` | ライフタイム | Non-Consumable | ¥6,800 | - |
+| `liminalog.lifetime` | Pro機能 買い切り | Non-Consumable | ¥7,800 | - |
 | `liminalog.decorations.monthly` | 装飾パス 月額 | Auto-Renewable Subscription | ¥200 | `Liminalog Pro` |
 | `liminalog.decorations.yearly` | 装飾パス 年額 | Auto-Renewable Subscription | ¥1,500 | `Liminalog Pro` |
-| `liminalog.support.small` | 小さく応援 | Consumable | ¥250 | - |
-| `liminalog.support.medium` | しっかり応援 | Consumable | ¥600 | - |
-| `liminalog.support.large` | 大きく応援 | Consumable | ¥1,200 | - |
+| `liminalog.support.small` | 開発応援チップ 小 | Consumable | ¥120 | - |
+| `liminalog.support.medium` | 開発応援チップ 中 | Consumable | ¥600 | - |
+| `liminalog.support.large` | 開発応援チップ 大 | Consumable | ¥1,000 | - |
 
 ## Product Notes
 
@@ -47,11 +47,11 @@ App Store Connect で Liminalog の課金商品を作る時の転記シート。
 | `liminalog.pro.monthly` | Pro機能とプレミアム装飾レンタルを有効化する | 月額の主要プラン |
 | `liminalog.pro.yearly` | Pro機能とプレミアム装飾レンタルを有効化する | Introductory Offer: Free Trial / 1 Week |
 | `liminalog.lifetime` | Pro機能を永続解放する | プレミアム装飾レンタルは付けない |
-| `liminalog.decorations.monthly` | プレミアム装飾レンタルのみ有効化する | ライフタイム所有者向けに表示制御する |
-| `liminalog.decorations.yearly` | プレミアム装飾レンタルのみ有効化する | ライフタイム所有者向けに表示制御する |
-| `liminalog.support.small` | 権利を増やさず完了メッセージだけ出す | 任意支援 |
-| `liminalog.support.medium` | 権利を増やさず完了メッセージだけ出す | 任意支援 |
-| `liminalog.support.large` | 権利を増やさず完了メッセージだけ出す | 任意支援 |
+| `liminalog.decorations.monthly` | プレミアム装飾レンタルのみ有効化する | Pro機能 買い切り所有者向けに表示制御する |
+| `liminalog.decorations.yearly` | プレミアム装飾レンタルのみ有効化する | Pro機能 買い切り所有者向けに表示制御する |
+| `liminalog.support.small` | 権利を増やさず完了メッセージだけ出す | 開発応援チップ 小 |
+| `liminalog.support.medium` | 権利を増やさず完了メッセージだけ出す | 開発応援チップ 中 |
+| `liminalog.support.large` | 権利を増やさず完了メッセージだけ出す | 開発応援チップ 大 |
 
 ## Creation Metadata
 
@@ -72,12 +72,12 @@ App Store Connect で商品を作成する時は、商品IDと価格だけでな
 |---|---|---|
 | `liminalog.pro.monthly` | Liminalog Pro 月額 | 統計などのPro機能とプレミアム装飾を月ごとに利用できます。 |
 | `liminalog.pro.yearly` | Liminalog Pro 年額 | 統計などのPro機能とプレミアム装飾を年ごとに利用できます。 |
-| `liminalog.lifetime` | ライフタイム | Pro機能を買い切りで利用できます。 |
-| `liminalog.decorations.monthly` | 装飾パス 月額 | ライフタイム所有者向けにプレミアム装飾を月ごとに利用できます。 |
-| `liminalog.decorations.yearly` | 装飾パス 年額 | ライフタイム所有者向けにプレミアム装飾を年ごとに利用できます。 |
-| `liminalog.support.small` | 小さく応援 | 機能解放なしでLiminalogを応援します。 |
-| `liminalog.support.medium` | しっかり応援 | 機能解放なしでLiminalogを応援します。 |
-| `liminalog.support.large` | 大きく応援 | 機能解放なしでLiminalogを応援します。 |
+| `liminalog.lifetime` | Pro機能 買い切り | 統計などのPro機能を一度だけの応援でずっと使えます。プレミアム装飾レンタルは含まれません。 |
+| `liminalog.decorations.monthly` | 装飾パス 月額 | Pro機能 買い切り所有者向けにプレミアム装飾を月ごとに利用できます。 |
+| `liminalog.decorations.yearly` | 装飾パス 年額 | Pro機能 買い切り所有者向けにプレミアム装飾を年ごとに利用できます。 |
+| `liminalog.support.small` | 開発応援チップ 小 | 機能解放はありません。Liminalogの開発を応援するチップです。 |
+| `liminalog.support.medium` | 開発応援チップ 中 | 機能解放はありません。Liminalogの開発を応援するチップです。 |
+| `liminalog.support.large` | 開発応援チップ 大 | 機能解放はありません。Liminalogの開発を応援するチップです。 |
 
 ## Premium Decoration Single Products
 

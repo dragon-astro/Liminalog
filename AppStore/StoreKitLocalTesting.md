@@ -17,12 +17,12 @@ Liminalog のローカル課金テスト準備メモ。repo 直下に `liminalog
 |---|---|---:|---|
 | `liminalog.pro.monthly` | Auto-Renewable Subscription | ¥400 | `Liminalog Pro` |
 | `liminalog.pro.yearly` | Auto-Renewable Subscription | ¥2,900 | `Liminalog Pro` / Introductory Offer: Free Trial / 1 Week |
-| `liminalog.lifetime` | Non-Consumable | ¥6,800 | - |
+| `liminalog.lifetime` | Non-Consumable | ¥7,800 | - |
 | `liminalog.decorations.monthly` | Auto-Renewable Subscription | ¥200 | `Liminalog Pro` |
 | `liminalog.decorations.yearly` | Auto-Renewable Subscription | ¥1,500 | `Liminalog Pro` |
-| `liminalog.support.small` | Consumable | ¥250 | - |
+| `liminalog.support.small` | Consumable | ¥120 | - |
 | `liminalog.support.medium` | Consumable | ¥600 | - |
-| `liminalog.support.large` | Consumable | ¥1,200 | - |
+| `liminalog.support.large` | Consumable | ¥1,000 | - |
 
 転記元は `PurchaseProductID.appStoreConnectSpecifications`。この表だけを先に変えない。
 
@@ -105,16 +105,16 @@ xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -configuration Debug -
 
 ## 5. ローカル購入テストケース
 
-- 商品取得成功：購入画面に Pro、ライフタイム、装飾パス、支援が表示される。
+- 商品取得成功：購入画面に Pro、Pro機能 買い切り、装飾パス、支援が表示される。
 - DEBUG商品取得診断：購入画面の `StoreKit商品取得診断` で要求ID数、取得数、有効数、未取得ID、型不一致/未対応IDを確認する。
 - Pro月額購入：`entitlements.isProActive == true` になり、サブスク状態として表示される。
 - Pro年額購入：月額と同じ Pro 権利になる。
 - Pro年額無料体験：購入確認画面またはStoreKitテスト上で、初回1週間無料体験が年額Proにだけ適用される。
-- ライフタイム購入：`hasLifetime == true` になり、Pro権利は永続扱いになる。
+- Pro機能 買い切り購入：`hasLifetime == true` になり、Pro権利は永続扱いになる。
 - 装飾パス購入：`hasDecorationRental == true` になり、Pro機能権利とは分離される。
 - 支援チップ購入：権利を恒久付与せず、購入完了メッセージだけ表示される。
 - 復元なし：エラーではなく、復元できる購入がない状態として扱う。
-- 復元あり：ライフタイムやサブスクの権利が再読込される。
+- 復元あり：Pro機能 買い切りやサブスクの権利が再読込される。
 - サブスク期限切れ：Pro/装飾レンタル権が外れる。
 - 商品種別不一致：アプリ側の商品候補と権利キャッシュから外れる。
 
@@ -148,17 +148,17 @@ xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -configuration Debug -
 
 | Case | Required Result | Evidence | Result | Notes |
 |---|---|---|---|---|
-| 商品取得 | Pro、ライフタイム、装飾パス、支援が意図した順で表示される。ただし装飾パスはライフタイム所有時だけ表示される | screenshot / note |  |  |
+| 商品取得 | Pro、Pro機能 買い切り、装飾パス、支援が意図した順で表示される。ただし装飾パスはPro機能 買い切り所有時だけ表示される | screenshot / note |  |  |
 | Pro月額購入 | ステータスがPro有効になり、統計Pro権利が有効になる | screenshot / note |  |  |
 | Pro年額購入 | 月額と同じPro権利になる | screenshot / note |  |  |
 | Pro年額無料体験 | `liminalog.pro.yearly` の購入確認で初回1週間無料体験が表示/適用され、月額Proや装飾パスには無料体験が付かない | screenshot / note |  |  |
-| ライフタイム購入 | ステータスがライフタイム所有になり、Pro権利が永続扱いになる | screenshot / note |  |  |
-| ライフタイム後の装飾パス表示 | ライフタイム所有後だけ装飾パスが購入候補に出る | screenshot / note |  |  |
+| Pro機能 買い切り購入 | ステータスがPro機能 買い切り所有になり、Pro権利が永続扱いになる | screenshot / note |  |  |
+| Pro機能 買い切り後の装飾パス表示 | Pro機能 買い切り所有後だけ装飾パスが購入候補に出る | screenshot / note |  |  |
 | 装飾パス購入 | `hasDecorationRental == true` 相当の表示になり、Pro機能権利にはならない | screenshot / note |  |  |
 | 支援チップ購入 | 恒久権利は増えず、購入完了メッセージだけ表示される | screenshot / note |  |  |
 | 購入キャンセル | エラー扱いのメッセージや壊れた進行状態が残らない | screenshot / note |  |  |
 | 復元なし | 「復元できる購入は見つかりませんでした。」として扱われる | screenshot / note |  |  |
-| 復元あり | ライフタイムや有効サブスクの権利が再読込される | screenshot / note |  |  |
+| 復元あり | Pro機能 買い切りや有効サブスクの権利が再読込される | screenshot / note |  |  |
 | サブスク期限切れ | Pro/装飾レンタル権が外れる | screenshot / note |  |  |
 | サブスク管理 | StoreKitの管理画面を開ける | screenshot / note |  |  |
 | 既存機能スモーク | 購入後にホーム、カレンダー、統計、友達、プロフィールの既存操作が変わらない | screenshot / note |  |  |

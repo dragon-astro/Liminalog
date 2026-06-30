@@ -54,9 +54,9 @@ enum DebugPurchaseEntitlementsOverride: String, CaseIterable, Identifiable {
         case .pro:
             return "Proサブ"
         case .lifetime:
-            return "ライフタイム"
+            return "Pro機能 買い切り"
         case .lifetimeWithDecorationPass:
-            return "ライフタイム＋装飾パス"
+            return "Pro機能 買い切り＋装飾パス"
         case .decorationPassOnly:
             return "装飾パスのみ"
         }

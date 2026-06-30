@@ -18,10 +18,10 @@ If friend sharing needs to be reviewed, use two iCloud-enabled devices or accoun
 
 Use this only after the in-app purchase products are created in App Store Connect and `PurchaseConfiguration.current.purchaseEntryPointIsEnabled` is intentionally enabled.
 
-Liminalog offers optional in-app purchases for Pro features, lifetime support, decoration access, and voluntary support tips. Core logging, calendar browsing, friends, and daily card sharing remain available without purchase. The app does not use external payment links or unlock purchased content outside StoreKit.
+Liminalog offers optional in-app purchases for Pro features, Pro feature lifetime purchase, decoration access, and voluntary support tips. Core logging, calendar browsing, friends, and daily card sharing remain available without purchase. The app does not use external payment links or unlock purchased content outside StoreKit.
 
-Pro subscriptions and lifetime purchase unlock deeper analysis features once feature restrictions are explicitly enabled. Lifetime purchase does not include premium decoration rental. Decoration pass subscriptions are shown in the app only for lifetime owners and provide decoration rental access while active. Support tips are voluntary consumables and do not grant permanent feature access.
+Pro subscriptions and Pro feature lifetime purchase unlock deeper analysis features once feature restrictions are explicitly enabled. Pro feature lifetime purchase does not include premium decoration rental. Decoration pass subscriptions are shown in the app only for Pro feature lifetime owners and provide decoration rental access while active. Support tips are voluntary consumables and do not grant permanent feature access.
 
-The yearly Pro subscription includes a one-week free trial as an App Store introductory offer. Monthly Pro, decoration pass subscriptions, lifetime purchase, and support tips do not include a free trial.
+The yearly Pro subscription includes a one-week free trial as an App Store introductory offer. Monthly Pro, decoration pass subscriptions, Pro feature lifetime purchase, and support tips do not include a free trial.
 
 The privacy policy is available in Settings > Privacy Policy. Terms of use must be available at `https://liminalog-lp.vercel.app/terms` before the paid release is submitted. Support contact: yuhlab.dev@gmail.com.

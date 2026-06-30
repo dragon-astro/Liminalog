@@ -128,17 +128,17 @@ enum PurchaseProductID: String, Codable, CaseIterable, Identifiable {
         case .proYearly:
             "Liminalog Pro 年額"
         case .lifetime:
-            "ライフタイム"
+            "Pro機能 買い切り"
         case .decorationMonthly:
             "装飾パス 月額"
         case .decorationYearly:
             "装飾パス 年額"
         case .supportTipSmall:
-            "小さく応援"
+            "開発応援チップ 小"
         case .supportTipMedium:
-            "しっかり応援"
+            "開発応援チップ 中"
         case .supportTipLarge:
-            "大きく応援"
+            "開発応援チップ 大"
         }
     }
 
@@ -149,17 +149,17 @@ enum PurchaseProductID: String, Codable, CaseIterable, Identifiable {
         case .proYearly:
             "初回1週間無料。Proを長く使う人向け。"
         case .lifetime:
-            "機能を一度だけ応援して、ずっと使う道。"
+            "Pro機能を一度だけ応援して、ずっと使う。"
         case .decorationMonthly:
-            "ライフタイム所有者向けの装飾使い放題。"
+            "Pro機能 買い切り所有者向けの装飾使い放題。"
         case .decorationYearly:
             "装飾使い放題を年単位で。"
         case .supportTipSmall:
-            "Liminalogを少し支える。"
+            "開発を少し支える。"
         case .supportTipMedium:
-            "これからの開発を支える。"
+            "開発をしっかり支える。"
         case .supportTipLarge:
-            "大きめに応援する。"
+            "開発を大きめに支える。"
         }
     }
 
@@ -170,17 +170,17 @@ enum PurchaseProductID: String, Codable, CaseIterable, Identifiable {
         case .proYearly:
             "¥2,900"
         case .lifetime:
-            "¥6,800"
+            "¥7,800"
         case .decorationMonthly:
             "¥200"
         case .decorationYearly:
             "¥1,500"
         case .supportTipSmall:
-            "¥250"
+            "¥120"
         case .supportTipMedium:
             "¥600"
         case .supportTipLarge:
-            "¥1,200"
+            "¥1,000"
         }
     }
 
