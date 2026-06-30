@@ -20,7 +20,7 @@ Liminalog の App Store Connect 商品作成用メモ。アプリ内の転記元
 |---|---|---|---:|---|
 | `liminalog.pro.monthly` | Liminalog Pro 月額 | Auto-Renewable Subscription | ¥400 | `Liminalog Pro` |
 | `liminalog.pro.yearly` | Liminalog Pro 年額 | Auto-Renewable Subscription | ¥2,900 | `Liminalog Pro` |
-| `liminalog.lifetime` | Pro機能 買い切り | Non-Consumable | ¥7,800 | - |
+| `liminalog.pro.onetime` | Pro機能 買い切り | Non-Consumable | ¥7,800 | - |
 | `liminalog.decorations.monthly` | 装飾パス 月額 | Auto-Renewable Subscription | ¥200 | `Liminalog Pro` |
 | `liminalog.decorations.yearly` | 装飾パス 年額 | Auto-Renewable Subscription | ¥1,500 | `Liminalog Pro` |
 | `liminalog.support.small` | 開発応援チップ 小 | Consumable | ¥120 | - |
@@ -47,7 +47,7 @@ Liminalog の App Store Connect 商品作成用メモ。アプリ内の転記元
 
 App Review に課金の意図を説明する時の下書き。
 
-> Liminalog offers optional in-app purchases for Pro features, lifetime support, decoration access, and voluntary support tips. Core logging, calendar browsing, friends, and daily card sharing remain available without purchase. The app does not use external payment links or unlock purchased content outside StoreKit.
+> Liminalog offers optional in-app purchases for Pro features, one-time Pro access, decoration access, and voluntary support tips. Core logging, calendar browsing, friends, and daily card sharing remain available without purchase. The app does not use external payment links or unlock purchased content outside StoreKit.
 
 ## Required Before Confirmation
 
@@ -102,7 +102,7 @@ App Store Connect で作成した後、各行を確認する。すべて確認�
 |---|---|---|---|---|---|
 | `liminalog.pro.monthly` | [ ] | [ ] | [ ] | [ ] |  |
 | `liminalog.pro.yearly` | [ ] | [ ] | [ ] | [ ] | Introductory Offer: Free Trial / 1 Week |
-| `liminalog.lifetime` | [ ] | [ ] | [ ] | - |  |
+| `liminalog.pro.onetime` | [ ] | [ ] | [ ] | - |  |
 | `liminalog.decorations.monthly` | [ ] | [ ] | [ ] | [ ] | Pro機能 買い切り所有者向け表示 |
 | `liminalog.decorations.yearly` | [ ] | [ ] | [ ] | [ ] | Pro機能 買い切り所有者向け表示 |
 | `liminalog.support.small` | [ ] | [ ] | [ ] | - | 権利付与なし |

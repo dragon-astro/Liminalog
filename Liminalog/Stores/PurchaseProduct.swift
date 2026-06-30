@@ -53,7 +53,7 @@ struct PurchaseAppStoreConnectProductSpec: Equatable, Codable, Identifiable {
 enum PurchaseProductID: String, Codable, CaseIterable, Identifiable {
     case proMonthly = "liminalog.pro.monthly"
     case proYearly = "liminalog.pro.yearly"
-    case lifetime = "liminalog.lifetime"
+    case lifetime = "liminalog.pro.onetime"
     case decorationMonthly = "liminalog.decorations.monthly"
     case decorationYearly = "liminalog.decorations.yearly"
     case supportTipSmall = "liminalog.support.small"

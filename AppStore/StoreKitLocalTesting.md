@@ -17,7 +17,7 @@ Liminalog のローカル課金テスト準備メモ。repo 直下に `liminalog
 |---|---|---:|---|
 | `liminalog.pro.monthly` | Auto-Renewable Subscription | ¥400 | `Liminalog Pro` |
 | `liminalog.pro.yearly` | Auto-Renewable Subscription | ¥2,900 | `Liminalog Pro` / Introductory Offer: Free Trial / 1 Week |
-| `liminalog.lifetime` | Non-Consumable | ¥7,800 | - |
+| `liminalog.pro.onetime` | Non-Consumable | ¥7,800 | - |
 | `liminalog.decorations.monthly` | Auto-Renewable Subscription | ¥200 | `Liminalog Pro` |
 | `liminalog.decorations.yearly` | Auto-Renewable Subscription | ¥1,500 | `Liminalog Pro` |
 | `liminalog.support.small` | Consumable | ¥120 | - |

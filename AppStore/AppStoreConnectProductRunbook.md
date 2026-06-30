@@ -67,7 +67,7 @@ Create this as Non-Consumable:
 
 | Product ID | Reference Name | Price | Note |
 |---|---|---:|---|
-| `liminalog.lifetime` | Pro機能 買い切り | ¥7,800 | Pro機能の買い切り。プレミアム装飾レンタルは付けない |
+| `liminalog.pro.onetime` | Pro機能 買い切り | ¥7,800 | Pro機能の買い切り。プレミアム装飾レンタルは付けない |
 
 ### 4. Decoration Pass Subscriptions
 

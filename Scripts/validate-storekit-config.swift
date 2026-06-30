@@ -58,7 +58,7 @@ let expectedProducts: [ExpectedProduct] = [
         kindTokens: autoRenewableSubscriptionTokens
     ),
     ExpectedProduct(
-        productID: "liminalog.lifetime",
+        productID: "liminalog.pro.onetime",
         displayName: "Pro機能 買い切り",
         kind: "Non-Consumable",
         referencePrice: "¥7,800",
@@ -492,7 +492,7 @@ private func validateMonetizationDocument(at path: String) -> Never {
     }
 
     var failures: [String] = []
-    let lifetimePrice = expectedProducts.first { $0.productID == "liminalog.lifetime" }?.referencePrice ?? "¥7,800"
+    let lifetimePrice = expectedProducts.first { $0.productID == "liminalog.pro.onetime" }?.referencePrice ?? "¥7,800"
     let yearlyRows = text
         .split(separator: "\n", omittingEmptySubsequences: false)
         .map(String.init)
@@ -591,11 +591,11 @@ private func validateReviewNotesDocument(at path: String) -> Never {
             "Core logging, calendar browsing, friends, and daily card sharing remain available without purchase",
             "does not use external payment links",
             "outside StoreKit",
-            "Pro feature lifetime purchase does not include premium decoration rental",
-            "Decoration pass subscriptions are shown in the app only for Pro feature lifetime owners",
+            "Pro feature one-time purchase does not include premium decoration rental",
+            "Decoration pass subscriptions are shown in the app only for Pro feature one-time purchase owners",
             "Support tips are voluntary consumables",
             "yearly Pro subscription includes a one-week free trial",
-            "Monthly Pro, decoration pass subscriptions, Pro feature lifetime purchase, and support tips do not include a free trial",
+            "Monthly Pro, decoration pass subscriptions, Pro feature one-time purchase, and support tips do not include a free trial",
             "https://liminalog-lp.vercel.app/terms",
             "Privacy Policy"
         ]

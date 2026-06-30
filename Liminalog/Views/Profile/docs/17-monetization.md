@@ -160,7 +160,7 @@ Liminalog の課金設計の初版。**戦略・価格・機能ティア・packa
   - Consumable：支援チップ
 - **仮商品ID（2026-06-27）**：
   - `liminalog.pro.monthly` / `liminalog.pro.yearly`
-  - `liminalog.lifetime`
+  - `liminalog.pro.onetime`
   - `liminalog.decorations.monthly` / `liminalog.decorations.yearly`
   - `liminalog.support.small` / `liminalog.support.medium` / `liminalog.support.large`
 - **App Store Connect 商品作成メモ**：
@@ -168,7 +168,7 @@ Liminalog の課金設計の初版。**戦略・価格・機能ティア・packa
   - サブスクリプショングループ案：`Liminalog Pro`
   - Auto-Renewable Subscription：`liminalog.pro.monthly`（Liminalog Pro 月額 / ¥400）、`liminalog.pro.yearly`（Liminalog Pro 年額 / ¥2,900）
   - Auto-Renewable Subscription：`liminalog.decorations.monthly`（装飾パス 月額 / ¥200）、`liminalog.decorations.yearly`（装飾パス 年額 / ¥1,500）
-  - Non-Consumable：`liminalog.lifetime`（Pro機能 買い切り / ¥7,800）
+  - Non-Consumable：`liminalog.pro.onetime`（Pro機能 買い切り / ¥7,800）
   - Consumable：`liminalog.support.small`（開発応援チップ 小 / ¥120）、`liminalog.support.medium`（開発応援チップ 中 / ¥600）、`liminalog.support.large`（開発応援チップ 大 / ¥1,000）
   - 転記元は `PurchaseProductID.appStoreConnectSpecifications`。商品ID、表示名、参照価格、StoreKit商品種別、サブスクリプショングループをコード側で固定し、ドキュメントだけが先に変わらないようにする。
   - 無料体験：年額Proは1週間無料体験を付ける。App Store Connect では `liminalog.pro.yearly` の Introductory Offer を Free Trial / 1 Week にする。
