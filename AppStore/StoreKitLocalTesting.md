@@ -80,7 +80,7 @@ XcodeBuildMCP / CLI の build-install-launch 経路は、shared scheme に `limi
 
 2026-06-28 に `xcodebuild -help` を確認したが、Run 時の StoreKit Configuration をCLIから明示注入するオプションは見当たらなかった。Local StoreKit 購入QAは引き続き Xcode 通常 Run、または App Store Connect Sandbox を正規経路にする。
 
-Simulator の Octane persistence へ `.storekit` を直コピーする検証は、通常商品だけなら読めることがあるが、サブスクリプションは Xcode の変換後形式と差が出る。ローカル購入QAの正規手順は Xcode 通常 Run とし、`subscriptionOffersKeyPair` は introductory / promotional / offer code / winback offer を実際に設定するまで `.storekit` に含めない。
+Simulator の Octane persistence へ `.storekit` を直コピーする検証は、通常商品だけなら読めることがあるが、サブスクリプションは Xcode の変換後形式と差が出る。ローカル購入QAの正規手順は Xcode 通常 Run とする。Introductory Offer は Xcode の StoreKit editor で設定し、手書きの推測JSONを入れない。
 
 購入導線や機能制限の安全弁が開いていないことも確認する。
 
@@ -131,6 +131,11 @@ xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -configuration Debug -
 - `Scripts/prepare-storekit-local-qa.sh` が成功。
 - 商品ドキュメント、単品装飾候補、StoreKit configuration、Xcode scheme の StoreKit link、単品装飾 inactive、Release gate closed、`git diff --check` を確認。
 - 購入操作QAは未実施のため、Evidence Sheet は未完了のまま。
+- 2026-07-06 / working tree after `f58feba` / Xcode normal Run / iPhone 17 Pro Simulator iOS 26.5 / `liminalog.storekit` / product load pass。
+- Xcode StoreKit editor で `liminalog.storekit` が開けることを確認。Xcode 26形式に合わせ、subscription group を `id` / `name` 形式、billing plan を `BILLED_UPFRONT` 形式へ更新。
+- 年額ProのIntroductory Offerを Xcode StoreKit editor で `Free` / `1 Week` に設定。
+- 設定 > Proと応援 で Pro年額、Pro月額、Pro機能 買い切り、支援チップが価格付きで表示され、DEBUG診断は `要求ID 8 / 取得 8` を表示。
+- Xcode console: `LiminalogPurchaseDebug productLoad ... loadedCount=8 ... validCount=8`。装飾パス2件もProduct load上は有効。購入・復元・期限切れ・キャンセルの操作QAは未実施。
 
 ### XcodeBuildMCP Attempt Log
 
@@ -140,6 +145,7 @@ xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -configuration Debug -
 | 2026-06-27 | working tree after `8373462` | DEBUG | iPhone 17 Pro Simulator / iOS 26.5 | scheme expects `liminalog.storekit` | blocked | DEBUG OSLog 診断を追加して XcodeBuildMCP で再確認。`LiminalogPurchaseDebug productLoad ... loadedCount=0 ... validCount=0` だったため、商品種別フィルタではなく `Product.products(for:)` 自体にローカルStoreKit商品が入っていない。XcodeBuildMCP 起動では StoreKit Configuration が適用されないため、Xcode通常RunまたはSandboxで購入操作QAを行う。 |
 | 2026-06-27 | working tree after `084ddd5` | DEBUG | iPhone 17 Pro Simulator / iOS 26.5 | scheme expects `liminalog.storekit` | blocked | DEBUG購入画面の `StoreKit商品取得診断` で、要求ID 8、取得 0、有効 0、未取得ID一覧が表示されることを XcodeBuildMCP で確認。XcodeBuildMCP 起動では商品注入がないため購入操作QAは未完了だが、手動QA時の切り分け表示は確認済み。Releaseには出ない。 |
 | 2026-06-28 | `3925ef7` + dirty `CategoryStore.swift` | DEBUG | iPhone 17 Pro Simulator / iOS 26.5 | scheme expects `liminalog.storekit` | blocked | XcodeBuildMCP `build_run_sim` で設定 > `Proと応援` へ遷移。OSLog は `LiminalogPurchaseDebug productLoad requested=[8 ids] loadedCount=0 loaded=[] validCount=0 valid=[]`。MCP/CLI経路ではStoreKit Configurationが注入されないため、ローカル購入操作QAは未完了。 |
+| 2026-07-06 | working tree after `f58feba` | DEBUG | iPhone 17 Pro Simulator / iOS 26.5 | Xcode normal Run with `liminalog.storekit` | product load pass | Xcode StoreKit editor が `liminalog.storekit` を正常に開くことを確認。設定 > `Proと応援` で価格付き商品表示、DEBUG診断 `要求ID 8 / 取得 8`、Xcode console `loadedCount=8 ... validCount=8` を確認。購入・復元・期限切れ・キャンセルの操作QAは未完了。 |
 
 | 項目 | 記録 |
 |---|---|

@@ -41,7 +41,7 @@ let expectedProducts: [ExpectedProduct] = [
         kind: "Auto-Renewable Subscription",
         referencePrice: "¥400",
         subscriptionGroup: "Liminalog Pro",
-        billingPlanType: "monthly",
+        billingPlanType: "BILLED_UPFRONT",
         appStoreDescription: "統計などのPro機能とプレミアム装飾を月ごとに利用できます。",
         introductoryOffer: "-",
         kindTokens: autoRenewableSubscriptionTokens
@@ -52,7 +52,7 @@ let expectedProducts: [ExpectedProduct] = [
         kind: "Auto-Renewable Subscription",
         referencePrice: "¥2,900",
         subscriptionGroup: "Liminalog Pro",
-        billingPlanType: "upfront",
+        billingPlanType: "BILLED_UPFRONT",
         appStoreDescription: "統計などのPro機能とプレミアム装飾を年ごとに利用できます。",
         introductoryOffer: "1週間無料体験",
         kindTokens: autoRenewableSubscriptionTokens
@@ -74,7 +74,7 @@ let expectedProducts: [ExpectedProduct] = [
         kind: "Auto-Renewable Subscription",
         referencePrice: "¥200",
         subscriptionGroup: "Liminalog Pro",
-        billingPlanType: "monthly",
+        billingPlanType: "BILLED_UPFRONT",
         appStoreDescription: "Pro機能 買い切り所有者向けにプレミアム装飾を月ごとに利用できます。",
         introductoryOffer: "-",
         kindTokens: autoRenewableSubscriptionTokens
@@ -85,7 +85,7 @@ let expectedProducts: [ExpectedProduct] = [
         kind: "Auto-Renewable Subscription",
         referencePrice: "¥1,500",
         subscriptionGroup: "Liminalog Pro",
-        billingPlanType: "upfront",
+        billingPlanType: "BILLED_UPFRONT",
         appStoreDescription: "Pro機能 買い切り所有者向けにプレミアム装飾を年ごとに利用できます。",
         introductoryOffer: "-",
         kindTokens: autoRenewableSubscriptionTokens
