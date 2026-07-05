@@ -125,6 +125,13 @@ xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -configuration Debug -
 入力後は `swift Scripts/validate-storekit-config.swift --validate-storekit-local-qa-complete` を通す。Gate 2 へ進む直前は `Scripts/validate-purchase-readiness.sh --gate2-ready` を使う。
 `fill manually`、`TBD`、`TODO`、空欄、`screenshot / note`、`command output`、`pass / fail` のようなテンプレ値が残っている場合は未完了として扱う。
 
+### Local StoreKit QA Preflight Log
+
+- 2026-07-06 / `f58feba` + dirty unrelated workspace files / `liminalog.storekit` / pass。
+- `Scripts/prepare-storekit-local-qa.sh` が成功。
+- 商品ドキュメント、単品装飾候補、StoreKit configuration、Xcode scheme の StoreKit link、単品装飾 inactive、Release gate closed、`git diff --check` を確認。
+- 購入操作QAは未実施のため、Evidence Sheet は未完了のまま。
+
 ### XcodeBuildMCP Attempt Log
 
 | Date | Git SHA | Build | Device / OS | StoreKit Source | Result | Notes |
