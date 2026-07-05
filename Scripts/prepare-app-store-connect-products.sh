@@ -83,6 +83,9 @@ run_step "Validate App Store Connect product setup sheet" \
 run_step "Validate App Store Connect confirmation template" \
   run_swift_validator --validate-app-store-connect-confirmation-template
 
+run_step "Validate App Store Connect metadata entry sheet" \
+  run_swift_validator --validate-app-store-connect-metadata-entry
+
 run_step "Validate monetization policy document" \
   run_swift_validator --validate-monetization-doc
 

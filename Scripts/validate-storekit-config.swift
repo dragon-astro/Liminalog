@@ -7,9 +7,13 @@ struct ExpectedProduct {
     let displayName: String
     let kind: String
     let referencePrice: String
+    let usReferencePrice: String
     let subscriptionGroup: String?
+    let metadataDuration: String
     let billingPlanType: String?
     let appStoreDescription: String
+    let englishDisplayName: String
+    let englishAppStoreDescription: String
     let introductoryOffer: String
     let kindTokens: [String]
 }
@@ -40,9 +44,13 @@ let expectedProducts: [ExpectedProduct] = [
         displayName: "Liminalog Pro 月額",
         kind: "Auto-Renewable Subscription",
         referencePrice: "¥400",
+        usReferencePrice: "$3.99",
         subscriptionGroup: "Liminalog Pro",
+        metadataDuration: "1 Month",
         billingPlanType: "BILLED_UPFRONT",
         appStoreDescription: "統計などのPro機能とプレミアム装飾を月ごとに利用できます。",
+        englishDisplayName: "Liminalog Pro Monthly",
+        englishAppStoreDescription: "Unlock Pro statistics and premium decorations month by month.",
         introductoryOffer: "-",
         kindTokens: autoRenewableSubscriptionTokens
     ),
@@ -51,9 +59,13 @@ let expectedProducts: [ExpectedProduct] = [
         displayName: "Liminalog Pro 年額",
         kind: "Auto-Renewable Subscription",
         referencePrice: "¥2,900",
+        usReferencePrice: "$24.99",
         subscriptionGroup: "Liminalog Pro",
+        metadataDuration: "1 Year",
         billingPlanType: "BILLED_UPFRONT",
         appStoreDescription: "統計などのPro機能とプレミアム装飾を年ごとに利用できます。",
+        englishDisplayName: "Liminalog Pro Yearly",
+        englishAppStoreDescription: "Unlock Pro statistics and premium decorations for a year.",
         introductoryOffer: "1週間無料体験",
         kindTokens: autoRenewableSubscriptionTokens
     ),
@@ -62,9 +74,13 @@ let expectedProducts: [ExpectedProduct] = [
         displayName: "Pro機能 買い切り",
         kind: "Non-Consumable",
         referencePrice: "¥7,800",
+        usReferencePrice: "$59.99",
         subscriptionGroup: nil,
+        metadataDuration: "-",
         billingPlanType: nil,
         appStoreDescription: "統計などのPro機能を一度だけの応援でずっと使えます。プレミアム装飾レンタルは含まれません。",
+        englishDisplayName: "Pro Features One-Time",
+        englishAppStoreDescription: "Unlock Pro features with a one-time purchase. Premium decoration rental is not included.",
         introductoryOffer: "-",
         kindTokens: nonConsumableTokens
     ),
@@ -73,9 +89,13 @@ let expectedProducts: [ExpectedProduct] = [
         displayName: "装飾パス 月額",
         kind: "Auto-Renewable Subscription",
         referencePrice: "¥200",
+        usReferencePrice: "$1.99",
         subscriptionGroup: "Liminalog Pro",
+        metadataDuration: "1 Month",
         billingPlanType: "BILLED_UPFRONT",
         appStoreDescription: "Pro機能 買い切り所有者向けにプレミアム装飾を月ごとに利用できます。",
+        englishDisplayName: "Decoration Pass Monthly",
+        englishAppStoreDescription: "Use premium decorations month by month if you own Pro Features One-Time.",
         introductoryOffer: "-",
         kindTokens: autoRenewableSubscriptionTokens
     ),
@@ -84,9 +104,13 @@ let expectedProducts: [ExpectedProduct] = [
         displayName: "装飾パス 年額",
         kind: "Auto-Renewable Subscription",
         referencePrice: "¥1,500",
+        usReferencePrice: "$12.99",
         subscriptionGroup: "Liminalog Pro",
+        metadataDuration: "1 Year",
         billingPlanType: "BILLED_UPFRONT",
         appStoreDescription: "Pro機能 買い切り所有者向けにプレミアム装飾を年ごとに利用できます。",
+        englishDisplayName: "Decoration Pass Yearly",
+        englishAppStoreDescription: "Use premium decorations for a year if you own Pro Features One-Time.",
         introductoryOffer: "-",
         kindTokens: autoRenewableSubscriptionTokens
     ),
@@ -95,9 +119,13 @@ let expectedProducts: [ExpectedProduct] = [
         displayName: "開発応援チップ 小",
         kind: "Consumable",
         referencePrice: "¥120",
+        usReferencePrice: "$0.99",
         subscriptionGroup: nil,
+        metadataDuration: "-",
         billingPlanType: nil,
         appStoreDescription: "機能解放はありません。Liminalogの開発を応援するチップです。",
+        englishDisplayName: "Support Tip Small",
+        englishAppStoreDescription: "A voluntary tip to support Liminalog development. This does not unlock features.",
         introductoryOffer: "-",
         kindTokens: consumableTokens
     ),
@@ -106,9 +134,13 @@ let expectedProducts: [ExpectedProduct] = [
         displayName: "開発応援チップ 中",
         kind: "Consumable",
         referencePrice: "¥600",
+        usReferencePrice: "$4.99",
         subscriptionGroup: nil,
+        metadataDuration: "-",
         billingPlanType: nil,
         appStoreDescription: "機能解放はありません。Liminalogの開発を応援するチップです。",
+        englishDisplayName: "Support Tip Medium",
+        englishAppStoreDescription: "A voluntary tip to support Liminalog development. This does not unlock features.",
         introductoryOffer: "-",
         kindTokens: consumableTokens
     ),
@@ -117,9 +149,13 @@ let expectedProducts: [ExpectedProduct] = [
         displayName: "開発応援チップ 大",
         kind: "Consumable",
         referencePrice: "¥1,000",
+        usReferencePrice: "$8.99",
         subscriptionGroup: nil,
+        metadataDuration: "-",
         billingPlanType: nil,
         appStoreDescription: "機能解放はありません。Liminalogの開発を応援するチップです。",
+        englishDisplayName: "Support Tip Large",
+        englishAppStoreDescription: "A voluntary tip to support Liminalog development. This does not unlock features.",
         introductoryOffer: "-",
         kindTokens: consumableTokens
     )
@@ -187,6 +223,12 @@ if let statisticsProQAEvidenceFlagIndex = arguments.firstIndex(of: "--validate-s
 if let docsFlagIndex = arguments.firstIndex(of: "--validate-products-doc") {
     let path = arguments.dropFirst(docsFlagIndex + 1).first ?? "AppStore/PurchaseProducts.md"
     validatePurchaseProductsDocument(at: path)
+}
+
+if let metadataEntryFlagIndex = arguments.firstIndex(of: "--validate-app-store-connect-metadata-entry") {
+    let candidatePath = arguments.dropFirst(metadataEntryFlagIndex + 1).first
+    let path = candidatePath?.hasPrefix("-") == false ? candidatePath! : "AppStore/AppStoreConnectMetadataEntrySheet.md"
+    validateAppStoreConnectMetadataEntrySheet(at: path)
 }
 
 if let monetizationDocFlagIndex = arguments.firstIndex(of: "--validate-monetization-doc") {
@@ -494,6 +536,89 @@ private func validatePurchaseProductsDocument(at path: String) -> Never {
 
     if failures.isEmpty {
         print("Purchase products document matches planned Liminalog product specifications.")
+        exit(EXIT_SUCCESS)
+    }
+
+    for failure in failures {
+        print("error: \(failure)")
+    }
+    exit(EXIT_FAILURE)
+}
+
+private func validateAppStoreConnectMetadataEntrySheet(at path: String) -> Never {
+    let fileURL = URL(fileURLWithPath: path)
+    guard let text = try? String(contentsOf: fileURL, encoding: .utf8) else {
+        print("error: App Store Connect metadata entry sheet not found at \(fileURL.path)")
+        exit(EXIT_FAILURE)
+    }
+
+    let rows = productMetadataEntryRows(in: text)
+    var failures: [String] = []
+
+    if rows.count != expectedProducts.count {
+        failures.append("expected \(expectedProducts.count) metadata entry rows, found \(rows.count)")
+    }
+
+    for (index, expected) in expectedProducts.enumerated() {
+        guard rows.indices.contains(index) else { continue }
+        let row = rows[index]
+
+        if row.productID != expected.productID {
+            failures.append("metadata row \(index + 1) product ID mismatch: expected \(expected.productID), found \(row.productID)")
+        }
+        if row.referenceName != expected.displayName {
+            failures.append("metadata row \(index + 1) reference name mismatch for \(expected.productID): expected \(expected.displayName), found \(row.referenceName)")
+        }
+        if row.type != expected.kind {
+            failures.append("metadata row \(index + 1) type mismatch for \(expected.productID): expected \(expected.kind), found \(row.type)")
+        }
+        if row.subscriptionGroup != expected.subscriptionGroup {
+            let expectedGroup = expected.subscriptionGroup ?? "-"
+            let foundGroup = row.subscriptionGroup ?? "-"
+            failures.append("metadata row \(index + 1) group mismatch for \(expected.productID): expected \(expectedGroup), found \(foundGroup)")
+        }
+        if row.duration != expected.metadataDuration {
+            failures.append("metadata row \(index + 1) duration mismatch for \(expected.productID): expected \(expected.metadataDuration), found \(row.duration)")
+        }
+        if row.jpPrice != expected.referencePrice {
+            failures.append("metadata row \(index + 1) JP price mismatch for \(expected.productID): expected \(expected.referencePrice), found \(row.jpPrice)")
+        }
+        if row.usPrice != expected.usReferencePrice {
+            failures.append("metadata row \(index + 1) US price mismatch for \(expected.productID): expected \(expected.usReferencePrice), found \(row.usPrice)")
+        }
+        if row.japaneseDisplayName != expected.displayName {
+            failures.append("metadata row \(index + 1) ja-JP display name mismatch for \(expected.productID): expected \(expected.displayName), found \(row.japaneseDisplayName)")
+        }
+        if row.japaneseDescription != expected.appStoreDescription {
+            failures.append("metadata row \(index + 1) ja-JP description mismatch for \(expected.productID)")
+        }
+        if row.englishDisplayName != expected.englishDisplayName {
+            failures.append("metadata row \(index + 1) en-US display name mismatch for \(expected.productID): expected \(expected.englishDisplayName), found \(row.englishDisplayName)")
+        }
+        if row.englishDescription != expected.englishAppStoreDescription {
+            failures.append("metadata row \(index + 1) en-US description mismatch for \(expected.productID)")
+        }
+    }
+
+    let introductoryOffersSection = markdownSection(named: "Introductory Offers", in: text)
+    if !introductoryOffersSection.contains("`liminalog.pro.yearly`")
+        || !introductoryOffersSection.contains("Free Trial / 1 Week") {
+        failures.append("metadata entry sheet must document yearly Pro Free Trial / 1 Week")
+    }
+    if !introductoryOffersSection.contains("All other products")
+        || !introductoryOffersSection.contains("None") {
+        failures.append("metadata entry sheet must document that all other products have no introductory offer")
+    }
+
+    if !text.contains("`Liminalog Pro`") {
+        failures.append("metadata entry sheet is missing Liminalog Pro subscription group")
+    }
+    if !text.contains("Pro機能 買い切り所有者にだけ表示") {
+        failures.append("metadata entry sheet must preserve decoration pass display rule")
+    }
+
+    if failures.isEmpty {
+        print("App Store Connect metadata entry sheet matches planned Liminalog product metadata.")
         exit(EXIT_SUCCESS)
     }
 
@@ -1485,6 +1610,20 @@ private struct ProductLocalizationRow {
     var description: String
 }
 
+private struct ProductMetadataEntryRow {
+    var productID: String
+    var referenceName: String
+    var type: String
+    var subscriptionGroup: String?
+    var duration: String
+    var jpPrice: String
+    var usPrice: String
+    var japaneseDisplayName: String
+    var japaneseDescription: String
+    var englishDisplayName: String
+    var englishDescription: String
+}
+
 private struct ConfirmationProductRow {
     var productID: String
     var referenceName: String
@@ -1617,6 +1756,34 @@ private func productLocalizationRows(in markdown: String) -> [ProductLocalizatio
                 productID: columns[0],
                 displayName: columns[1],
                 description: columns[2]
+            )
+        }
+}
+
+private func productMetadataEntryRows(in markdown: String) -> [ProductMetadataEntryRow] {
+    markdownSection(named: "Product Metadata", in: markdown)
+        .split(separator: "\n", omittingEmptySubsequences: false)
+        .compactMap { rawLine -> ProductMetadataEntryRow? in
+            let line = String(rawLine)
+            guard line.hasPrefix("| `liminalog.") else { return nil }
+            let columns = line
+                .split(separator: "|", omittingEmptySubsequences: false)
+                .dropFirst()
+                .dropLast()
+                .map { normalizeMarkdownCell(String($0)) }
+            guard columns.count == 11 else { return nil }
+            return ProductMetadataEntryRow(
+                productID: columns[0],
+                referenceName: columns[1],
+                type: columns[2],
+                subscriptionGroup: columns[3] == "-" ? nil : columns[3],
+                duration: columns[4],
+                jpPrice: columns[5],
+                usPrice: columns[6],
+                japaneseDisplayName: columns[7],
+                japaneseDescription: columns[8],
+                englishDisplayName: columns[9],
+                englishDescription: columns[10]
             )
         }
 }
@@ -1968,6 +2135,7 @@ private func printUsage() {
       swift Scripts/validate-storekit-config.swift --validate-purchase-ui-qa-complete [path-to-PurchaseUIQA.md]
       swift Scripts/validate-storekit-config.swift --validate-statistics-pro-qa-complete [path-to-19-statistics-pro-gate.md]
       swift Scripts/validate-storekit-config.swift --validate-products-doc [path-to-PurchaseProducts.md]
+      swift Scripts/validate-storekit-config.swift --validate-app-store-connect-metadata-entry [path-to-AppStoreConnectMetadataEntrySheet.md]
       swift Scripts/validate-storekit-config.swift --validate-monetization-doc [path-to-17-monetization.md]
       swift Scripts/validate-storekit-config.swift --validate-review-notes [path-to-ReviewNotes.md]
       swift Scripts/validate-storekit-config.swift --validate-review-information-assets [path-to-AppStoreConnectMetadataEntrySheet.md] [path-to-AppStoreConnectProductConfirmation.md]

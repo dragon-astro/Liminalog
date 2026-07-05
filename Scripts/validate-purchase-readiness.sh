@@ -106,6 +106,9 @@ print_purchase_status() {
   run_status_check "Legal URLs are reachable" \
     Scripts/validate-purchase-legal-urls.sh
 
+  run_status_check "App Store Connect metadata entry sheet matches decisions" \
+    run_swift_validator --validate-app-store-connect-metadata-entry
+
   run_status_check "Review Information screenshot assets are present" \
     run_swift_validator --validate-review-information-assets
 
@@ -155,6 +158,9 @@ run_step "Validate App Store Connect confirmation template" \
 
 run_step "Validate App Store Connect product setup sheet" \
   run_swift_validator --validate-products-doc AppStore/AppStoreConnectProductSetup.md
+
+run_step "Validate App Store Connect metadata entry sheet" \
+  run_swift_validator --validate-app-store-connect-metadata-entry
 
 run_step "Validate monetization policy document" \
   run_swift_validator --validate-monetization-doc
