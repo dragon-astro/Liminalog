@@ -125,6 +125,13 @@ let expectedProducts: [ExpectedProduct] = [
     )
 ]
 
+let expectedReviewInformationAssetPaths = [
+    "AppStore/ReviewInformationScreenshots/pro-subscriptions-free.jpg",
+    "AppStore/ReviewInformationScreenshots/pro-onetime-and-support-free.jpg",
+    "AppStore/ReviewInformationScreenshots/support-tips-medium-large-free.jpg",
+    "AppStore/ReviewInformationScreenshots/decoration-pass-lifetime.jpg"
+]
+
 let arguments = Array(CommandLine.arguments.dropFirst())
 
 if arguments.contains("--help") || arguments.contains("-h") {
@@ -192,6 +199,18 @@ if let reviewNotesFlagIndex = arguments.firstIndex(of: "--validate-review-notes"
     let candidatePath = arguments.dropFirst(reviewNotesFlagIndex + 1).first
     let path = candidatePath?.hasPrefix("-") == false ? candidatePath! : "AppStore/ReviewNotes.md"
     validateReviewNotesDocument(at: path)
+}
+
+if let reviewAssetsFlagIndex = arguments.firstIndex(of: "--validate-review-information-assets") {
+    let candidateMetadataPath = arguments.dropFirst(reviewAssetsFlagIndex + 1).first
+    let metadataPath = candidateMetadataPath?.hasPrefix("-") == false
+        ? candidateMetadataPath!
+        : "AppStore/AppStoreConnectMetadataEntrySheet.md"
+    let candidateConfirmationPath = arguments.dropFirst(reviewAssetsFlagIndex + 2).first
+    let confirmationPath = candidateConfirmationPath?.hasPrefix("-") == false
+        ? candidateConfirmationPath!
+        : "AppStore/AppStoreConnectProductConfirmation.md"
+    validateReviewInformationAssets(metadataPath: metadataPath, confirmationPath: confirmationPath)
 }
 
 if let productSourceFlagIndex = arguments.firstIndex(of: "--validate-product-source") {
@@ -606,6 +625,57 @@ private func validateReviewNotesDocument(at path: String) -> Never {
 
     if failures.isEmpty {
         print("App Review notes match current paid-release safety decisions.")
+        exit(EXIT_SUCCESS)
+    }
+
+    for failure in failures {
+        print("error: \(failure)")
+    }
+    exit(EXIT_FAILURE)
+}
+
+private func validateReviewInformationAssets(metadataPath: String, confirmationPath: String) -> Never {
+    let docs = [
+        ("metadata entry sheet", metadataPath),
+        ("confirmation sheet", confirmationPath)
+    ]
+    var failures: [String] = []
+
+    for (label, path) in docs {
+        let fileURL = URL(fileURLWithPath: path)
+        guard let text = try? String(contentsOf: fileURL, encoding: .utf8) else {
+            failures.append("\(label) not found at \(fileURL.path)")
+            continue
+        }
+
+        if text.contains("/private/tmp/liminalog-iap-review-screenshots") {
+            failures.append("\(label) still references temporary review screenshot paths")
+        }
+
+        let referencedPaths = reviewInformationAssetPaths(in: text)
+        for expectedPath in expectedReviewInformationAssetPaths where !referencedPaths.contains(expectedPath) {
+            failures.append("\(label) is missing review screenshot reference: \(expectedPath)")
+        }
+        for referencedPath in referencedPaths where !expectedReviewInformationAssetPaths.contains(referencedPath) {
+            failures.append("\(label) references an unexpected review screenshot: \(referencedPath)")
+        }
+    }
+
+    for assetPath in expectedReviewInformationAssetPaths {
+        let fileURL = URL(fileURLWithPath: assetPath)
+        guard FileManager.default.fileExists(atPath: fileURL.path) else {
+            failures.append("review screenshot file is missing: \(assetPath)")
+            continue
+        }
+        let attributes = try? FileManager.default.attributesOfItem(atPath: fileURL.path)
+        let fileSize = attributes?[.size] as? NSNumber
+        if fileSize?.intValue ?? 0 <= 0 {
+            failures.append("review screenshot file is empty: \(assetPath)")
+        }
+    }
+
+    if failures.isEmpty {
+        print("Review Information screenshot assets are present and referenced from App Store Connect docs.")
         exit(EXIT_SUCCESS)
     }
 
@@ -1624,6 +1694,19 @@ private func purchaseProductSourceSpecs(in source: String) -> [ProductSourceRow]
     }
 }
 
+private func reviewInformationAssetPaths(in markdown: String) -> Set<String> {
+    let pattern = #"AppStore/ReviewInformationScreenshots/[A-Za-z0-9._-]+\.jpg"#
+    guard let regex = try? NSRegularExpression(pattern: pattern) else {
+        return []
+    }
+
+    let nsMarkdown = markdown as NSString
+    let range = NSRange(location: 0, length: nsMarkdown.length)
+    return Set(regex.matches(in: markdown, range: range).map { match in
+        nsMarkdown.substring(with: match.range)
+    })
+}
+
 private func purchaseProductEnumCases(in source: String) -> [String: String] {
     let pattern = #"\bcase\s+([A-Za-z0-9_]+)\s*=\s*"([^"]+)""#
     guard let regex = try? NSRegularExpression(pattern: pattern) else {
@@ -1887,6 +1970,7 @@ private func printUsage() {
       swift Scripts/validate-storekit-config.swift --validate-products-doc [path-to-PurchaseProducts.md]
       swift Scripts/validate-storekit-config.swift --validate-monetization-doc [path-to-17-monetization.md]
       swift Scripts/validate-storekit-config.swift --validate-review-notes [path-to-ReviewNotes.md]
+      swift Scripts/validate-storekit-config.swift --validate-review-information-assets [path-to-AppStoreConnectMetadataEntrySheet.md] [path-to-AppStoreConnectProductConfirmation.md]
       swift Scripts/validate-storekit-config.swift --validate-product-source [path-to-PurchaseProduct.swift]
       swift Scripts/validate-storekit-config.swift --validate-premium-decoration-products-doc [path-to-PurchaseProducts.md]
       swift Scripts/validate-storekit-config.swift --validate-premium-decoration-inactive [path-to-liminalog.storekit]

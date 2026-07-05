@@ -106,6 +106,9 @@ print_purchase_status() {
   run_status_check "Legal URLs are reachable" \
     Scripts/validate-purchase-legal-urls.sh
 
+  run_status_check "Review Information screenshot assets are present" \
+    run_swift_validator --validate-review-information-assets
+
   if [[ -f "$storekit_path" ]]; then
     run_status_check "StoreKit configuration is present and valid: $storekit_path" \
       run_swift_validator "$storekit_path"
@@ -158,6 +161,9 @@ run_step "Validate monetization policy document" \
 
 run_step "Validate App Review notes" \
   run_swift_validator --validate-review-notes
+
+run_step "Validate Review Information screenshot assets" \
+  run_swift_validator --validate-review-information-assets
 
 run_step "Validate purchase product source" \
   run_swift_validator --validate-product-source

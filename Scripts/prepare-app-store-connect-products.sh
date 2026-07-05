@@ -89,6 +89,9 @@ run_step "Validate monetization policy document" \
 run_step "Validate App Review notes" \
   run_swift_validator --validate-review-notes
 
+run_step "Validate Review Information screenshot assets" \
+  run_swift_validator --validate-review-information-assets
+
 run_step "Validate purchase product source" \
   run_swift_validator --validate-product-source
 
