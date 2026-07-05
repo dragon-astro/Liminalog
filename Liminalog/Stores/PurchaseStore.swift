@@ -3,6 +3,12 @@ import OSLog
 import StoreKit
 import UIKit
 
+struct PurchaseDisplayProduct: Equatable, Identifiable {
+    var id: String
+    var displayPrice: String
+    var isStoreKitBacked: Bool
+}
+
 #if DEBUG
 struct PurchaseProductLoadDiagnostics: Equatable {
     struct LoadedProduct: Equatable, Identifiable {
@@ -35,6 +41,30 @@ struct PurchaseProductLoadDiagnostics: Equatable {
             "rejectedCount=\(rejectedLoadedProducts.count)"
         ]
         .joined(separator: " ")
+    }
+}
+
+enum DebugStoreKitProductDisplayOverride: String, CaseIterable, Identifiable {
+    case loaded
+
+    var id: String { rawValue }
+
+    static func launchOverride(
+        arguments: [String] = ProcessInfo.processInfo.arguments,
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> DebugStoreKitProductDisplayOverride? {
+        if let environmentValue = environment["LiminalogDebugStoreKitProducts"] {
+            return DebugStoreKitProductDisplayOverride(rawValue: environmentValue)
+        }
+
+        guard
+            let flagIndex = arguments.firstIndex(of: "-LiminalogDebugStoreKitProducts"),
+            arguments.indices.contains(arguments.index(after: flagIndex))
+        else {
+            return nil
+        }
+
+        return DebugStoreKitProductDisplayOverride(rawValue: arguments[arguments.index(after: flagIndex)])
     }
 }
 
@@ -134,6 +164,7 @@ final class PurchaseStore {
     #if DEBUG
     @ObservationIgnored private var debugEntitlementsOverride: PurchaseEntitlements?
     @ObservationIgnored private var entitlementsBeforeDebugOverride: PurchaseEntitlements?
+    @ObservationIgnored private var debugDisplayProducts: [PurchaseDisplayProduct] = []
     private(set) var debugEntitlementsOverrideKind: DebugPurchaseEntitlementsOverride = .system
     private(set) var debugProductLoadDiagnostics: PurchaseProductLoadDiagnostics?
     #endif
@@ -196,6 +227,13 @@ final class PurchaseStore {
         isLoadingProducts = true
         hasAttemptedProductLoad = true
         defer { isLoadingProducts = false }
+
+        #if DEBUG
+        if applyDebugStoreKitProductDisplayOverrideIfRequested() {
+            return
+        }
+        debugDisplayProducts = []
+        #endif
 
         do {
             let loadedProducts = try await Product.products(for: productIDs)
@@ -348,7 +386,56 @@ final class PurchaseStore {
         products.first { $0.id == id.rawValue }
     }
 
+    var displayProducts: [PurchaseDisplayProduct] {
+        let storeKitProducts = products.map {
+            PurchaseDisplayProduct(
+                id: $0.id,
+                displayPrice: $0.displayPrice,
+                isStoreKitBacked: true
+            )
+        }
+        #if DEBUG
+        return storeKitProducts.isEmpty ? debugDisplayProducts : storeKitProducts
+        #else
+        return storeKitProducts
+        #endif
+    }
+
+    func displayProduct(for id: PurchaseProductID) -> PurchaseDisplayProduct? {
+        displayProducts.first { $0.id == id.rawValue }
+    }
+
     #if DEBUG
+    @discardableResult
+    func applyDebugStoreKitProductDisplayOverrideIfRequested(
+        arguments: [String] = ProcessInfo.processInfo.arguments,
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> Bool {
+        guard DebugStoreKitProductDisplayOverride.launchOverride(
+            arguments: arguments,
+            environment: environment
+        ) == .loaded else {
+            return false
+        }
+
+        products = []
+        debugDisplayProducts = productIDs.compactMap { rawProductID in
+            guard let productID = PurchaseProductID(rawValue: rawProductID) else { return nil }
+            return PurchaseDisplayProduct(
+                id: productID.rawValue,
+                displayPrice: productID.referencePriceText,
+                isStoreKitBacked: false
+            )
+        }
+        hasAttemptedProductLoad = true
+        userMessage = nil
+        return true
+    }
+
+    func reportDebugDisplayProductTapped(_ productID: PurchaseProductID) {
+        userMessage = "\(productID.displayName) はDEBUG表示用です。購入操作はXcodeのStoreKit ConfigurationまたはSandboxで確認してください。"
+    }
+
     func applyDebugLaunchEntitlementsOverrideIfRequested() {
         guard let override = DebugPurchaseEntitlementsOverride.launchOverride(),
               override != .system

@@ -10,6 +10,7 @@ Liminalog の課金UIを既存機能に影響させず確認するための手�
 - 手元確認はまず Simulator の DEBUG ビルドで行う。
 - `.storekit` がない間は実購入フローを通さず、設定の DEBUG セクションにある「課金状態を試す」で表示状態だけを見る。
 - 起動直後の画面を撮る時だけ、DEBUG 起動引数 `-LiminalogDebugPurchaseState pro|lifetime|lifetimeWithDecorationPass|decorationPassOnly` を使って疑似課金状態を入れてよい。これは実購入状態やキャッシュを保存しない。
+- 審査用スクリーンショット候補を作る時だけ、DEBUG 起動引数 `-LiminalogDebugStoreKitProducts loaded` を使って参照価格の商品一覧を表示してよい。これは見た目確認専用であり、StoreKit商品取得・購入・復元QAの証跡には使わない。
 - `PurchaseConfiguration.current.purchaseEntryPointIsEnabled == false` の間、Release では設定に「Proと応援」が出ないことを正とする。
 - `featureRestrictionsAreEnabled == false` の間、統計、記録、カレンダー、友達、プロフィールカード、シェアの既存機能はロックしない。
 - StoreKit の購入、復元、サブスクリプション管理を試すのは、`liminalog.storekit` 作成後、または App Store Connect Sandbox 準備後に限る。

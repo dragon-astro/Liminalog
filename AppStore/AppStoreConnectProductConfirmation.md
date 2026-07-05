@@ -17,7 +17,7 @@ App Store Connect で課金商品を作成した後に埋める確認表。す�
 | Confirmed by | ryu |
 | Confirmation date | 2026-07-06 |
 | App Store Connect app | Liminalog |
-| Notes | Product ID、価格、表示名、年額Proの1週間無料体験はユーザー確認済み。App Store Connect は Missing Metadata 状態のため、残りのメタデータとReview Informationは未完了。 |
+| Notes | Product ID、価格、表示名、年額Proの1週間無料体験はユーザー確認済み。App Store Connect は Missing Metadata 状態のため、残りのメタデータとReview Informationは未完了。Review Information 用の候補画像は `/private/tmp/liminalog-iap-review-screenshots/` に準備済み。 |
 
 ## Subscription Group
 
@@ -49,6 +49,17 @@ App Store Connect で課金商品を作成した後に埋める確認表。す�
 | [x] | Introductory Offer Decision | 年額ProのIntroductory Offerを Free Trial / 1 Week として作成し、アプリ内文言とQA表へ反映している |
 | [ ] | Review Information | Review screenshot and review notes are attached for products submitted to App Review |
 | [ ] | Sandbox Propagation | After metadata edits, allow up to 1 hour before treating Sandbox product fetch failures as app bugs |
+
+## Review Information Draft Assets
+
+App Store Connect への添付は未完了。以下は審査情報用の候補であり、XcodeBuildMCP / CLI で StoreKit 商品が注入されない問題を避けるため、DEBUG 表示補助 `-LiminalogDebugStoreKitProducts loaded` で撮影した。Local StoreKit QA や購入証跡としては扱わない。
+
+| Product IDs | Candidate Screenshot |
+|---|---|
+| `liminalog.pro.yearly`, `liminalog.pro.monthly` | `/private/tmp/liminalog-iap-review-screenshots/pro-subscriptions-free.jpg` |
+| `liminalog.pro.onetime`, `liminalog.support.small`, `liminalog.support.medium` | `/private/tmp/liminalog-iap-review-screenshots/pro-onetime-and-support-free.jpg` |
+| `liminalog.support.medium`, `liminalog.support.large` | `/private/tmp/liminalog-iap-review-screenshots/support-tips-medium-large-free.jpg` |
+| `liminalog.decorations.yearly`, `liminalog.decorations.monthly` | `/private/tmp/liminalog-iap-review-screenshots/decoration-pass-lifetime.jpg` |
 
 ## Gate 1 App Code Change After Confirmation
 

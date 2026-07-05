@@ -107,6 +107,7 @@ xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -configuration Debug -
 
 - 商品取得成功：購入画面に Pro、Pro機能 買い切り、装飾パス、支援が表示される。
 - DEBUG商品取得診断：購入画面の `StoreKit商品取得診断` で要求ID数、取得数、有効数、未取得ID、型不一致/未対応IDを確認する。
+- `-LiminalogDebugStoreKitProducts loaded`：審査用スクリーンショット候補の見た目確認専用。StoreKit商品取得診断、購入、復元、期限切れのQA完了条件には使わない。
 - Pro月額購入：`entitlements.isProActive == true` になり、サブスク状態として表示される。
 - Pro年額購入：月額と同じ Pro 権利になる。
 - Pro年額無料体験：購入確認画面またはStoreKitテスト上で、初回1週間無料体験が年額Proにだけ適用される。

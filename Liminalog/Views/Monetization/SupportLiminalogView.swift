@@ -165,7 +165,7 @@ struct SupportLiminalogView: View {
     private var visibleOfferingSections: [PurchaseOfferingSection] {
         offeringCatalog.sections(
             for: purchaseStore.entitlements,
-            availableProductIDs: Set(purchaseStore.products.map(\.id))
+            availableProductIDs: Set(purchaseStore.displayProducts.map(\.id))
         )
     }
 
@@ -380,18 +380,26 @@ struct SupportLiminalogView: View {
 
     @ViewBuilder
     private func productButton(for id: PurchaseProductID, badge: String?) -> some View {
-        if let product = purchaseStore.product(for: id) {
+        if let displayProduct = purchaseStore.displayProduct(for: id) {
             Button {
                 Task {
                     guard surfacePolicy.allowsStoreKitOperations else { return }
-                    await purchaseStore.purchase(product)
+                    if let product = purchaseStore.product(for: id) {
+                        await purchaseStore.purchase(product)
+                    } else {
+                        #if DEBUG
+                        await MainActor.run {
+                            purchaseStore.reportDebugDisplayProductTapped(id)
+                        }
+                        #endif
+                    }
                 }
             } label: {
                 productRow(
                     title: id.displayName,
                     subtitle: id.shortDescription,
                     productKind: id.kind,
-                    priceText: product.displayPrice,
+                    priceText: displayProduct.displayPrice,
                     badge: badge,
                     isLoading: purchaseStore.purchaseInProgressProductID == id.rawValue
                 )

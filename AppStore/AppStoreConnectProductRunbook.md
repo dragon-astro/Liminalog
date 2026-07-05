@@ -98,6 +98,7 @@ App Store Connect の各商品に Review Information が必要な場合は、次
 
 - Review Notes: `AppStore/ReviewNotes.md` の Paid Release Draft。
 - Screenshot: Gate 2 の購入導線を開く直前またはDEBUG確認用ビルドで、設定 > Proと応援 の購入画面を撮る。個人データ、友達情報、メールアドレス、未公開のデバッグ情報が写らない状態にする。
+- XcodeBuildMCP / CLI 経由で StoreKit 商品が注入されない場合、審査用スクリーンショット候補の作成に限って DEBUG 起動引数 `-LiminalogDebugStoreKitProducts loaded` を使ってよい。この表示は参照価格ベースの見た目確認専用で、Local StoreKit QA や購入証跡としては扱わない。
 - 購入導線のスクリーンショットがまだ用意できない場合は、`AppStore/AppStoreConnectProductConfirmation.md` の Review Information を未チェックのままにし、Gate 1 へ進まない。
 
 ## After Creation

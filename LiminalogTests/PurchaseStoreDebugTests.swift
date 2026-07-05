@@ -35,6 +35,35 @@ struct PurchaseStoreDebugTests {
     }
 
     @Test
+    func debugStoreKitProductDisplayOverrideReadsEnvironmentValue() {
+        let override = DebugStoreKitProductDisplayOverride.launchOverride(
+            arguments: ["Liminalog"],
+            environment: ["LiminalogDebugStoreKitProducts": "loaded"]
+        )
+
+        #expect(override == .loaded)
+    }
+
+    @Test
+    func debugStoreKitProductDisplayOverrideReadsLaunchArgumentValue() {
+        let override = DebugStoreKitProductDisplayOverride.launchOverride(
+            arguments: ["Liminalog", "-LiminalogDebugStoreKitProducts", "loaded"],
+            environment: [:]
+        )
+
+        #expect(override == .loaded)
+    }
+
+    @Test
+    func debugStoreKitProductDisplayOverrideIgnoresMissingOrUnknownValues() {
+        #expect(DebugStoreKitProductDisplayOverride.launchOverride(arguments: ["Liminalog"], environment: [:]) == nil)
+        #expect(DebugStoreKitProductDisplayOverride.launchOverride(
+            arguments: ["Liminalog", "-LiminalogDebugStoreKitProducts", "unknown"],
+            environment: [:]
+        ) == nil)
+    }
+
+    @Test
     func productLoadDiagnosticsReportsMissingAndRejectedProducts() {
         let diagnostics = PurchaseProductLoadDiagnostics(
             requestedProductIDs: [
@@ -114,6 +143,28 @@ struct PurchaseStoreDebugTests {
         #expect(store.debugEntitlementsOverrideKind == .pro)
         #expect(store.entitlements.isProActive)
         #expect(store.entitlements.hasPremiumDecorationRental)
+    }
+
+    @Test
+    func debugStoreKitProductDisplayOverrideShowsReferenceProductsWithoutStoreKitDiagnostics() {
+        let store = PurchaseStore(
+            productIDs: PurchaseProductID.storeKitProductIDs,
+            userDefaults: nil,
+            initialEntitlements: PurchaseEntitlements()
+        )
+
+        let didApply = store.applyDebugStoreKitProductDisplayOverrideIfRequested(
+            arguments: ["Liminalog", "-LiminalogDebugStoreKitProducts", "loaded"],
+            environment: [:]
+        )
+
+        #expect(didApply)
+        #expect(store.hasAttemptedProductLoad)
+        #expect(store.products.isEmpty)
+        #expect(store.debugProductLoadDiagnostics == nil)
+        #expect(store.displayProducts.map(\.id) == PurchaseProductID.storeKitProductIDs)
+        #expect(store.displayProducts.allSatisfy { !$0.isStoreKitBacked })
+        #expect(store.displayProduct(for: .proYearly)?.displayPrice == PurchaseProductID.proYearly.referencePriceText)
     }
 
     @Test
