@@ -42,10 +42,10 @@ Use `AppStore/ReviewNotes.md` の Paid Release Draft for the review note. Produc
 
 | Product IDs | Screenshot | Product-Specific Review Note |
 |---|---|---|
-| `liminalog.pro.yearly`, `liminalog.pro.monthly` | `/private/tmp/liminalog-iap-review-screenshots/pro-subscriptions-free.jpg` | Pro subscriptions unlock deeper analysis features and premium decoration rental. The yearly product has a one-week free trial. |
-| `liminalog.pro.onetime` | `/private/tmp/liminalog-iap-review-screenshots/pro-onetime-and-support-free.jpg` | One-time Pro unlocks Pro features permanently, but does not include premium decoration rental. |
-| `liminalog.decorations.yearly`, `liminalog.decorations.monthly` | `/private/tmp/liminalog-iap-review-screenshots/decoration-pass-lifetime.jpg` | Decoration pass subscriptions are shown only to Pro Features One-Time owners and rent premium decorations while active. |
-| `liminalog.support.small`, `liminalog.support.medium`, `liminalog.support.large` | `/private/tmp/liminalog-iap-review-screenshots/pro-onetime-and-support-free.jpg` or `/private/tmp/liminalog-iap-review-screenshots/support-tips-medium-large-free.jpg` | Support tips are voluntary consumables and do not grant feature access or permanent entitlements. |
+| `liminalog.pro.yearly`, `liminalog.pro.monthly` | `AppStore/ReviewInformationScreenshots/pro-subscriptions-free.jpg` | Pro subscriptions unlock deeper analysis features and premium decoration rental. The yearly product has a one-week free trial. |
+| `liminalog.pro.onetime` | `AppStore/ReviewInformationScreenshots/pro-onetime-and-support-free.jpg` | One-time Pro unlocks Pro features permanently, but does not include premium decoration rental. |
+| `liminalog.decorations.yearly`, `liminalog.decorations.monthly` | `AppStore/ReviewInformationScreenshots/decoration-pass-lifetime.jpg` | Decoration pass subscriptions are shown only to Pro Features One-Time owners and rent premium decorations while active. |
+| `liminalog.support.small`, `liminalog.support.medium`, `liminalog.support.large` | `AppStore/ReviewInformationScreenshots/pro-onetime-and-support-free.jpg` or `AppStore/ReviewInformationScreenshots/support-tips-medium-large-free.jpg` | Support tips are voluntary consumables and do not grant feature access or permanent entitlements. |
 
 ## Availability And Sandbox
 
