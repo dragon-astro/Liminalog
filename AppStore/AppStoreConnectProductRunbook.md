@@ -22,7 +22,8 @@ App Store Connect で課金商品を実作成する時の手順。目的は、�
 2. `Scripts/prepare-app-store-connect-products.sh` を実行し、商品表、確認表テンプレート、Review Notes、Release gate、法務URLが揃っていることを確認する。
 3. `swift Scripts/validate-storekit-config.swift --app-store-connect-tsv` を実行し、転記用TSVを手元に置く。
 4. `AppStore/AppStoreConnectProductSetup.md` の Products / App Store Localization / Product Notes を開いておく。
-5. `AppStore/ReviewNotes.md` の Paid Release Draft を開いておく。
+5. Missing Metadata の入力用に `AppStore/AppStoreConnectMetadataEntrySheet.md` を開いておく。
+6. `AppStore/ReviewNotes.md` の Paid Release Draft を開いておく。
 
 ## Creation Order
 
@@ -97,6 +98,7 @@ Create these as Consumable:
 App Store Connect の各商品に Review Information が必要な場合は、次を使う。
 
 - Review Notes: `AppStore/ReviewNotes.md` の Paid Release Draft。
+- Product Metadata: `AppStore/AppStoreConnectMetadataEntrySheet.md` の Product Metadata / Introductory Offers / Review Information。
 - Screenshot: Gate 2 の購入導線を開く直前またはDEBUG確認用ビルドで、設定 > Proと応援 の購入画面を撮る。個人データ、友達情報、メールアドレス、未公開のデバッグ情報が写らない状態にする。
 - XcodeBuildMCP / CLI 経由で StoreKit 商品が注入されない場合、審査用スクリーンショット候補の作成に限って DEBUG 起動引数 `-LiminalogDebugStoreKitProducts loaded` を使ってよい。この表示は参照価格ベースの見た目確認専用で、Local StoreKit QA や購入証跡としては扱わない。
 - 購入導線のスクリーンショットがまだ用意できない場合は、`AppStore/AppStoreConnectProductConfirmation.md` の Review Information を未チェックのままにし、Gate 1 へ進まない。

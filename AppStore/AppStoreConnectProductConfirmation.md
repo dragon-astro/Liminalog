@@ -9,6 +9,7 @@ App Store Connect で課金商品を作成した後に埋める確認表。す�
 - App Store Connect 作成後、Gate 1 に進む直前に `Scripts/validate-storekit-config.swift --validate-app-store-connect-confirmation-complete` を通す。
 - 完了検査では `fill manually`、`TBD`、`TODO`、`未確定` が残っている確認表を未完了扱いにする。
 - 単品プレミアム装飾は `AppStore/PurchaseProducts.md` の別表を使う。購入UIに入れない段階では `PurchaseConfiguration.current.productIDs` に追加しない。
+- Missing Metadata 入力時の表示名、説明文、価格、Review Information は `AppStore/AppStoreConnectMetadataEntrySheet.md` を参照する。
 
 ## Confirmation Metadata
 
@@ -45,7 +46,7 @@ App Store Connect で課金商品を作成した後に埋める確認表。す�
 | Check | Field | Expected |
 |---|---|---|
 | [x] | Product Edit Permission | The App Store Connect account used for setup can add and edit in-app purchase products |
-| [ ] | Product Metadata | Display names, descriptions, durations, prices, and availability are filled for all App Store Connect products |
+| [ ] | Product Metadata | Display names, descriptions, durations, prices, and availability are filled for all App Store Connect products, using `AppStore/AppStoreConnectMetadataEntrySheet.md` |
 | [x] | Introductory Offer Decision | 年額ProのIntroductory Offerを Free Trial / 1 Week として作成し、アプリ内文言とQA表へ反映している |
 | [ ] | Review Information | Review screenshot and review notes are attached for products submitted to App Review |
 | [ ] | Sandbox Propagation | After metadata edits, allow up to 1 hour before treating Sandbox product fetch failures as app bugs |
