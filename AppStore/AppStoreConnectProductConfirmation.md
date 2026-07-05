@@ -14,39 +14,39 @@ App Store Connect で課金商品を作成した後に埋める確認表。す�
 
 | Field | Value |
 |---|---|
-| Confirmed by |  |
-| Confirmation date |  |
+| Confirmed by | ryu |
+| Confirmation date | 2026-07-06 |
 | App Store Connect app | Liminalog |
-| Notes |  |
+| Notes | Product ID、価格、表示名、年額Proの1週間無料体験はユーザー確認済み。App Store Connect は Missing Metadata 状態のため、残りのメタデータとReview Informationは未完了。 |
 
 ## Subscription Group
 
 | Check | Field | Expected |
 |---|---|---|
-| [ ] | Group Reference Name | `Liminalog Pro` |
-| [ ] | Contains Products | Proサブと装飾パスが同じグループに入っている |
+| [x] | Group Reference Name | `Liminalog Pro` |
+| [x] | Contains Products | Proサブと装飾パスが同じグループに入っている |
 | [ ] | Subscription Relationship | 同じグループ内の代替プランとして、Proサブと装飾パスの期間、表示順、レベル/アップグレード関係が意図と矛盾しない |
 
 ## Products
 
 | Check | Product ID | Reference Name | Type | Reference Price | Subscription Group | Notes |
 |---|---|---|---|---:|---|---|
-| [ ] | `liminalog.pro.monthly` | Liminalog Pro 月額 | Auto-Renewable Subscription | ¥400 | Liminalog Pro |  |
-| [ ] | `liminalog.pro.yearly` | Liminalog Pro 年額 | Auto-Renewable Subscription | ¥2,900 | Liminalog Pro | Introductory Offer: Free Trial / 1 Week。アプリ内文言とQA表へ反映済み。 |
-| [ ] | `liminalog.pro.onetime` | Pro機能 買い切り | Non-Consumable | ¥7,800 | - |  |
-| [ ] | `liminalog.decorations.monthly` | 装飾パス 月額 | Auto-Renewable Subscription | ¥200 | Liminalog Pro | アプリ側ではPro機能 買い切り所有者向けに表示制御する。 |
-| [ ] | `liminalog.decorations.yearly` | 装飾パス 年額 | Auto-Renewable Subscription | ¥1,500 | Liminalog Pro | アプリ側ではPro機能 買い切り所有者向けに表示制御する。 |
-| [ ] | `liminalog.support.small` | 開発応援チップ 小 | Consumable | ¥120 | - | 機能解放ではなく任意支援。恒久権利を付けない。 |
-| [ ] | `liminalog.support.medium` | 開発応援チップ 中 | Consumable | ¥600 | - | 機能解放ではなく任意支援。恒久権利を付けない。 |
-| [ ] | `liminalog.support.large` | 開発応援チップ 大 | Consumable | ¥1,000 | - | 機能解放ではなく任意支援。恒久権利を付けない。 |
+| [x] | `liminalog.pro.monthly` | Liminalog Pro 月額 | Auto-Renewable Subscription | ¥400 | Liminalog Pro |  |
+| [x] | `liminalog.pro.yearly` | Liminalog Pro 年額 | Auto-Renewable Subscription | ¥2,900 | Liminalog Pro | Introductory Offer: Free Trial / 1 Week。アプリ内文言とQA表へ反映済み。 |
+| [x] | `liminalog.pro.onetime` | Pro機能 買い切り | Non-Consumable | ¥7,800 | - |  |
+| [x] | `liminalog.decorations.monthly` | 装飾パス 月額 | Auto-Renewable Subscription | ¥200 | Liminalog Pro | アプリ側ではPro機能 買い切り所有者向けに表示制御する。 |
+| [x] | `liminalog.decorations.yearly` | 装飾パス 年額 | Auto-Renewable Subscription | ¥1,500 | Liminalog Pro | アプリ側ではPro機能 買い切り所有者向けに表示制御する。 |
+| [x] | `liminalog.support.small` | 開発応援チップ 小 | Consumable | ¥120 | - | 機能解放ではなく任意支援。恒久権利を付けない。 |
+| [x] | `liminalog.support.medium` | 開発応援チップ 中 | Consumable | ¥600 | - | 機能解放ではなく任意支援。恒久権利を付けない。 |
+| [x] | `liminalog.support.large` | 開発応援チップ 大 | Consumable | ¥1,000 | - | 機能解放ではなく任意支援。恒久権利を付けない。 |
 
 ## Creation Metadata
 
 | Check | Field | Expected |
 |---|---|---|
-| [ ] | Product Edit Permission | The App Store Connect account used for setup can add and edit in-app purchase products |
+| [x] | Product Edit Permission | The App Store Connect account used for setup can add and edit in-app purchase products |
 | [ ] | Product Metadata | Display names, descriptions, durations, prices, and availability are filled for all App Store Connect products |
-| [ ] | Introductory Offer Decision | 年額ProのIntroductory Offerを Free Trial / 1 Week として作成し、アプリ内文言とQA表へ反映している |
+| [x] | Introductory Offer Decision | 年額ProのIntroductory Offerを Free Trial / 1 Week として作成し、アプリ内文言とQA表へ反映している |
 | [ ] | Review Information | Review screenshot and review notes are attached for products submitted to App Review |
 | [ ] | Sandbox Propagation | After metadata edits, allow up to 1 hour before treating Sandbox product fetch failures as app bugs |
 
