@@ -32,6 +32,13 @@ Liminalog の課金基盤 v0 を、現時点の証拠ベースで監査するた
 | 装飾課金データ設計 | Prepared | `Liminalog/Views/Profile/docs/20-premium-decoration-data.md`、`AppStore/PurchaseProducts.md` の単品装飾候補、`PremiumDecorationAccessPolicy`、`PremiumDecorationCatalog`、`PremiumDecorationEquippingPolicy`、`DecorationAccessDisplayPolicy`。2026-06-27 に既存の `PremiumDecorationCatalogTests` を含む対象テスト47件が成功。表示状態統合ロジック追加後は `build-for-testing` と purchase readiness が成功。単品装飾候補表は `PremiumDecorationCatalog` との整合検査対象。`Scripts/validate-purchase-readiness.sh --release-build` が working tree after `8373462` で、単品装飾が現行 `liminalog.storekit` とプロフィール装飾UIに混ざっていないことも検査済み。2026-06-28 に単品装飾の kinded target / sortOrder / 現行購入設定未混入を `PremiumDecorationCatalogTests` で固定。2026-06-28 に `2ff500b` + dirty `CategoryStore.swift` 時点で `PremiumDecorationCatalogTests` と `PremiumDecorationAccessPolicyTests` を含む購入ゲート/統計/装飾アクセス対象テスト106件とRelease buildが成功し、単品装飾が `liminalog.storekit` とプロフィール装飾UIへ未接続のままであることも確認 | UI接続、App Store Connect 単品商品作成、StoreKitローカル購入QA、表示時フォールバックの実画面適用は未実装 |
 | 既存機能への影響抑制 | Prepared | Release安全状態は閉じている。`purchaseEntryPointIsEnabled == false`、`featureRestrictionsAreEnabled == false`、`backgroundEntitlementRefreshIsEnabled == false`。2026-06-28 に `2ff500b` + dirty `CategoryStore.swift` 時点で購入ゲート/統計/装飾アクセス対象テスト106件とRelease buildが成功。`Scripts/validate-purchase-readiness.sh --status` では Release gate closed、法務URL 200、StoreKit構成 valid、単品装飾 inactive が PASS。Gate 1/2/3 は外部確認表とQA証跡が未完了のため BLOCKED として止まる。装飾カタログと表示状態統合ロジックは UI 未接続 | Gate変更時に既存タブのスモークQAが必要 |
 
+## Current Checkpoint Notes
+
+- 2026-07-06 / `1e886d5` + dirty unrelated workspace files: `Scripts/prepare-storekit-local-qa.sh` succeeded. StoreKit設定、scheme参照、単品装飾inactive、Release gate closed、`git diff --check` を確認。
+- 2026-07-06 / `1e886d5` + dirty unrelated workspace files: `Scripts/prepare-purchase-gate1-code-change.sh --allow-incomplete` succeeded. App Store Connect確認表の未完了項目だけをスキップした状態で、商品ドキュメント、レビュー情報画像、法務URL、Release gate closed を確認。
+- 2026-07-06 / `1e886d5` + dirty unrelated workspace files: `xcodebuild ... build-for-testing` succeeded for `PurchaseConfigurationTests`, `PurchaseOfferingCatalogTests`, `PurchaseAccessPolicyTests`, `PurchaseEntitlementTests`, `PurchaseRefreshPolicyTests`, `PurchaseStoreDebugTests`, `StatisticsTabAccessPolicyTests`, `PremiumDecorationCatalogTests`, and `PremiumDecorationAccessPolicyTests`.
+- 2026-07-06 / `1e886d5` + dirty unrelated workspace files: MCP `test_sim` and direct `xcodebuild test` both stalled during simulator test execution. Stale `xcodebuild` / app / widget-extension processes were terminated. Treat this as no test-pass evidence; use Xcode normal Run or another stable simulator test route before filling QA evidence.
+
 ## Commands To Re-Run Before Each Gate
 
 ```sh

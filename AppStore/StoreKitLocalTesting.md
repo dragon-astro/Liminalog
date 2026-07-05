@@ -136,6 +136,9 @@ xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -configuration Debug -
 - 年額ProのIntroductory Offerを Xcode StoreKit editor で `Free` / `1 Week` に設定。
 - 設定 > Proと応援 で Pro年額、Pro月額、Pro機能 買い切り、支援チップが価格付きで表示され、DEBUG診断は `要求ID 8 / 取得 8` を表示。
 - Xcode console: `LiminalogPurchaseDebug productLoad ... loadedCount=8 ... validCount=8`。装飾パス2件もProduct load上は有効。購入・復元・期限切れ・キャンセルの操作QAは未実施。
+- 2026-07-06 / `1e886d5` + dirty unrelated workspace files / `liminalog.storekit` / preflight pass。
+- `Scripts/prepare-storekit-local-qa.sh` が成功。StoreKit設定、scheme参照、単品装飾inactive、Release gate closed、`git diff --check` を確認。
+- 対象課金テスト群の `build-for-testing` は成功。MCP `test_sim` と direct `xcodebuild test` は simulator test execution で停止したため、テスト成功証跡として扱わない。残った `xcodebuild` / app / widget-extension プロセスは終了済み。
 
 ### XcodeBuildMCP Attempt Log
 
