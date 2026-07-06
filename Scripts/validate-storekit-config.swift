@@ -918,6 +918,11 @@ private func validateAppStoreConnectConfirmationComplete(at path: String) -> Nev
     for row in appStoreConnectConfirmationRows(in: text) where containsUnresolvedCompletionMarker(row.notes) {
         failures.append("confirmation product notes still contain unresolved decision text: \(row.productID)")
     }
+    let reviewInformationDraftSection = markdownSection(named: "Review Information Draft Assets", in: text)
+    if !reviewInformationDraftSection.isEmpty,
+       containsUnresolvedReviewInformationMarker(reviewInformationDraftSection) {
+        failures.append("review information draft assets still contain unresolved draft or candidate text")
+    }
 
     failures.append(contentsOf: uncheckedConfirmationRows(
         in: markdownSection(named: "Subscription Group", in: text),
@@ -2145,6 +2150,15 @@ private func containsUnresolvedCompletionMarker(_ value: String) -> Bool {
         || normalized.contains("tbd")
         || normalized.contains("todo")
         || normalized.contains("fill manually")
+}
+
+private func containsUnresolvedReviewInformationMarker(_ value: String) -> Bool {
+    let normalized = normalizeMarkdownCell(value).lowercased()
+    return containsUnresolvedCompletionMarker(value)
+        || normalized.contains("候補")
+        || normalized.contains("candidate")
+        || normalized.contains("draft")
+        || normalized.contains("not attached")
 }
 
 private func printUsage() {
