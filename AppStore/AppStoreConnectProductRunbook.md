@@ -21,9 +21,10 @@ App Store Connect で課金商品を実作成する時の手順。目的は、�
 1. Current branch が `codex/monetization-foundation` で、課金作業以外の差分が混ざっていないことを確認する。別ブランチで行う場合は `Scripts/prepare-app-store-connect-products.sh --allow-other-branch` を使い、理由を確認表の Notes に残す。
 2. `Scripts/prepare-app-store-connect-products.sh` を実行し、商品表、確認表テンプレート、Review Notes、Release gate、法務URLが揃っていることを確認する。
 3. `swift Scripts/validate-storekit-config.swift --app-store-connect-tsv` を実行し、転記用TSVを手元に置く。
-4. `AppStore/AppStoreConnectProductSetup.md` の Products / App Store Localization / Product Notes を開いておく。
-5. Missing Metadata の入力用に `AppStore/AppStoreConnectMetadataEntrySheet.md` を開いておく。
-6. `AppStore/ReviewNotes.md` の Paid Release Draft を開いておく。
+4. `swift Scripts/validate-storekit-config.swift --app-store-connect-missing-metadata-md` を実行し、Missing Metadata 入力用のMarkdownハンドオフを手元に置く。
+5. `AppStore/AppStoreConnectProductSetup.md` の Products / App Store Localization / Product Notes を開いておく。
+6. Missing Metadata の入力用に `AppStore/AppStoreConnectMetadataEntrySheet.md` を開いておく。
+7. `AppStore/ReviewNotes.md` の Paid Release Draft を開いておく。
 
 ## Creation Order
 

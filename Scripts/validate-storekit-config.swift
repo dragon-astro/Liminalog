@@ -190,6 +190,11 @@ if arguments.contains("--app-store-connect-metadata-tsv") {
     exit(EXIT_SUCCESS)
 }
 
+if arguments.contains("--app-store-connect-missing-metadata-md") {
+    printAppStoreConnectMissingMetadataMarkdown()
+    exit(EXIT_SUCCESS)
+}
+
 if arguments.contains("--app-store-connect-confirmation-md") {
     printAppStoreConnectConfirmationMarkdown()
     exit(EXIT_SUCCESS)
@@ -2143,6 +2148,7 @@ private func printUsage() {
       swift Scripts/validate-storekit-config.swift --expected
       swift Scripts/validate-storekit-config.swift --app-store-connect-tsv
       swift Scripts/validate-storekit-config.swift --app-store-connect-metadata-tsv
+      swift Scripts/validate-storekit-config.swift --app-store-connect-missing-metadata-md
       swift Scripts/validate-storekit-config.swift --app-store-connect-confirmation-md
       swift Scripts/validate-storekit-config.swift --validate-app-store-connect-confirmation-template [path-to-AppStoreConnectProductConfirmation.md]
       swift Scripts/validate-storekit-config.swift --validate-app-store-connect-confirmation-complete [path-to-AppStoreConnectProductConfirmation.md]
@@ -2203,6 +2209,86 @@ private func printAppStoreConnectMetadataTSV() {
         ]
         print(values.map(tsvValue).joined(separator: "\t"))
     }
+}
+
+private func printAppStoreConnectMissingMetadataMarkdown() {
+    print("""
+    # App Store Connect Missing Metadata Handoff
+
+    App Store Connect の `Missing Metadata` を解消するための入力用ハンドオフ。商品ID、価格、表示名、1週間無料体験を作成済みでも、説明文、期間、販売状態、審査情報、法務URL、Sandbox反映待ちが未完了だと Gate 1 へ進まない。
+
+    ## Safety
+
+    - `PurchaseConfiguration.current.productIDsAreConfirmedForAppStoreConnect` は確認表が完了するまで `false` のままにする。
+    - `purchaseEntryPointIsEnabled` と `featureRestrictionsAreEnabled` は Gate 1 でも `false` のままにする。
+    - 単品プレミアム装飾はこの作業に含めない。
+
+    ## Subscription Relationship
+
+    | Field | Value |
+    |---|---|
+    | Subscription Group | `Liminalog Pro` |
+    | Group Products | `liminalog.pro.monthly`, `liminalog.pro.yearly`, `liminalog.decorations.monthly`, `liminalog.decorations.yearly` |
+    | Higher Service Level | Liminalog Pro 月額 / 年額。Pro機能とプレミアム装飾レンタルを含む。 |
+    | Lower Service Level | 装飾パス 月額 / 年額。Pro機能 買い切り所有者向けのプレミアム装飾レンタルのみ。 |
+    | App Display Rule | 装飾パスは `PurchaseOfferingCatalog` により Pro機能 買い切り所有者にだけ表示する。 |
+
+    ## Product Metadata
+
+    | Product ID | Type | Group | Duration | JP Price | US Price | Display Name ja-JP | Description ja-JP | Display Name en-US | Description en-US | Introductory Offer |
+    |---|---|---|---|---:|---:|---|---|---|---|---|
+    """)
+
+    for product in expectedProducts {
+        let group = product.subscriptionGroup ?? "-"
+        let values = [
+            "`\(product.productID)`",
+            product.kind,
+            group,
+            product.metadataDuration,
+            product.referencePrice,
+            product.usReferencePrice,
+            product.displayName,
+            product.appStoreDescription,
+            product.englishDisplayName,
+            product.englishAppStoreDescription,
+            product.introductoryOffer
+        ]
+        print("| \(values.joined(separator: " | ")) |")
+    }
+
+    print("""
+
+    ## Review Information
+
+    | Product ID | Screenshot | Product-Specific Review Note |
+    |---|---|---|
+    """)
+
+    for product in expectedProducts {
+        let reviewInformation = appStoreConnectReviewInformation(for: product)
+        print("| `\(product.productID)` | `\(reviewInformation.screenshot)` | \(reviewInformation.note) |")
+    }
+
+    print("""
+
+    ## Legal URLs
+
+    | Field | URL |
+    |---|---|
+    | Terms of Use | `https://liminalog-lp.vercel.app/terms` |
+    | Privacy Policy | `https://liminalog-lp.vercel.app/privacy` |
+
+    ## Completion Steps
+
+    1. Save all product metadata in App Store Connect.
+    2. Attach Review Information screenshots and notes for submitted products.
+    3. Confirm the subscription relationship still matches the table above.
+    4. Register the Terms of Use and Privacy Policy URLs.
+    5. Wait up to 1 hour before treating Sandbox product fetch failures as an app bug.
+    6. Update `AppStore/AppStoreConnectProductConfirmation.md`.
+    7. Run `Scripts/validate-purchase-readiness.sh --gate1-ready`.
+    """)
 }
 
 private func printAppStoreConnectConfirmationMarkdown() {
@@ -2277,6 +2363,36 @@ private func printAppStoreConnectConfirmationMarkdown() {
 
     Gate 1 では購入導線をまだ出さない。`purchaseEntryPointIsEnabled` と `featureRestrictionsAreEnabled` は `false` のままにする。
     """)
+}
+
+private func appStoreConnectReviewInformation(for product: ExpectedProduct) -> (screenshot: String, note: String) {
+    switch product.productID {
+    case "liminalog.pro.monthly", "liminalog.pro.yearly":
+        return (
+            "AppStore/ReviewInformationScreenshots/pro-subscriptions-free.jpg",
+            "Pro subscriptions unlock deeper analysis features and premium decoration rental. The yearly product has a one-week free trial."
+        )
+    case "liminalog.pro.onetime":
+        return (
+            "AppStore/ReviewInformationScreenshots/pro-onetime-and-support-free.jpg",
+            "One-time Pro unlocks Pro features permanently, but does not include premium decoration rental."
+        )
+    case "liminalog.decorations.monthly", "liminalog.decorations.yearly":
+        return (
+            "AppStore/ReviewInformationScreenshots/decoration-pass-lifetime.jpg",
+            "Decoration pass subscriptions are shown only to Pro Features One-Time owners and rent premium decorations while active."
+        )
+    case "liminalog.support.small":
+        return (
+            "AppStore/ReviewInformationScreenshots/pro-onetime-and-support-free.jpg",
+            "Support tips are voluntary consumables and do not grant feature access or permanent entitlements."
+        )
+    default:
+        return (
+            "AppStore/ReviewInformationScreenshots/support-tips-medium-large-free.jpg",
+            "Support tips are voluntary consumables and do not grant feature access or permanent entitlements."
+        )
+    }
 }
 
 private func appStoreConnectNotes(for product: ExpectedProduct) -> String {

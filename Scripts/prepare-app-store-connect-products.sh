@@ -127,6 +127,10 @@ Generate Missing Metadata TSV for App Store Connect:
 
   swift Scripts/validate-storekit-config.swift --app-store-connect-metadata-tsv
 
+Generate Missing Metadata Markdown handoff:
+
+  swift Scripts/validate-storekit-config.swift --app-store-connect-missing-metadata-md
+
 Generate the confirmation sheet template:
 
   swift Scripts/validate-storekit-config.swift --app-store-connect-confirmation-md
