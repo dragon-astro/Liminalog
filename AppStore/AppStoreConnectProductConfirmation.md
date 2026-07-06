@@ -48,6 +48,7 @@ App Store Connect で課金商品を作成した後に埋める確認表。す�
 | [x] | Product Edit Permission | The App Store Connect account used for setup can add and edit in-app purchase products |
 | [ ] | Product Metadata | Display names, descriptions, durations, prices, and availability are filled for all App Store Connect products, using `AppStore/AppStoreConnectMetadataEntrySheet.md` |
 | [x] | Introductory Offer Decision | 年額ProのIntroductory Offerを Free Trial / 1 Week として作成し、アプリ内文言とQA表へ反映している |
+| [ ] | Legal Terms Approval | 利用規約本文とプライバシーポリシーURLを有料リリース前提で確認し、App Store Connect に登録するURLと一致している |
 | [ ] | Review Information | Review screenshot and review notes are attached for products submitted to App Review |
 | [ ] | Sandbox Propagation | After metadata edits, allow up to 1 hour before treating Sandbox product fetch failures as app bugs |
 

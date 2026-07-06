@@ -61,6 +61,7 @@ App Store Connect で商品を作成する時は、商品IDと価格だけでな
 - Auto-Renewable Subscription は先に `Liminalog Pro` の Subscription Group を作り、Proサブと装飾パスを同じグループへ入れる。
 - Product Metadata は、表示名、説明、期間、価格、販売状態を確認する。
 - Subscription Relationship は、Pro月額/年額と装飾パス月額/年額が同じ `Liminalog Pro` group 内で代替プランとして扱われることを確認する。
+- Legal Terms Approval は、利用規約本文とプライバシーポリシーURLを有料リリース前提で確認し、App Store Connect に登録するURLと一致していることを確認する。
 - Review Information は、提出対象の商品にレビュー用スクリーンショットとメモを付ける。
 - Introductory Offer は、年額Proだけ Free Trial / 1 Week にする。月額Pro、装飾パス、支援チップ、ライフタイムには無料体験を付けない。
 
