@@ -231,11 +231,13 @@ run_step "Check whitespace in git diffs" \
 if [[ "$run_release_build" == true ]]; then
   run_step "Build Release for generic iOS" \
     xcodebuild \
+      -quiet \
       -project Liminalog.xcodeproj \
       -scheme Liminalog \
       -configuration Release \
       -destination "generic/platform=iOS" \
       -derivedDataPath /private/tmp/LiminalogMonetizationReleaseDerivedData \
+      CODE_SIGNING_ALLOWED=NO \
       build
 fi
 

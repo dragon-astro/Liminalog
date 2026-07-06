@@ -60,7 +60,7 @@ backgroundEntitlementRefreshIsEnabled: false
 ```sh
 Scripts/prepare-purchase-gate1-code-change.sh
 Scripts/validate-purchase-readiness.sh --gate1-ready
-xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -destination "platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5" build-for-testing -only-testing:LiminalogTests/PurchaseConfigurationTests
+xcodebuild -quiet -project Liminalog.xcodeproj -scheme Liminalog -configuration Release -destination "generic/platform=iOS" -derivedDataPath /private/tmp/LiminalogMonetizationReleaseDerivedData build CODE_SIGNING_ALLOWED=NO
 ```
 
 `prepare-purchase-gate1-code-change.sh` は、App Store Connect確認表が完了していて、コード変更前のRelease gateがまだclosedであることを確認する。`--gate1-ready` は `PurchaseConfiguration.current` が Gate 1 のメタデータ準備済み状態であることも検査する。通常時の closed 状態検査ではない。
