@@ -911,6 +911,9 @@ private func validateAppStoreConnectConfirmationComplete(at path: String) -> Nev
     if metadata["App Store Connect app"] != "Liminalog" {
         failures.append("confirmation metadata App Store Connect app must be Liminalog")
     }
+    for (field, value) in metadata where containsUnresolvedCompletionMarker(value) {
+        failures.append("confirmation metadata \(field) still contains unresolved completion text")
+    }
 
     for row in appStoreConnectConfirmationRows(in: text) where containsUnresolvedCompletionMarker(row.notes) {
         failures.append("confirmation product notes still contain unresolved decision text: \(row.productID)")
@@ -2136,6 +2139,9 @@ private func isPlaceholderEvidenceValue(_ value: String) -> Bool {
 private func containsUnresolvedCompletionMarker(_ value: String) -> Bool {
     let normalized = normalizeMarkdownCell(value).lowercased()
     return normalized.contains("未確定")
+        || normalized.contains("未完了")
+        || normalized.contains("未確認")
+        || normalized.contains("missing metadata")
         || normalized.contains("tbd")
         || normalized.contains("todo")
         || normalized.contains("fill manually")
