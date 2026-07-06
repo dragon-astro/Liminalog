@@ -185,6 +185,11 @@ if arguments.contains("--app-store-connect-tsv") {
     exit(EXIT_SUCCESS)
 }
 
+if arguments.contains("--app-store-connect-metadata-tsv") {
+    printAppStoreConnectMetadataTSV()
+    exit(EXIT_SUCCESS)
+}
+
 if arguments.contains("--app-store-connect-confirmation-md") {
     printAppStoreConnectConfirmationMarkdown()
     exit(EXIT_SUCCESS)
@@ -2079,6 +2084,14 @@ private func normalizeMarkdownCell(_ value: String) -> String {
         .replacingOccurrences(of: "`", with: "")
 }
 
+private func tsvValue(_ value: String) -> String {
+    value
+        .replacingOccurrences(of: "\t", with: " ")
+        .replacingOccurrences(of: "\r\n", with: " ")
+        .replacingOccurrences(of: "\n", with: " ")
+        .replacingOccurrences(of: "\r", with: " ")
+}
+
 private func isPlaceholderMetadataValue(_ value: String?) -> Bool {
     guard let value else { return true }
     let normalized = normalizeMarkdownCell(value).lowercased()
@@ -2128,6 +2141,7 @@ private func printUsage() {
       swift Scripts/validate-storekit-config.swift <path-to-liminalog.storekit>
       swift Scripts/validate-storekit-config.swift --expected
       swift Scripts/validate-storekit-config.swift --app-store-connect-tsv
+      swift Scripts/validate-storekit-config.swift --app-store-connect-metadata-tsv
       swift Scripts/validate-storekit-config.swift --app-store-connect-confirmation-md
       swift Scripts/validate-storekit-config.swift --validate-app-store-connect-confirmation-template [path-to-AppStoreConnectProductConfirmation.md]
       swift Scripts/validate-storekit-config.swift --validate-app-store-connect-confirmation-complete [path-to-AppStoreConnectProductConfirmation.md]
@@ -2165,6 +2179,28 @@ private func printAppStoreConnectTSV() {
         let group = product.subscriptionGroup ?? "-"
         let notes = appStoreConnectNotes(for: product)
         print("\(product.productID)\t\(product.displayName)\t\(product.kind)\t\(product.referencePrice)\t\(group)\t\(product.displayName)\t\(product.appStoreDescription)\t\(product.introductoryOffer)\t\(notes)")
+    }
+}
+
+private func printAppStoreConnectMetadataTSV() {
+    print("Product ID\tReference Name\tType\tSubscription Group\tDuration\tJP Price\tUS Price\tDisplay Name ja-JP\tDescription ja-JP\tDisplay Name en-US\tDescription en-US\tIntroductory Offer")
+    for product in expectedProducts {
+        let group = product.subscriptionGroup ?? "-"
+        let values = [
+            product.productID,
+            product.displayName,
+            product.kind,
+            group,
+            product.metadataDuration,
+            product.referencePrice,
+            product.usReferencePrice,
+            product.displayName,
+            product.appStoreDescription,
+            product.englishDisplayName,
+            product.englishAppStoreDescription,
+            product.introductoryOffer
+        ]
+        print(values.map(tsvValue).joined(separator: "\t"))
     }
 }
 

@@ -123,6 +123,10 @@ Generate TSV for App Store Connect:
 
   swift Scripts/validate-storekit-config.swift --app-store-connect-tsv
 
+Generate Missing Metadata TSV for App Store Connect:
+
+  swift Scripts/validate-storekit-config.swift --app-store-connect-metadata-tsv
+
 Generate the confirmation sheet template:
 
   swift Scripts/validate-storekit-config.swift --app-store-connect-confirmation-md
