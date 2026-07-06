@@ -85,6 +85,10 @@ cat <<'REPORT'
 
 Gate 1 code-change preflight completed.
 
+Generate the exact PurchaseConfiguration.current snippet:
+
+  swift Scripts/validate-storekit-config.swift --purchase-configuration-snippet gate1
+
 Apply only this PurchaseConfiguration.current change for Gate 1:
 
   productIDsAreConfirmedForAppStoreConnect: true

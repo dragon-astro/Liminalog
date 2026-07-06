@@ -200,6 +200,17 @@ if arguments.contains("--app-store-connect-confirmation-md") {
     exit(EXIT_SUCCESS)
 }
 
+if let purchaseConfigurationSnippetFlagIndex = arguments.firstIndex(of: "--purchase-configuration-snippet") {
+    let candidateGate = arguments.dropFirst(purchaseConfigurationSnippetFlagIndex + 1).first
+    guard let gateValue = candidateGate, !gateValue.hasPrefix("-"),
+          let gate = ReleaseGateExpectation(rawValue: gateValue) else {
+        print("error: --purchase-configuration-snippet requires one of: closed, gate1, gate2, gate3")
+        exit(EXIT_FAILURE)
+    }
+    printPurchaseConfigurationSnippet(for: gate)
+    exit(EXIT_SUCCESS)
+}
+
 if let confirmationTemplateFlagIndex = arguments.firstIndex(of: "--validate-app-store-connect-confirmation-template") {
     let candidatePath = arguments.dropFirst(confirmationTemplateFlagIndex + 1).first
     let path = candidatePath?.hasPrefix("-") == false ? candidatePath! : "AppStore/AppStoreConnectProductConfirmation.md"
@@ -2172,6 +2183,7 @@ private func printUsage() {
       swift Scripts/validate-storekit-config.swift --app-store-connect-metadata-tsv
       swift Scripts/validate-storekit-config.swift --app-store-connect-missing-metadata-md
       swift Scripts/validate-storekit-config.swift --app-store-connect-confirmation-md
+      swift Scripts/validate-storekit-config.swift --purchase-configuration-snippet <closed|gate1|gate2|gate3>
       swift Scripts/validate-storekit-config.swift --validate-app-store-connect-confirmation-template [path-to-AppStoreConnectProductConfirmation.md]
       swift Scripts/validate-storekit-config.swift --validate-app-store-connect-confirmation-complete [path-to-AppStoreConnectProductConfirmation.md]
       swift Scripts/validate-storekit-config.swift --validate-storekit-local-qa-complete [path-to-StoreKitLocalTesting.md]
@@ -2200,6 +2212,29 @@ private func printExpectedProducts() {
         let group = product.subscriptionGroup ?? "-"
         print("- \(product.productID) | \(product.kind) | \(product.referencePrice) | group: \(group)")
     }
+}
+
+private func printPurchaseConfigurationSnippet(for gate: ReleaseGateExpectation) {
+    let metadataReady = gate != .closed
+    let purchaseEntryPointEnabled = gate == .gate2 || gate == .gate3
+    let featureRestrictionsEnabled = gate == .gate3
+    let backgroundRefreshEnabled = gate == .gate2 || gate == .gate3
+    let subscriptionGroup = metadataReady ? #""Liminalog Pro""# : "nil"
+
+    print("""
+        static let current = PurchaseConfiguration(
+            productIDs: PurchaseProductID.storeKitProductIDs,
+            productIDsAreConfirmedForAppStoreConnect: \(metadataReady),
+            subscriptionGroupName: \(subscriptionGroup),
+            legalLinks: PurchaseLegalLinks(
+                termsOfUseURL: URL(string: "https://liminalog-lp.vercel.app/terms"),
+                privacyPolicyURL: URL(string: "https://liminalog-lp.vercel.app/privacy")
+            ),
+            purchaseEntryPointIsEnabled: \(purchaseEntryPointEnabled),
+            featureRestrictionsAreEnabled: \(featureRestrictionsEnabled),
+            backgroundEntitlementRefreshIsEnabled: \(backgroundRefreshEnabled)
+        )
+    """)
 }
 
 private func printAppStoreConnectTSV() {

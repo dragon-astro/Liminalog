@@ -91,6 +91,10 @@ cat <<'REPORT'
 
 Gate 3 code-change preflight completed.
 
+Generate the exact PurchaseConfiguration.current snippet:
+
+  swift Scripts/validate-storekit-config.swift --purchase-configuration-snippet gate3
+
 Apply only this PurchaseConfiguration.current change for Gate 3:
 
   featureRestrictionsAreEnabled: true

@@ -89,6 +89,10 @@ cat <<'REPORT'
 
 Gate 2 code-change preflight completed.
 
+Generate the exact PurchaseConfiguration.current snippet:
+
+  swift Scripts/validate-storekit-config.swift --purchase-configuration-snippet gate2
+
 Apply only this PurchaseConfiguration.current change for Gate 2:
 
   purchaseEntryPointIsEnabled: true
