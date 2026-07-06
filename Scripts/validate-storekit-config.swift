@@ -919,9 +919,11 @@ private func validateAppStoreConnectConfirmationComplete(at path: String) -> Nev
         failures.append("confirmation product notes still contain unresolved decision text: \(row.productID)")
     }
     let reviewInformationDraftSection = markdownSection(named: "Review Information Draft Assets", in: text)
-    if !reviewInformationDraftSection.isEmpty,
-       containsUnresolvedReviewInformationMarker(reviewInformationDraftSection) {
-        failures.append("review information draft assets still contain unresolved draft or candidate text")
+    if !reviewInformationDraftSection.isEmpty {
+        failures.append("review information draft assets section must be removed or renamed after App Store Connect attachments are complete")
+        if containsUnresolvedReviewInformationMarker(reviewInformationDraftSection) {
+            failures.append("review information draft assets still contain unresolved draft or candidate text")
+        }
     }
 
     failures.append(contentsOf: uncheckedConfirmationRows(
