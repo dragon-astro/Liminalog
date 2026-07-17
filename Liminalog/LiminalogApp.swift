@@ -24,7 +24,9 @@ struct LiminalogApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootTabView()
+            RootTabView { reason in
+                await refreshIncomingFriendSharesWhenReady(reason: reason)
+            }
                 .task {
                     guard cloudFriendShareRefreshCoordinator == nil else { return }
                     await waitForModelStoreReadiness(reason: "app launch")
@@ -146,6 +148,17 @@ struct LiminalogApp: App {
         } catch {
             return false
         }
+    }
+
+    private func refreshIncomingFriendSharesWhenReady(reason: String) async {
+        while cloudFriendShareRefreshCoordinator == nil {
+            do {
+                try await Task.sleep(nanoseconds: 100_000_000)
+            } catch {
+                return
+            }
+        }
+        await cloudFriendShareRefreshCoordinator?.refreshIncomingSharesNow(reason: reason)
     }
 
     private func scheduleCloudFriendRefresh(reason: String) {

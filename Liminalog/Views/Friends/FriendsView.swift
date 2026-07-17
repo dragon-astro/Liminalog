@@ -40,9 +40,14 @@ struct FriendsView: View {
 
     private let cloudSocialStore = CloudKitSocialStore()
     private let cloudShareStore = CloudFriendShareStore()
+    private let refreshIncomingFriendShares: (@MainActor (String) async -> Void)?
 
-    init(pendingInviteURL: Binding<URL?> = .constant(nil)) {
+    init(
+        pendingInviteURL: Binding<URL?> = .constant(nil),
+        refreshIncomingFriendShares: (@MainActor (String) async -> Void)? = nil
+    ) {
         self._pendingInviteURL = pendingInviteURL
+        self.refreshIncomingFriendShares = refreshIncomingFriendShares
         self._activeChapters = Query(
             filter: #Predicate<Chapter> { $0.endTime == nil },
             sort: [SortDescriptor(\.startTime, order: .reverse)]
@@ -135,6 +140,9 @@ struct FriendsView: View {
                 .padding(.horizontal, 18)
                 .padding(.top, 14)
                 .padding(.bottom, 32)
+            }
+            .refreshable {
+                await refreshCloudRequests(trigger: .manual)
             }
             .background(LiminalTheme.canvasGradient)
             .toolbar(.hidden, for: .navigationBar)
@@ -256,7 +264,9 @@ struct FriendsView: View {
                 Button {
                     if !isRefreshingCloudRequests {
                         LiminalHaptics.selection()
-                        refreshCloudRequests(trigger: .manual)
+                        Task {
+                            await refreshCloudRequests(trigger: .manual)
+                        }
                     }
                 } label: {
                     if isRefreshingCloudRequests {
@@ -273,7 +283,7 @@ struct FriendsView: View {
                 .foregroundStyle(LiminalTheme.text)
                 .background(LiminalTheme.elevated, in: Circle())
                 .disabled(isRefreshingCloudRequests)
-                .accessibilityLabel(isRefreshingCloudRequests ? "友達申請を更新中" : "友達申請を更新")
+                .accessibilityLabel(isRefreshingCloudRequests ? "友達データを更新中" : "友達データを更新")
             }
 
             cloudIdentityFeedback
@@ -880,7 +890,9 @@ struct FriendsView: View {
     }
 
     private func refreshCloudRequestsIfPossible() {
-        refreshCloudRequests(trigger: .automatic)
+        Task {
+            await refreshCloudRequests(trigger: .automatic)
+        }
     }
 
     private func scheduleAutomaticCloudRequestsRefresh(delay: TimeInterval = 8) {
@@ -893,82 +905,96 @@ struct FriendsView: View {
         }
     }
 
-    private func refreshCloudRequests(trigger: CloudFriendRequestRefreshTrigger) {
+    private func refreshCloudRequests(trigger: CloudFriendRequestRefreshTrigger) async {
         guard let ownUserRecordName = settings?.cloudUserRecordName, !ownUserRecordName.isEmpty else { return }
         let now = Date()
-        guard CloudFriendLocalStatePolicy.shouldRefreshCloudRequests(
+        guard CloudFriendLocalStatePolicy.shouldBeginCloudRequestsRefresh(
+            isRefreshInFlight: isRefreshingCloudRequests,
             trigger: trigger,
             currentUserRecordName: ownUserRecordName,
             loadedUserRecordName: loadedCloudRequestsUserRecordName,
             lastAutomaticAttemptAt: lastAutomaticCloudRequestAttemptAt,
             now: now
         ) else { return }
-        if isRefreshingCloudRequests { return }
         if trigger == .automatic {
             lastAutomaticCloudRequestAttemptAt = now
         }
         isRefreshingCloudRequests = true
+        defer { isRefreshingCloudRequests = false }
         if trigger == .manual {
             cloudErrorText = nil
             cloudStatusText = nil
         }
 
-        Task {
-            do {
-                let incomingConsents = try await cloudSocialStore.incomingConsents(forOwnUserRecordName: ownUserRecordName)
-                let outgoingConsents = try await cloudSocialStore.outgoingConsents(forOwnUserRecordName: ownUserRecordName)
-                await MainActor.run {
-                    let restorations = CloudFriendConsentRestorePolicy.restorations(
-                        incomingConsents: incomingConsents,
-                        outgoingConsents: outgoingConsents
-                    )
-                    var acceptedRefreshFriendIDs: [UUID] = []
-                    var acceptedPublishFriends: [Friend] = []
-                    for restoration in restorations {
-                        let status = restoration.status
-                        let friend = upsertCloudFriend(
-                            consent: restoration.consent,
-                            direction: restoration.direction,
-                            status: status
-                        )
-                        if status == .blocked {
-                            handleBlockedCloudFriend(friend, direction: restoration.direction)
-                            continue
-                        }
-                        if status == .accepted {
-                            if incomingShareURL(for: friend) != nil {
-                                acceptedRefreshFriendIDs.append(friend.id)
-                            }
-                            acceptedPublishFriends.append(friend)
-                        }
-                    }
-                    if save() {
-                        for friendID in acceptedRefreshFriendIDs {
-                            CloudFriendShareRefreshCoordinator.requestIncomingRefresh(
-                                reason: "friend requests restored",
-                                friendID: friendID
-                            )
-                        }
-                        for friend in acceptedPublishFriends {
-                            Task {
-                                _ = try? await publishOutgoingShare(to: friend, consentStatus: .accepted)
-                            }
-                        }
-                        loadedCloudRequestsUserRecordName = ownUserRecordName
-                        if trigger == .manual {
-                            let count = incomingConsents.count + outgoingConsents.count
-                            cloudStatusText = count == 0 ? "新しい申請はありません。" : "\(count)件の申請を更新しました。"
-                        }
-                    }
-                    isRefreshingCloudRequests = false
+        do {
+            let incomingConsents = try await cloudSocialStore.incomingConsents(forOwnUserRecordName: ownUserRecordName)
+            let outgoingConsents = try await cloudSocialStore.outgoingConsents(forOwnUserRecordName: ownUserRecordName)
+            applyCloudRequestRefresh(
+                incomingConsents: incomingConsents,
+                outgoingConsents: outgoingConsents,
+                ownUserRecordName: ownUserRecordName,
+                trigger: trigger
+            )
+        } catch {
+            if trigger == .manual {
+                cloudErrorText = error.localizedDescription
+            }
+        }
+        await refreshIncomingShareSnapshotsIfNeeded(trigger: trigger)
+    }
+
+    private func refreshIncomingShareSnapshotsIfNeeded(trigger: CloudFriendRequestRefreshTrigger) async {
+        guard trigger == .manual else { return }
+        guard let refreshIncomingFriendShares else { return }
+        await refreshIncomingFriendShares("friends manual refresh")
+    }
+
+    private func applyCloudRequestRefresh(
+        incomingConsents: [CloudFriendConsent],
+        outgoingConsents: [CloudFriendConsent],
+        ownUserRecordName: String,
+        trigger: CloudFriendRequestRefreshTrigger
+    ) {
+        let restorations = CloudFriendConsentRestorePolicy.restorations(
+            incomingConsents: incomingConsents,
+            outgoingConsents: outgoingConsents
+        )
+        var acceptedRefreshFriendIDs: [UUID] = []
+        var acceptedPublishFriends: [Friend] = []
+        for restoration in restorations {
+            let status = restoration.status
+            let friend = upsertCloudFriend(
+                consent: restoration.consent,
+                direction: restoration.direction,
+                status: status
+            )
+            if status == .blocked {
+                handleBlockedCloudFriend(friend, direction: restoration.direction)
+                continue
+            }
+            if status == .accepted {
+                if incomingShareURL(for: friend) != nil {
+                    acceptedRefreshFriendIDs.append(friend.id)
                 }
-            } catch {
-                await MainActor.run {
-                    if trigger == .manual {
-                        cloudErrorText = error.localizedDescription
-                    }
-                    isRefreshingCloudRequests = false
+                acceptedPublishFriends.append(friend)
+            }
+        }
+        if save() {
+            for friendID in acceptedRefreshFriendIDs {
+                CloudFriendShareRefreshCoordinator.requestIncomingRefresh(
+                    reason: "friend requests restored",
+                    friendID: friendID
+                )
+            }
+            for friend in acceptedPublishFriends {
+                Task {
+                    _ = try? await publishOutgoingShare(to: friend, consentStatus: .accepted)
                 }
+            }
+            loadedCloudRequestsUserRecordName = ownUserRecordName
+            if trigger == .manual {
+                let count = incomingConsents.count + outgoingConsents.count
+                cloudStatusText = count == 0 ? "新しい申請はありません。" : "\(count)件の申請を更新しました。"
             }
         }
     }

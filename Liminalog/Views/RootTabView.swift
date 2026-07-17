@@ -29,11 +29,13 @@ struct RootTabView: View {
     @State private var pendingRemoteChangeDuplicateMergeTask: Task<Void, Never>?
     @State private var pendingRemoteChangeRequiresFullMerge = false
     @State private var isShowingStorageFallbackNotice = false
+    private let refreshIncomingFriendShares: (@MainActor (String) async -> Void)?
     #if DEBUG
     @AppStorage("debug.unlocks.allowLockedDecorations") private var allowsLockedDecorationTesting = false
     #endif
 
-    init() {
+    init(refreshIncomingFriendShares: (@MainActor (String) async -> Void)? = nil) {
+        self.refreshIncomingFriendShares = refreshIncomingFriendShares
         _selectedTab = State(initialValue: Self.initialTab())
     }
 
@@ -80,7 +82,10 @@ struct RootTabView: View {
                                 .id(themeRefreshID(for: .dashboard))
                         }
                         Tab("友達", systemImage: "person.2.fill", value: RootTab.friends) {
-                            FriendsView(pendingInviteURL: $pendingFriendInviteURL)
+                            FriendsView(
+                                pendingInviteURL: $pendingFriendInviteURL,
+                                refreshIncomingFriendShares: refreshIncomingFriendShares
+                            )
                                 .id(themeRefreshID(for: .friends))
                         }
                         Tab("プロフィール", systemImage: "person.crop.circle", value: RootTab.profile) {

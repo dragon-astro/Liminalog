@@ -88,6 +88,7 @@ final class CloudFriendShareRefreshCoordinator {
     private var outgoingRefreshLane = CloudFriendShareRefreshLane()
     private var incomingRefreshLane = CloudFriendShareRefreshLane()
     private var consentRefreshLane = CloudFriendShareRefreshLane()
+    private var incomingRefreshCompletionWaiters: [CheckedContinuation<Void, Never>] = []
     private var incomingSharePayloadTasks: [String: Task<IncomingShareSyncPayload, Error>] = [:]
     private let cloudOperationTimeoutSeconds = CloudFriendShareOperationTimeoutPolicy.standardOperation
 
@@ -238,7 +239,8 @@ final class CloudFriendShareRefreshCoordinator {
         guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
         let request = CloudFriendShareRefreshRequest(
             reason: reason,
-            incomingFriendIDs: friendIDs
+            incomingFriendIDs: friendIDs,
+            requiresFullIncomingRefresh: friendIDs.isEmpty
         )
         pendingIncomingTask?.cancel()
         pendingIncomingTask = Task { [weak self] in
@@ -247,6 +249,18 @@ final class CloudFriendShareRefreshCoordinator {
             }
             guard !Task.isCancelled else { return }
             await self?.runIncomingRefresh(request: request)
+        }
+    }
+
+    /// Runs a full incoming refresh immediately and returns only after the shared lane is idle.
+    /// A request arriving during an existing operation is coalesced by the lane, then awaited here.
+    func refreshIncomingSharesNow(reason: String) async {
+        pendingIncomingTask?.cancel()
+        pendingIncomingTask = nil
+        await runIncomingRefresh(reason: reason)
+        guard incomingRefreshLane.isInFlight else { return }
+        await withCheckedContinuation { continuation in
+            incomingRefreshCompletionWaiters.append(continuation)
         }
     }
 
@@ -308,7 +322,10 @@ final class CloudFriendShareRefreshCoordinator {
     }
 
     private func runIncomingRefresh(reason initialReason: String) async {
-        await runIncomingRefresh(request: CloudFriendShareRefreshRequest(reason: initialReason))
+        await runIncomingRefresh(request: CloudFriendShareRefreshRequest(
+            reason: initialReason,
+            requiresFullIncomingRefresh: true
+        ))
     }
 
     private func runIncomingRefresh(request initialRequest: CloudFriendShareRefreshRequest) async {
@@ -324,8 +341,19 @@ final class CloudFriendShareRefreshCoordinator {
             } else {
                 await refreshAcceptedIncomingShares(reason: request.reason)
             }
-            guard let nextRequest = incomingRefreshLane.finishOperation() else { return }
+            guard let nextRequest = incomingRefreshLane.finishOperation() else {
+                resumeIncomingRefreshCompletionWaiters()
+                return
+            }
             request = nextRequest
+        }
+    }
+
+    private func resumeIncomingRefreshCompletionWaiters() {
+        let waiters = incomingRefreshCompletionWaiters
+        incomingRefreshCompletionWaiters.removeAll()
+        for waiter in waiters {
+            waiter.resume()
         }
     }
 
