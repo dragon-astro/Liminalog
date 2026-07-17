@@ -90,6 +90,30 @@ struct ProfileDecorationUnlocksTests {
     }
 
     @Test
+    func persistingGallerySeenKeysClearsFreshUnlockedItems() throws {
+        let now = try #require(Calendar.liminalogTest.date(from: DateComponents(year: 2026, month: 6, day: 1)))
+        let planner = try unlockedItem(key: "badge.planner", now: now)
+        let settings = UserSettings()
+
+        let beforeVisit = ProfileDecorationUnlocks.freshUnlockedItems(
+            unlockItems: [planner],
+            settings: settings,
+            visibleThemeIDs: []
+        )
+        #expect(beforeVisit.map(\.key) == ["badge.planner"])
+
+        // UnlockGalleryView persists the unlocked keys for the visited tab here.
+        settings.seenUnlockItemKeys.append("badge.planner")
+
+        let afterVisit = ProfileDecorationUnlocks.freshUnlockedItems(
+            unlockItems: [planner],
+            settings: settings,
+            visibleThemeIDs: []
+        )
+        #expect(afterVisit.isEmpty)
+    }
+
+    @Test
     func markingEquippedItemStoresOnlyCurrentUnlockedKeyForEachKind() throws {
         let now = try #require(Calendar.liminalogTest.date(from: DateComponents(year: 2026, month: 6, day: 1)))
         let planner = try unlockedItem(key: "badge.planner", now: now)
