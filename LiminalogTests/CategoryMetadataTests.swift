@@ -113,6 +113,37 @@ struct CategoryMetadataTests {
         #expect(persisted.defaultAudienceIncludedFriendIDs == [includedFriendID])
         #expect(persisted.defaultAudienceExcludedFriendIDs == [excludedFriendID])
     }
+
+    @Test("カタログ外の既存icon文字列を更新時も変換しない")
+    func updatePreservesUncataloguedIconString() throws {
+        let container = try TestModelContainer.make()
+        let context = container.mainContext
+        let store = CategoryStore(modelContext: context)
+        let existingSymbol = "figure.skiing.crosscountry"
+        let category = Category(
+            name: "スキー",
+            colorHex: "#2F80ED",
+            icon: existingSymbol
+        )
+        context.insert(category)
+        try context.save()
+
+        #expect(store.updateCategory(
+            category,
+            name: "クロスカントリー",
+            colorHex: "#2F80ED",
+            icon: category.icon,
+            dailyCardIntent: category.dailyCardIntent,
+            analysisKind: category.analysisKind,
+            isDailyCardSleepCategory: category.isDailyCardSleepCategory,
+            defaultAudienceFriendSetIDs: category.defaultAudienceFriendSetIDs,
+            defaultAudienceIncludedFriendIDs: category.defaultAudienceIncludedFriendIDs,
+            defaultAudienceExcludedFriendIDs: category.defaultAudienceExcludedFriendIDs
+        ))
+
+        #expect(category.icon == existingSymbol)
+        #expect(store.allCategories().first { $0.id == category.id }?.icon == existingSymbol)
+    }
 }
 
 @MainActor
