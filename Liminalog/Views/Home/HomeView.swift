@@ -101,6 +101,7 @@ struct HomeView: View {
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
+            .scrollDisabled(tomorrowScheduleInteractionActive)
             .ignoresSafeArea()
         }
         .onChange(of: selectedPage) { _, _ in

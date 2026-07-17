@@ -11,14 +11,6 @@ private struct EditablePlanTimelineRenderItem: Identifiable {
     }
 }
 
-private struct EditableTimelineScrollOffsetPreferenceKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
-    }
-}
-
 private struct EditableTimelinePlanSignature: Hashable {
     let id: UUID
     let startTime: Date
@@ -86,6 +78,17 @@ struct EditablePlanTimelineView: View {
     @State private var lastResizeFeedbackMinute: Int?
     @State private var resizeDragStartGlobalY: CGFloat?
     @State private var renderCache: EditableTimelineRenderCache?
+    @AppStorage(DayTimelineZoomPolicy.userDefaultsKey)
+    private var storedHourScale = Double(DayTimelineZoomPolicy.defaultScale)
+    @State private var transientHourScale: CGFloat?
+    @State private var zoomGestureBaseScale: CGFloat?
+    @State private var zoomAnchorMinute: CGFloat?
+    @State private var zoomGestureIsActive = false
+    @State private var scheduleGestureWasCancelledByZoom = false
+    @State private var touchActionsWereCancelledByZoom = false
+    @GestureState private var scheduleDragIsActive = false
+    @State private var latestScrollMinY: CGFloat = 0
+    @State private var timelineScrollPosition = ScrollPosition()
     private let calendar = Calendar.japanese
     private let hourColumnWidth: CGFloat = 50
     private let hourLabelHeight: CGFloat = 14
@@ -94,7 +97,6 @@ struct EditablePlanTimelineView: View {
     private let bottomScrollPadding: CGFloat = 24
     private let snapMinutes = 15
     private let minimumDurationMinutes = 15
-    private let hourHeight: CGFloat = 38
     private let creationLongPressDuration = 0.28
     private let creationLongPressMaximumDistance: CGFloat = 28
     private let creationHorizontalCancelDistance: CGFloat = 22
@@ -102,6 +104,14 @@ struct EditablePlanTimelineView: View {
 
     private var dayStart: Date {
         DayBoundary.dayStart(for: date, calendar: calendar)
+    }
+
+    private var hourScale: CGFloat {
+        transientHourScale ?? DayTimelineZoomPolicy.normalizedScale(storedHourScale)
+    }
+
+    private var hourHeight: CGFloat {
+        DayTimelineZoomPolicy.hourHeight(for: hourScale)
     }
 
     private var renderCacheKey: EditableTimelineRenderCacheKey {
@@ -237,8 +247,6 @@ struct EditablePlanTimelineView: View {
             ScrollViewReader { scrollProxy in
                 ScrollView(.vertical) {
                     VStack(spacing: 0) {
-                        scrollOffsetReader
-
                         ZStack(alignment: .topLeading) {
                             timelineCanvasLayer(width: proxy.size.width, renderItems: renderItemsSnapshot)
                             hourScrollTargets
@@ -278,7 +286,7 @@ struct EditablePlanTimelineView: View {
                             .frame(height: bottomScrollPadding)
                     }
                 }
-                .coordinateSpace(name: scrollCoordinateSpaceName)
+                .scrollPosition($timelineScrollPosition)
                 .frame(width: proxy.size.width, height: proxy.size.height)
                 .scrollDisabled(shouldDisableTimelineScroll || isPageSwipeActive)
                 .scrollIndicators(.visible)
@@ -298,39 +306,48 @@ struct EditablePlanTimelineView: View {
                     }
                 }
                 .onAppear {
+                    normalizeStoredHourScale()
                     scrollToVisibleHour(with: scrollProxy)
                 }
                 .onChange(of: visibleHour) { _, _ in
                     guard !isInteractionEnabled else { return }
                     scrollToVisibleHour(with: scrollProxy)
                 }
-                .onPreferenceChange(EditableTimelineScrollOffsetPreferenceKey.self) { minY in
+                .onScrollGeometryChange(for: CGFloat.self) { geometry in
+                    -max(0, geometry.contentOffset.y + geometry.contentInsets.top)
+                } action: { _, minY in
+                    latestScrollMinY = minY
                     updateVisibleHour(fromScrollMinY: minY)
                 }
                 .onChange(of: date) { _, _ in
+                    cancelZoomGesture()
                     resetInteractionState()
                     scrollToVisibleHour(with: scrollProxy)
                 }
+                .onChange(of: scheduleDragIsActive) { wasActive, isActive in
+                    guard wasActive, !isActive else { return }
+                    discardZoomCancelledScheduleGestureIfNeeded()
+                }
+                .gesture(
+                    TimelineTouchSequenceObserver {
+                        beginTimelineTouchSequence()
+                    }
+                )
+                .simultaneousGesture(dayTimelineZoomGesture(viewportHeight: proxy.size.height))
+                .accessibilityIdentifier("day-timeline")
+                .accessibilityValue(zoomAccessibilityValue)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private var scrollCoordinateSpaceName: String {
-        "EditablePlanTimelineScroll-\(dayStart.timeIntervalSinceReferenceDate)"
-    }
-
-    private var scrollOffsetReader: some View {
-        Color.clear
-            .frame(height: 0)
-            .background(
-                GeometryReader { proxy in
-                    Color.clear.preference(
-                        key: EditableTimelineScrollOffsetPreferenceKey.self,
-                        value: proxy.frame(in: .named(scrollCoordinateSpaceName)).minY
-                    )
-                }
-            )
+        .onDisappear {
+            cancelZoomGesture()
+            if hasActiveScheduleGesture || scheduleGestureWasCancelledByZoom {
+                scheduleGestureWasCancelledByZoom = false
+                creationDraft = nil
+                resetScheduleGestureState()
+            }
+            touchActionsWereCancelledByZoom = false
+        }
     }
 
     private var hourScrollTargets: some View {
@@ -358,11 +375,144 @@ struct EditablePlanTimelineView: View {
               !shouldDisableTimelineScroll
         else { return }
 
-        let scrollOffset = max(0, -minY - timelineTopInset)
-        let hour = min(23, max(0, Int((scrollOffset / hourHeight).rounded())))
+        updateVisibleHour(scrollY: max(0, -minY), hourHeight: hourHeight)
+    }
+
+    private func updateVisibleHour(scrollY: CGFloat, hourHeight: CGFloat) {
+        let hourAxisOffset = max(0, scrollY - timelineTopInset)
+        let hour = min(23, max(0, Int((hourAxisOffset / hourHeight).rounded())))
         if visibleHour != hour {
             visibleHour = hour
         }
+    }
+
+    private func dayTimelineZoomGesture(viewportHeight: CGFloat) -> some Gesture {
+        MagnifyGesture()
+            .onChanged { value in
+                guard beginZoomGestureIfNeeded(viewportHeight: viewportHeight),
+                      let zoomGestureBaseScale
+                else { return }
+
+                let scale = DayTimelineZoomPolicy.magnifiedScale(
+                    baseScale: zoomGestureBaseScale,
+                    magnification: value.magnification
+                )
+                applyZoomScale(scale, viewportHeight: viewportHeight)
+            }
+            .onEnded { _ in
+                finishZoomGesture(viewportHeight: viewportHeight)
+            }
+    }
+
+    private func beginZoomGestureIfNeeded(viewportHeight: CGFloat) -> Bool {
+        if zoomGestureIsActive {
+            return true
+        }
+        guard isInteractionEnabled,
+              !isPageSwipeActive,
+              viewportHeight > 0
+        else { return false }
+
+        // A selected plan or resize handle can receive the first finger before
+        // the magnification recognizer sees the second one. Once a real
+        // two-finger magnification starts, discard that uncommitted one-finger
+        // draft and let zoom own the interaction. Keep a latch until the old
+        // recognizer ends so its remaining finger cannot resume and save.
+        if hasActiveScheduleGesture {
+            scheduleGestureWasCancelledByZoom = true
+            creationDraft = nil
+            resetScheduleGestureState()
+        } else if isScheduleInteractionActive && !scheduleGestureWasCancelledByZoom {
+            // Calendar pages share the parent lock. Never clear or steal an
+            // interaction that belongs to a sibling timeline instance.
+            return false
+        }
+        touchActionsWereCancelledByZoom = true
+
+        let baseScale = DayTimelineZoomPolicy.normalizedScale(storedHourScale)
+        zoomGestureBaseScale = baseScale
+        zoomAnchorMinute = DayTimelineZoomPolicy.centerMinute(
+            visibleMinY: latestScrollMinY,
+            viewportHeight: viewportHeight,
+            hourHeight: DayTimelineZoomPolicy.hourHeight(for: baseScale),
+            timelineTopInset: timelineTopInset
+        )
+        zoomGestureIsActive = true
+        isScheduleInteractionActive = true
+        return true
+    }
+
+    @discardableResult
+    private func applyZoomScale(_ scale: CGFloat, viewportHeight: CGFloat) -> CGFloat? {
+        guard let zoomAnchorMinute else { return nil }
+
+        let newHourHeight = DayTimelineZoomPolicy.hourHeight(for: scale)
+        let newContentHeight = timelineTopInset + newHourHeight * 24 + bottomScrollPadding
+        let targetY = DayTimelineZoomPolicy.scrollY(
+            preservingCenterMinute: zoomAnchorMinute,
+            viewportHeight: viewportHeight,
+            hourHeight: newHourHeight,
+            contentHeight: newContentHeight,
+            timelineTopInset: timelineTopInset
+        )
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            transientHourScale = scale
+            timelineScrollPosition.scrollTo(y: targetY)
+        }
+        latestScrollMinY = -targetY
+        return targetY
+    }
+
+    private func finishZoomGesture(viewportHeight: CGFloat) {
+        guard zoomGestureIsActive else { return }
+
+        let snappedScale = DayTimelineZoomPolicy.snappedScale(
+            transientHourScale ?? zoomGestureBaseScale ?? DayTimelineZoomPolicy.defaultScale
+        )
+        let targetY = applyZoomScale(snappedScale, viewportHeight: viewportHeight)
+        let snappedHourHeight = DayTimelineZoomPolicy.hourHeight(for: snappedScale)
+
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            storedHourScale = Double(snappedScale)
+            transientHourScale = nil
+            zoomGestureBaseScale = nil
+            zoomAnchorMinute = nil
+            zoomGestureIsActive = false
+        }
+        isScheduleInteractionActive = hasActiveScheduleGesture || scheduleGestureWasCancelledByZoom
+        if let targetY {
+            updateVisibleHour(scrollY: targetY, hourHeight: snappedHourHeight)
+        }
+        LiminalHaptics.selection()
+    }
+
+    private func cancelZoomGesture() {
+        guard zoomGestureIsActive || transientHourScale != nil else { return }
+
+        transientHourScale = nil
+        zoomGestureBaseScale = nil
+        zoomAnchorMinute = nil
+        zoomGestureIsActive = false
+        isScheduleInteractionActive = hasActiveScheduleGesture || scheduleGestureWasCancelledByZoom
+    }
+
+    private func normalizeStoredHourScale() {
+        let normalized = DayTimelineZoomPolicy.normalizedScale(storedHourScale)
+        if storedHourScale != Double(normalized) {
+            storedHourScale = Double(normalized)
+        }
+    }
+
+    private var zoomAccessibilityValue: String {
+        let scale = hourScale
+        if scale.rounded() == scale {
+            return "\(Int(scale))倍"
+        }
+        return "\(String(format: "%.2g", Double(scale)))倍"
     }
 
     private func timelineCanvas(width: CGFloat) -> some View {
@@ -530,6 +680,10 @@ struct EditablePlanTimelineView: View {
     }
 
     private func handlePlanTap(_ plan: PlanBlock) {
+        guard !zoomGestureIsActive,
+              !scheduleGestureWasCancelledByZoom,
+              !touchActionsWereCancelledByZoom
+        else { return }
         guard planPendingDeletion?.id != plan.id else { return }
         if selectedPlanID == plan.id {
             onEditPlan(plan)
@@ -620,6 +774,10 @@ struct EditablePlanTimelineView: View {
         width: CGFloat,
         renderItems: [EditablePlanTimelineRenderItem]
     ) {
+        guard !timelineTouchEditingIsBlocked else {
+            cancelCreationGesture()
+            return
+        }
         guard isCreationDragDirection(startLocation: startLocation, location: location) else {
             cancelCreationGesture()
             return
@@ -636,11 +794,13 @@ struct EditablePlanTimelineView: View {
         width: CGFloat,
         renderItems: [EditablePlanTimelineRenderItem]
     ) {
+        guard !discardZoomCancelledScheduleGestureIfNeeded() else { return }
         defer {
             creationDraft = nil
             resetScheduleGestureState()
         }
-        guard completed,
+        guard !timelineTouchEditingIsBlocked,
+              completed,
               isCreationDragDirection(startLocation: startLocation, location: location),
               updateCreationDraft(startLocation: startLocation, location: location, width: width, renderItems: renderItems)
         else { return }
@@ -654,7 +814,9 @@ struct EditablePlanTimelineView: View {
         width: CGFloat,
         renderItems: [EditablePlanTimelineRenderItem]
     ) -> Bool {
-        guard isEditingEnabled else {
+        guard !timelineTouchEditingIsBlocked,
+              isEditingEnabled
+        else {
             creationDraft = nil
             return false
         }
@@ -688,7 +850,7 @@ struct EditablePlanTimelineView: View {
     }
 
     private func activateCreationGestureIfNeeded() {
-        guard !creationGestureIsActive else { return }
+        guard !timelineTouchEditingIsBlocked, !creationGestureIsActive else { return }
         creationGestureIsActive = true
         markScheduleInteractionActive()
         LiminalHaptics.selection()
@@ -697,7 +859,7 @@ struct EditablePlanTimelineView: View {
     private func cancelCreationGesture() {
         creationDraft = nil
         creationGestureIsActive = false
-        isScheduleInteractionActive = false
+        isScheduleInteractionActive = zoomGestureIsActive || scheduleGestureWasCancelledByZoom
     }
 
     private func clampedCreationRange(
@@ -738,7 +900,10 @@ struct EditablePlanTimelineView: View {
         defer {
             self.creationDraft = nil
         }
-        guard isEditingEnabled, selectedCategory != nil else { return }
+        guard !timelineTouchEditingIsBlocked,
+              isEditingEnabled,
+              selectedCategory != nil
+        else { return }
         let start = date(forMinute: creationDraft.startMinute)
         let end = date(forMinute: creationDraft.endMinute)
         guard !store.hasTimedPlanOverlap(startTime: start, endTime: end) else {
@@ -763,7 +928,10 @@ struct EditablePlanTimelineView: View {
     }
 
     private func requestDeletePlan(_ plan: PlanBlock) {
-        guard selectedPlanID == plan.id,
+        guard !zoomGestureIsActive,
+              !scheduleGestureWasCancelledByZoom,
+              !touchActionsWereCancelledByZoom,
+              selectedPlanID == plan.id,
               !store.isPlanScheduleLocked(plan),
               gestureBaseline == nil,
               activeResizeEdge == nil
@@ -773,6 +941,7 @@ struct EditablePlanTimelineView: View {
     }
 
     private func deletePlan(_ plan: PlanBlock) {
+        guard !timelineTouchEditingIsBlocked else { return }
         guard store.deletePlanBlock(plan) else {
             operationError = "予定を削除できませんでした。時間をおいてもう一度試してください。"
             LiminalHaptics.failure()
@@ -843,6 +1012,10 @@ struct EditablePlanTimelineView: View {
     }
 
     private func clearSelectionIfNeeded(at point: CGPoint, width: CGFloat, renderItems: [EditablePlanTimelineRenderItem]) {
+        guard !zoomGestureIsActive,
+              !scheduleGestureWasCancelledByZoom,
+              !touchActionsWereCancelledByZoom
+        else { return }
         guard selectedPlanID != nil,
               !isExistingPlanHit(at: point, width: width, renderItems: renderItems)
         else { return }
@@ -920,8 +1093,13 @@ struct EditablePlanTimelineView: View {
 
     private func moveGesture(for plan: PlanBlock) -> some Gesture {
         DragGesture(minimumDistance: 2)
+            .updating($scheduleDragIsActive) { _, isActive, _ in
+                isActive = true
+            }
             .onChanged { value in
-                guard !store.isPlanScheduleLocked(plan) else { return }
+                guard !timelineTouchEditingIsBlocked,
+                      !store.isPlanScheduleLocked(plan)
+                else { return }
                 markScheduleInteractionActive()
                 if selectedPlanID != plan.id {
                     selectedPlanID = plan.id
@@ -944,14 +1122,25 @@ struct EditablePlanTimelineView: View {
                 }
             }
             .onEnded { _ in
+                guard !discardZoomCancelledScheduleGestureIfNeeded() else { return }
+                guard !timelineTouchEditingIsBlocked else {
+                    resetScheduleGestureState()
+                    return
+                }
                 finishScheduleGesture()
             }
     }
 
     private func startHandleGesture(for plan: PlanBlock) -> some Gesture {
         DragGesture(minimumDistance: 0, coordinateSpace: .global)
+            .updating($scheduleDragIsActive) { _, isActive, _ in
+                isActive = true
+            }
             .onChanged { value in
-                guard selectedPlanID == plan.id, !store.isPlanScheduleLocked(plan) else { return }
+                guard !timelineTouchEditingIsBlocked,
+                      selectedPlanID == plan.id,
+                      !store.isPlanScheduleLocked(plan)
+                else { return }
                 markScheduleInteractionActive()
                 let baseline = gestureBaseline ?? collisionIntervals
                 guard let original = baseline.first(where: { $0.id == plan.id }) else { return }
@@ -970,14 +1159,25 @@ struct EditablePlanTimelineView: View {
                 }
             }
             .onEnded { _ in
+                guard !discardZoomCancelledScheduleGestureIfNeeded() else { return }
+                guard !timelineTouchEditingIsBlocked else {
+                    resetScheduleGestureState()
+                    return
+                }
                 finishScheduleGesture()
             }
     }
 
     private func endHandleGesture(for plan: PlanBlock) -> some Gesture {
         DragGesture(minimumDistance: 0, coordinateSpace: .global)
+            .updating($scheduleDragIsActive) { _, isActive, _ in
+                isActive = true
+            }
             .onChanged { value in
-                guard selectedPlanID == plan.id, !store.isPlanScheduleLocked(plan) else { return }
+                guard !timelineTouchEditingIsBlocked,
+                      selectedPlanID == plan.id,
+                      !store.isPlanScheduleLocked(plan)
+                else { return }
                 markScheduleInteractionActive()
                 let baseline = gestureBaseline ?? collisionIntervals
                 guard let original = baseline.first(where: { $0.id == plan.id }) else { return }
@@ -996,6 +1196,11 @@ struct EditablePlanTimelineView: View {
                 }
             }
             .onEnded { _ in
+                guard !discardZoomCancelledScheduleGestureIfNeeded() else { return }
+                guard !timelineTouchEditingIsBlocked else {
+                    resetScheduleGestureState()
+                    return
+                }
                 finishScheduleGesture()
             }
     }
@@ -1140,6 +1345,7 @@ struct EditablePlanTimelineView: View {
         direction: PlanTimelinePushDirection,
         adjustment: PlanTimelineAdjustment
     ) -> PlanTimelineInterval? {
+        guard !timelineTouchEditingIsBlocked else { return nil }
         guard let resolved = PlanTimelineRescheduler.resolveClamped(
             items: baseline,
             editingID: editingID,
@@ -1328,6 +1534,7 @@ struct EditablePlanTimelineView: View {
         defer {
             resetScheduleGestureState()
         }
+        guard !timelineTouchEditingIsBlocked else { return }
         guard let draftIntervals else { return }
         let cache = currentRenderCache
         let currentByID = Dictionary(uniqueKeysWithValues: cache.displayIntervals.map { ($0.id, $0) })
@@ -1359,12 +1566,17 @@ struct EditablePlanTimelineView: View {
         planPendingDeletion = nil
         creationDraft = nil
         operationError = nil
+        scheduleGestureWasCancelledByZoom = false
+        touchActionsWereCancelledByZoom = false
         resetScheduleGestureState()
     }
 
     private func resetSelectionIfHidden(visiblePlanIDs: Set<UUID>) {
         guard let selectedPlanID, !visiblePlanIDs.contains(selectedPlanID) else { return }
-        resetInteractionState()
+        self.selectedPlanID = nil
+        planPendingDeletion = nil
+        creationDraft = nil
+        resetScheduleGestureState()
     }
 
     private func resetScheduleGestureState() {
@@ -1378,7 +1590,22 @@ struct EditablePlanTimelineView: View {
         didWarnDuringScheduleGesture = false
         lastMoveFeedbackMinute = nil
         lastResizeFeedbackMinute = nil
-        isScheduleInteractionActive = false
+        isScheduleInteractionActive = zoomGestureIsActive || scheduleGestureWasCancelledByZoom
+    }
+
+    @discardableResult
+    private func discardZoomCancelledScheduleGestureIfNeeded() -> Bool {
+        guard scheduleGestureWasCancelledByZoom || touchActionsWereCancelledByZoom else { return false }
+        scheduleGestureWasCancelledByZoom = false
+        creationDraft = nil
+        resetScheduleGestureState()
+        return true
+    }
+
+    private func beginTimelineTouchSequence() {
+        guard !zoomGestureIsActive else { return }
+        discardZoomCancelledScheduleGestureIfNeeded()
+        touchActionsWereCancelledByZoom = false
     }
 
     private func warnOnceDuringScheduleGesture() {
@@ -1420,12 +1647,24 @@ struct EditablePlanTimelineView: View {
         timelineTopInset + hourHeight * 24
     }
 
-    private var shouldDisableTimelineScroll: Bool {
-        creationGestureIsActive ||
+    private var hasActiveScheduleGesture: Bool {
+        scheduleDragIsActive ||
+            creationGestureIsActive ||
             creationDraft != nil ||
             gestureBaseline != nil ||
+            draftIntervals != nil ||
             resizeInteractionAnchor != nil ||
             activeResizeEdge != nil
+    }
+
+    private var shouldDisableTimelineScroll: Bool {
+        zoomGestureIsActive || scheduleGestureWasCancelledByZoom || hasActiveScheduleGesture
+    }
+
+    private var timelineTouchEditingIsBlocked: Bool {
+        zoomGestureIsActive ||
+            scheduleGestureWasCancelledByZoom ||
+            touchActionsWereCancelledByZoom
     }
 
     private var timelineBackground: Color {
@@ -1624,6 +1863,68 @@ struct TimelineDeleteConfirmationBubble: View {
     }
 }
 
+private struct TimelineTouchSequenceObserver: UIGestureRecognizerRepresentable {
+    let onSequenceBegan: () -> Void
+
+    init(onSequenceBegan: @escaping () -> Void) {
+        self.onSequenceBegan = onSequenceBegan
+    }
+
+    func makeUIGestureRecognizer(context: Context) -> TimelineTouchSequenceRecognizer {
+        let recognizer = TimelineTouchSequenceRecognizer(target: nil, action: nil)
+        recognizer.cancelsTouchesInView = false
+        recognizer.delaysTouchesBegan = false
+        recognizer.delaysTouchesEnded = false
+        recognizer.onSequenceBegan = onSequenceBegan
+        return recognizer
+    }
+
+    func updateUIGestureRecognizer(_ recognizer: TimelineTouchSequenceRecognizer, context: Context) {
+        recognizer.onSequenceBegan = onSequenceBegan
+    }
+}
+
+private final class TimelineTouchSequenceRecognizer: UIGestureRecognizer {
+    var onSequenceBegan: (() -> Void)?
+    private var activeTouches: Set<UITouch> = []
+
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
+        let beginsNewSequence = activeTouches.isEmpty
+        activeTouches.formUnion(touches)
+        if beginsNewSequence {
+            onSequenceBegan?()
+        }
+    }
+
+    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent) {
+        finish(touches)
+    }
+
+    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent) {
+        finish(touches)
+    }
+
+    override func reset() {
+        super.reset()
+        activeTouches.removeAll()
+    }
+
+    override func canPrevent(_ preventedGestureRecognizer: UIGestureRecognizer) -> Bool {
+        false
+    }
+
+    override func canBePrevented(by preventingGestureRecognizer: UIGestureRecognizer) -> Bool {
+        false
+    }
+
+    private func finish(_ touches: Set<UITouch>) {
+        activeTouches.subtract(touches)
+        if activeTouches.isEmpty {
+            state = .failed
+        }
+    }
+}
+
 struct TimelineCreationLongPressOverlay: UIViewRepresentable {
     let minimumDuration: TimeInterval
     let maximumStationaryDistance: CGFloat
@@ -1638,7 +1939,7 @@ struct TimelineCreationLongPressOverlay: UIViewRepresentable {
     func makeUIView(context: Context) -> UIView {
         let view = TimelineCreationTouchTrackingView()
         view.backgroundColor = .clear
-        view.isMultipleTouchEnabled = false
+        view.isMultipleTouchEnabled = true
         view.onTouchBegan = { [weak coordinator = context.coordinator] point in
             coordinator?.touchDownLocation = point
         }
@@ -1655,6 +1956,7 @@ struct TimelineCreationLongPressOverlay: UIViewRepresentable {
         longPressRecognizer.cancelsTouchesInView = false
         longPressRecognizer.delaysTouchesBegan = false
         longPressRecognizer.delaysTouchesEnded = false
+        longPressRecognizer.numberOfTouchesRequired = 1
         longPressRecognizer.delegate = context.coordinator
 
         let tapRecognizer = UITapGestureRecognizer(
@@ -1731,21 +2033,29 @@ struct TimelineCreationLongPressOverlay: UIViewRepresentable {
 private final class TimelineCreationTouchTrackingView: UIView {
     var onTouchBegan: ((CGPoint) -> Void)?
     var onTouchFinished: (() -> Void)?
+    private weak var primaryTouch: UITouch?
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-        if let point = touches.first?.location(in: self) {
-            onTouchBegan?(point)
+        if primaryTouch == nil, let touch = touches.first {
+            primaryTouch = touch
+            onTouchBegan?(touch.location(in: self))
         }
         super.touchesBegan(touches, with: event)
     }
 
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
         super.touchesEnded(touches, with: event)
-        onTouchFinished?()
+        finishPrimaryTouchIfNeeded(in: touches)
     }
 
     override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
         super.touchesCancelled(touches, with: event)
+        finishPrimaryTouchIfNeeded(in: touches)
+    }
+
+    private func finishPrimaryTouchIfNeeded(in touches: Set<UITouch>) {
+        guard let primaryTouch, touches.contains(primaryTouch) else { return }
+        self.primaryTouch = nil
         onTouchFinished?()
     }
 }
