@@ -455,13 +455,12 @@ struct CalendarDayView: View {
     }
 
     private func preparePlanCreation() {
-        if canCreateTimedPlansForDay {
-            pendingCreateDate = defaultChapterStart
-            pendingPlanStartsAsAllDay = false
-        } else {
-            pendingCreateDate = Calendar.japanese.startOfDay(for: date)
-            pendingPlanStartsAsAllDay = true
-        }
+        let preset = CalendarPlanCreationPreset.make(
+            for: date,
+            canCreateTimedPlan: canCreateTimedPlansForDay
+        )
+        pendingCreateDate = preset.initialDate
+        pendingPlanStartsAsAllDay = preset.startsAsAllDay
         showingPlanSheet = true
     }
 
@@ -470,15 +469,6 @@ struct CalendarDayView: View {
         return queriedChapters
             .filter { $0.startTime < boundary.dayEnd && ($0.endTime ?? clock.now) > boundary.dayStart }
             .sorted { $0.startTime < $1.startTime }
-    }
-
-    private var defaultChapterStart: Date {
-        let calendar = Calendar.japanese
-        let now = Date()
-        if calendar.isDateInToday(date) {
-            return now
-        }
-        return calendar.date(bySettingHour: 9, minute: 0, second: 0, of: date) ?? date
     }
 
     private func shiftDay(_ value: Int) {
