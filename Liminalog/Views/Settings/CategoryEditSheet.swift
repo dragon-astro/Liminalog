@@ -28,39 +28,6 @@ struct CategoryEditSheet: View {
     @Query(sort: \FriendSet.sortOrder) private var friendSets: [FriendSet]
     @Query(sort: \Friend.displayName) private var friends: [Friend]
 
-    private let icons: [CategoryIconOption] = [
-        .init(symbol: "book.closed.fill", label: "読書・学習"),
-        .init(symbol: "graduationcap.fill", label: "授業・講義"),
-        .init(symbol: "pencil.and.outline", label: "ノート・執筆"),
-        .init(symbol: "briefcase.fill", label: "仕事"),
-        .init(symbol: "laptopcomputer", label: "PC作業"),
-        .init(symbol: "doc.text.fill", label: "書類・事務"),
-        .init(symbol: "checklist", label: "タスク"),
-        .init(symbol: "calendar", label: "予定"),
-        .init(symbol: "clock.fill", label: "予定・ルーティン"),
-        .init(symbol: "tram.fill", label: "電車移動"),
-        .init(symbol: "figure.walk", label: "徒歩"),
-        .init(symbol: "figure.run", label: "ランニング"),
-        .init(symbol: "airplane", label: "旅行・遠出"),
-        .init(symbol: "house.fill", label: "家事・生活"),
-        .init(symbol: "wrench.and.screwdriver.fill", label: "整理・メンテナンス"),
-        .init(symbol: "cart.fill", label: "買い物"),
-        .init(symbol: "fork.knife", label: "料理・食事"),
-        .init(symbol: "cup.and.saucer.fill", label: "休憩"),
-        .init(symbol: "sparkles", label: "自由時間"),
-        .init(symbol: "gamecontroller.fill", label: "ゲーム"),
-        .init(symbol: "music.note", label: "音楽"),
-        .init(symbol: "paintpalette.fill", label: "創作"),
-        .init(symbol: "camera.fill", label: "写真"),
-        .init(symbol: "movieclapper.fill", label: "動画・鑑賞"),
-        .init(symbol: "heart.fill", label: "ケア"),
-        .init(symbol: "cross.case.fill", label: "通院・体調"),
-        .init(symbol: "dumbbell.fill", label: "筋トレ"),
-        .init(symbol: "bed.double.fill", label: "睡眠"),
-        .init(symbol: "moon.fill", label: "休息・夜"),
-        .init(symbol: "person.2.fill", label: "人付き合い")
-    ]
-
     private let colorPresets: [CategoryColorPreset] = [
         .init(name: "青", hex: "#2F80ED"),
         .init(name: "紫", hex: "#7C5CFF"),
@@ -128,22 +95,7 @@ struct CategoryEditSheet: View {
                 }
 
                 Section("アイコン") {
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 6), spacing: 10) {
-                        ForEach(icons) { option in
-                            Button {
-                                icon = option.symbol
-                            } label: {
-                                Image(systemName: option.symbol)
-                                    .font(.headline)
-                                    .frame(width: 40, height: 40)
-                                    .foregroundStyle(icon == option.symbol ? .white : color)
-                                    .background(RoundedRectangle(cornerRadius: 10).fill(icon == option.symbol ? color : color.opacity(0.12)))
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel(option.label)
-                        }
-                    }
-                    .padding(.vertical, 4)
+                    CategoryIconPicker(selection: $icon, tint: color)
                 }
 
                 Section("デイリーカード") {
@@ -332,12 +284,6 @@ private struct CategoryColorPreset: Identifiable {
     var id: String { hex }
     let name: String
     let hex: String
-}
-
-private struct CategoryIconOption: Identifiable {
-    var id: String { symbol }
-    let symbol: String
-    let label: String
 }
 
 private struct CategoryCustomColorSheet: View {
