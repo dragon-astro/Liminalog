@@ -868,8 +868,19 @@ refactor: split plan store
 設計: **[../Liminalog/Views/Profile/docs/16-collection-decoration-art.md](../Liminalog/Views/Profile/docs/16-collection-decoration-art.md)**（北極星「午前4時の空に金とすみれ色の光で描かれた紋章」・ランク連動T1〜T4・ベクター/画像ハイブリッド・アンチパターン・受け入れ基準）。実装は `ProfileComponents.swift`。**ID/解放スケジュール/装備中/テーマ追従を壊さない。**
 
 - [~] 代表の個別ベクター意匠（フレーム `signal`/`compass`/`tsukishiro`、カード `paper`/`graph`/`crown`）＋外周はみ出し縁取り＋グロー抑制 <!-- 進捗: 2026-06-05 Claude。残り idはアーキタイプにフォールバック中。レビュー用 `LiminalogTests/CollectionMockupRenderTests.swift`（/tmp/liminal_mockups 出力）。スクショで方向性ユーザー承認済み -->
-- [ ] 残りフレーム18種・カード17種へ個別意匠を展開（T1〜T3=ベクター・doc 16 §5 ティア表準拠。各idのモチーフ一行定義を doc 16 §10 に追記してから実装）<!-- 担当: 未定 -->
-- [ ] T4最上位の画像アート試作（フレーム最上位/カード `crown`・`tsukishiro`）→ ベクター版と比較レンダリング（doc 16 §6 仕様：透過・@3x・明暗両対応・ライセンス確認）<!-- 担当: 未定, 理由: 画像生成/手配は外部・組み込みはどちらでも可 -->
+- ~~残りフレーム18種・カード17種へ個別意匠を展開（T1〜T3=ベクター・doc 16 §5 ティア表準拠）~~ <!-- 廃止: 2026-07-15 ユーザー決定でフレーム/カードは画像路線に一本化（§8.9c / docs/23）。ベクターは獲得メダル/ランク意匠系に温存 -->
+- ~~T4最上位の画像アート試作（フレーム最上位/カード `crown`・`tsukishiro`）→ ベクター版と比較レンダリング~~ <!-- 廃止: 2026-07-15。比較の前提だったハイブリッド路線自体を廃止。画像制作は §8.9c のパイプラインへ統合 -->
+
+> **2026-07-15 路線変更**：フレーム/カードは画像路線に一本化（ユーザー決定）。以降の制作・品質管理・選抜は **§8.9c（docs/23）** で行う。docs/16 の美的基準は維持、制作手段の節のみ docs/23 が上書き。
+
+### 8.9c 装飾画像 制作パイプライン（docs/23・品質/位置/被りの仕組み化）
+
+設計: **[../Liminalog/Views/Profile/docs/23-decoration-production-pipeline.md](../Liminalog/Views/Profile/docs/23-decoration-production-pipeline.md)**。2026-07-15 ユーザー決定：画像路線一本化・目標カード20/フレーム20以上（現状マスター カード24/フレーム62）・美術館モデル（凍結運用・供給を約束しない）・外部有料API不使用。ステータス: **Codexプランレビュー待ち**（docs/23 §4 規格逆算・§5 ツール仕様を重点レビュー）。
+
+- [ ] Stage 0-1: 規格逆算＋検証/位置補正提案/被り検知/コンタクトシート生成ツール（`Scripts/validate-decoration-masters.swift` 仮・CoreGraphicsベース・外部依存なし・壊しフィクスチャの検知テスト付き） <!-- 担当: Codex, 理由: 画像処理スクリプトのゼロベース実装, 依存: docs/23 レビュー -->
+- [ ] Stage 2: 既存86マスターの選抜（Claude視覚プレスクリーン→ユーザー最終判定→3点セット削除・グランドファーザリング確認） <!-- 担当: Claude, 理由: 視覚判定・シート運用, 依存: Stage 0-1 -->
+- [ ] Stage 3-4: 欠員スロット定義→再生成→出荷・凍結（HEIC化は装飾アセット削減タスクと合流可） <!-- 担当: 未定, 理由: 生成手段（手動/ローカル）未確定＝docs/23 §7, 依存: Stage 2 -->
+- [ ] （任意）ローカル画像生成の品質試作（mflux/FLUX 等 Apple Silicon 無料モデル。装飾オーナメント品質が実用に達するか判断） <!-- 担当: 未定, 理由: docs/23 §7 B案の実現性検証 -->
 
 ---
 
@@ -908,6 +919,57 @@ refactor: split plan store
 - [ ] `Views/ChapterEdit/ChapterEditSheet.swift:320` `loadValues()` が onAppear なので再appearで編集中値を上書きし得る（上記#1悪化）。`.task(id:)` か初期化済みフラグへ。<!-- 担当: Codex -->
 - [ ] `Views/Home/CurrentChapterCard.swift:12` `@Query` 当日範囲を init の `Date()` で固定→日跨ぎ常駐で前日窓のまま。日付/clock で再生成されるよう `.id` 等を検討。<!-- 担当: Claude -->
 - [ ] `Models/Friend.swift:419` nextDayモードの当日チャプター抑制ゲート（未配線=休眠）。配線時に当日共有が消えないよう事前確認。<!-- 担当: Codex -->
+
+---
+
+## 8.11 全体リファクタリング・最適化（docs/21）
+
+> 手順書: [docs/21-refactoring-playbook.md](../Liminalog/Views/Profile/docs/21-refactoring-playbook.md)。**着手前に §2 不変条件と §3 検証プロトコルを必ず読む。** 1テーマ=1ブランチ、挙動変更と混ぜない、発見したバグは直さずここに起票。
+
+- [ ] R1: 巨大View分割 — `UnlockGalleryView`（パターン確立の1本目）<!-- 担当: Claude, 理由: 既存スタイルへの馴染み, 依存: docs/21 R1 -->
+- [ ] R1: 巨大View分割 — `ProfileEditSheet` / `ProfileComponents` <!-- 担当: Claude, 依存: 上のパターン確立後 -->
+- [ ] R1: 巨大View分割 — `TimelineView` / `HomeView` <!-- 担当: Claude -->
+- [ ] R1: 巨大View分割 — `CalendarWeekTimelineView` / `EditablePlanTimelineView` / `CalendarView` <!-- 担当: Claude -->
+- [ ] R1: 巨大View分割 — `FriendsView` <!-- 担当: Claude, 理由: 状態が最複雑なので最後 -->
+- [ ] R2: View内ロジックの純粋関数化（対象洗い出し→ Logic/ へ移設 + テスト）<!-- 担当: Codex, 理由: テスト付きロジック抽出, 依存: docs/21 R2 -->
+- [ ] R4: フェッチ効率監査（常駐全件@Query / fetch→メモリフィルタ / allPlannedBlocks 呼び出し元。Release+Instruments で before/after 計測）<!-- 担当: Codex, 理由: 2026-06-11 友達タブ事件の横展開, 依存: docs/21 R4 -->
+- [ ] R3: 日付境界の DayBoundary 集約（テスト先行で現挙動固定→置換。週/表示用途の Calendar.japanese は対象外）<!-- 担当: Codex, 理由: 境界条件の判断, 依存: docs/21 R3 -->
+- [ ] R8: 死蔵物整理（リポ直下「名称未設定フォルダ」の処分はユーザー確認必須 / .gitignore / docs ステータス表）<!-- 担当: どちらでも, 依存: docs/21 R8 -->
+- [!] R5: CloudFriendShareRefreshCoordinator 内部整理 <!-- ブロック中: ユーザー承認 + 実機smoke必須（docs/21 R5 の条件を満たすまで着手禁止） -->
+- [!] R6: Swift Package 化 <!-- ブロック中: ユーザー判断待ち（推奨: リリース後に LiminalogCore 最小構成から。docs/21 R6） -->
+
+---
+
+## 8.12 予定プリセット / 一日プリセット（docs/22）
+
+> 設計: [docs/22-plan-presets.md](../Liminalog/Views/Profile/docs/22-plan-presets.md)。ステータス: **Codex プランレビュー待ち**（§8 エッジケース一覧と §4 適用パイプラインを重点レビュー）。Pro ゲート等の未確定論点は docs/22 §10。
+
+- [ ] Codex プランレビュー（docs/22 全体。特に blob方式の妥当性・Planner判定仕様・applyTemplates の原子性）<!-- 担当: Codex -->
+- [ ] モデル追加: `PlanPreset` / `DayPreset` / `PlanTemplateSnapshot` / envelope + スキーマ3箇所登録 + codecテスト <!-- 担当: Codex, 理由: CloudKit互換スキーマ設計, 依存: プランレビュー -->
+- [ ] `DayPresetApplyPlanner`（Logic/・純粋関数）+ 判定マトリクステスト <!-- 担当: Codex, 理由: 複雑な条件分岐（重複/日跨ぎ/lockedDay）, 依存: モデル -->
+- [ ] `PlanStore.applyTemplates`（一括検証→一括insert→save1回→requestRefresh1回・全件or全ロールバック）+ テスト <!-- 担当: Codex, 理由: トランザクション境界, 依存: Planner -->
+- [ ] `PlanPresetStore` + `AppStores` 配線 + CRUD/除外規則テスト <!-- 担当: Codex, 依存: モデル -->
+- [ ] PlanCreateSheet プリセットチップ行 + 「プリセットとして保存」導線 <!-- 担当: Claude, 理由: 既存シートUIへの馴染み, 依存: PlanPresetStore -->
+- [ ] `PlanPresetSettingsView`（設定 > 予定プリセット管理）<!-- 担当: Claude, 依存: PlanPresetStore -->
+- [ ] `DayPresetEditSheet`（手動作成/編集・プリセット内重複の赤示・予定プリセット取り込み）<!-- 担当: Claude, 依存: PlanPresetStore -->
+- [ ] `DayPresetApplySheet`（プレビュー・チェック取捨・n件追加）<!-- 担当: Claude, 依存: applyTemplates + EditSheet -->
+- [ ] 適用起点: CalendarDayView メニュー / 明日ページ空状態 + 「この日の予定を一日プリセットとして保存」<!-- 担当: Claude, 依存: ApplySheet -->
+- [ ] Pro ゲート/個数上限の最終決定 <!-- 担当: ユーザー, 理由: docs/22 §10-1（docs/17 の機能ティア線引きに関わる） -->
+
+---
+
+## 8.13 UX改善バッチ v1（docs/24・課金以外・Codex消化用）
+
+設計: **[../Liminalog/Views/Profile/docs/24-ux-improvements-batch.md](../Liminalog/Views/Profile/docs/24-ux-improvements-batch.md)**（Item別の方針・受け入れ基準・goalプロンプト同梱）。2026-07-18 ユーザー要望5件。共通制約: LiminalThemeトークン厳守／perf判断はRelease実機（§3.5.1）／課金ファイル（Views/Monetization・Stores/Purchase*・liminalog.storekit・AppStore/）に触れない／ShipSwiftは参照専用で依存追加しない。推奨順 A→B→E→C→D、Itemごとにコミット。
+
+- [ ] A: 友達タブ pull-to-refresh（`.refreshable`＋手動トリガー束ね・多重発行ガードのpolicyテスト） <!-- 担当: Codex, 理由: CloudKit社交まわり -->
+- [ ] B: タイムラインのカテゴリ下地（半透明×グラデの透け解消・両テーマ確認）＋その場カテゴリ追加（CategoryEditSheet再利用→即選択） <!-- 担当: Codex -->
+- [ ] C: デイタイムラインのピンチズーム（0.75/1/1.5/2xスナップ・中央時刻アンカー維持・スケール永続化・Release実機perf） <!-- 担当: Codex -->
+- [ ] D: カテゴリアイコンの表/裏ライブラリ（ジャンル別大規模カタログ＋ピン留め「表」＋検索。既存icon互換・実在シンボル検査テスト） <!-- 担当: Codex -->
+- [ ] E: リスト並び替えの横展開（CategorySettingsViewの.onMove前例を各管理画面へ・sortOrder詰め直し共通化。docs/22と重複回避） <!-- 担当: Codex -->
+- [ ] F: 直感操作パック（採用済み・docs/24 Item F）＝長押しメニュー一貫導入／カレンダー日セル長押しで予定追加／実行中カードの停止・公開の明確化／ボード名タップ切替／ムード欄の編集アフォーダンス。**実行中カードの予定/実績同居は設計意図＝変更禁止**（docs/24 H2） <!-- 担当: Codex -->
+- [ ] G: タブ常駐バッジ廃止（採用済み・docs/24 Item G）＝`RootTabView` の `.badge(freshUnlockCount)` を除去し、未閲覧装飾の告知はプロフィール内コレクション行ドットに一本化。解放判定・既読化ロジックは不変（表示面のみ）。軽量なので先頭割り込み可 <!-- 担当: Codex -->
+- [ ] 監査候補 v2の残り（docs/24 追補）: C1/C2/H2=見送り確定（H2は設計意図として記録）。S1/S2/S3/C4/F1/F2/P1=保留（A〜G消化後に再検討） <!-- 担当: ユーザー(選定) -->
 
 ---
 
@@ -979,6 +1041,7 @@ refactor: split plan store
 
 | 日付 | 担当 | 内容 |
 |---|---|---|
+| 2026-07-06 | Claude | 設計ドキュメント2本を追加: **docs/21 リファクタリング・プレイブック**（不変条件=CloudKitスキーマ規約/await跨ぎ禁止/輸送層保護、検証プロトコル、カタログR1〜R8。他エージェントが単独実行できる手順書）と **docs/22 予定プリセット/一日プリセット設計**（PlanTemplateSnapshot 共通値・DayPreset items は blob方式・DayPresetApplyPlanner 純粋関数・PlanStore.applyTemplates 全件or全ロールバック・audience はカテゴリ既定から適用時再解決）。§8.11/§8.12 にタスク分解を追記、docs/README 目次更新。実装は未着手。次アクション: docs/22 の Codex プランレビュー。 |
 | 2026-06-11 | Claude | 「友達タブを開くとアプリ全体が重くなる」を修正。原因: FriendsView の**全期間Chapter/PlanBlockの常駐@Query**。TabViewはタブのビューを生かし続けるため、一度開くと以降あらゆる記録保存でこの全件クエリが再評価されていた（PlanBlock側は段階3以降デッドコードだった）。対策: planBlocksクエリ削除・chaptersクエリを公開時のみのオンデマンドfetchへ。検証: テスト256件全パス、iPhone 13で配備・クリーン起動確認。※友達カレンダーが空の件は、本日の一連のクリーンアップで両アカウントの実データ（Chapter/PlanBlock）が消えたため**正常動作**の可能性が高い — iPhone 16側でID再確定+データ作成+公開が走った後にE2E再確認（16が空き次第）。 |
 | 2026-06-11 | Claude | **データ増殖・ストア破壊の真犯人を特定・修正**: ウィジェット拡張が開発ストアリセット機構の独自コピー（バージョン定数 2026060501=2世代前）を持ち、本体（2026061101）とdefaultsキーを取り合って**ウィジェット更新のたびにストア全削除→本体が再シード→CloudKitへ別UUIDのシード世代を輸出→インポートで増殖**という消去ループになっていた（「Cloud.storeが開けない」「disk I/O error」「列欠落」「重さ」も同根）。対策: ウィジェットを**読み取り専用の消費者**に変更 — リセット機構・バージョン書き込みを全撤去し、開けなければプレースホルダ表示。両端末を `-LiminalogPurgeCloudMirrorZone` で最終一掃し、クリーン状態から再出発（storeErr/fatal 0）。**教訓: ストアの寿命管理は本体プロセスのみが持つ。拡張に削除権限を持たせない**。残課題（AI_TASKSタスク化）: シードの決定的UUID化（再シード時も同一IDになり統合不要になる堅牢化）。 |
 | 2026-06-11 | Claude | データ増殖の継続報告への追加対応。原因の本丸: ①開発リセットのたびに別UUIDのシード世代がCloudKit私有DBへ蓄積しており、インポートで何世代分も流れ込み続けていた ②統合が起動時にしか走らず、セッション中の流入が次回起動まで残って見えた。対策: ①`-LiminalogPurgeCloudMirrorZone` 起動フラグ新設（DEBUG・CloudKitミラーゾーン `com.apple.coredata.cloudkit.zone` を丸ごと削除+ローカルリセット兼用）→ 両実機で実行し世代の山を一掃 ②`RootTabView` が `.NSPersistentStoreRemoteChange`（3秒デバウンス）で `CloudDuplicateMergeStore.mergeAll()` を実行 — インポート到着のたびに統合され、セッション中も増殖しない。検証: 両実機で purge+reset 成功（storeErr/fatal 0）、シミュレータ**256件全パス**。 |
@@ -1358,6 +1421,8 @@ refactor: split plan store
 | 2026-06-03 | Codex | ダークモードの24時間バー、タイムラインカード、カテゴリテーブルの下地が黒ではなく紫系に見える問題を修正。共通 `liminalSectionCard` がダーク時もテーマ `surface` (`#17132A`) を使っていたため、ダーク時だけ不透明な `Color.black` を敷くよう変更。ライト時は従来どおりテーマ surface を維持する。検証: `git diff --check` 成功、`xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -destination 'generic/platform=iOS' -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功、`xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath /private/tmp/LiminalogDerivedData build` 成功。Simulatorスクリーンショットでカテゴリテーブル・24時間バー・タイムラインリストの下地が黒になることを確認。 |
 | 2026-06-03 | Codex | 月カレンダーで今日を強調する枠線がカード外周セルに来た時、グリッド全体の角丸クリップで端が薄く見える問題を修正。今日セルの枠線を境界ぴったりの `stroke` から、セル内側へ収める `inset + strokeBorder` に変更し、外周でも線幅が削られないようにした。あわせて枠線を少しだけ細くし、通常の区切り線から離れすぎないよう外側寄りに調整した。検証: `git diff --check` 成功、`xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -destination 'generic/platform=iOS' -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功。 |
 | 2026-06-03 | Codex | ユーザー指摘を受け、下タブバー/上ナビゲーション背面に固い板が見え、スクロール内容がバー境界で切れる問題を調整。共通 `liminalAppChrome` で navigation/tab bar の toolbar background を hidden にし、RootTabView/Today内ページャー/統計内ページャー/対象画面のトップレベルコンテナを下 safe area へ伸ばした。Today/昨日/明日(CalendarDayView)/統計/友達の主要 `ScrollView` には `scrollClipDisabled()` と下端拡張を付け、スクロール中のコンテンツがタブバー裏へ回れるようにした。プロフィールタブは元から想定挙動だったため追加変更しない。カレンダー月表示の自前トップバーから不透明な `secondarySystemGroupedBackground` も削除。検証: `git diff --check` 成功、`xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -destination 'generic/platform=iOS' -derivedDataPath /private/tmp/LiminalogDerivedData CODE_SIGNING_ALLOWED=NO build-for-testing` 成功、`xcodebuild -project Liminalog.xcodeproj -scheme Liminalog -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath /private/tmp/LiminalogDerivedData build` 成功。SimulatorでTodayを撮影し、タブバーのガラス越しにタイムライン内容が見えることを確認。 |
+| 2026-07-15 | Claude | 課金画面を配信品質の専用UIへ全面リデザイン（v2＝**一画面一決断で2画面に分離**。ユーザーFB「密度が濃すぎる・チップとサブは別の場所に」対応、ペイウォール定石調査に基づく）。**①`SupportLiminalogView`＝Proペイウォール専用**：オープンレイアウト（カード入れ子廃止）で 見出し2行 → Pro機能3行 → プラン選択カード（年/月/買い切り・注釈は年の「初回7日間無料」のみ・単一CTA）→「記録・カレンダー・友達・シェアは、ずっと無料。」→ 応援への静かなリンク行 → 極小フッター（復元/管理/規約/自動更新開示。最終確認日時はDEBUG限定化）。ダークのCTA文字色は `LiminalTheme.canvas` でコントラスト確保。**②`SupportTipJarView` 新設＝チップジャー**（小さな/しっかり/大きな応援 ¥120/600/1,000・「機能や特典は付きません」明記・Overcast等インディー定石の分離型）。**③設定は「Liminalog Pro」「開発を応援」の2行**に分離（長文footer廃止・`shouldShowSettingsEntryPoint` ゲートは同一）。**挙動は不変**：`PurchaseSupportSurfacePolicy` ゲート、availability 4状態、`PurchaseOfferingCatalog` の出し分け（買い切り所有→装飾パス）、DEBUG診断（StoreKit商品取得診断/証跡/課金リリース前の未設定）を同一文言で温存。レビュー用レンダラ `LiminalogTests/SupportLiminalogRenderTests.swift` 追加（`/tmp/liminal_paywall_mockups/` に無料/Pro/買い切り/チップ×dark/light を出力・通常は disabled）。**v3（同日）**：比較3列カード＋%オフ表示を導入。**v4（2026-07-16・ユーザーFB「ゼロから考え直し・ミニマム・細かくカード分けない・1枚のカードを完成品に」対応・最終形）**：Pro画面もチップ画面も**「1枚の完成品カード」構成**へ全面刷新。共有カード地 `PaywallOfferCardShell`（`.paywallOfferCard()` modifier）＝surface基調に黄昏の空（dusk→dawn の縦グラデ＋accent微グロー＋ダークのみ固定位置の微星 `PaywallStarField`・ライトは曙の暖グローのみ）。カード内容（Apple iCloud+/Apple One のシート型を参照）：eyebrow+見出し → ✓チェックリスト3行 → **区切りなしのプラン行リスト**（radio＋年ごと[40%オフ gold・月々¥242・7日間無料]/月ごと/買い切り[一度だけの支払い]・選択行のみ淡いハイライト）→ CTA →「ずっと無料」の一文、まで全部1枚の中。availability 4状態（準備中/読込中/取得失敗）も同じカード内に表示。カード外は「♡開発を応援」の素リンク＋1行フッター＋開示文のみ。%オフ/月々換算はStoreKit実価格から動的計算（未取得時は参照価格フォールバック）。チップ画面も同カード地で ハート3行＋正直な注記 を1枚に。旧v3の比較3列カード/機能タイル/行カード部品は削除。**v4.1（2026-07-17・ユーザーFB「縦に短い／画面全体を使う・ボタン文言の違和感・40%オフをもっと主張」対応）**：①`GeometryReader`＋`frame(minHeight:)` でスクロール列をビューポート高に固定し、カードが残り高さを吸収して**1画面を使い切る**（見出し上・プラン/CTAは下の親指ゾーン。読み込み中等の状態はカード内で中央寄せ）。チップジャーは中身が少ないため引き伸ばさず**固有サイズのまま画面中央にフロート**。②CTA文言を「何が起きるか」型へ：年=「7日間無料で試す」買切=「買い切りで手に入れる」、**CTA直下に選択プラン連動の条件一行**（例「7日間の無料体験のあとは ¥2,900/年。いつでも解約できます。」実価格から生成）。③**40%オフを金の塗りカプセルに昇格**（reward地×canvas文字）。行の補足から「7日間無料」を外し重複解消（トライアル情報はCTA側に集約）。レンダラは幅390×高さ840の固定ビューポートで全画面レイアウトを確認。**v4.2（2026-07-17・ユーザーFB「カードをもっと縦に濃く・CTA文言が非一般的・Proの価値提案が弱い・買い切りの装飾非含を明記」対応）**：①機能リストを「タイトル＋説明」2行×**5項目**に拡充（深い統計/ボード無制限/**プレミアム装飾使い放題**/エクスポート〔近日〕/今後のPro機能。未実装機能は「近日」表記で正直に）→カードが縦に自然に埋まる。②見出しはtitle2の1行に戻しCTAをファーストビュー内へ。③CTA文言を一般形へ：買い切り=「**購入する**」（「買い切りで手に入れる」廃止）。④**買い切りの装飾使い放題 非含を2箇所に明記**：プラン行sub「装飾の使い放題は含まれません」＋買い切り選択時のCTA条件行「一回払いの ¥7,800。装飾の使い放題は含まれません。」（docs/17 の完全分離・過払い防止に対応）。**v4.4（同日）**：設定メニューの「Proと応援」セクション（Liminalog Pro / 開発を応援）を**リスト最上部へ移動**（ユーザー要望。`shouldShowPurchaseEntryPoint` ゲートは従来どおり＝Releaseでは Gate 2 まで非表示）。Debug build成功。2026-07-18 追加: 全タブのUI監査を実施（`-LiminalogSeedDevData 1`＋`-LiminalogInitialRootTab`でシミュレータ実画面を撮影・/tmp/liminal_audit/）。直感操作×認知負荷の2軸で候補12件を docs/24 追補「候補リスト v2」に整理（横断X1-2/ホームH1-3/カレンダーC1-4/統計S1-3/友達F1-2/プロフィールP1-2）。特にX1=プロフィールタブの常駐赤バッジはコレクション運用方針（常駐バッジなし）との矛盾として推奨対応に指定。同日選定: C1/C2=見送り（取り消し線は設定で切替可・リングは主張弱い）、H2=**設計意図として恒久記録**（予定と実績の同居＝ズレた時だけ違和感が出る仕組み）、直感操作パック（X2/C3/H1/H3/P2）=**Item F として採用・goal化**、X1=**Item G として採用**（タブバッジ廃止・コレクション行ドット一本化）、他は保留。**v4.6（2026-07-18・ユーザーFB「グラフが実態とかけ離れ・情報密度/認知負荷が高い」対応）**：`PaywallStatsPreview` を最小モチーフ化＝曜日ラベル・金の強調・内側パネル/枠を全廃し、accent単色（左→右で不透明度が上がる）の抽象バー5本のみ（高さ48）。データの主張をやめ「統計」の記号だけ残す。同日、**§8.13 UX改善バッチ v1 を新設**（docs/24。友達pull-to-refresh／タイムライン下地+その場カテゴリ追加／タイムラインズーム／アイコン表裏ライブラリ／並び替え横展開。全件 担当: Codex・goalプロンプトはdocs/24に同梱。ShipSwiftは参照専用で依存追加しない方針を明記）。**v4.5（同日・ユーザーFB「機能リストが見づらい・パンチ不足・実用上大きく変わるものを訴求」対応）**：機能ブロックの先頭に **`PaywallStatsPreview`＝SwiftUI描画のミニ統計グラフ**（週7本のバー・accentグラデ＋当日のみreward金・曜日ラベル・canvas系の内側パネル）を追加し、Proの主役（統計タブ＝Gate 3の実体）を言葉でなく絵で見せる形に。直下に成果ベースの一行「時間の使い方が、ひと目で見える。」、機能行は4行に整理（統計タブまるごと/ボード無制限/装飾使い放題/エクスポートなど今後の機能もすべて）。CTAがファーストビューに収まるようグラフ高さ・行間を微調整。**v4.3（同日・ユーザーFB「機能リストの説明行はごちゃつくのでメイン行のみ・その分メイン行を分かりやすく」対応）**：機能リストを1行×5項目へ（説明行削除、エクスポートは「CSV・画像エクスポート（近日）」のようにタイトル単体で意味が通る文言に調整）。空いた縦余白は「見出し→機能」と「機能→プラン」の2箇所に分散して不自然な単一空白を回避。検証: build-for-testing 成功、PNG目視確認、購入ゲート/統計/装飾テスト9スイート成功、`Scripts/validate-purchase-readiness.sh --release-build` 成功。simulator test runner hung は iPhone 17 Pro のUDID直指定（`platform=iOS Simulator,id=...`）で回避。注意: `AppStore/ReviewInformationScreenshots/` の審査用スクショ4枚は旧UI撮影のため、ASC添付前に新UIで撮り直しが必要。 |
+| 2026-07-15 | Claude | 新規タスク追加＋旧路線廃止: 装飾画像の制作パイプライン設計 **docs/23** を追加（規格の機械検証・フレーム位置補正提案・被り検知・コンタクトシート選抜・美術館モデル凍結運用）。ユーザー決定: フレーム/カードは**画像路線に一本化**、目標カード20/フレーム20以上、外部有料API不使用。これに伴い §8.9b の残タスク2件（ベクター個別意匠18+17種展開・T4画像試作）を廃止し **§8.9c** を新設（Stage 0-1=Codex、Stage 2=Claude、Stage 3-4=未定）。ベクターは獲得メダル/ランク意匠系に温存。docs/README.md の索引も更新。 |
 
 ---
 
