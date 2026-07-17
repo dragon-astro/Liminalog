@@ -40,17 +40,24 @@ struct SettingsView: View {
             NavigationLink {
                 SupportLiminalogView(purchaseStore: purchaseStore)
             } label: {
-                Label("Proと応援", systemImage: "sparkles")
+                Label("Liminalog Pro", systemImage: "sparkles")
+            }
+            NavigationLink {
+                SupportTipJarView(purchaseStore: purchaseStore)
+            } label: {
+                Label("開発を応援", systemImage: "heart")
             }
         } header: {
-            Text("応援")
-        } footer: {
-            Text("記録、カレンダー、友達、シェアは無料のまま使えます。Proは深い分析や装飾でLiminalogを支えるための入口です。")
+            Text("Proと応援")
         }
     }
 
     var body: some View {
         List {
+            if shouldShowPurchaseEntryPoint {
+                purchaseSection
+            }
+
             iCloudSyncSection()
 
             NotificationSettingsSection()
@@ -101,10 +108,6 @@ struct SettingsView: View {
                 Text("プライバシー")
             } footer: {
                 Text("友達セットはカテゴリごとの公開相手に使えます。友達ごとの見え方は友達詳細から、ブロックはブロックリストから変更できます。")
-            }
-
-            if shouldShowPurchaseEntryPoint {
-                purchaseSection
             }
 
             Section("外観") {
