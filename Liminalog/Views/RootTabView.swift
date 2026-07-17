@@ -49,14 +49,6 @@ struct RootTabView: View {
         renderedThemeID ?? selectedThemeID
     }
 
-    private var freshUnlockCount: Int {
-        ProfileDecorationUnlocks.freshUnlockedItems(
-            unlockItems: unlockItems,
-            settings: settingsList.first,
-            visibleThemeIDs: Set(LiminalThemeCatalog.selectableThemes.map(\.id))
-        ).count
-    }
-
     private var allowsLockedDecorationSelection: Bool {
         #if DEBUG
         allowsLockedDecorationTesting
@@ -95,7 +87,6 @@ struct RootTabView: View {
                             ProfileView()
                                 .id(themeRefreshID(for: .profile))
                         }
-                        .badge(freshUnlockCount)
                     }
                     .environment(store)
                     .environment(appStores.purchaseStore)

@@ -968,7 +968,7 @@ refactor: split plan store
 - [ ] D: カテゴリアイコンの表/裏ライブラリ（ジャンル別大規模カタログ＋ピン留め「表」＋検索。既存icon互換・実在シンボル検査テスト） <!-- 担当: Codex -->
 - [ ] E: リスト並び替えの横展開（CategorySettingsViewの.onMove前例を各管理画面へ・sortOrder詰め直し共通化。docs/22と重複回避） <!-- 担当: Codex -->
 - [ ] F: 直感操作パック（採用済み・docs/24 Item F）＝長押しメニュー一貫導入／カレンダー日セル長押しで予定追加／実行中カードの停止・公開の明確化／ボード名タップ切替／ムード欄の編集アフォーダンス。**実行中カードの予定/実績同居は設計意図＝変更禁止**（docs/24 H2） <!-- 担当: Codex -->
-- [ ] G: タブ常駐バッジ廃止（採用済み・docs/24 Item G）＝`RootTabView` の `.badge(freshUnlockCount)` を除去し、未閲覧装飾の告知はプロフィール内コレクション行ドットに一本化。解放判定・既読化ロジックは不変（表示面のみ）。軽量なので先頭割り込み可 <!-- 担当: Codex -->
+- [x] G: タブ常駐バッジ廃止（採用済み・docs/24 Item G）＝`RootTabView` の `.badge(freshUnlockCount)` を除去し、未閲覧装飾の告知はプロフィール内コレクション行ドットに一本化。解放判定・既読化ロジックは不変（表示面のみ）。軽量なので先頭割り込み可 <!-- 担当: Codex, 完了: 2026-07-17。専用ブランチ `codex/ux-g-tab-badge`。タブバッジのみ除去し、コレクション行ドットとギャラリー既読フローは維持。テスト・Release build・シミュレータ実UI・再起動後永続化を確認 -->
 - [ ] 監査候補 v2の残り（docs/24 追補）: C1/C2/H2=見送り確定（H2は設計意図として記録）。S1/S2/S3/C4/F1/F2/P1=保留（A〜G消化後に再検討） <!-- 担当: ユーザー(選定) -->
 
 ---
@@ -1041,6 +1041,7 @@ refactor: split plan store
 
 | 日付 | 担当 | 内容 |
 |---|---|---|
+| 2026-07-17 | Codex | **UX改善バッチ v1 Item G 完了**（専用ブランチ `codex/ux-g-tab-badge`）。`RootTabView` からプロフィールタブの `.badge(freshUnlockCount)` と表示専用のcount計算を除去し、未閲覧告知を既存のプロフィール内コレクション行ドットへ一本化。`ProfileDecorationUnlocks` と `UnlockGalleryView` の解放判定・既読化処理は変更していない。ギャラリーが保存する `seenUnlockItemKeys` の前後で fresh item が消える回帰テストを追加。検証: `ProfileDecorationUnlocksTests` 13件/1 suite成功、generic iOS Release build成功、iOS 26.5 iPhone 17 Pro Maxシミュレータ実UIで「未閲覧でもタブバッジなし」「コレクション行ドットあり」「ギャラリー各未閲覧分類の閲覧後にドットなし」を確認し、アプリ再起動後もドットなしを確認。証跡: `/private/tmp/ux-improvements-v1/item-g/01-unread-no-tab-badge.png`、`02-collection-row-unread-dot.png`、`03-after-gallery-dot-cleared.png`、`04-relaunch-dot-stays-cleared.png`。課金関連ファイル変更なし。 |
 | 2026-07-06 | Claude | 設計ドキュメント2本を追加: **docs/21 リファクタリング・プレイブック**（不変条件=CloudKitスキーマ規約/await跨ぎ禁止/輸送層保護、検証プロトコル、カタログR1〜R8。他エージェントが単独実行できる手順書）と **docs/22 予定プリセット/一日プリセット設計**（PlanTemplateSnapshot 共通値・DayPreset items は blob方式・DayPresetApplyPlanner 純粋関数・PlanStore.applyTemplates 全件or全ロールバック・audience はカテゴリ既定から適用時再解決）。§8.11/§8.12 にタスク分解を追記、docs/README 目次更新。実装は未着手。次アクション: docs/22 の Codex プランレビュー。 |
 | 2026-06-11 | Claude | 「友達タブを開くとアプリ全体が重くなる」を修正。原因: FriendsView の**全期間Chapter/PlanBlockの常駐@Query**。TabViewはタブのビューを生かし続けるため、一度開くと以降あらゆる記録保存でこの全件クエリが再評価されていた（PlanBlock側は段階3以降デッドコードだった）。対策: planBlocksクエリ削除・chaptersクエリを公開時のみのオンデマンドfetchへ。検証: テスト256件全パス、iPhone 13で配備・クリーン起動確認。※友達カレンダーが空の件は、本日の一連のクリーンアップで両アカウントの実データ（Chapter/PlanBlock）が消えたため**正常動作**の可能性が高い — iPhone 16側でID再確定+データ作成+公開が走った後にE2E再確認（16が空き次第）。 |
 | 2026-06-11 | Claude | **データ増殖・ストア破壊の真犯人を特定・修正**: ウィジェット拡張が開発ストアリセット機構の独自コピー（バージョン定数 2026060501=2世代前）を持ち、本体（2026061101）とdefaultsキーを取り合って**ウィジェット更新のたびにストア全削除→本体が再シード→CloudKitへ別UUIDのシード世代を輸出→インポートで増殖**という消去ループになっていた（「Cloud.storeが開けない」「disk I/O error」「列欠落」「重さ」も同根）。対策: ウィジェットを**読み取り専用の消費者**に変更 — リセット機構・バージョン書き込みを全撤去し、開けなければプレースホルダ表示。両端末を `-LiminalogPurgeCloudMirrorZone` で最終一掃し、クリーン状態から再出発（storeErr/fatal 0）。**教訓: ストアの寿命管理は本体プロセスのみが持つ。拡張に削除権限を持たせない**。残課題（AI_TASKSタスク化）: シードの決定的UUID化（再シード時も同一IDになり統合不要になる堅牢化）。 |
