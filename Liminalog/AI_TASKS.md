@@ -960,9 +960,9 @@ refactor: split plan store
 
 ## 8.13 UX改善バッチ v1（docs/24・課金以外・Codex消化用）
 
-設計: **[../Liminalog/Views/Profile/docs/24-ux-improvements-batch.md](../Liminalog/Views/Profile/docs/24-ux-improvements-batch.md)**（Item別の方針・受け入れ基準・goalプロンプト同梱）。2026-07-18 ユーザー要望5件。共通制約: LiminalThemeトークン厳守／perf判断はRelease実機（§3.5.1）／課金ファイル（Views/Monetization・Stores/Purchase*・liminalog.storekit・AppStore/）に触れない／ShipSwiftは参照専用で依存追加しない。推奨順 A→B→E→C→D、Itemごとにコミット。
+設計: **[../Liminalog/Views/Profile/docs/24-ux-improvements-batch.md](../Liminalog/Views/Profile/docs/24-ux-improvements-batch.md)**（Item別の方針・受け入れ基準・goalプロンプト同梱）。2026-07-18 ユーザー要望5件。共通制約: LiminalThemeトークン厳守／perf判断はRelease実機（§3.5.1）／課金ファイル（Views/Monetization・Stores/Purchase*・liminalog.storekit・AppStore/）に触れない／ShipSwiftは参照専用で依存追加しない。実行順 G→A→B→E→C→D→F、Itemごとに専用ブランチ・コミット。
 
-- [ ] A: 友達タブ pull-to-refresh（`.refreshable`＋手動トリガー束ね・多重発行ガードのpolicyテスト） <!-- 担当: Codex, 理由: CloudKit社交まわり -->
+- [x] A: 友達タブ pull-to-refresh（`.refreshable`＋手動トリガー束ね・多重発行ガードのpolicyテスト） <!-- 担当: Codex, 完了: 2026-07-18。専用ブランチ `codex/ux-a-friends-refresh`。申請復元後に共有スナップショットの全件受信を直列awaitし、再入ガード・full/targeted合流・既存120秒自動抑制をテストで固定。関連62テスト、Release build、iPhone 16/13実機の下スワイプ完了と明暗テーマ表示を確認 -->
 - [ ] B: タイムラインのカテゴリ下地（半透明×グラデの透け解消・両テーマ確認）＋その場カテゴリ追加（CategoryEditSheet再利用→即選択） <!-- 担当: Codex -->
 - [ ] C: デイタイムラインのピンチズーム（0.75/1/1.5/2xスナップ・中央時刻アンカー維持・スケール永続化・Release実機perf） <!-- 担当: Codex -->
 - [ ] D: カテゴリアイコンの表/裏ライブラリ（ジャンル別大規模カタログ＋ピン留め「表」＋検索。既存icon互換・実在シンボル検査テスト） <!-- 担当: Codex -->
@@ -1041,6 +1041,7 @@ refactor: split plan store
 
 | 日付 | 担当 | 内容 |
 |---|---|---|
+| 2026-07-18 | Codex | **UX改善バッチ v1 Item A 完了**（専用ブランチ `codex/ux-a-friends-refresh`）。`FriendsView` の一覧へ `.refreshable` を追加し、手動更新を「CloudKit申請の取得・復元→共有スナップショット全件受信」の順で直列await。起動時coordinatorの準備待ち、MainActor上の再入ガード、共有受信レーンのfull/targeted合流を追加し、既存の自動更新120秒抑制は維持した。検証: 対象23件/2 suites、関連回帰62件/6 suites、generic iOS Release build成功。iPhone 16（393×852・ライト）とiPhone 13（390×844・ダーク）の実機で下スワイプを合成し、申請結果反映・共有受信待機後のidle復帰を確認。結果: `/private/tmp/ux-improvements-v1/item-a/iphone16-ui-v2.xcresult`、`/private/tmp/ux-improvements-v1/item-a/iphone13-ui.xcresult`。画像: `/private/tmp/ux-improvements-v1/item-a/iphone16-attachments/`、`/private/tmp/ux-improvements-v1/item-a/iphone13-attachments/`。課金関連ファイル変更なし。 |
 | 2026-07-17 | Codex | **UX改善バッチ v1 Item G 完了**（専用ブランチ `codex/ux-g-tab-badge`）。`RootTabView` からプロフィールタブの `.badge(freshUnlockCount)` と表示専用のcount計算を除去し、未閲覧告知を既存のプロフィール内コレクション行ドットへ一本化。`ProfileDecorationUnlocks` と `UnlockGalleryView` の解放判定・既読化処理は変更していない。ギャラリーが保存する `seenUnlockItemKeys` の前後で fresh item が消える回帰テストを追加。検証: `ProfileDecorationUnlocksTests` 13件/1 suite成功、generic iOS Release build成功、iOS 26.5 iPhone 17 Pro Maxシミュレータ実UIで「未閲覧でもタブバッジなし」「コレクション行ドットあり」「ギャラリー各未閲覧分類の閲覧後にドットなし」を確認し、アプリ再起動後もドットなしを確認。証跡: `/private/tmp/ux-improvements-v1/item-g/01-unread-no-tab-badge.png`、`02-collection-row-unread-dot.png`、`03-after-gallery-dot-cleared.png`、`04-relaunch-dot-stays-cleared.png`。課金関連ファイル変更なし。 |
 | 2026-07-06 | Claude | 設計ドキュメント2本を追加: **docs/21 リファクタリング・プレイブック**（不変条件=CloudKitスキーマ規約/await跨ぎ禁止/輸送層保護、検証プロトコル、カタログR1〜R8。他エージェントが単独実行できる手順書）と **docs/22 予定プリセット/一日プリセット設計**（PlanTemplateSnapshot 共通値・DayPreset items は blob方式・DayPresetApplyPlanner 純粋関数・PlanStore.applyTemplates 全件or全ロールバック・audience はカテゴリ既定から適用時再解決）。§8.11/§8.12 にタスク分解を追記、docs/README 目次更新。実装は未着手。次アクション: docs/22 の Codex プランレビュー。 |
 | 2026-06-11 | Claude | 「友達タブを開くとアプリ全体が重くなる」を修正。原因: FriendsView の**全期間Chapter/PlanBlockの常駐@Query**。TabViewはタブのビューを生かし続けるため、一度開くと以降あらゆる記録保存でこの全件クエリが再評価されていた（PlanBlock側は段階3以降デッドコードだった）。対策: planBlocksクエリ削除・chaptersクエリを公開時のみのオンデマンドfetchへ。検証: テスト256件全パス、iPhone 13で配備・クリーン起動確認。※友達カレンダーが空の件は、本日の一連のクリーンアップで両アカウントの実データ（Chapter/PlanBlock）が消えたため**正常動作**の可能性が高い — iPhone 16側でID再確定+データ作成+公開が走った後にE2E再確認（16が空き次第）。 |

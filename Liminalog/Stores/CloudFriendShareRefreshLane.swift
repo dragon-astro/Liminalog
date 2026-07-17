@@ -7,6 +7,7 @@ struct CloudFriendShareRefreshRequest: Equatable {
     var changedScoreDayStarts: Set<Date> = []
     var incomingFriendIDs: Set<UUID> = []
     var requiresFullPublish = true
+    var requiresFullIncomingRefresh = false
     var resetsPublishedItemState = false
 
     var isTargetedPublish: Bool {
@@ -14,7 +15,7 @@ struct CloudFriendShareRefreshRequest: Equatable {
     }
 
     var isTargetedIncomingRefresh: Bool {
-        !incomingFriendIDs.isEmpty
+        !requiresFullIncomingRefresh && !incomingFriendIDs.isEmpty
     }
 
     mutating func merge(_ other: CloudFriendShareRefreshRequest) {
@@ -25,6 +26,7 @@ struct CloudFriendShareRefreshRequest: Equatable {
         changedChapterSourceIDs.formUnion(other.changedChapterSourceIDs)
         changedScoreDayStarts.formUnion(other.changedScoreDayStarts)
         incomingFriendIDs.formUnion(other.incomingFriendIDs)
+        requiresFullIncomingRefresh = requiresFullIncomingRefresh || other.requiresFullIncomingRefresh
     }
 }
 

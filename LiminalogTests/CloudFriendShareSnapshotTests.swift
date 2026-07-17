@@ -229,6 +229,56 @@ struct CloudFriendShareRefreshLaneTests {
         #expect(lane.queuedRequest?.incomingFriendIDs == [secondFriendID])
         #expect(lane.queuedRequest?.isTargetedIncomingRefresh == true)
     }
+
+    @Test
+    func fullIncomingRefreshWinsWhenCoalescingWithTargetedRequests() {
+        var lane = CloudFriendShareRefreshLane()
+        let firstFriendID = UUID()
+        let secondFriendID = UUID()
+        let didBegin = lane.begin(request: CloudFriendShareRefreshRequest(
+            reason: "calendar-1",
+            incomingFriendIDs: [firstFriendID]
+        ))
+        lane.prepareForOperation()
+        let didQueueTargeted = lane.begin(request: CloudFriendShareRefreshRequest(
+            reason: "calendar-2",
+            incomingFriendIDs: [secondFriendID]
+        ))
+        let didQueueFull = lane.begin(request: CloudFriendShareRefreshRequest(
+            reason: "manual refresh",
+            requiresFullIncomingRefresh: true
+        ))
+
+        #expect(didBegin)
+        #expect(!didQueueTargeted)
+        #expect(!didQueueFull)
+        #expect(lane.queuedRequest?.incomingFriendIDs == [secondFriendID])
+        #expect(lane.queuedRequest?.requiresFullIncomingRefresh == true)
+        #expect(lane.queuedRequest?.isTargetedIncomingRefresh == false)
+    }
+
+    @Test
+    func queuedFullIncomingRefreshRemainsFullWhenTargetedRequestArrives() {
+        var lane = CloudFriendShareRefreshLane()
+        let friendID = UUID()
+        let didBegin = lane.begin(request: CloudFriendShareRefreshRequest(reason: "launch"))
+        lane.prepareForOperation()
+        let didQueueFull = lane.begin(request: CloudFriendShareRefreshRequest(
+            reason: "manual refresh",
+            requiresFullIncomingRefresh: true
+        ))
+        let didQueueTargeted = lane.begin(request: CloudFriendShareRefreshRequest(
+            reason: "calendar",
+            incomingFriendIDs: [friendID]
+        ))
+
+        #expect(didBegin)
+        #expect(!didQueueFull)
+        #expect(!didQueueTargeted)
+        #expect(lane.queuedRequest?.incomingFriendIDs == [friendID])
+        #expect(lane.queuedRequest?.requiresFullIncomingRefresh == true)
+        #expect(lane.queuedRequest?.isTargetedIncomingRefresh == false)
+    }
 }
 
 struct FriendSharedItemRecordPolicyTests {

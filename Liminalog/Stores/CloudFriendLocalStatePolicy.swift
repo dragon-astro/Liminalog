@@ -53,6 +53,26 @@ enum CloudFriendLocalStatePolicy {
         }
     }
 
+    static func shouldBeginCloudRequestsRefresh(
+        isRefreshInFlight: Bool,
+        trigger: CloudFriendRequestRefreshTrigger,
+        currentUserRecordName: String?,
+        loadedUserRecordName: String?,
+        lastAutomaticAttemptAt: Date?,
+        now: Date,
+        cooldown: TimeInterval = cloudRequestAutomaticRefreshCooldown
+    ) -> Bool {
+        guard !isRefreshInFlight else { return false }
+        return shouldRefreshCloudRequests(
+            trigger: trigger,
+            currentUserRecordName: currentUserRecordName,
+            loadedUserRecordName: loadedUserRecordName,
+            lastAutomaticAttemptAt: lastAutomaticAttemptAt,
+            now: now,
+            cooldown: cooldown
+        )
+    }
+
     static func shouldScheduleOutgoingLifecycleShareRefresh(
         hasPendingExplicitRefresh: Bool,
         lastAutomaticScheduledAt: Date?,

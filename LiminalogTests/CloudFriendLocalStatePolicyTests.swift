@@ -153,6 +153,50 @@ struct CloudFriendLocalStatePolicyTests {
     }
 
     @Test
+    func cloudRequestRefreshDoesNotReenterWhileAnotherRefreshIsInFlight() {
+        let now = Date(timeIntervalSinceReferenceDate: 1_000)
+
+        #expect(!CloudFriendLocalStatePolicy.shouldBeginCloudRequestsRefresh(
+            isRefreshInFlight: true,
+            trigger: .manual,
+            currentUserRecordName: "_current",
+            loadedUserRecordName: "_current",
+            lastAutomaticAttemptAt: now,
+            now: now
+        ))
+        #expect(CloudFriendLocalStatePolicy.shouldBeginCloudRequestsRefresh(
+            isRefreshInFlight: false,
+            trigger: .manual,
+            currentUserRecordName: "_current",
+            loadedUserRecordName: "_current",
+            lastAutomaticAttemptAt: now,
+            now: now
+        ))
+    }
+
+    @Test
+    func cloudRequestRefreshEntryGuardPreservesAutomaticCooldown() {
+        let now = Date(timeIntervalSinceReferenceDate: 1_000)
+
+        #expect(!CloudFriendLocalStatePolicy.shouldBeginCloudRequestsRefresh(
+            isRefreshInFlight: false,
+            trigger: .automatic,
+            currentUserRecordName: "_current",
+            loadedUserRecordName: nil,
+            lastAutomaticAttemptAt: now.addingTimeInterval(-30),
+            now: now
+        ))
+        #expect(CloudFriendLocalStatePolicy.shouldBeginCloudRequestsRefresh(
+            isRefreshInFlight: false,
+            trigger: .automatic,
+            currentUserRecordName: "_current",
+            loadedUserRecordName: nil,
+            lastAutomaticAttemptAt: now.addingTimeInterval(-121),
+            now: now
+        ))
+    }
+
+    @Test
     func outgoingLifecycleShareRefreshThrottlesRecentAutomaticRuns() {
         let now = Date(timeIntervalSinceReferenceDate: 1_000)
 
