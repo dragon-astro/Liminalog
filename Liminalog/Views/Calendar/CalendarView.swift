@@ -34,6 +34,8 @@ struct CalendarView: View {
     @State private var timelineScrolledOffset: Int? = 0
     @State private var timelineVisibleHour = 0
     @State private var timelinePlanDataByPage: [CalendarTimelinePlanPageKey: [PlanBlock]] = [:]
+    @State private var showingTimelineCategoryEditor = false
+    @State private var pendingCreatedTimelineCategoryID: UUID?
 
     private let calendar = Calendar.japanese
     private let weekdays = Calendar.japaneseShortWeekdaySymbols
@@ -94,6 +96,11 @@ struct CalendarView: View {
                     onReset: resetCalendarFilter
                 )
             }
+            .sheet(isPresented: $showingTimelineCategoryEditor) {
+                CategoryEditSheet(category: nil) { category in
+                    handleCreatedTimelineCategory(category)
+                }
+            }
             .sheet(item: $selectedDay, onDismiss: reloadVisibleData) { target in
                 NavigationStack {
                     CalendarDayPagerSheet(initialDate: target.date, highlightedPlanID: target.planID)
@@ -114,6 +121,7 @@ struct CalendarView: View {
             }
             .onChange(of: categories.map(\.id)) { _, _ in
                 pruneCalendarFilterStorage()
+                resolvePendingCreatedTimelineCategory()
                 normalizeSelectedTimelineCategory()
             }
             .onChange(of: acceptedFriends.map(\.id)) { _, _ in
@@ -353,7 +361,11 @@ struct CalendarView: View {
                         LiminalHaptics.openSheet()
                         showingCalendarFilter = true
                     } label: {
-                        CalendarTimelineEmptyCategoryChip(isFiltered: usesCustomCategoryFilter)
+                        TimelineCategoryStatusChip(
+                            title: usesCustomCategoryFilter ? "表示カテゴリなし" : "カテゴリなし",
+                            systemImage: usesCustomCategoryFilter ? "line.3.horizontal.decrease.circle.fill" : "square.grid.2x2",
+                            accessibilityLabel: usesCustomCategoryFilter ? "表示カテゴリなし。フィルタを開く" : "カテゴリなし"
+                        )
                     }
                     .buttonStyle(.plain)
                 } else {
@@ -362,7 +374,7 @@ struct CalendarView: View {
                             LiminalHaptics.selection()
                             selectedTimelineCategoryID = category.id
                         } label: {
-                            CalendarTimelineCategoryChip(
+                            TimelineCategoryChip(
                                 category: category,
                                 isSelected: category.id == selectedTimelineCategoryID
                             )
@@ -370,6 +382,14 @@ struct CalendarView: View {
                         .buttonStyle(.plain)
                     }
                 }
+
+                Button {
+                    LiminalHaptics.openSheet()
+                    showingTimelineCategoryEditor = true
+                } label: {
+                    TimelineCreateCategoryChip()
+                }
+                .buttonStyle(.plain)
             }
             .padding(.vertical, 2)
             .padding(.horizontal, 12)
@@ -662,6 +682,31 @@ struct CalendarView: View {
             return
         }
         selectedTimelineCategoryID = timelineSelectableCategories.first?.id
+    }
+
+    private func handleCreatedTimelineCategory(_ category: Category) {
+        pendingCreatedTimelineCategoryID = category.id
+        if usesCustomCategoryFilter {
+            let updatedIDs = decodedUUIDSet(storedCategoryFilterIDs).union([category.id])
+            storedCategoryFilterIDs = encodedUUIDSet(updatedIDs)
+        }
+        resolvePendingCreatedTimelineCategory()
+    }
+
+    private func resolvePendingCreatedTimelineCategory() {
+        guard let pendingCreatedTimelineCategoryID else { return }
+        guard let selection = TimelineCreatedCategorySelection.resolve(
+            createdCategoryID: pendingCreatedTimelineCategoryID,
+            availableCategoryIDs: allCategoryIDs,
+            usesCustomFilter: usesCustomCategoryFilter,
+            storedFilterIDs: decodedUUIDSet(storedCategoryFilterIDs)
+        ) else { return }
+
+        if let customFilterIDs = selection.customFilterIDs {
+            storedCategoryFilterIDs = encodedUUIDSet(customFilterIDs)
+        }
+        selectedTimelineCategoryID = selection.selectedCategoryID
+        self.pendingCreatedTimelineCategoryID = nil
     }
 
     private var acceptedFriends: [Friend] {
@@ -1211,64 +1256,6 @@ private enum CalendarDisplayMode: String, CaseIterable, Identifiable {
 private struct CalendarTimelinePlanPageKey: Hashable {
     let mode: CalendarDisplayMode
     let start: Date
-}
-
-private struct CalendarTimelineCategoryChip: View {
-    let category: Category
-    let isSelected: Bool
-
-    var body: some View {
-        HStack(spacing: 4) {
-            Image(systemName: category.icon ?? "circle.fill")
-                .font(.system(size: 10, weight: .bold))
-
-            Text(category.name)
-                .font(.system(size: 11, weight: .semibold))
-                .lineLimit(1)
-                .minimumScaleFactor(0.82)
-        }
-        .foregroundStyle(isSelected ? .white : category.displayColor)
-        .padding(.horizontal, 8)
-        .frame(minHeight: 30)
-        .background(
-            Capsule()
-                .fill(isSelected ? category.displayColor : category.displayColor.opacity(0.12))
-        )
-        .overlay(
-            Capsule()
-                .stroke(category.displayColor.opacity(isSelected ? 0.9 : 0.3), lineWidth: 1)
-        )
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(category.name)を選択")
-    }
-}
-
-private struct CalendarTimelineEmptyCategoryChip: View {
-    let isFiltered: Bool
-
-    var body: some View {
-        HStack(spacing: 5) {
-            Image(systemName: isFiltered ? "line.3.horizontal.decrease.circle.fill" : "square.grid.2x2")
-                .font(.system(size: 10.5, weight: .bold))
-
-            Text(isFiltered ? "表示カテゴリなし" : "カテゴリなし")
-                .font(.system(size: 11, weight: .semibold))
-                .lineLimit(1)
-        }
-        .foregroundStyle(LiminalTheme.secondaryText)
-        .padding(.horizontal, 9)
-        .frame(minHeight: 30)
-        .background(
-            Capsule()
-                .fill(LiminalTheme.elevated.opacity(0.72))
-        )
-        .overlay(
-            Capsule()
-                .stroke(LiminalTheme.divider.opacity(0.72), lineWidth: 1)
-        )
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(isFiltered ? "表示カテゴリなし。フィルタを開く" : "カテゴリなし")
-    }
 }
 
 private struct CalendarDayTimelineContainer: View {
