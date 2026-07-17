@@ -125,8 +125,11 @@ final class CategoryStore {
         var existingNames = Set(all.map(\.name))
         var didChange = false
 
-        for spec in defaultCategorySpecs {
+        for spec in defaultCategorySpecs where spec.analysisKind != .unspecified {
             for category in all where category.isDefault && category.name == spec.name && category.analysisKindRawValue == CategoryAnalysisKind.unspecified.rawValue {
+                if spec.analysisKind == .sleep && !category.isDailyCardSleepCategory {
+                    continue
+                }
                 category.analysisKind = spec.analysisKind
                 didChange = true
             }
