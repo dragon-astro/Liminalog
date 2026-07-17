@@ -4,9 +4,9 @@ import UIKit
 
 struct FriendSetSettingsView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: \FriendSet.sortOrder) private var friendSets: [FriendSet]
+    @Query(sort: [SortDescriptor(\FriendSet.sortOrder), SortDescriptor(\FriendSet.createdAt)]) private var friendSets: [FriendSet]
     @Query(sort: \Friend.displayName) private var friends: [Friend]
-    @Query(sort: \Category.sortOrder) private var categories: [Category]
+    @Query(sort: [SortDescriptor(\Category.sortOrder), SortDescriptor(\Category.createdAt)]) private var categories: [Category]
 
     @State private var showAddSheet = false
     @State private var editingSet: FriendSet?
@@ -134,12 +134,15 @@ struct FriendSetSettingsView: View {
     }
 
     private func moveSets(from source: IndexSet, to destination: Int) {
-        var reordered = friendSets
-        reordered.move(fromOffsets: source, toOffset: destination)
+        guard SortOrderNormalizer.reorder(
+            friendSets,
+            from: source,
+            to: destination,
+            sortOrder: \.sortOrder
+        ) else { return }
 
         let now = Date()
-        for (index, set) in reordered.enumerated() {
-            set.sortOrder = index
+        for set in friendSets {
             set.updatedAt = now
         }
 
@@ -150,6 +153,7 @@ struct FriendSetSettingsView: View {
         do {
             try modelContext.save()
         } catch {
+            modelContext.rollback()
             operationError = message
         }
     }
@@ -208,7 +212,7 @@ private struct FriendSetEditSheet: View {
     @FocusState private var nameFieldFocused: Bool
 
     @Query(sort: \Friend.displayName) private var friends: [Friend]
-    @Query(sort: \FriendSet.sortOrder) private var friendSets: [FriendSet]
+    @Query(sort: [SortDescriptor(\FriendSet.sortOrder), SortDescriptor(\FriendSet.createdAt)]) private var friendSets: [FriendSet]
 
     let friendSet: FriendSet?
 

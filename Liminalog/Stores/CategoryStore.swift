@@ -26,7 +26,7 @@ final class CategoryStore {
 
     func allCategoriesIfAvailable() -> [Category]? {
         let descriptor = FetchDescriptor<Category>(
-            sortBy: [SortDescriptor(\.sortOrder)]
+            sortBy: [SortDescriptor(\.sortOrder), SortDescriptor(\.createdAt)]
         )
         do {
             return try modelContext.fetch(descriptor)
@@ -142,13 +142,30 @@ final class CategoryStore {
     }
 
     @discardableResult
+    func moveCategories(from source: IndexSet, to destination: Int) -> Bool {
+        guard let categories = allCategoriesIfAvailable() else {
+            NSLog("Liminalog: skipped category move because categories could not be fetched")
+            return false
+        }
+        guard SortOrderNormalizer.reorder(
+            categories,
+            from: source,
+            to: destination,
+            sortOrder: \.sortOrder
+        ) else { return false }
+        return saveChanges("category move")
+    }
+
+    @discardableResult
     func seedDefaultCategoriesIfNeeded() -> Bool {
-        guard let all = allCategoriesIfAvailable() else {
+        guard var all = allCategoriesIfAvailable() else {
             NSLog("Liminalog: skipped default category seed because categories could not be fetched")
             return false
         }
         var existingNames = Set(all.map(\.name))
         var didChange = false
+        var didInsert = false
+        var nextSortOrder = (all.map(\.sortOrder).max() ?? -1) + 1
 
         for spec in defaultCategorySpecs where spec.analysisKind != .unspecified {
             for category in all where category.isDefault && category.name == spec.name && category.analysisKindRawValue == CategoryAnalysisKind.unspecified.rawValue {
@@ -160,18 +177,25 @@ final class CategoryStore {
             }
         }
 
-        for (index, spec) in defaultCategorySpecs.enumerated() where !existingNames.contains(spec.name) {
+        for spec in defaultCategorySpecs where !existingNames.contains(spec.name) {
             let category = Category(
                 name: spec.name,
                 colorHex: spec.hex,
                 icon: spec.icon,
-                sortOrder: index,
+                sortOrder: nextSortOrder,
                 isDefault: true,
                 analysisKind: spec.analysisKind
             )
             modelContext.insert(category)
+            all.append(category)
             existingNames.insert(spec.name)
             didChange = true
+            didInsert = true
+            nextSortOrder += 1
+        }
+
+        if didInsert {
+            SortOrderNormalizer.normalize(all, sortOrder: \.sortOrder)
         }
 
         guard didChange else { return false }
