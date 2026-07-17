@@ -17,7 +17,7 @@ final class CategorySetStore {
 
     func categorySetsIfAvailable() -> [CategorySet]? {
         let descriptor = FetchDescriptor<CategorySet>(
-            sortBy: [SortDescriptor(\.sortOrder)]
+            sortBy: [SortDescriptor(\.sortOrder), SortDescriptor(\.createdAt)]
         )
         do {
             return try modelContext.fetch(descriptor)
@@ -80,22 +80,16 @@ final class CategorySetStore {
 
     @discardableResult
     func moveCategorySets(from source: IndexSet, to destination: Int) -> Bool {
-        guard var sets = categorySetsIfAvailable() else {
+        guard let sets = categorySetsIfAvailable() else {
             NSLog("Liminalog: skipped category set move because category sets could not be fetched")
             return false
         }
-        guard !source.isEmpty, source.allSatisfy({ sets.indices.contains($0) }) else {
-            return false
-        }
-        let moving = source.map { sets[$0] }
-        for index in source.sorted(by: >) {
-            sets.remove(at: index)
-        }
-        let adjustedDestination = destination - source.filter { $0 < destination }.count
-        sets.insert(contentsOf: moving, at: min(max(adjustedDestination, 0), sets.count))
-        for (index, set) in sets.enumerated() {
-            set.sortOrder = index
-        }
+        guard SortOrderNormalizer.reorder(
+            sets,
+            from: source,
+            to: destination,
+            sortOrder: \.sortOrder
+        ) else { return false }
         return saveChanges("category set move")
     }
 
@@ -118,22 +112,25 @@ final class CategorySetStore {
             result[category.name, default: category] = category
         }
         var sets = existingSets
+        let existingSetCount = sets.count
         var didUpdateSets = false
 
         didUpdateSets = ensureDefaultCategorySet(
             named: "平日",
-            sortOrder: 0,
             slotNames: ["勉強", "仕事", "移動", "休憩", "自由時間", "家事", "趣味", "睡眠"],
             categoriesByName: byName,
             sets: &sets
         ) || didUpdateSets
         didUpdateSets = ensureDefaultCategorySet(
             named: "休日",
-            sortOrder: 1,
             slotNames: ["睡眠", "自由時間", "趣味", "休憩", "家事", "移動", "勉強", "仕事"],
             categoriesByName: byName,
             sets: &sets
         ) || didUpdateSets
+
+        if sets.count > existingSetCount {
+            SortOrderNormalizer.normalize(sets, sortOrder: \.sortOrder)
+        }
 
         guard didUpdateSets else { return didChange }
         return saveChanges("default category set seed") || didChange
@@ -142,7 +139,6 @@ final class CategorySetStore {
     @discardableResult
     private func ensureDefaultCategorySet(
         named name: String,
-        sortOrder: Int,
         slotNames: [String],
         categoriesByName: [String: Category],
         sets: inout [CategorySet]
@@ -162,14 +158,11 @@ final class CategorySetStore {
                 existing.isDefault = true
                 didChange = true
             }
-            if existing.sortOrder != sortOrder {
-                existing.sortOrder = sortOrder
-                didChange = true
-            }
             return didChange
         }
 
-        let set = CategorySet(name: name, sortOrder: sortOrder, slots: slots, isDefault: true)
+        let nextSortOrder = (sets.map(\.sortOrder).max() ?? -1) + 1
+        let set = CategorySet(name: name, sortOrder: nextSortOrder, slots: slots, isDefault: true)
         modelContext.insert(set)
         sets.append(set)
         return true

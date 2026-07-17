@@ -692,6 +692,11 @@ final class ChapterStore {
         return true
     }
 
+    @discardableResult
+    func moveCategories(from source: IndexSet, to destination: Int) -> Bool {
+        categoryStore.moveCategories(from: source, to: destination)
+    }
+
     // MARK: - Category sets
 
     @discardableResult

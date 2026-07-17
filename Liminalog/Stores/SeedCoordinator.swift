@@ -191,7 +191,6 @@ enum SeedCoordinator {
 
         update(\.name, to: seed.name)
         update(\.isBuiltIn, to: true)
-        update(\.sortOrder, to: seed.sortOrder)
 
         if !VisibilityPresetCustomization.isCustomized(preset.id) {
             update(\.level, to: seed.level)

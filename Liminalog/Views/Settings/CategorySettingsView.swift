@@ -3,8 +3,8 @@ import SwiftData
 
 struct CategorySettingsView: View {
     @Environment(ChapterStore.self) private var store
-    @Query(sort: \Category.sortOrder) private var categories: [Category]
-    @Query(sort: \CategorySet.sortOrder) private var categorySets: [CategorySet]
+    @Query(sort: [SortDescriptor(\Category.sortOrder), SortDescriptor(\Category.createdAt)]) private var categories: [Category]
+    @Query(sort: [SortDescriptor(\CategorySet.sortOrder), SortDescriptor(\CategorySet.createdAt)]) private var categorySets: [CategorySet]
 
     @State private var showAddSheet = false
     @State private var showAddSetSheet = false
@@ -124,6 +124,12 @@ struct CategorySettingsView: View {
                             operationError = "カテゴリを削除できませんでした。時間をおいてもう一度試してください。"
                             return
                         }
+                    }
+                }
+                .onMove { source, destination in
+                    guard store.moveCategories(from: source, to: destination) else {
+                        operationError = "カテゴリの並び順を保存できませんでした。時間をおいてもう一度試してください。"
+                        return
                     }
                 }
             } header: {

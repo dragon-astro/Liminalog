@@ -2,7 +2,9 @@ import SwiftUI
 import SwiftData
 
 struct VisibilityPresetSettingsView: View {
+    @Environment(\.modelContext) private var modelContext
     @State private var showingCreateSheet = false
+    @State private var operationError: String?
     @Query(sort: [SortDescriptor(\VisibilityPreset.sortOrder), SortDescriptor(\VisibilityPreset.createdAt)]) private var presets: [VisibilityPreset]
 
     var body: some View {
@@ -15,6 +17,7 @@ struct VisibilityPresetSettingsView: View {
                         VisibilityPresetRow(preset: preset)
                     }
                 }
+                .onMove(perform: movePresets)
             } footer: {
                 Text("ここで決めた見え方は、そのプリセットを割り当てた友達に適用されます。公開相手に含まれていても、オフの友達には共有されません。")
             }
@@ -22,6 +25,10 @@ struct VisibilityPresetSettingsView: View {
         .navigationTitle("見え方プリセット")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                EditButton()
+            }
+
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     showingCreateSheet = true
@@ -33,6 +40,44 @@ struct VisibilityPresetSettingsView: View {
         }
         .sheet(isPresented: $showingCreateSheet) {
             VisibilityPresetCreateSheet()
+        }
+        .alert("並び順を保存できませんでした", isPresented: operationErrorPresented) {
+            Button("OK", role: .cancel) {
+                operationError = nil
+            }
+        } message: {
+            Text(operationError ?? "")
+        }
+    }
+
+    private var operationErrorPresented: Binding<Bool> {
+        Binding {
+            operationError != nil
+        } set: { isPresented in
+            if !isPresented {
+                operationError = nil
+            }
+        }
+    }
+
+    private func movePresets(from source: IndexSet, to destination: Int) {
+        guard SortOrderNormalizer.reorder(
+            presets,
+            from: source,
+            to: destination,
+            sortOrder: \.sortOrder
+        ) else { return }
+
+        let now = Date()
+        for preset in presets {
+            preset.updatedAt = now
+        }
+
+        do {
+            try modelContext.save()
+        } catch {
+            modelContext.rollback()
+            operationError = "時間をおいてもう一度試してください。"
         }
     }
 }
@@ -369,7 +414,7 @@ private struct VisibilityPresetCreateSheet: View {
     }
 
     private var nextSortOrder: Int {
-        (presets.map(\.sortOrder).max() ?? 0) + 10
+        (presets.map(\.sortOrder).max() ?? -1) + 1
     }
 
     private var saveErrorPresented: Binding<Bool> {
