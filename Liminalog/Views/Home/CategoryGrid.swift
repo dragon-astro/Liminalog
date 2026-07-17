@@ -11,6 +11,7 @@ struct CategoryGrid: View {
     @State private var selectedSetID: UUID?
     @State private var scrolledSetID: UUID?
     @State private var activeID: UUID? = nil
+    @State private var editingCategory: Category? = nil
     @State private var editingSetFromEmptySlot: CategorySet? = nil
     @State private var setSyncTask: Task<Void, Never>?
     @State private var operationError: String?
@@ -83,6 +84,9 @@ struct CategoryGrid: View {
             .sheet(item: $editingSetFromEmptySlot) { set in
                 CategorySetEditSheet(categorySet: set)
             }
+            .sheet(item: $editingCategory) { category in
+                CategoryEditSheet(category: category)
+            }
             .alert("記録を開始できませんでした", isPresented: operationErrorPresented) {
                 Button("OK", role: .cancel) {
                     operationError = nil
@@ -98,10 +102,36 @@ struct CategoryGrid: View {
     /// セット名 + 折りたたみトグル。常時表示（折りたたみ時はこのバーだけ残る）。
     private var headerBar: some View {
         HStack(spacing: 6) {
-            Text(currentSetName)
+            Menu {
+                ForEach(categorySets) { set in
+                    Button {
+                        selectCategorySet(set)
+                    } label: {
+                        if selectedSetID == set.id {
+                            Label(set.name, systemImage: "checkmark")
+                        } else {
+                            Text(set.name)
+                        }
+                    }
+                }
+            } label: {
+                HStack(spacing: 5) {
+                    Text(currentSetName)
+                        .lineLimit(1)
+
+                    Image(systemName: "chevron.down")
+                        .font(.caption2.weight(.bold))
+                }
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(LiminalTheme.secondaryText)
-                .lineLimit(1)
+                .padding(.horizontal, 8)
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("ボードを切り替え")
+            .accessibilityValue(currentSetName)
+            .accessibilityIdentifier("category-set-switcher")
 
             Spacer()
 
@@ -112,7 +142,7 @@ struct CategoryGrid: View {
                 Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
                     .font(.caption.weight(.bold))
                     .foregroundStyle(LiminalTheme.secondaryText)
-                    .frame(width: 28, height: 24)
+                    .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -143,6 +173,19 @@ struct CategoryGrid: View {
                         }
                         LiminalHaptics.commit()
                         activeID = category.id
+                    }
+                    .contextMenu {
+                        Button {
+                            LiminalHaptics.openSheet()
+                            editingCategory = category
+                        } label: {
+                            Label("カテゴリを編集", systemImage: "pencil")
+                        }
+                    }
+                    .accessibilityHint("長押しするとカテゴリを編集できます")
+                    .accessibilityAction(named: "カテゴリを編集") {
+                        LiminalHaptics.openSheet()
+                        editingCategory = category
                     }
                 } else {
                     Button {
@@ -255,6 +298,15 @@ struct CategoryGrid: View {
             activeSetIDString = newString
         }
         scheduleEnabledSetSync(id)
+    }
+
+    private func selectCategorySet(_ set: CategorySet) {
+        guard selectedSetID != set.id else { return }
+        LiminalHaptics.selection()
+        selectedSetID = set.id
+        withAnimation(.easeInOut(duration: 0.22)) {
+            scrolledSetID = set.id
+        }
     }
 
     /// 有効セットの反映（ウィジェット再読み込み・ライブアクティビティ更新・共有書き込み）は

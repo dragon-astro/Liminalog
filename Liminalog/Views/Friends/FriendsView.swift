@@ -532,15 +532,27 @@ struct FriendsView: View {
             VStack(spacing: 10) {
                 ForEach(acceptedFriends) { friend in
                     Button {
-                        LiminalHaptics.openSheet()
-                        selectedFriend = friend
+                        openFriend(friend)
                     } label: {
                         FriendRow(friend: friend)
                     }
                     .buttonStyle(.plain)
+                    .contextMenu {
+                        Button {
+                            openFriend(friend)
+                        } label: {
+                            Label("詳細を開く", systemImage: "person.crop.circle")
+                        }
+                    }
+                    .accessibilityHint("長押しでも詳細を開けます")
                 }
             }
         }
+    }
+
+    private func openFriend(_ friend: Friend) {
+        LiminalHaptics.openSheet()
+        selectedFriend = friend
     }
 
     private var outgoingSection: some View {
@@ -2728,7 +2740,8 @@ private struct FriendCalendarView: View {
                                 pageData: cachedPageData(for: month(forOffset: offset)),
                                 onOpenDay: { date, _ in
                                     selectedDay = FriendSharedCalendarTargetDay(date: date)
-                                }
+                                },
+                                onCreatePlan: nil
                             )
                             .padding(.vertical, 8)
                             .containerRelativeFrame(.horizontal)

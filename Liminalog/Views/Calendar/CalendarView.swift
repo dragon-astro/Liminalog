@@ -3,6 +3,7 @@ import SwiftData
 import UIKit
 
 struct CalendarView: View {
+    @Environment(ChapterStore.self) private var store
     @Environment(\.modelContext) private var modelContext
     @Query(sort: [SortDescriptor(\Category.sortOrder), SortDescriptor(\Category.createdAt)]) private var categories: [Category]
     @Query(sort: [SortDescriptor(\Friend.displayName), SortDescriptor(\Friend.createdAt)]) private var friends: [Friend]
@@ -26,6 +27,7 @@ struct CalendarView: View {
     @State private var showingCalendarFilter = false
     @State private var selectedDay: CalendarDayPresentation?
     @State private var editingPlan: PlanBlock?
+    @State private var pendingPlanCreation: CalendarPlanCreationRequest?
     @State private var displayMode = CalendarDisplayMode.month
     @State private var timelineAnchorDate = Calendar.japanese.startOfDay(for: Date())
     @State private var selectedTimelineCategoryID: UUID?
@@ -109,6 +111,12 @@ struct CalendarView: View {
             }
             .sheet(item: $editingPlan, onDismiss: reloadVisibleData) { plan in
                 PlanCreateSheet(plan: plan)
+            }
+            .sheet(item: $pendingPlanCreation, onDismiss: reloadVisibleData) { request in
+                PlanCreateSheet(
+                    initialDate: request.preset.initialDate,
+                    startsAsAllDay: request.preset.startsAsAllDay
+                )
             }
             .onAppear {
                 clock.start()
@@ -438,6 +446,9 @@ struct CalendarView: View {
                         onOpenDay: { date, planID in
                             LiminalHaptics.openSheet()
                             selectedDay = CalendarDayPresentation(date: date, planID: planID)
+                        },
+                        onCreatePlan: { date in
+                            preparePlanCreation(for: date)
                         }
                     )
                     .containerRelativeFrame(.horizontal)
@@ -466,6 +477,14 @@ struct CalendarView: View {
         )
         .padding(.top, 6)
         .frame(maxHeight: .infinity, alignment: .top)
+    }
+
+    private func preparePlanCreation(for date: Date) {
+        let preset = CalendarPlanCreationPreset.make(
+            for: date,
+            canCreateTimedPlan: store.canCreatePlan(startTime: date, isAllDay: false)
+        )
+        pendingPlanCreation = CalendarPlanCreationRequest(preset: preset)
     }
 
     private var calendarYearRange: ClosedRange<Int> {
@@ -1771,23 +1790,20 @@ private struct CalendarDayPagerSheet: View {
         store.canCreatePlan(startTime: currentDate, isAllDay: false)
     }
 
-    private var defaultPlanStart: Date {
-        if Calendar.japanese.isDateInToday(currentDate) {
-            return Date()
-        }
-        return Calendar.japanese.date(bySettingHour: 9, minute: 0, second: 0, of: currentDate) ?? currentDate
-    }
-
     private func preparePlanCreation() {
-        if canCreateTimedPlansForDay {
-            pendingCreateDate = defaultPlanStart
-            pendingPlanStartsAsAllDay = false
-        } else {
-            pendingCreateDate = Calendar.japanese.startOfDay(for: currentDate)
-            pendingPlanStartsAsAllDay = true
-        }
+        let preset = CalendarPlanCreationPreset.make(
+            for: currentDate,
+            canCreateTimedPlan: canCreateTimedPlansForDay
+        )
+        pendingCreateDate = preset.initialDate
+        pendingPlanStartsAsAllDay = preset.startsAsAllDay
         showingPlanSheet = true
     }
+}
+
+private struct CalendarPlanCreationRequest: Identifiable {
+    let id = UUID()
+    let preset: CalendarPlanCreationPreset
 }
 
 private struct CalendarDayPresentation: Identifiable, Hashable {
@@ -2818,6 +2834,7 @@ private struct CalendarMonthPage: View {
     let weekdayColor: (String) -> Color
     let pageData: CalendarMonthPageData
     let onOpenDay: (Date, UUID?) -> Void
+    let onCreatePlan: (Date) -> Void
 
     private let spacing: CGFloat = 1
 
@@ -2831,7 +2848,8 @@ private struct CalendarMonthPage: View {
 
                 CalendarMonthGrid(
                     pageData: pageData,
-                    onOpenDay: onOpenDay
+                    onOpenDay: onOpenDay,
+                    onCreatePlan: onCreatePlan
                 )
             }
 
@@ -3012,6 +3030,7 @@ struct CalendarMonthPageData {
 struct CalendarMonthGrid: View {
     let pageData: CalendarMonthPageData
     let onOpenDay: (Date, UUID?) -> Void
+    let onCreatePlan: ((Date) -> Void)?
 
     private let spacing: CGFloat = 1
 
@@ -3025,6 +3044,7 @@ struct CalendarMonthGrid: View {
                     importantPlansByDay: pageData.importantPlansByDay,
                     scoreSummariesByDay: pageData.scoreSummariesByDay,
                     onOpenDay: onOpenDay,
+                    onCreatePlan: onCreatePlan,
                     spacing: spacing,
                     cellHeight: cellHeight
                 )
@@ -3055,6 +3075,7 @@ private struct CalendarMonthWeekRow: View {
     let importantPlansByDay: [Date: [CalendarDisplayPlan]]
     let scoreSummariesByDay: [Date: CalendarDisplayScore]
     let onOpenDay: (Date, UUID?) -> Void
+    let onCreatePlan: ((Date) -> Void)?
     let spacing: CGFloat
     let cellHeight: CGFloat
 
@@ -3074,23 +3095,7 @@ private struct CalendarMonthWeekRow: View {
         ZStack(alignment: .topLeading) {
             HStack(spacing: spacing) {
                 ForEach(cellModels) { model in
-                    Button {
-                        onOpenDay(model.date, nil)
-                    } label: {
-                        CalendarMonthDayCell(
-                            date: model.date,
-                            visibleMonth: visibleMonth,
-                            visibleImportantPlans: model.visibleImportantPlans,
-                            overflowCount: model.overflowCount,
-                            reservedPlanRows: model.reservedPlanRows,
-                            scoreSummary: model.scoreSummary,
-                            cellHeight: cellHeight,
-                            labelConfiguration: labelConfiguration
-                        )
-                        .accessibilityHidden(true)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(model.accessibilityText)
+                    dayCellButton(model)
                 }
             }
 
@@ -3117,6 +3122,51 @@ private struct CalendarMonthWeekRow: View {
             .frame(height: cellHeight)
         }
         .frame(height: cellHeight)
+    }
+
+    @ViewBuilder
+    private func dayCellButton(_ model: CalendarMonthDayCellModel) -> some View {
+        if let onCreatePlan {
+            baseDayCellButton(model)
+                .contextMenu {
+                    Button {
+                        LiminalHaptics.openSheet()
+                        onCreatePlan(model.date)
+                    } label: {
+                        Label("この日に予定を追加", systemImage: "calendar.badge.plus")
+                    }
+                }
+                .accessibilityAction(named: "この日に予定を追加") {
+                    LiminalHaptics.openSheet()
+                    onCreatePlan(model.date)
+                }
+        } else {
+            baseDayCellButton(model)
+        }
+    }
+
+    private func baseDayCellButton(_ model: CalendarMonthDayCellModel) -> some View {
+        Button {
+            onOpenDay(model.date, nil)
+        } label: {
+            CalendarMonthDayCell(
+                date: model.date,
+                visibleMonth: visibleMonth,
+                visibleImportantPlans: model.visibleImportantPlans,
+                overflowCount: model.overflowCount,
+                reservedPlanRows: model.reservedPlanRows,
+                scoreSummary: model.scoreSummary,
+                cellHeight: cellHeight,
+                labelConfiguration: labelConfiguration
+            )
+            .accessibilityHidden(true)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(model.accessibilityText)
+        .accessibilityHint(onCreatePlan == nil ? "日を開きます" : "タップで日を開き、長押しで予定を追加できます")
+        .accessibilityIdentifier(
+            "calendar-month-day-\(DailyCardSnapshot.dayIdentifier(for: model.date, calendar: calendar))"
+        )
     }
 
     private var visibleMultiDayPlacements: [CalendarMultiDayPlacement] {

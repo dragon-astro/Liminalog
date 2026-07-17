@@ -101,11 +101,30 @@ struct ProfileHero: View {
                 EquippedBadgePill(badge: equippedBadge)
                     .frame(height: 23, alignment: .leading)
 
-                Text(bio.isEmpty ? emptyBioText : bio)
-                    .font(.subheadline)
-                    .profileGeneratedCardReadableText(enabled: usesGeneratedArtwork, fallback: cardStyle.secondaryTextColor)
-                    .lineLimit(2)
-                    .frame(minHeight: 42, alignment: .topLeading)
+                Group {
+                    if bio.isEmpty && showsActions {
+                        Button(action: onEdit) {
+                            HStack(spacing: 6) {
+                                Text(emptyBioText)
+                                Image(systemName: "pencil")
+                                    .font(.caption.weight(.semibold))
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("いまの気分を編集")
+                        .accessibilityHint("プロフィール編集を開きます")
+                        .accessibilityIdentifier("profile-mood-edit-affordance")
+                    } else {
+                        Text(bio.isEmpty ? emptyBioText : bio)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+                .font(.subheadline)
+                .profileGeneratedCardReadableText(enabled: usesGeneratedArtwork, fallback: cardStyle.secondaryTextColor)
+                .lineLimit(2)
+                .frame(minHeight: 44, alignment: .topLeading)
             }
             .padding(.top, usesGeneratedArtwork ? 10 : 0)
             .padding(.trailing, usesGeneratedArtwork ? 14 : 0)

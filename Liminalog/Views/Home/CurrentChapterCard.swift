@@ -35,7 +35,7 @@ struct CurrentChapterCard: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .frame(height: currentPlan == nil ? 48 : 76)
+        .frame(minHeight: minimumCardHeight)
         .liminalSectionCard(cornerRadius: 16, padding: 8)
         .onAppear {
             clock.start()
@@ -67,6 +67,13 @@ struct CurrentChapterCard: View {
         currentPlans.first
     }
 
+    private var minimumCardHeight: CGFloat {
+        if activeChapter != nil {
+            return currentPlan == nil ? 92 : 118
+        }
+        return currentPlan == nil ? 48 : 76
+    }
+
     private func activeCard(chapter: Chapter, category: Category, currentPlan: PlanBlock?) -> some View {
         VStack(spacing: 6) {
             HStack(spacing: 10) {
@@ -86,6 +93,41 @@ struct CurrentChapterCard: View {
                 Text(formatDuration(clock.now.timeIntervalSince(chapter.startTime)))
                     .font(.caption.monospacedDigit().weight(.semibold))
                     .foregroundStyle(LiminalTheme.secondaryText)
+            }
+
+            HStack(spacing: 8) {
+                Menu {
+                    Button {
+                        setVisibility(of: chapter, isPublic: true)
+                    } label: {
+                        Label("友達に公開する", systemImage: "eye")
+                    }
+                    .disabled(chapter.isPublic)
+
+                    Button {
+                        setVisibility(of: chapter, isPublic: false)
+                    } label: {
+                        Label("非公開にする", systemImage: "eye.slash")
+                    }
+                    .disabled(!chapter.isPublic)
+                } label: {
+                    Label(
+                        chapter.isPublic ? "友達に公開中" : "非公開",
+                        systemImage: chapter.isPublic ? "eye" : "eye.slash"
+                    )
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(LiminalTheme.text)
+                    .padding(.horizontal, 12)
+                    .frame(minHeight: 44)
+                    .background(LiminalTheme.elevated, in: Capsule())
+                    .overlay(Capsule().stroke(LiminalTheme.divider.opacity(0.7), lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("公開設定")
+                .accessibilityValue(chapter.isPublic ? "友達に公開中" : "非公開")
+                .accessibilityIdentifier("current-chapter-visibility")
+
+                Spacer(minLength: 0)
 
                 Button {
                     guard store.endActiveChapter() else {
@@ -95,26 +137,18 @@ struct CurrentChapterCard: View {
                     }
                     LiminalHaptics.commit()
                 } label: {
-                    Image(systemName: "stop.fill")
-                        .foregroundStyle(category.displayColor)
-                        .frame(width: 28, height: 28)
+                    Label("停止", systemImage: "stop.fill")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(LiminalTheme.accent)
+                        .padding(.horizontal, 14)
+                        .frame(minHeight: 44)
+                        .background(LiminalTheme.accent.opacity(0.12), in: Capsule())
+                        .overlay(Capsule().stroke(LiminalTheme.accent.opacity(0.48), lineWidth: 1))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("記録を終了")
-
-                Button {
-                    guard store.setChapterVisibility(chapter, isPublic: !chapter.isPublic) else {
-                        LiminalHaptics.failure()
-                        operationError = "公開設定を変更できませんでした。時間をおいてもう一度試してください。"
-                        return
-                    }
-                    LiminalHaptics.selection()
-                } label: {
-                    Image(systemName: chapter.isPublic ? "eye" : "eye.slash")
-                        .foregroundStyle(LiminalTheme.secondaryText)
-                        .frame(width: 28, height: 28)
-                }
-                .buttonStyle(.plain)
+                .accessibilityHint("現在の記録を停止します")
+                .accessibilityIdentifier("current-chapter-stop")
             }
 
             if let currentPlan {
@@ -126,9 +160,19 @@ struct CurrentChapterCard: View {
             }
         }
         .padding(.horizontal, 10)
-        .padding(.vertical, currentPlan == nil ? 0 : 8)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity)
         .liminalCanvasChip(tint: category.displayColor, in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    private func setVisibility(of chapter: Chapter, isPublic: Bool) {
+        guard chapter.isPublic != isPublic else { return }
+        guard store.setChapterVisibility(chapter, isPublic: isPublic) else {
+            LiminalHaptics.failure()
+            operationError = "公開設定を変更できませんでした。時間をおいてもう一度試してください。"
+            return
+        }
+        LiminalHaptics.selection()
     }
 
     private var operationErrorPresented: Binding<Bool> {
@@ -163,7 +207,7 @@ struct CurrentChapterCard: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: .infinity)
         .liminalCanvasChip(tint: tint, in: RoundedRectangle(cornerRadius: 12))
     }
 
@@ -211,7 +255,7 @@ struct CurrentChapterCard: View {
         Text("カテゴリをタップして記録を開始")
             .font(.caption)
             .foregroundStyle(LiminalTheme.tertiaryText)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(maxWidth: .infinity)
     }
 
     private func planTint(_ plan: PlanBlock) -> Color {
