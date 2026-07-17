@@ -6,6 +6,12 @@ struct CategoryEditSheet: View {
     @Environment(ChapterStore.self) private var store
 
     let category: Category?
+    let onSaved: ((Category) -> Void)?
+
+    init(category: Category?, onSaved: ((Category) -> Void)? = nil) {
+        self.category = category
+        self.onSaved = onSaved
+    }
 
     @State private var name: String = ""
     @State private var color: Color = .blue
@@ -285,9 +291,9 @@ struct CategoryEditSheet: View {
         let trimmed = trimmedName
         guard !trimmed.isEmpty else { return }
 
-        let didSave: Bool
+        let savedCategory: Category?
         if let cat = category {
-            didSave = store.updateCategory(
+            let didSave = store.updateCategory(
                 cat,
                 name: trimmed,
                 colorHex: color.hexString,
@@ -299,8 +305,9 @@ struct CategoryEditSheet: View {
                 defaultAudienceIncludedFriendIDs: defaultAudienceIncludedFriendIDs,
                 defaultAudienceExcludedFriendIDs: defaultAudienceExcludedFriendIDs
             )
+            savedCategory = didSave ? cat : nil
         } else {
-            didSave = store.addCategory(
+            savedCategory = store.createCategory(
                 name: trimmed,
                 colorHex: color.hexString,
                 icon: icon,
@@ -312,10 +319,11 @@ struct CategoryEditSheet: View {
                 defaultAudienceExcludedFriendIDs: defaultAudienceExcludedFriendIDs
             )
         }
-        guard didSave else {
+        guard let savedCategory else {
             saveError = "カテゴリの変更を保存できませんでした。時間をおいてもう一度試してください。"
             return
         }
+        onSaved?(savedCategory)
         dismiss()
     }
 }

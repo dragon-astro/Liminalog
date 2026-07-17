@@ -77,6 +77,42 @@ struct CategoryMetadataTests {
         #expect(category.dailyCardIntentRawValue == DailyCardCategoryIntent.increase.rawValue)
         #expect(category.isDailyCardSleepCategory)
     }
+
+    @Test("カテゴリ作成は保存済みインスタンスと全メタ情報を返す")
+    func createCategoryReturnsPersistedCategoryAndMetadata() throws {
+        let container = try TestModelContainer.make()
+        let context = container.mainContext
+        let existing = Category(name: "既存", colorHex: "#2F80ED", sortOrder: 4)
+        context.insert(existing)
+        try context.save()
+        let store = CategoryStore(modelContext: context)
+        let friendSetID = UUID()
+        let includedFriendID = UUID()
+        let excludedFriendID = UUID()
+
+        let created = try #require(store.createCategory(
+            name: "深い作業",
+            colorHex: "#6C5CE7",
+            icon: "brain.head.profile",
+            dailyCardIntent: .increase,
+            analysisKind: .work,
+            defaultAudienceFriendSetIDs: [friendSetID],
+            defaultAudienceIncludedFriendIDs: [includedFriendID],
+            defaultAudienceExcludedFriendIDs: [excludedFriendID]
+        ))
+
+        let persisted = try #require(store.allCategories().first { $0.id == created.id })
+        #expect(persisted.id == created.id)
+        #expect(persisted.name == "深い作業")
+        #expect(persisted.colorHex == "#6C5CE7")
+        #expect(persisted.icon == "brain.head.profile")
+        #expect(persisted.sortOrder == 5)
+        #expect(persisted.dailyCardIntent == .increase)
+        #expect(persisted.analysisKind == .work)
+        #expect(persisted.defaultAudienceFriendSetIDs == [friendSetID])
+        #expect(persisted.defaultAudienceIncludedFriendIDs == [includedFriendID])
+        #expect(persisted.defaultAudienceExcludedFriendIDs == [excludedFriendID])
+    }
 }
 
 @MainActor

@@ -441,6 +441,7 @@ private struct TomorrowPlanPage: View {
 
     @State private var timelinePlans: [PlanBlock] = []
     @State private var clock = TickClock(interval: 60)
+    @State private var showingCategoryEditor = false
 
     var body: some View {
         Group {
@@ -474,6 +475,11 @@ private struct TomorrowPlanPage: View {
         .onChange(of: categories.map(\.id)) { _, _ in
             normalizeSelectedCategory()
         }
+        .sheet(isPresented: $showingCategoryEditor) {
+            CategoryEditSheet(category: nil) { category in
+                selectedCategoryID = category.id
+            }
+        }
     }
 
     private var timelineMode: some View {
@@ -488,7 +494,11 @@ private struct TomorrowPlanPage: View {
 
             HomeTomorrowTimelineCategoryPalette(
                 categories: categories,
-                selectedCategoryID: $selectedCategoryID
+                selectedCategoryID: $selectedCategoryID,
+                onCreateCategory: {
+                    LiminalHaptics.openSheet()
+                    showingCategoryEditor = true
+                }
             )
 
             GeometryReader { proxy in
@@ -627,19 +637,24 @@ private struct HomeTomorrowPlanningStatusIndicator: View {
 private struct HomeTomorrowTimelineCategoryPalette: View {
     let categories: [Category]
     @Binding var selectedCategoryID: UUID?
+    let onCreateCategory: () -> Void
 
     var body: some View {
         ScrollView(.horizontal) {
             HStack(spacing: 8) {
                 if categories.isEmpty {
-                    HomeTomorrowTimelineEmptyCategoryChip()
+                    TimelineCategoryStatusChip(
+                        title: "カテゴリなし",
+                        systemImage: "square.grid.2x2",
+                        accessibilityLabel: "カテゴリなし"
+                    )
                 } else {
                     ForEach(categories) { category in
                         Button {
                             selectedCategoryID = category.id
                             LiminalHaptics.selection()
                         } label: {
-                            HomeTomorrowTimelineCategoryChip(
+                            TimelineCategoryChip(
                                 category: category,
                                 isSelected: category.id == selectedCategoryID
                             )
@@ -647,68 +662,17 @@ private struct HomeTomorrowTimelineCategoryPalette: View {
                         .buttonStyle(.plain)
                     }
                 }
+
+                Button(action: onCreateCategory) {
+                    TimelineCreateCategoryChip()
+                }
+                .buttonStyle(.plain)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 2)
         }
         .scrollIndicators(.hidden)
         .padding(.top, 6)
-    }
-}
-
-private struct HomeTomorrowTimelineCategoryChip: View {
-    let category: Category
-    let isSelected: Bool
-
-    var body: some View {
-        HStack(spacing: 4) {
-            Image(systemName: category.icon ?? "circle.fill")
-                .font(.system(size: 10, weight: .bold))
-
-            Text(category.name)
-                .font(.system(size: 11, weight: .semibold))
-                .lineLimit(1)
-                .minimumScaleFactor(0.82)
-        }
-        .foregroundStyle(isSelected ? .white : category.displayColor)
-        .padding(.horizontal, 8)
-        .frame(minHeight: 30)
-        .background(
-            Capsule()
-                .fill(isSelected ? category.displayColor : category.displayColor.opacity(0.12))
-        )
-        .overlay(
-            Capsule()
-                .stroke(category.displayColor.opacity(isSelected ? 0.9 : 0.3), lineWidth: 1)
-        )
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(category.name)を選択")
-    }
-}
-
-private struct HomeTomorrowTimelineEmptyCategoryChip: View {
-    var body: some View {
-        HStack(spacing: 5) {
-            Image(systemName: "square.grid.2x2")
-                .font(.system(size: 10.5, weight: .bold))
-
-            Text("カテゴリなし")
-                .font(.system(size: 11, weight: .semibold))
-                .lineLimit(1)
-        }
-        .foregroundStyle(LiminalTheme.secondaryText)
-        .padding(.horizontal, 9)
-        .frame(minHeight: 30)
-        .background(
-            Capsule()
-                .fill(LiminalTheme.elevated.opacity(0.72))
-        )
-        .overlay(
-            Capsule()
-                .stroke(LiminalTheme.divider.opacity(0.72), lineWidth: 1)
-        )
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("カテゴリなし")
     }
 }
 

@@ -48,9 +48,34 @@ final class CategoryStore {
         defaultAudienceIncludedFriendIDs: [UUID] = [],
         defaultAudienceExcludedFriendIDs: [UUID] = []
     ) -> Bool {
+        createCategory(
+            name: name,
+            colorHex: colorHex,
+            icon: icon,
+            dailyCardIntent: dailyCardIntent,
+            analysisKind: analysisKind,
+            isDailyCardSleepCategory: isDailyCardSleepCategory,
+            defaultAudienceFriendSetIDs: defaultAudienceFriendSetIDs,
+            defaultAudienceIncludedFriendIDs: defaultAudienceIncludedFriendIDs,
+            defaultAudienceExcludedFriendIDs: defaultAudienceExcludedFriendIDs
+        ) != nil
+    }
+
+    @discardableResult
+    func createCategory(
+        name: String,
+        colorHex: String,
+        icon: String? = nil,
+        dailyCardIntent: DailyCardCategoryIntent = .neutral,
+        analysisKind: CategoryAnalysisKind = .unspecified,
+        isDailyCardSleepCategory: Bool = false,
+        defaultAudienceFriendSetIDs: [UUID] = [],
+        defaultAudienceIncludedFriendIDs: [UUID] = [],
+        defaultAudienceExcludedFriendIDs: [UUID] = []
+    ) -> Category? {
         guard let all = allCategoriesIfAvailable() else {
             NSLog("Liminalog: skipped category add because categories could not be fetched")
-            return false
+            return nil
         }
         let nextOrder = (all.map(\.sortOrder).max() ?? -1) + 1
         let category = Category(
@@ -66,7 +91,7 @@ final class CategoryStore {
         category.defaultAudienceIncludedFriendIDs = defaultAudienceIncludedFriendIDs
         category.defaultAudienceExcludedFriendIDs = defaultAudienceExcludedFriendIDs
         modelContext.insert(category)
-        return saveChanges("category add")
+        return saveChanges("category add") ? category : nil
     }
 
     @discardableResult

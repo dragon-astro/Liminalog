@@ -613,7 +613,7 @@ final class ChapterStore {
         defaultAudienceIncludedFriendIDs: [UUID] = [],
         defaultAudienceExcludedFriendIDs: [UUID] = []
     ) -> Bool {
-        guard categoryStore.addCategory(
+        createCategory(
             name: name,
             colorHex: colorHex,
             icon: icon,
@@ -623,9 +623,34 @@ final class ChapterStore {
             defaultAudienceFriendSetIDs: defaultAudienceFriendSetIDs,
             defaultAudienceIncludedFriendIDs: defaultAudienceIncludedFriendIDs,
             defaultAudienceExcludedFriendIDs: defaultAudienceExcludedFriendIDs
-        ) else { return false }
+        ) != nil
+    }
+
+    @discardableResult
+    func createCategory(
+        name: String,
+        colorHex: String,
+        icon: String? = nil,
+        dailyCardIntent: DailyCardCategoryIntent = .neutral,
+        analysisKind: CategoryAnalysisKind = .unspecified,
+        isDailyCardSleepCategory: Bool = false,
+        defaultAudienceFriendSetIDs: [UUID] = [],
+        defaultAudienceIncludedFriendIDs: [UUID] = [],
+        defaultAudienceExcludedFriendIDs: [UUID] = []
+    ) -> Category? {
+        guard let category = categoryStore.createCategory(
+            name: name,
+            colorHex: colorHex,
+            icon: icon,
+            dailyCardIntent: dailyCardIntent,
+            analysisKind: analysisKind,
+            isDailyCardSleepCategory: isDailyCardSleepCategory,
+            defaultAudienceFriendSetIDs: defaultAudienceFriendSetIDs,
+            defaultAudienceIncludedFriendIDs: defaultAudienceIncludedFriendIDs,
+            defaultAudienceExcludedFriendIDs: defaultAudienceExcludedFriendIDs
+        ) else { return nil }
         markChanged()
-        return true
+        return category
     }
 
     @discardableResult

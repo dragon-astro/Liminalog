@@ -108,4 +108,41 @@ struct TimelineDisplayTests {
         #expect(!TimelineBarLayout.shouldShowIcon(duration: 15 * 60, width: 23))
         #expect(TimelineBarLayout.shouldShowIcon(duration: 15 * 60, width: 24))
     }
+
+    @Test
+    func createdTimelineCategoryWaitsForQueryAndPreservesCustomFilter() {
+        let existingID = UUID()
+        let createdID = UUID()
+
+        #expect(TimelineCreatedCategorySelection.resolve(
+            createdCategoryID: createdID,
+            availableCategoryIDs: [existingID],
+            usesCustomFilter: true,
+            storedFilterIDs: [existingID]
+        ) == nil)
+
+        let selection = TimelineCreatedCategorySelection.resolve(
+            createdCategoryID: createdID,
+            availableCategoryIDs: [existingID, createdID],
+            usesCustomFilter: true,
+            storedFilterIDs: [existingID]
+        )
+
+        #expect(selection?.selectedCategoryID == createdID)
+        #expect(selection?.customFilterIDs == [existingID, createdID])
+    }
+
+    @Test
+    func createdTimelineCategoryDoesNotIntroduceCustomFilter() throws {
+        let createdID = UUID()
+        let selection = try #require(TimelineCreatedCategorySelection.resolve(
+            createdCategoryID: createdID,
+            availableCategoryIDs: [createdID],
+            usesCustomFilter: false,
+            storedFilterIDs: []
+        ))
+
+        #expect(selection.selectedCategoryID == createdID)
+        #expect(selection.customFilterIDs == nil)
+    }
 }
