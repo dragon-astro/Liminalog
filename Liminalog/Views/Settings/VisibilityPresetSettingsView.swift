@@ -61,6 +61,7 @@ struct VisibilityPresetSettingsView: View {
     }
 
     private func movePresets(from source: IndexSet, to destination: Int) {
+        let previousOrders = presets.map { ($0, $0.sortOrder) }
         guard SortOrderNormalizer.reorder(
             presets,
             from: source,
@@ -68,8 +69,9 @@ struct VisibilityPresetSettingsView: View {
             sortOrder: \.sortOrder
         ) else { return }
 
+        // updatedAt は実際に順序が変わった行だけ更新する（未変更行の同期churn/マージ副作用を避ける）
         let now = Date()
-        for preset in presets {
+        for (preset, oldOrder) in previousOrders where preset.sortOrder != oldOrder {
             preset.updatedAt = now
         }
 
