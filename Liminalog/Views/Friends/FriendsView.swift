@@ -947,6 +947,9 @@ struct FriendsView: View {
                 ownUserRecordName: ownUserRecordName,
                 trigger: trigger
             )
+        } catch is CancellationError {
+            // pull-to-refresh の中断（画面遷移等）はエラーではないので表示しない
+            return
         } catch {
             if trigger == .manual {
                 cloudErrorText = error.localizedDescription
