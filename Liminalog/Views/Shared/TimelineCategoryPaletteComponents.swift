@@ -3,12 +3,20 @@ import SwiftUI
 struct TimelineCategoryChipStyle: Equatable {
     let tintOpacity: Double
     let strokeOpacity: Double
+    let strokeWidth: Double
+    let showsSelectionMark: Bool
 
     static func resolve(isSelected: Bool) -> TimelineCategoryChipStyle {
         TimelineCategoryChipStyle(
             tintOpacity: isSelected ? 0.2 : 0.08,
-            strokeOpacity: isSelected ? 0.72 : 0.3
+            strokeOpacity: isSelected ? 0.86 : 0.3,
+            strokeWidth: isSelected ? 2 : 1,
+            showsSelectionMark: isSelected
         )
+    }
+
+    func leadingSystemImage(categoryIcon: String?) -> String {
+        showsSelectionMark ? "checkmark.circle.fill" : (categoryIcon ?? "circle.fill")
     }
 }
 
@@ -20,9 +28,16 @@ struct TimelineCategoryChip: View {
         let style = TimelineCategoryChipStyle.resolve(isSelected: isSelected)
 
         HStack(spacing: 4) {
-            Image(systemName: category.icon ?? "circle.fill")
-                .font(.system(size: 10, weight: .bold))
-                .foregroundStyle(category.displayColor)
+            ZStack {
+                Image(systemName: category.icon ?? "circle.fill")
+                    .opacity(style.showsSelectionMark ? 0 : 1)
+
+                Image(systemName: "checkmark.circle.fill")
+                    .opacity(style.showsSelectionMark ? 1 : 0)
+            }
+            .font(.system(size: 10, weight: .bold))
+            .frame(width: 11, height: 11)
+            .foregroundStyle(category.displayColor)
 
             Text(category.name)
                 .font(.system(size: 11, weight: .semibold))
@@ -30,6 +45,7 @@ struct TimelineCategoryChip: View {
                 .minimumScaleFactor(0.82)
                 .foregroundStyle(LiminalTheme.text)
         }
+        .fixedSize(horizontal: true, vertical: false)
         .padding(.horizontal, 8)
         .frame(minHeight: 30)
         .background {
@@ -42,10 +58,14 @@ struct TimelineCategoryChip: View {
         }
         .overlay {
             Capsule()
-                .stroke(category.displayColor.opacity(style.strokeOpacity), lineWidth: 1)
+                .stroke(
+                    category.displayColor.opacity(style.strokeOpacity),
+                    lineWidth: style.strokeWidth
+                )
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(category.name)を選択")
+        .accessibilityValue(isSelected ? "選択中" : "未選択")
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }

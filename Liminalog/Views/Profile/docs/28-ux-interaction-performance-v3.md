@@ -61,6 +61,19 @@
 - 未選択は静かなままにし、カテゴリ作成→即選択とcustom filterを維持する。
 - 明確な優位案がなければスクリーンショットとtrade-offを提示してユーザー確認する。
 
+比較案（2026-07-19）:
+
+1. tint＋枠強調: 最も静かだが淡色カテゴリでは色差への依存が残るため不採用。
+2. 末尾check枠を全chipへ常設: 明確だが全chipの幅と横スクロール量を増やすため不採用。
+3. 既存の先頭icon領域だけを選択時にcheckへ切り替え、枠を1pt→2ptへ強める: frameと横密度を変えず、記号＋線幅の色非依存な2手掛かりを追加できるため採用。通常iconとcheckを同じ11pt固定slotへ重ねてView identityとlayoutを維持し、背景tint 20%とテーマ本文色はv2のまま維持する。
+
+検証結果（2026-07-19）:
+
+- `TimelineDisplayTests`と`CategoryMetadataTests`の12件/2 suites成功。選択/未選択style、カテゴリ作成後のquery待ち、custom filter保持、既存icon文字列の永続化を確認（`/private/tmp/ux-interaction-performance-v3/item-a/final-unit-ios261.xcresult`）。
+- 選択前後の実layout診断では、後続chipの`minX`が309.8333pt、幅が52.6667ptで完全一致した。選択chip自身についてXCUIが返す可視境界は2pt stroke分だけ外側へ約0.5pt広がるが、HStackのlayout frameと横スクロール密度は不変（`ui-frame-diagnosis.xcresult`）。
+- Home明日とCalendar日間/週間を、曙/宵、淡い黄/濃い紫で横断したUIテスト1件と12枚の画像が成功。作成した黄カテゴリの即時選択、画面/テーマ遷移後の選択保持、`.isSelected`も確認（`ui-full-final.xcresult`）。Calendarの淡色選択を中央に収めた曙/宵×日間/週間4枚も追加監査した（`ui-calendar-focused.xcresult`）。
+- generic iOS Release build成功（`/private/tmp/ux-interaction-performance-v3/item-a/release-derived/Build/Products/Release-iphoneos/Liminalog.app`）。
+
 ## 6. Item B — Timeline性能
 
 - `EditablePlanTimelineView`のView更新、render cache、collision/draft配列、Geometry/Preference、日付/文字列/ソート、Query、gesture state、副作用を計測する。
