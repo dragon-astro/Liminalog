@@ -29,7 +29,7 @@ struct CategoryIconCatalogTests {
 
     @Test("旧ピッカーの30候補をすべて保持する")
     func containsEveryLegacyPickerSymbol() {
-        let legacySymbols: Set<String> = [
+        let expectedSymbols = [
             "book.closed.fill", "graduationcap.fill", "pencil.and.outline",
             "briefcase.fill", "laptopcomputer", "doc.text.fill", "checklist",
             "calendar", "clock.fill", "tram.fill", "figure.walk", "figure.run",
@@ -40,7 +40,9 @@ struct CategoryIconCatalogTests {
             "moon.fill", "person.2.fill",
         ]
 
-        #expect(legacySymbols.isSubset(of: Set(CategoryIconCatalog.items.map(\.symbol))))
+        #expect(CategoryIconCatalog.legacySymbols == expectedSymbols)
+        #expect(CategoryIconCatalog.legacyItems.map(\.symbol) == expectedSymbols)
+        #expect(Set(expectedSymbols).isSubset(of: Set(CategoryIconCatalog.items.map(\.symbol))))
     }
 
     @Test("日本語ラベルとsymbol名の両方で検索できる")
