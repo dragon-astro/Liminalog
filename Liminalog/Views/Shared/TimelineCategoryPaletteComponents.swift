@@ -1,20 +1,35 @@
 import SwiftUI
 
+struct TimelineCategoryChipStyle: Equatable {
+    let tintOpacity: Double
+    let strokeOpacity: Double
+
+    static func resolve(isSelected: Bool) -> TimelineCategoryChipStyle {
+        TimelineCategoryChipStyle(
+            tintOpacity: isSelected ? 0.2 : 0.08,
+            strokeOpacity: isSelected ? 0.72 : 0.3
+        )
+    }
+}
+
 struct TimelineCategoryChip: View {
     let category: Category
     let isSelected: Bool
 
     var body: some View {
+        let style = TimelineCategoryChipStyle.resolve(isSelected: isSelected)
+
         HStack(spacing: 4) {
             Image(systemName: category.icon ?? "circle.fill")
                 .font(.system(size: 10, weight: .bold))
+                .foregroundStyle(category.displayColor)
 
             Text(category.name)
                 .font(.system(size: 11, weight: .semibold))
                 .lineLimit(1)
                 .minimumScaleFactor(0.82)
+                .foregroundStyle(LiminalTheme.text)
         }
-        .foregroundStyle(isSelected ? category.displayColor.liminalContrastingTextColor : category.displayColor)
         .padding(.horizontal, 8)
         .frame(minHeight: 30)
         .background {
@@ -22,12 +37,12 @@ struct TimelineCategoryChip: View {
                 .fill(LiminalTheme.elevated)
                 .overlay {
                     Capsule()
-                        .fill(category.displayColor.opacity(isSelected ? 1 : 0.12))
+                        .fill(category.displayColor.opacity(style.tintOpacity))
                 }
         }
         .overlay {
             Capsule()
-                .stroke(category.displayColor.opacity(isSelected ? 0.9 : 0.3), lineWidth: 1)
+                .stroke(category.displayColor.opacity(style.strokeOpacity), lineWidth: 1)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(category.name)を選択")

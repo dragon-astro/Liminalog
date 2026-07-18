@@ -110,6 +110,17 @@ struct TimelineDisplayTests {
     }
 
     @Test
+    func selectedCategoryChipUsesLightTranslucentTint() {
+        let selected = TimelineCategoryChipStyle.resolve(isSelected: true)
+        let unselected = TimelineCategoryChipStyle.resolve(isSelected: false)
+
+        #expect(selected.tintOpacity > unselected.tintOpacity)
+        #expect(selected.tintOpacity < 0.5)
+        #expect(selected.strokeOpacity > unselected.strokeOpacity)
+        #expect(selected.strokeOpacity < 1)
+    }
+
+    @Test
     func createdTimelineCategoryWaitsForQueryAndPreservesCustomFilter() {
         let existingID = UUID()
         let createdID = UUID()
