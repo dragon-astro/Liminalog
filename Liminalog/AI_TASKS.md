@@ -1004,6 +1004,17 @@ refactor: split plan store
 
 ---
 
+## 8.16 UXフィードバック v3（docs/28・選択状態/操作性能）
+
+設計: **[../Liminalog/Views/Profile/docs/28-ux-interaction-performance-v3.md](../Liminalog/Views/Profile/docs/28-ux-interaction-performance-v3.md)**。開始地点 `codex/ux-feedback-v2`、統合先 `codex/ux-interaction-performance-v3`、実行順 A→B→C→D。入力間引き・animation停止・View破棄・状態喪失で軽く見せず、同条件のRelease iPhone 13 before/afterを正準証拠にする。
+
+- [ ] A: v2の軽いカテゴリ表示を維持し、色以外を含む2つ以上の手掛かりで選択中を瞬時に判別可能にする <!-- 担当: Codex, 専用ブランチ: codex/ux3-category-selection -->
+- [ ] B: Timelineのscroll/category/move/resize/4 zoomを計測し、連続追従と挙動を変えずにView更新・計算・副作用hotspotを除去する <!-- 担当: Codex, 専用ブランチ: codex/ux3-timeline-performance, 依存: A -->
+- [ ] C: 5タブ初回/warm/20往復を計測し、状態と自動更新を維持したままtab選択のmain-thread hotspotと重複処理を除去する <!-- 担当: Codex, 専用ブランチ: codex/ux3-tab-performance, 依存: B -->
+- [ ] D: A〜C後の主要操作を横断再計測し、証拠のあるhotspotだけを改善する <!-- 担当: Codex, 専用ブランチ: codex/ux3-interaction-performance-sweep, 依存: C -->
+
+---
+
 ## 9. Phase 4 — UX向上・ソーシャル深化
 
 - [ ] ダッシュボード 2 人比較 UI（24時間バー + カード要約の新タイムライン仕様に合わせる）<!-- 担当: Claude, 理由: SwiftUI レイアウト -->
