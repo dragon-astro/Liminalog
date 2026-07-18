@@ -1,6 +1,95 @@
 import SwiftUI
 
+/// CategoryEditSheetの表側。旧30候補を軽く表示し、全カタログは明示的に＋から開く。
 struct CategoryIconPicker: View {
+    @Binding var selection: String
+    let tint: Color
+
+    @State private var showingLibrary = false
+
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: 10), count: 6)
+
+    private var readableTint: Color {
+        tint.liminalReadableDataColor()
+    }
+
+    private var nonLegacySelection: CategoryIconCatalogItem? {
+        guard !CategoryIconCatalog.legacySymbols.contains(selection) else { return nil }
+        return CategoryIconCatalog.item(for: selection) ?? CategoryIconCatalogItem(
+            symbol: selection,
+            label: "選択中のアイコン",
+            genre: .study
+        )
+    }
+
+    var body: some View {
+        LazyVGrid(columns: columns, spacing: 10) {
+            if let current = nonLegacySelection {
+                iconButton(current, accessibilityLabel: "選択中、\(current.label)")
+            }
+
+            ForEach(CategoryIconCatalog.legacyItems) { item in
+                iconButton(item, accessibilityLabel: item.label)
+            }
+
+            Button {
+                showingLibrary = true
+            } label: {
+                Image(systemName: "plus")
+                    .font(.headline.weight(.semibold))
+                    .foregroundStyle(LiminalTheme.text)
+                    .frame(width: 40, height: 40)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(LiminalTheme.elevated)
+                    )
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .stroke(LiminalTheme.divider, lineWidth: 1)
+                    }
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("すべてのアイコンから選ぶ")
+            .accessibilityHint("検索とジャンル別のアイコンライブラリを開きます")
+            .accessibilityIdentifier("category-icon-open-library")
+        }
+        .padding(.vertical, 4)
+        .sheet(isPresented: $showingLibrary) {
+            CategoryIconLibrarySheet(selection: $selection, tint: tint)
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+        }
+    }
+
+    private func iconButton(
+        _ item: CategoryIconCatalogItem,
+        accessibilityLabel: String
+    ) -> some View {
+        let selected = selection == item.symbol
+
+        return Button {
+            selection = item.symbol
+            LiminalHaptics.selection()
+        } label: {
+            Image(systemName: CategoryIconCatalog.displaySymbol(for: item.symbol))
+                .font(.headline)
+                .frame(width: 40, height: 40)
+                .foregroundStyle(selected ? readableTint.liminalContrastingTextColor : readableTint)
+                .background(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(selected ? readableTint : readableTint.opacity(0.12))
+                )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityValue(selected ? "選択中" : "")
+        .accessibilityIdentifier("category-icon-compact-\(item.symbol)")
+    }
+}
+
+private struct CategoryIconLibrarySheet: View {
+    @Environment(\.dismiss) private var dismiss
+
     @Binding var selection: String
     let tint: Color
 
@@ -19,28 +108,52 @@ struct CategoryIconPicker: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            selectedIconRow
-            searchField
-            pinnedSection
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    selectedIconRow
+                    searchField
+                    pinnedSection
 
-            if hasSearchQuery {
-                searchResultsSection
-            } else {
-                genreSections
+                    if hasSearchQuery {
+                        searchResultsSection
+                    } else {
+                        genreSections
+                    }
+                }
+                .padding(16)
+            }
+            .background(LiminalTheme.canvas)
+            .navigationTitle("すべてのアイコン")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("閉じる") {
+                        dismiss()
+                    }
+                }
             }
         }
-        .padding(.vertical, 4)
         .onAppear {
             guard !didLoadPins else { return }
             pinnedSymbols = CategoryIconPinStore.load()
             didLoadPins = true
         }
+        .accessibilityIdentifier("category-icon-library")
     }
 
     private var selectedIconRow: some View {
         HStack(spacing: 12) {
-            selectedIconPreview
+            ZStack {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(readableTint)
+                    .frame(width: 48, height: 48)
+
+                Image(systemName: CategoryIconCatalog.displaySymbol(for: selection))
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(readableTint.liminalContrastingTextColor)
+            }
+            .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("選択中")
@@ -82,19 +195,6 @@ struct CategoryIconPicker: View {
         }
     }
 
-    private var selectedIconPreview: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(readableTint)
-                .frame(width: 48, height: 48)
-
-            Image(systemName: CategoryIconCatalog.displaySymbol(for: selection))
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(readableTint.liminalContrastingTextColor)
-        }
-        .accessibilityHidden(true)
-    }
-
     private var searchField: some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
@@ -105,9 +205,7 @@ struct CategoryIconPicker: View {
                 .autocorrectionDisabled()
                 .submitLabel(.done)
                 .focused($searchFieldFocused)
-                .onSubmit {
-                    searchFieldFocused = false
-                }
+                .onSubmit { searchFieldFocused = false }
                 .foregroundStyle(LiminalTheme.text)
                 .accessibilityIdentifier("category-icon-search")
 
@@ -161,14 +259,8 @@ struct CategoryIconPicker: View {
 
     private var searchResultsSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Divider()
-                .overlay(LiminalTheme.divider)
-
-            sectionHeader(
-                title: "検索結果",
-                symbol: "magnifyingglass",
-                count: searchResults.count
-            )
+            Divider().overlay(LiminalTheme.divider)
+            sectionHeader(title: "検索結果", symbol: "magnifyingglass", count: searchResults.count)
 
             if searchResults.isEmpty {
                 ContentUnavailableView(
@@ -191,8 +283,7 @@ struct CategoryIconPicker: View {
     private var genreSections: some View {
         VStack(alignment: .leading, spacing: 12) {
             ForEach(CategoryIconCatalog.sections) { section in
-                Divider()
-                    .overlay(LiminalTheme.divider)
+                Divider().overlay(LiminalTheme.divider)
 
                 DisclosureGroup(isExpanded: expandedBinding(for: section.genre)) {
                     LazyVGrid(columns: columns, spacing: 8) {
@@ -236,6 +327,7 @@ struct CategoryIconPicker: View {
             selection = symbol
             searchFieldFocused = false
             LiminalHaptics.selection()
+            dismiss()
         } label: {
             VStack(spacing: 5) {
                 ZStack(alignment: .topTrailing) {
@@ -290,7 +382,7 @@ struct CategoryIconPicker: View {
         .accessibilityAddTraits(.isButton)
         .accessibilityLabel(label)
         .accessibilityValue(accessibilityValue(selected: selected, pinned: pinned))
-        .accessibilityHint("ダブルタップで選択。長押しでよく使うを変更できます。")
+        .accessibilityHint("ダブルタップで選択して編集画面へ戻ります。長押しでよく使うを変更できます。")
         .accessibilityAction(named: Text(pinned ? "よく使うから外す" : "よく使うに追加")) {
             togglePin(symbol)
         }

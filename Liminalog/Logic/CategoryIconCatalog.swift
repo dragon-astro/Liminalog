@@ -62,6 +62,18 @@ struct CategoryIconCatalogSection: Identifiable, Sendable {
 }
 
 enum CategoryIconCatalog {
+    /// v1以前のCategoryEditSheetで表示していた30候補。編集画面の軽い表側として順序も維持する。
+    static let legacySymbols = [
+        "book.closed.fill", "graduationcap.fill", "pencil.and.outline",
+        "briefcase.fill", "laptopcomputer", "doc.text.fill", "checklist",
+        "calendar", "clock.fill", "tram.fill", "figure.walk", "figure.run",
+        "airplane", "house.fill", "wrench.and.screwdriver.fill", "cart.fill",
+        "fork.knife", "cup.and.saucer.fill", "sparkles", "gamecontroller.fill",
+        "music.note", "paintpalette.fill", "camera.fill", "movieclapper.fill",
+        "heart.fill", "cross.case.fill", "dumbbell.fill", "bed.double.fill",
+        "moon.fill", "person.2.fill",
+    ]
+
     static let items: [CategoryIconCatalogItem] = [
         // 学習・思考
         .init(symbol: "book.closed.fill", label: "読書・学習", genre: .study),
@@ -289,6 +301,10 @@ enum CategoryIconCatalog {
             genre: genre,
             items: items.filter { $0.genre == genre }
         )
+    }
+
+    static let legacyItems: [CategoryIconCatalogItem] = legacySymbols.compactMap { symbol in
+        items.first { $0.symbol == symbol }
     }
 
     static func item(for symbol: String) -> CategoryIconCatalogItem? {
