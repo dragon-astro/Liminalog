@@ -17,6 +17,13 @@ enum CloudFriendLocalStatePolicy {
         existingStatus == .blocked
     }
 
+    static func applyBlockedState(to friend: Friend, now: Date = Date()) {
+        friend.status = .blocked
+        friend.blockedAt = now
+        friend.shareURL = nil
+        friend.updatedAt = now
+    }
+
     static func shouldDowngradeAcceptedCloudFriend(
         status: FriendStatus,
         userRecordID: String,

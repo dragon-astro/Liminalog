@@ -46,6 +46,23 @@ struct CloudFriendLocalStatePolicyTests {
     }
 
     @Test
+    func applyingBlockedStateClearsShareAndUsesOneTimestamp() {
+        let friend = Friend(
+            displayName: "みか",
+            status: .accepted,
+            shareURL: "https://example.com/share"
+        )
+        let now = Date(timeIntervalSinceReferenceDate: 12_345)
+
+        CloudFriendLocalStatePolicy.applyBlockedState(to: friend, now: now)
+
+        #expect(friend.status == .blocked)
+        #expect(friend.blockedAt == now)
+        #expect(friend.shareURL == nil)
+        #expect(friend.updatedAt == now)
+    }
+
+    @Test
     func acceptedCloudFriendDowngradesWhenAcceptedConsentIsMissing() {
         #expect(CloudFriendLocalStatePolicy.shouldDowngradeAcceptedCloudFriend(
             status: .accepted,
