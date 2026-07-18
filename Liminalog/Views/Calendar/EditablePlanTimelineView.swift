@@ -64,11 +64,13 @@ struct EditablePlanTimelineView: View {
     let onScheduleChanged: () -> Void
 
     @State private var selectedPlanID: UUID?
+    @State private var snapPrecision = TimelineSnapPrecision.quarterHour
     @State private var draftIntervals: [PlanTimelineInterval]?
     @State private var gestureBaseline: [PlanTimelineInterval]?
     @State private var resizeInteractionAnchor: PlanTimelineInterval?
-    @State private var resizeMinimumLock: EditableResizeMinimumLock?
     @State private var activeResizeEdge: EditablePlanResizeEdge?
+    @State private var moveDragSession: TimelineDragSession?
+    @State private var resizeDragSession: TimelineDragSession?
     @State private var creationDraft: PlanCreationDraft?
     @State private var creationGestureIsActive = false
     @State private var operationError: String?
@@ -76,7 +78,6 @@ struct EditablePlanTimelineView: View {
     @State private var didWarnDuringScheduleGesture = false
     @State private var lastMoveFeedbackMinute: Int?
     @State private var lastResizeFeedbackMinute: Int?
-    @State private var resizeDragStartGlobalY: CGFloat?
     @State private var renderCache: EditableTimelineRenderCache?
     @AppStorage(DayTimelineZoomPolicy.userDefaultsKey)
     private var storedHourScale = Double(DayTimelineZoomPolicy.defaultScale)
@@ -95,7 +96,7 @@ struct EditablePlanTimelineView: View {
     private let timelineTopInset: CGFloat = 30
     private let sideInset: CGFloat = 4
     private let bottomScrollPadding: CGFloat = 24
-    private let snapMinutes = 15
+    private let creationSnapMinutes = 15
     private let minimumDurationMinutes = 15
     private let creationLongPressDuration = 0.28
     private let creationLongPressMaximumDistance: CGFloat = 28
@@ -231,6 +232,9 @@ struct EditablePlanTimelineView: View {
         .onChange(of: renderCacheKey) { _, _ in
             refreshRenderCache()
         }
+        .onChange(of: selectedPlanID) { _, _ in
+            snapPrecision = .quarterHour
+        }
         .alert("予定を調整できませんでした", isPresented: operationErrorPresented) {
             Button("OK", role: .cancel) {
                 operationError = nil
@@ -304,6 +308,11 @@ struct EditablePlanTimelineView: View {
                         RoundedRectangle(cornerRadius: 8, style: .continuous)
                             .stroke(timelineOuterStroke, lineWidth: 1)
                     }
+                }
+                .overlay(alignment: .topTrailing) {
+                    snapPrecisionSelector
+                        .padding(.top, 8)
+                        .padding(.trailing, 10)
                 }
                 .onAppear {
                     normalizeStoredHourScale()
@@ -515,6 +524,75 @@ struct EditablePlanTimelineView: View {
         return "\(String(format: "%.2g", Double(scale)))倍"
     }
 
+    @ViewBuilder
+    private var snapPrecisionSelector: some View {
+        if isInteractionEnabled,
+           !isPageSwipeActive,
+           let selectedPlanID,
+           let plan = editablePlans.first(where: { $0.id == selectedPlanID }),
+           !store.isPlanScheduleLocked(plan) {
+            Menu {
+                ForEach(TimelineSnapPrecision.allCases) { precision in
+                    snapPrecisionMenuItem(precision)
+                }
+            } label: {
+                snapPrecisionMenuLabel
+            }
+            .buttonStyle(.plain)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(LiminalTheme.surface.opacity(0.96))
+            )
+            .overlay {
+                Capsule(style: .continuous)
+                    .stroke(LiminalTheme.divider.opacity(0.72), lineWidth: 1)
+            }
+            .shadow(color: LiminalTheme.dusk.opacity(0.18), radius: 5, y: 2)
+            .accessibilityLabel("予定調整の刻み幅、\(snapPrecision.minutes)分")
+            .accessibilityHint("予定の移動と長さ調整に使う刻み幅を変更")
+            .accessibilityIdentifier("timeline-snap-selector")
+            .transition(.opacity.combined(with: .scale(scale: 0.96)))
+            .zIndex(500)
+        }
+    }
+
+    private func snapPrecisionMenuItem(_ precision: TimelineSnapPrecision) -> some View {
+        let identifier = "timeline-snap-\(precision.minutes)"
+        return Button {
+            guard snapPrecision != precision else { return }
+            snapPrecision = precision
+            LiminalHaptics.selection()
+        } label: {
+            HStack {
+                Text(precision.accessibilityLabel)
+                if snapPrecision == precision {
+                    Image(systemName: "checkmark")
+                }
+            }
+        }
+        .accessibilityIdentifier(identifier)
+    }
+
+    private var snapPrecisionMenuLabel: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "timer")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(LiminalTheme.accent)
+
+            Text("\(snapPrecision.shortLabel)分")
+                .font(.system(size: 11, weight: .bold, design: .rounded))
+                .foregroundStyle(LiminalTheme.text)
+                .monospacedDigit()
+
+            Image(systemName: "chevron.down")
+                .font(.system(size: 8, weight: .bold))
+                .foregroundStyle(LiminalTheme.secondaryText)
+        }
+        .padding(.horizontal, 10)
+        .frame(minWidth: 64, minHeight: 40)
+        .contentShape(Rectangle())
+    }
+
     private func timelineCanvas(width: CGFloat) -> some View {
         ZStack(alignment: .topLeading) {
             Rectangle()
@@ -655,24 +733,25 @@ struct EditablePlanTimelineView: View {
         .zIndex(isSelected ? 10 : 1)
 
         if isSelected && !store.isPlanScheduleLocked(plan) {
+            let step = snapPrecision.minutes
             block
-                .accessibilityAction(named: Text("15分早める")) {
-                    applyAccessibilityMove(plan: plan, minuteDelta: -snapMinutes)
+                .accessibilityAction(named: Text("\(step)分早める")) {
+                    applyAccessibilityMove(plan: plan, minuteDelta: -step)
                 }
-                .accessibilityAction(named: Text("15分遅らせる")) {
-                    applyAccessibilityMove(plan: plan, minuteDelta: snapMinutes)
+                .accessibilityAction(named: Text("\(step)分遅らせる")) {
+                    applyAccessibilityMove(plan: plan, minuteDelta: step)
                 }
-                .accessibilityAction(named: Text("開始を15分早める")) {
-                    applyAccessibilityResize(plan: plan, edge: .start, minuteDelta: -snapMinutes)
+                .accessibilityAction(named: Text("開始を\(step)分早める")) {
+                    applyAccessibilityResize(plan: plan, edge: .start, minuteDelta: -step)
                 }
-                .accessibilityAction(named: Text("開始を15分遅らせる")) {
-                    applyAccessibilityResize(plan: plan, edge: .start, minuteDelta: snapMinutes)
+                .accessibilityAction(named: Text("開始を\(step)分遅らせる")) {
+                    applyAccessibilityResize(plan: plan, edge: .start, minuteDelta: step)
                 }
-                .accessibilityAction(named: Text("終了を15分早める")) {
-                    applyAccessibilityResize(plan: plan, edge: .end, minuteDelta: -snapMinutes)
+                .accessibilityAction(named: Text("終了を\(step)分早める")) {
+                    applyAccessibilityResize(plan: plan, edge: .end, minuteDelta: -step)
                 }
-                .accessibilityAction(named: Text("終了を15分遅らせる")) {
-                    applyAccessibilityResize(plan: plan, edge: .end, minuteDelta: snapMinutes)
+                .accessibilityAction(named: Text("終了を\(step)分遅らせる")) {
+                    applyAccessibilityResize(plan: plan, edge: .end, minuteDelta: step)
                 }
         } else {
             block
@@ -981,25 +1060,26 @@ struct EditablePlanTimelineView: View {
         let blockX = blockXOffset(for: width, slot: slot)
         let timelineMinX = hourColumnWidth + sideInset
         let timelineMaxX = width - sideInset
-        let handleWidth = min(
-            availableBlockWidth(width),
-            max(blockWidth + EditablePlanBlockMetrics.resizeHandleHorizontalSlop * 2, EditablePlanBlockMetrics.minimumResizeHandleWidth)
+        let hitRegion = TimelineResizeHitPolicy.horizontalRegion(
+            blockMinX: blockX,
+            blockWidth: blockWidth,
+            timelineMinX: timelineMinX,
+            timelineMaxX: timelineMaxX,
+            preferredGripWidth: EditablePlanBlockMetrics.resizeGripBackgroundWidth
         )
-        let centeredX = blockX + blockWidth / 2 - handleWidth / 2
-        let handleX = min(max(centeredX, timelineMinX), max(timelineMinX, timelineMaxX - handleWidth))
         let topY = yOffset(for: interval.startMinute) - EditablePlanBlockMetrics.resizeHitHandleHeight
         let bottomY = yOffset(for: interval.startMinute) + height(for: interval)
         return isPoint(
             point,
-            insideX: handleX,
+            insideX: hitRegion.minX,
             y: topY,
-            width: handleWidth,
+            width: hitRegion.width,
             height: EditablePlanBlockMetrics.resizeHitHandleHeight
         ) || isPoint(
             point,
-            insideX: handleX,
+            insideX: hitRegion.minX,
             y: bottomY,
-            width: handleWidth,
+            width: hitRegion.width,
             height: EditablePlanBlockMetrics.resizeHitHandleHeight
         )
     }
@@ -1092,7 +1172,7 @@ struct EditablePlanTimelineView: View {
     }
 
     private func moveGesture(for plan: PlanBlock) -> some Gesture {
-        DragGesture(minimumDistance: 2)
+        DragGesture(minimumDistance: 2, coordinateSpace: .global)
             .updating($scheduleDragIsActive) { _, isActive, _ in
                 isActive = true
             }
@@ -1113,7 +1193,15 @@ struct EditablePlanTimelineView: View {
                     lastMoveFeedbackMinute = original.startMinute
                     LiminalHaptics.selection()
                 }
-                let delta = snappedMinuteDelta(dragTranslationY(value))
+                var session = moveDragSession ?? TimelineDragSession(
+                    startGlobalY: value.startLocation.y,
+                    hourHeight: hourHeight
+                )
+                let delta = session.update(
+                    currentGlobalY: value.location.y,
+                    precision: snapPrecision
+                )
+                moveDragSession = session
                 let proposedStart = original.startMinute + delta
                 let proposedEnd = original.endMinute + delta
                 let direction: PlanTimelinePushDirection = delta >= 0 ? .later : .earlier
@@ -1147,13 +1235,20 @@ struct EditablePlanTimelineView: View {
                 if gestureBaseline == nil {
                     gestureBaseline = baseline
                     resizeInteractionAnchor = original
-                    resizeDragStartGlobalY = value.startLocation.y
                     lastResizeFeedbackMinute = original.startMinute
                     LiminalHaptics.selection()
                 }
                 activeResizeEdge = .start
-                let delta = snappedMinuteDelta(resizeDragTranslationY(value))
-                let resize = resizedInterval(from: original, edge: .start, delta: delta, currentGlobalY: value.location.y)
+                var session = resizeDragSession ?? TimelineDragSession(
+                    startGlobalY: value.startLocation.y,
+                    hourHeight: hourHeight
+                )
+                let delta = session.update(
+                    currentGlobalY: value.location.y,
+                    precision: snapPrecision
+                )
+                resizeDragSession = session
+                let resize = resizedInterval(from: original, edge: .start, delta: delta)
                 if let interval = updateDraft(from: baseline, editingID: plan.id, start: resize.start, end: resize.end, direction: resize.direction, adjustment: .resizeStart) {
                     notifyResizeStepIfNeeded(interval.startMinute)
                 }
@@ -1184,13 +1279,20 @@ struct EditablePlanTimelineView: View {
                 if gestureBaseline == nil {
                     gestureBaseline = baseline
                     resizeInteractionAnchor = original
-                    resizeDragStartGlobalY = value.startLocation.y
                     lastResizeFeedbackMinute = original.endMinute
                     LiminalHaptics.selection()
                 }
                 activeResizeEdge = .end
-                let delta = snappedMinuteDelta(resizeDragTranslationY(value))
-                let resize = resizedInterval(from: original, edge: .end, delta: delta, currentGlobalY: value.location.y)
+                var session = resizeDragSession ?? TimelineDragSession(
+                    startGlobalY: value.startLocation.y,
+                    hourHeight: hourHeight
+                )
+                let delta = session.update(
+                    currentGlobalY: value.location.y,
+                    precision: snapPrecision
+                )
+                resizeDragSession = session
+                let resize = resizedInterval(from: original, edge: .end, delta: delta)
                 if let interval = updateDraft(from: baseline, editingID: plan.id, start: resize.start, end: resize.end, direction: resize.direction, adjustment: .resizeEnd) {
                     notifyResizeStepIfNeeded(interval.endMinute)
                 }
@@ -1218,26 +1320,25 @@ struct EditablePlanTimelineView: View {
             let blockX = blockXOffset(for: width, slot: slot)
             let timelineMinX = hourColumnWidth + sideInset
             let timelineMaxX = width - sideInset
-            let handleWidth = activeResizeEdge == nil
-                ? min(
-                    availableBlockWidth(width),
-                    max(blockWidth + EditablePlanBlockMetrics.resizeHandleHorizontalSlop * 2, EditablePlanBlockMetrics.minimumResizeHandleWidth)
-                )
-                : timelineMaxX - timelineMinX
-            let centeredX = blockX + blockWidth / 2 - handleWidth / 2
-            let handleX = min(max(centeredX, timelineMinX), max(timelineMinX, timelineMaxX - handleWidth))
+            let hitRegion = TimelineResizeHitPolicy.horizontalRegion(
+                blockMinX: blockX,
+                blockWidth: blockWidth,
+                timelineMinX: timelineMinX,
+                timelineMaxX: timelineMaxX,
+                preferredGripWidth: EditablePlanBlockMetrics.resizeGripBackgroundWidth
+            )
             let topY = yOffset(for: anchor.startMinute) - EditablePlanBlockMetrics.resizeHitHandleHeight
             let bottomY = yOffset(for: anchor.startMinute) + height(for: anchor)
 
             ZStack(alignment: .topLeading) {
                 resizeHitHandle()
-                    .frame(width: handleWidth)
-                    .offset(x: handleX, y: topY)
+                    .frame(width: hitRegion.width)
+                    .offset(x: hitRegion.minX, y: topY)
                     .highPriorityGesture(startHandleGesture(for: plan), including: .all)
 
                 resizeHitHandle()
-                    .frame(width: handleWidth)
-                    .offset(x: handleX, y: bottomY)
+                    .frame(width: hitRegion.width)
+                    .offset(x: hitRegion.minX, y: bottomY)
                     .highPriorityGesture(endHandleGesture(for: plan), including: .all)
             }
             .frame(width: width, height: timelineHeight, alignment: .topLeading)
@@ -1388,16 +1489,8 @@ struct EditablePlanTimelineView: View {
     private func resizedInterval(
         from original: PlanTimelineInterval,
         edge: EditablePlanResizeEdge,
-        delta: Int,
-        currentGlobalY: CGFloat? = nil
+        delta: Int
     ) -> (start: Int, end: Int, direction: PlanTimelinePushDirection, feedbackMinute: Int) {
-        if let currentGlobalY,
-           let locked = resizeMinimumLock,
-           locked.planID == original.id,
-           locked.edge == edge {
-            return resizedIntervalFromMinimumLock(locked, currentGlobalY: currentGlobalY)
-        }
-
         let result = PlanTimelineRescheduler.resizedBounds(
             originalStartMinute: original.startMinute,
             originalEndMinute: original.endMinute,
@@ -1405,56 +1498,7 @@ struct EditablePlanTimelineView: View {
             delta: delta,
             minimumDuration: minimumDurationMinutes
         )
-        let reachedMinimum = result.endMinute - result.startMinute <= minimumDurationMinutes
-        if let currentGlobalY, reachedMinimum, crossedMinimum(from: original, edge: edge, delta: delta) {
-            resizeMinimumLock = EditableResizeMinimumLock(
-                planID: original.id,
-                edge: edge,
-                startMinute: result.startMinute,
-                endMinute: result.endMinute,
-                locationY: currentGlobalY
-            )
-        } else if !reachedMinimum {
-            resizeMinimumLock = nil
-        }
         return (result.startMinute, result.endMinute, result.pushDirection, result.feedbackMinute)
-    }
-
-    private func resizedIntervalFromMinimumLock(
-        _ locked: EditableResizeMinimumLock,
-        currentGlobalY: CGFloat
-    ) -> (start: Int, end: Int, direction: PlanTimelinePushDirection, feedbackMinute: Int) {
-        let delta = snappedMinuteDelta(currentGlobalY - locked.locationY)
-        switch locked.edge {
-        case .start:
-            if delta > 0 {
-                let start = min(PlanTimelineRescheduler.dayEndMinute - minimumDurationMinutes, locked.startMinute + delta)
-                let end = start + minimumDurationMinutes
-                resizeMinimumLock = locked.updated(startMinute: start, endMinute: end, locationY: currentGlobalY)
-                return (start, end, .later, start)
-            }
-            let start = max(PlanTimelineRescheduler.dayStartMinute, min(locked.endMinute - minimumDurationMinutes, locked.startMinute + delta))
-            return (start, locked.endMinute, .earlier, start)
-
-        case .end:
-            if delta < 0 {
-                let end = max(PlanTimelineRescheduler.dayStartMinute + minimumDurationMinutes, locked.endMinute + delta)
-                let start = end - minimumDurationMinutes
-                resizeMinimumLock = locked.updated(startMinute: start, endMinute: end, locationY: currentGlobalY)
-                return (start, end, .earlier, end)
-            }
-            let end = min(PlanTimelineRescheduler.dayEndMinute, max(locked.startMinute + minimumDurationMinutes, locked.endMinute + delta))
-            return (locked.startMinute, end, .later, end)
-        }
-    }
-
-    private func crossedMinimum(from original: PlanTimelineInterval, edge: EditablePlanResizeEdge, delta: Int) -> Bool {
-        switch edge {
-        case .start:
-            original.startMinute + delta > original.endMinute - minimumDurationMinutes
-        case .end:
-            original.endMinute + delta < original.startMinute + minimumDurationMinutes
-        }
     }
 
     private func applyAccessibilityMove(plan: PlanBlock, minuteDelta: Int) {
@@ -1584,9 +1628,9 @@ struct EditablePlanTimelineView: View {
         gestureBaseline = nil
         draftIntervals = nil
         resizeInteractionAnchor = nil
-        resizeMinimumLock = nil
         activeResizeEdge = nil
-        resizeDragStartGlobalY = nil
+        moveDragSession = nil
+        resizeDragSession = nil
         didWarnDuringScheduleGesture = false
         lastMoveFeedbackMinute = nil
         lastResizeFeedbackMinute = nil
@@ -1747,21 +1791,10 @@ struct EditablePlanTimelineView: View {
     private func snappedMinute(fromY y: CGFloat) -> Int {
         let timelineY = max(0, min(hourHeight * 24, y - timelineTopInset))
         let raw = Int((timelineY / hourHeight * 60).rounded())
-        return min(PlanTimelineRescheduler.dayEndMinute, max(0, (raw / snapMinutes) * snapMinutes))
-    }
-
-    private func snappedMinuteDelta(_ y: CGFloat) -> Int {
-        let raw = Int((y / hourHeight * 60).rounded())
-        return Int((Double(raw) / Double(snapMinutes)).rounded()) * snapMinutes
-    }
-
-    private func dragTranslationY(_ value: DragGesture.Value) -> CGFloat {
-        value.translation.height
-    }
-
-    private func resizeDragTranslationY(_ value: DragGesture.Value) -> CGFloat {
-        let startY = resizeDragStartGlobalY ?? value.startLocation.y
-        return value.location.y - startY
+        return min(
+            PlanTimelineRescheduler.dayEndMinute,
+            max(0, (raw / creationSnapMinutes) * creationSnapMinutes)
+        )
     }
 
     private func minute(for date: Date) -> Int {
@@ -2144,8 +2177,6 @@ private enum EditablePlanBlockMetrics {
     static let resizeGripBackgroundHeight: CGFloat = 19
     static let resizeGripWidth: CGFloat = 54
     static let resizeGripHeight: CGFloat = 5.5
-    static let resizeHandleHorizontalSlop: CGFloat = 22
-    static let minimumResizeHandleWidth: CGFloat = 120
     static let deleteLongPressDuration = 0.65
     static let deleteLongPressMaximumDistance: CGFloat = 8
 }
@@ -2161,24 +2192,6 @@ private enum EditablePlanResizeEdge {
         case .end:
             return .end
         }
-    }
-}
-
-private struct EditableResizeMinimumLock {
-    let planID: UUID
-    let edge: EditablePlanResizeEdge
-    let startMinute: Int
-    let endMinute: Int
-    let locationY: CGFloat
-
-    func updated(startMinute: Int, endMinute: Int, locationY: CGFloat) -> EditableResizeMinimumLock {
-        EditableResizeMinimumLock(
-            planID: planID,
-            edge: edge,
-            startMinute: startMinute,
-            endMinute: endMinute,
-            locationY: locationY
-        )
     }
 }
 
@@ -2209,13 +2222,13 @@ private struct EditablePlanBlock<MoveGesture: Gesture>: View {
                     .offset(y: -EditablePlanBlockMetrics.resizeHandleEdgeOutset)
                     .zIndex(20)
                     .allowsHitTesting(false)
-                    .accessibilityLabel("開始時刻を調整")
+                    .accessibilityHidden(true)
 
                 resizeHandle(edge: .end)
                     .offset(y: blockHeight + overflow - EditablePlanBlockMetrics.resizeHandleEdgeOverlap)
                     .zIndex(20)
                     .allowsHitTesting(false)
-                    .accessibilityLabel("終了時刻を調整")
+                    .accessibilityHidden(true)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
