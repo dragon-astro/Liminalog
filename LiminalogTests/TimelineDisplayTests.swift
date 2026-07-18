@@ -118,6 +118,12 @@ struct TimelineDisplayTests {
         #expect(selected.tintOpacity < 0.5)
         #expect(selected.strokeOpacity > unselected.strokeOpacity)
         #expect(selected.strokeOpacity < 1)
+        #expect(selected.strokeWidth > unselected.strokeWidth)
+        #expect(selected.showsSelectionMark)
+        #expect(!unselected.showsSelectionMark)
+        #expect(selected.leadingSystemImage(categoryIcon: "book.fill") == "checkmark.circle.fill")
+        #expect(unselected.leadingSystemImage(categoryIcon: "book.fill") == "book.fill")
+        #expect(unselected.leadingSystemImage(categoryIcon: nil) == "circle.fill")
     }
 
     @Test
