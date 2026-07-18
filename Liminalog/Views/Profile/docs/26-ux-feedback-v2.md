@@ -71,7 +71,7 @@
 2. 1ハンドル＋ドラッグ中だけ表示する15/5/1分切替
 3. 1ハンドル＋長押し等の一時精密モード
 
-第一候補は **1ハンドル＋必要時だけ現れる精度切替**。明確に優れた案がなければ恒久UI実装前にユーザーへ確認する。
+採用は **既存の開始/終了ハンドルを維持し、選択中の予定にだけ出すコンパクトな精度メニュー**。ドラッグ中に同じ指で切り替える案は操作不能、2ハンドル追加は密度と誤操作、長押し精密モードは既存の削除操作との競合と発見性で劣るため見送る。精度はドラッグ前に15/5/1分から選び、予定を選び直した時は安全な15分へ戻す。
 
 ### 9.2 ヒット判定
 
@@ -88,9 +88,18 @@
 - 同方向の入力中に時刻が逆行せず、数ポイントで遠距離へ飛ばないことを純粋ロジックテストで固定する。
 - 移動、開始resize、終了resize、4ズーム、autoscroll、日付境界をRelease実機動画で確認する。
 
+### 9.4 実装・検証結果（2026-07-19）
+
+- `TimelineDragPolicy` に15/5/1分量子化、固定global座標anchor、未丸め時刻からの一回量子化、0.15段階hysteresis、ブロック幅内だけを許可する横hit policyを集約した。
+- 移動・開始resize・終了resizeはドラッグ開始時の時刻と座標を固定し、前フレームの丸め済み値を次フレームへ再利用しない。精度を変えても同じraw anchorを使う。
+- 精度メニューは選択中予定の右上だけに約77×41ptで表示し、現在値を表示する。LiminalThemeのセマンティック色、accessibility label/value/hint/actionを付与した。
+- 自動edge autoscrollは現行実装に存在しないため新機能として追加していない。手動スクロールを挟んでも固定anchorと画面座標を混同しないことを実機で確認し、日付境界は既存rescheduler回帰テストで確認した。
+- 純粋policy 8件、対象・関連41件、最終関連46件/5 suites、generic iOS Release buildが成功した。曙/宵のシミュレータUIで移動・開始/終了resize・15/5/1分・横誤判定を確認した。
+- iPhone 13 / iOS 26.5.2 のRelease実機で、4ズーム中の移動（09:00→09:11→09:19→09:24→09:28）、終了resizeの15/5/1分、開始resizeの1分（09:00→09:21）、ハンドル横の旧slopがresizeを起こさないことを確認した。検証予定は終了時に削除した。
+- 証跡: `/private/tmp/ux-feedback-v2/item-g/target-tests-v2.xcresult`、`related-fresh-simulator.xcresult`、`ui-move-start-end-precision-v12.xcresult`、`ui-dusk-compact-selector.xcresult`、`ui-release-device-move-resize-v7.xcresult`、`ui-release-device-start-handle-v8.xcresult`、`DerivedData-release/Build/Products/Release-iphoneos/Liminalog.app`。
+
 ## 10. 最終合格条件
 
 - A〜Gの全受け入れ基準、LiminalogTests全件、主要回帰、課金9 suite、generic iOS Release、課金readinessが成功する。
 - 曙/宵、再起動永続化、過去日拒否、15/5/1分の移動/resize、Release実機性能を証拠付きで確認する。
 - `codex/ux-improvements-v1..codex/ux-feedback-v2` の課金禁止パス差分がゼロで、AI_TASKSとGit履歴が一致し、作業ツリーがcleanである。
-
