@@ -2,6 +2,16 @@ import SwiftData
 import SwiftUI
 import UIKit
 
+private enum FriendRelationshipActionKind {
+    case remove
+    case block
+}
+
+private struct PendingFriendRelationshipAction {
+    let friend: Friend
+    let kind: FriendRelationshipActionKind
+}
+
 struct FriendsView: View {
     @Environment(\.modelContext) private var modelContext
     @Binding private var pendingInviteURL: URL?
@@ -20,6 +30,8 @@ struct FriendsView: View {
     @State private var isShowingRankingDetail = false
     @State private var inviteInitialText = ""
     @State private var selectedFriend: Friend?
+    @State private var pendingRelationshipAction: PendingFriendRelationshipAction?
+    @State private var mutatingFriendIDs: Set<UUID> = []
     @State private var saveError: String?
     @State private var desiredUserID = ""
     @State private var friendSearchUserID = ""
@@ -543,16 +555,62 @@ struct FriendsView: View {
                         } label: {
                             Label("詳細を開く", systemImage: "person.crop.circle")
                         }
+
+                        Divider()
+
+                        Button(role: .destructive) {
+                            requestRelationshipAction(.remove, for: friend)
+                        } label: {
+                            Label("友達を解除", systemImage: "person.crop.circle.badge.minus")
+                        }
+                        .disabled(mutatingFriendIDs.contains(friend.id))
+
+                        Button(role: .destructive) {
+                            requestRelationshipAction(.block, for: friend)
+                        } label: {
+                            Label("ブロック", systemImage: "hand.raised")
+                        }
+                        .disabled(mutatingFriendIDs.contains(friend.id))
                     }
-                    .accessibilityHint("長押しでも詳細を開けます")
+                    .accessibilityHint("長押しで詳細、友達解除、ブロックのメニューを開きます")
                 }
             }
+        }
+        .alert(
+            relationshipConfirmationTitle,
+            isPresented: pendingRelationshipActionPresented
+        ) {
+            if let action = pendingRelationshipAction {
+                Button(relationshipConfirmationButtonTitle(action.kind), role: .destructive) {
+                    pendingRelationshipAction = nil
+                    switch action.kind {
+                    case .remove:
+                        delete(action.friend)
+                    case .block:
+                        block(action.friend)
+                    }
+                }
+            }
+            Button("キャンセル", role: .cancel) {
+                pendingRelationshipAction = nil
+            }
+        } message: {
+            Text(relationshipConfirmationMessage)
         }
     }
 
     private func openFriend(_ friend: Friend) {
         LiminalHaptics.openSheet()
         selectedFriend = friend
+    }
+
+    private func requestRelationshipAction(_ kind: FriendRelationshipActionKind, for friend: Friend) {
+        LiminalHaptics.warning()
+        Task { @MainActor in
+            // context menuのdismiss遷移中にalert状態を立てると、表示が取りこぼされることがある。
+            try? await Task.sleep(for: .milliseconds(250))
+            pendingRelationshipAction = PendingFriendRelationshipAction(friend: friend, kind: kind)
+        }
     }
 
     private var outgoingSection: some View {
@@ -1312,11 +1370,13 @@ struct FriendsView: View {
     }
 
     private func delete(_ friend: Friend) {
+        guard mutatingFriendIDs.insert(friend.id).inserted else { return }
         guard !friend.userRecordID.isEmpty else {
             modelContext.delete(friend)
             if save() {
                 LiminalHaptics.warning()
             }
+            mutatingFriendIDs.remove(friend.id)
             return
         }
         Task {
@@ -1327,9 +1387,43 @@ struct FriendsView: View {
                     if save() {
                         LiminalHaptics.warning()
                     }
+                    mutatingFriendIDs.remove(friend.id)
                 }
             } catch {
                 await MainActor.run {
+                    mutatingFriendIDs.remove(friend.id)
+                    LiminalHaptics.failure()
+                    cloudErrorText = "友達共有の停止に失敗しました: \(error.localizedDescription)"
+                }
+            }
+        }
+    }
+
+    private func block(_ friend: Friend) {
+        guard mutatingFriendIDs.insert(friend.id).inserted else { return }
+        guard !friend.userRecordID.isEmpty else {
+            CloudFriendLocalStatePolicy.applyBlockedState(to: friend)
+            clearIncomingShareData(for: friend)
+            if save() {
+                LiminalHaptics.warning()
+            }
+            mutatingFriendIDs.remove(friend.id)
+            return
+        }
+        Task {
+            do {
+                try await stopCloudSharing(with: friend, block: true)
+                await MainActor.run {
+                    CloudFriendLocalStatePolicy.applyBlockedState(to: friend)
+                    clearIncomingShareData(for: friend)
+                    if save() {
+                        LiminalHaptics.warning()
+                    }
+                    mutatingFriendIDs.remove(friend.id)
+                }
+            } catch {
+                await MainActor.run {
+                    mutatingFriendIDs.remove(friend.id)
                     LiminalHaptics.failure()
                     cloudErrorText = "友達共有の停止に失敗しました: \(error.localizedDescription)"
                 }
@@ -1376,6 +1470,46 @@ struct FriendsView: View {
             if !isPresented {
                 saveError = nil
             }
+        }
+    }
+
+    private var pendingRelationshipActionPresented: Binding<Bool> {
+        Binding {
+            pendingRelationshipAction != nil
+        } set: { isPresented in
+            if !isPresented {
+                pendingRelationshipAction = nil
+            }
+        }
+    }
+
+    private var relationshipConfirmationTitle: String {
+        guard let action = pendingRelationshipAction else {
+            return "友達関係を変更しますか？"
+        }
+        switch action.kind {
+        case .remove:
+            return "\(action.friend.displayName)との友達関係を解除しますか？"
+        case .block:
+            return "\(action.friend.displayName)をブロックしますか？"
+        }
+    }
+
+    private func relationshipConfirmationButtonTitle(_ kind: FriendRelationshipActionKind) -> String {
+        switch kind {
+        case .remove: "友達を解除"
+        case .block: "ブロック"
+        }
+    }
+
+    private var relationshipConfirmationMessage: String {
+        switch pendingRelationshipAction?.kind {
+        case .remove:
+            return "共有を停止して一覧から削除します。相手をブロックしないため、あとで再申請できます。"
+        case .block:
+            return "この相手との共有や表示を停止します。ブロックは設定から解除できます。"
+        case nil:
+            return ""
         }
     }
 }
@@ -1977,9 +2111,8 @@ private struct FriendDetailView: View {
 
     private func blockFriend() {
         guard !friend.userRecordID.isEmpty else {
-            friend.status = .blocked
-            friend.blockedAt = Date()
-            friend.updatedAt = Date()
+            CloudFriendLocalStatePolicy.applyBlockedState(to: friend)
+            clearIncomingShareData()
             if save() {
                 LiminalHaptics.warning()
             }
@@ -1989,11 +2122,8 @@ private struct FriendDetailView: View {
             do {
                 try await stopCloudSharing(with: friend, block: true)
                 await MainActor.run {
-                    friend.status = .blocked
-                    friend.blockedAt = Date()
-                    friend.shareURL = nil
+                    CloudFriendLocalStatePolicy.applyBlockedState(to: friend)
                     clearIncomingShareData()
-                    friend.updatedAt = Date()
                     if save() {
                         LiminalHaptics.warning()
                     }
