@@ -6,28 +6,29 @@ struct CategoryGridButton: View {
     let action: () -> Void
 
     var body: some View {
+        let displayColor = category.displayColor
         Button(action: action) {
             VStack(spacing: 7) {
                 ZStack {
                     Circle()
-                        .fill(category.displayColor.opacity(isActive ? 1.0 : 0.18))
+                        .fill(displayColor.opacity(isActive ? 1.0 : 0.18))
                         .frame(width: 40, height: 40)
 
                     if isActive {
                         Circle()
-                            .stroke(category.displayColor, lineWidth: 2.5)
+                            .stroke(displayColor, lineWidth: 2.5)
                             .frame(width: 46, height: 46)
                     }
 
                     Image(systemName: category.icon ?? "circle.fill")
                         .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(isActive ? .white : category.displayColor)
+                        .foregroundStyle(isActive ? .white : displayColor)
                 }
 
                 Text(category.name)
                     .font(.caption2)
                     .fontWeight(isActive ? .semibold : .regular)
-                    .foregroundStyle(isActive ? category.displayColor : .primary)
+                    .foregroundStyle(isActive ? displayColor : .primary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
             }
@@ -35,7 +36,7 @@ struct CategoryGridButton: View {
             .padding(.vertical, 6)
             .background(
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(category.displayColor.opacity(isActive ? 0.18 : 0.1))
+                    .fill(displayColor.opacity(isActive ? 0.18 : 0.1))
             )
         }
         .buttonStyle(.plain)

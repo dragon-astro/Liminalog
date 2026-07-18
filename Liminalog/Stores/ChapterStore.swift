@@ -14,6 +14,7 @@ final class ChapterStore {
     private let planStore: PlanStore
     private let liveActivityCoordinator: LiveActivityCoordinator
     private var didDisableUserSettingsPersistence = false
+    private let categoryBoardSelectionScheduler: CategoryBoardSelectionScheduler
     private static let appGroupID = "group.app.YasudaRyuga.Liminalog"
     private static let activeCategoryCacheKey = "recording.activeCategoryID"
     private static let pendingCategoryCacheKey = "recording.pendingCategoryID"
@@ -40,6 +41,9 @@ final class ChapterStore {
         self.planStore = planStore ?? PlanStore(modelContext: modelContext, clock: clock)
         self.liveActivityCoordinator = liveActivityCoordinator ?? LiveActivityCoordinator(
             categorySetStore: resolvedCategorySetStore
+        )
+        self.categoryBoardSelectionScheduler = CategoryBoardSelectionScheduler(
+            lastCommittedID: Self.cachedPublishedCategorySetID()
         )
     }
 
@@ -87,11 +91,22 @@ final class ChapterStore {
         // synchronize() は同期ディスクフラッシュで重く、現行iOSでは不要（自動永続化される）。
     }
 
-    private func cachedEnabledCategorySetID() -> UUID? {
+    private static func cachedEnabledCategorySetID() -> UUID? {
         guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil,
               let value = UserDefaults(suiteName: Self.appGroupID)?.string(forKey: Self.enabledCategorySetCacheKey)
         else { return nil }
         return UUID(uuidString: value)
+    }
+
+    private static func cachedPublishedCategorySetID() -> UUID? {
+        guard let cachedID = cachedEnabledCategorySetID(),
+              let data = UserDefaults(suiteName: Self.appGroupID)?.data(forKey: Self.surfaceSnapshotCacheKey),
+              let snapshot = try? JSONDecoder().decode(RecordingSurfaceSnapshot.self, from: data)
+        else { return nil }
+        return CategoryBoardSelectionPolicy.validatedPublishedID(
+            cachedID: cachedID,
+            snapshotID: snapshot.selectedCategorySetID
+        )
     }
 
     private func affectedScoreDayStarts(start: Date, end: Date) -> Set<Date> {
@@ -114,10 +129,15 @@ final class ChapterStore {
             return nil
         }
 
-        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return snapshot }
+        publishRecordingSurfaceSnapshot(snapshot)
+        return snapshot
+    }
+
+    private func publishRecordingSurfaceSnapshot(_ snapshot: RecordingSurfaceSnapshot) {
+        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
         guard let defaults = UserDefaults(suiteName: Self.appGroupID) else {
             NSLog("Liminalog: skipped recording surface snapshot cache because app group UserDefaults was unavailable")
-            return snapshot
+            return
         }
 
         if let id = snapshot.selectedCategorySetID {
@@ -132,7 +152,6 @@ final class ChapterStore {
         } catch {
             NSLog("Liminalog: failed to encode recording surface snapshot: \(String(describing: error))")
         }
-        return snapshot
     }
 
     private func makeRecordingSurfaceSnapshot(categorySet: CategorySet? = nil) -> RecordingSurfaceSnapshot? {
@@ -731,16 +750,33 @@ final class ChapterStore {
         return true
     }
 
-    func setEnabledCategorySetID(_ id: UUID?) {
+    @discardableResult
+    func setEnabledCategorySetID(_ id: UUID?) -> Bool {
         guard let sets = categorySetStore.categorySetsIfAvailable(),
-              let snapshot = publishRecordingSurfaceSnapshot(categorySet: sets.first { $0.id == id })
+              let snapshot = makeRecordingSurfaceSnapshot(categorySet: sets.first { $0.id == id })
         else {
             NSLog("Liminalog: skipped enabled category set update because category sets could not be loaded")
-            return
+            return false
         }
+        return applyEnabledCategorySetSnapshot(snapshot)
+    }
+
+    private func applyEnabledCategorySetSnapshot(_ snapshot: RecordingSurfaceSnapshot) -> Bool {
+        publishRecordingSurfaceSnapshot(snapshot)
         reloadRecordingGridWidget()
         updateLiveActivity(snapshot: snapshot)
-        persistEnabledCategorySetIDBestEffort(id)
+        persistEnabledCategorySetIDBestEffort(snapshot.selectedCategorySetID)
+        return true
+    }
+
+    /// Page scrolling may report transient IDs and CategoryGrid can be recreated by navigation or theme changes.
+    /// Keep the debounce and last committed ID in the app-lifetime store so those UI events cannot duplicate
+    /// App Group writes, Widget reloads, Live Activity updates, or SwiftData persistence.
+    func scheduleEnabledCategorySetSnapshot(_ snapshot: RecordingSurfaceSnapshot?) {
+        categoryBoardSelectionScheduler.schedule(snapshot?.selectedCategorySetID) { [weak self] candidate in
+            guard let snapshot, snapshot.selectedCategorySetID == candidate else { return false }
+            return self?.applyEnabledCategorySetSnapshot(snapshot) ?? false
+        }
     }
 
     func syncLiveActivityWithActiveChapter() {
@@ -836,7 +872,7 @@ final class ChapterStore {
             NSLog("Liminalog: failed to fetch UserSettings for current category set: \(String(describing: error))")
             settings = nil
         }
-        return cachedEnabledCategorySetID().flatMap { id in sets.first { $0.id == id } }
+        return Self.cachedEnabledCategorySetID().flatMap { id in sets.first { $0.id == id } }
             ?? settings?.enabledCategorySetID.flatMap { id in sets.first { $0.id == id } }
             ?? sets.first { $0.isDefault }
             ?? sets.first

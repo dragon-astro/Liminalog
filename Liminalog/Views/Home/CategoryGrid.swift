@@ -13,7 +13,6 @@ struct CategoryGrid: View {
     @State private var activeID: UUID? = nil
     @State private var editingCategory: Category? = nil
     @State private var editingSetFromEmptySlot: CategorySet? = nil
-    @State private var setSyncTask: Task<Void, Never>?
     @State private var operationError: String?
 
     private let cardPadding: CGFloat = 14
@@ -39,24 +38,7 @@ struct CategoryGrid: View {
                 headerBar
 
                 if isExpanded {
-                    ScrollView(.horizontal) {
-                        // セット数は少数（数個）なので遅延生成は逆効果。HStack で全ページを
-                        // 事前生成し、スクロール中の body 評価（色のhexパース等）によるヒッチを防ぐ。
-                        HStack(spacing: 0) {
-                            ForEach(categorySets) { set in
-                                gridPage(set: set)
-                                    .padding(pageInset)
-                                    .containerRelativeFrame(.horizontal)
-                                    .id(set.id)
-                            }
-                        }
-                        .scrollTargetLayout()
-                    }
-                    .scrollTargetBehavior(.paging)
-                    .scrollPosition(id: $scrolledSetID, anchor: .center)
-                    .scrollIndicators(.hidden)
-                    .frame(height: tableHeight)
-                    .liminalSectionCard(padding: cardPadding)
+                    categoryPages
 
                     if categorySets.count > 1 {
                         pageIndicator
@@ -157,8 +139,35 @@ struct CategoryGrid: View {
 
     // MARK: - Grid page
 
-    private func gridPage(set: CategorySet) -> some View {
-        let cells = slottedCategories(for: set)
+    private var categoryPages: some View {
+        // CategoryGridの状態更新でbodyが再評価されても、全ページ分のUUID辞書を一度だけ作る。
+        let lookup = categoryByID
+        return ScrollView(.horizontal) {
+            // セット数は少数（数個）なので遅延生成は逆効果。HStack で全ページを
+            // 事前生成し、スクロール中のページ生成によるヒッチを防ぐ。
+            HStack(spacing: 0) {
+                ForEach(categorySets) { set in
+                    gridPage(set: set, categoryByID: lookup)
+                        .padding(pageInset)
+                        .containerRelativeFrame(.horizontal)
+                        .id(set.id)
+                }
+            }
+            .scrollTargetLayout()
+        }
+        .scrollTargetBehavior(.paging)
+        .scrollPosition(id: $scrolledSetID, anchor: .center)
+        .scrollIndicators(.hidden)
+        .frame(height: tableHeight)
+        .liminalSectionCard(padding: cardPadding)
+        .accessibilityIdentifier("category-board-pager")
+    }
+
+    private func gridPage(
+        set: CategorySet,
+        categoryByID: [UUID: Category]
+    ) -> some View {
+        let cells = slottedCategories(for: set, categoryByID: categoryByID)
         return LazyVGrid(columns: columns, spacing: 10) {
             ForEach(0..<CategorySet.slotCount, id: \.self) { index in
                 if let category = cells[index] {
@@ -211,6 +220,16 @@ struct CategoryGrid: View {
             }
         }
         .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("ボードページ")
+        .accessibilityValue(pageIndicatorValue)
+    }
+
+    private var pageIndicatorValue: String {
+        guard let selectedSetID,
+              let index = categorySets.firstIndex(where: { $0.id == selectedSetID })
+        else { return "" }
+        return "\(index + 1)/\(categorySets.count)"
     }
 
     private var operationErrorPresented: Binding<Bool> {
@@ -267,13 +286,14 @@ struct CategoryGrid: View {
     private func syncSelection() {
         activeID = store.activeChapter?.category?.id
 
-        // 復元: AppStorageから前回の選択を読み取り、存在すれば適用
-        let storedID = UUID(uuidString: activeSetIDString)
-        if let storedID, categorySets.contains(where: { $0.id == storedID }) {
-            selectedSetID = storedID
-        } else if selectedSetID == nil || !categorySets.contains(where: { $0.id == selectedSetID }) {
-            selectedSetID = categorySets.first?.id
+        let restoration = CategoryBoardSelectionPolicy.restore(
+            storedID: UUID(uuidString: activeSetIDString),
+            availableIDs: categorySets.map(\.id)
+        )
+        if selectedSetID != restoration.selectedID {
+            selectedSetID = restoration.selectedID
         }
+
         let normalizedStoredID = selectedSetID?.uuidString ?? ""
         if activeSetIDString != normalizedStoredID {
             activeSetIDString = normalizedStoredID
@@ -282,7 +302,7 @@ struct CategoryGrid: View {
         if scrolledSetID != selectedSetID {
             scrolledSetID = selectedSetID
         }
-        scheduleEnabledSetSync(selectedSetID)
+        store.scheduleEnabledCategorySetSnapshot(recordingSurfaceSnapshot(for: selectedSetID))
     }
 
     private func syncSelectionAfterLayout() {
@@ -297,7 +317,7 @@ struct CategoryGrid: View {
         if activeSetIDString != newString {
             activeSetIDString = newString
         }
-        scheduleEnabledSetSync(id)
+        store.scheduleEnabledCategorySetSnapshot(recordingSurfaceSnapshot(for: id))
     }
 
     private func selectCategorySet(_ set: CategorySet) {
@@ -309,22 +329,34 @@ struct CategoryGrid: View {
         }
     }
 
-    /// 有効セットの反映（ウィジェット再読み込み・ライブアクティビティ更新・共有書き込み）は
-    /// クロスプロセスで重い。セット間をスワイプ閲覧するたびに走らせるとカクつくため、
-    /// 選択が落ち着いてから一度だけ反映するようデバウンスする。
-    private func scheduleEnabledSetSync(_ id: UUID?) {
-        setSyncTask?.cancel()
-        setSyncTask = Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(350))
-            guard !Task.isCancelled else { return }
-            store.setEnabledCategorySetID(id)
-        }
-    }
-
-    private func slottedCategories(for set: CategorySet) -> [Category?] {
+    private func slottedCategories(
+        for set: CategorySet,
+        categoryByID: [UUID: Category]
+    ) -> [Category?] {
         CategorySet.normalize(set.slots).map { id in
             id.flatMap { categoryByID[$0] }
         }
+    }
+
+    private func recordingSurfaceSnapshot(for id: UUID?) -> RecordingSurfaceSnapshot? {
+        guard let id,
+              let set = categorySets.first(where: { $0.id == id })
+        else { return nil }
+        let lookup = categoryByID
+        let cells: [RecordingSurfaceSnapshot.Cell?] = CategorySet.normalize(set.slots).map { categoryID in
+            guard let categoryID, let category = lookup[categoryID] else { return nil }
+            return RecordingSurfaceSnapshot.Cell(
+                id: category.id,
+                name: category.name,
+                colorHex: category.colorHex,
+                icon: category.icon
+            )
+        }
+        return RecordingSurfaceSnapshot(
+            selectedCategorySetID: set.id,
+            categorySetName: set.name,
+            cells: cells
+        )
     }
 }
 
