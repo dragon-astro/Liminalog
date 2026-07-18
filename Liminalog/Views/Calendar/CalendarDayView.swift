@@ -83,15 +83,17 @@ struct CalendarDayView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 14) {
                         dayVisibilityMenu
-                        Button {
-                            preparePlanCreation()
-                        } label: {
-                            Image(systemName: "plus")
-                                .font(.title3.weight(.semibold))
-                                .foregroundStyle(LiminalTheme.accent)
-                                .frame(width: 32, height: 32)
+                        if canCreatePlansForDay {
+                            Button {
+                                preparePlanCreation()
+                            } label: {
+                                Image(systemName: "plus")
+                                    .font(.title3.weight(.semibold))
+                                    .foregroundStyle(LiminalTheme.accent)
+                                    .frame(width: 32, height: 32)
+                            }
+                            .accessibilityLabel("予定を追加")
                         }
-                        .accessibilityLabel("予定を追加")
                     }
                 }
             }
@@ -247,7 +249,7 @@ struct CalendarDayView: View {
                 }
             }
 
-            if importantPlans.isEmpty {
+            if importantPlans.isEmpty, canCreatePlansForDay {
                 Button {
                     pendingCreateDate = Calendar.japanese.startOfDay(for: date)
                     pendingPlanStartsAsAllDay = true
@@ -374,6 +376,10 @@ struct CalendarDayView: View {
         store.canCreatePlan(startTime: date, isAllDay: false)
     }
 
+    private var canCreatePlansForDay: Bool {
+        CalendarPlanCreationPreset.allowsCreation(for: date)
+    }
+
     private func scoreText(_ summary: ScoreSummary) -> String {
         summary.plannedDuration > 0 ? "\(Int(summary.totalScore.rounded()))" : "--"
     }
@@ -455,10 +461,10 @@ struct CalendarDayView: View {
     }
 
     private func preparePlanCreation() {
-        let preset = CalendarPlanCreationPreset.make(
+        guard let preset = CalendarPlanCreationPreset.make(
             for: date,
             canCreateTimedPlan: canCreateTimedPlansForDay
-        )
+        ) else { return }
         pendingCreateDate = preset.initialDate
         pendingPlanStartsAsAllDay = preset.startsAsAllDay
         showingPlanSheet = true

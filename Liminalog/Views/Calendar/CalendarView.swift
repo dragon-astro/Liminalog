@@ -480,10 +480,10 @@ struct CalendarView: View {
     }
 
     private func preparePlanCreation(for date: Date) {
-        let preset = CalendarPlanCreationPreset.make(
+        guard let preset = CalendarPlanCreationPreset.make(
             for: date,
             canCreateTimedPlan: store.canCreatePlan(startTime: date, isAllDay: false)
-        )
+        ) else { return }
         pendingPlanCreation = CalendarPlanCreationRequest(preset: preset)
     }
 
@@ -1675,16 +1675,18 @@ private struct CalendarDayPagerSheet: View {
             ToolbarItem(placement: .topBarTrailing) {
                 HStack(spacing: 14) {
                     dayVisibilityMenu
-                    Button {
-                        LiminalHaptics.openSheet()
-                        preparePlanCreation()
-                    } label: {
-                        Image(systemName: "plus")
-                            .font(.title3.weight(.semibold))
-                            .foregroundStyle(LiminalTheme.accent)
-                            .frame(width: 32, height: 32)
+                    if canCreatePlansForDay {
+                        Button {
+                            LiminalHaptics.openSheet()
+                            preparePlanCreation()
+                        } label: {
+                            Image(systemName: "plus")
+                                .font(.title3.weight(.semibold))
+                                .foregroundStyle(LiminalTheme.accent)
+                                .frame(width: 32, height: 32)
+                        }
+                        .accessibilityLabel("予定を追加")
                     }
-                    .accessibilityLabel("予定を追加")
                 }
             }
         }
@@ -1790,11 +1792,15 @@ private struct CalendarDayPagerSheet: View {
         store.canCreatePlan(startTime: currentDate, isAllDay: false)
     }
 
+    private var canCreatePlansForDay: Bool {
+        CalendarPlanCreationPreset.allowsCreation(for: currentDate)
+    }
+
     private func preparePlanCreation() {
-        let preset = CalendarPlanCreationPreset.make(
+        guard let preset = CalendarPlanCreationPreset.make(
             for: currentDate,
             canCreateTimedPlan: canCreateTimedPlansForDay
-        )
+        ) else { return }
         pendingCreateDate = preset.initialDate
         pendingPlanStartsAsAllDay = preset.startsAsAllDay
         showingPlanSheet = true
@@ -3126,7 +3132,8 @@ private struct CalendarMonthWeekRow: View {
 
     @ViewBuilder
     private func dayCellButton(_ model: CalendarMonthDayCellModel) -> some View {
-        if let onCreatePlan {
+        if let onCreatePlan,
+           CalendarPlanCreationPreset.allowsCreation(for: model.date, calendar: calendar) {
             baseDayCellButton(model)
                 .contextMenu {
                     Button {
