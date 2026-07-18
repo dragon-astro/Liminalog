@@ -988,6 +988,22 @@ refactor: split plan store
 
 ---
 
+## 8.15 予定編集の透明化モデル（docs/27・編集ロック緩和）
+
+設計: **[../Liminalog/Views/Profile/docs/27-plan-edit-transparency.md](../Liminalog/Views/Profile/docs/27-plan-edit-transparency.md)**（2026-07-19 ユーザー決定済み。ルールセット・マーク/バッジ/ダイアログ仕様・スコア変更・移行ガード・goalプロンプト同梱）。spec v0.4 の編集ロック節は改定済み。カレンダーのコア化に伴い、旧ロック方式を「変更許可+当日変更マーク+計画キープバッジ+注意ダイアログ」へ転換する。**判断に迷ったら docs/27 が正。docs/27 に無い曖昧点は §11 に追記してユーザー確認。**
+
+- [ ] Codex プランレビュー（docs/27 全体。特に §5 スコア変更の移行ガード・§7 PlanDayState 設計・ダイアログのコミット前確認フロー） <!-- 担当: Codex -->
+- [ ] ポリシー型新設: ゾーン×操作種別の許可判定 + `isScheduleAffectingChange` 一元化（マーク/バッジ/ダイアログ共通述語）+ マトリクステスト <!-- 担当: Codex, 理由: 複雑な条件分岐のゼロベース設計, 依存: プランレビュー -->
+- [ ] モデル追加: `PlanBlock.sameDayScheduleEditedAt` / `Chapter.lateEditedAt` / `DailyScoreSnapshot.planKeptDay` / 新規 `PlanDayState` + スキーマ登録 + CloudKit互換確認 <!-- 担当: Codex, 理由: CloudKit互換スキーマ設計, 依存: プランレビュー -->
+- [ ] ScoreStore/ScoreCalculator: 確定境界を一昨日へ1日シフト + 分母ラチェット + 確定日のスナップショット読み切替（summaries / CalendarDayScoreCache）+ 既確定分の二重加算・巻き戻し禁止の移行ガード + テスト <!-- 担当: Codex, 理由: 確定台帳の整合性が最重要, 依存: モデル -->
+- [ ] PlanStore/ChapterStore 配線: 新ポリシー適用・削除許可・実績境界1日シフト・フラグ刻印（planTouchedSameDay / sameDayScheduleEditedAt / lateEditedAt）+ テスト <!-- 担当: Codex, 依存: ポリシー型+モデル -->
+- [ ] 注意/説明ダイアログ: 発火3条件・planTouchedSameDay 抑制・ドラッグはコミット前確認（「やめる」で元位置復帰）・確定日削除は「スコアは変わりません」説明に切替 <!-- 担当: Codex, 依存: Store配線。文言は docs/27 §4 たたき台を使用、最終文言はユーザー -->
+- [ ] マーク・バッジ表示: 予定カード/デイビュー/デイリーカードへの当日変更・後から修正・計画キープ表示（ランキング行は Phase 3 友達UI実装時に接続） <!-- 担当: Claude, 理由: 既存UIへの馴染み, 依存: モデル -->
+- [ ] 回帰確認: docs/26 Item D 過去日予定追加ガード維持・Item G ドラッグ直接操作・ストリーク/アンロック一式 <!-- 担当: Codex, 依存: 全実装 -->
+- [ ] マーク・バッジの正式名称/アイコン決定（「当日変更」「後から修正」「計画キープ」は仮） <!-- 担当: ユーザー, 理由: docs/27 §10-1 -->
+
+---
+
 ## 9. Phase 4 — UX向上・ソーシャル深化
 
 - [ ] ダッシュボード 2 人比較 UI（24時間バー + カード要約の新タイムライン仕様に合わせる）<!-- 担当: Claude, 理由: SwiftUI レイアウト -->
