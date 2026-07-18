@@ -151,7 +151,12 @@ struct LiminalogApp: App {
     }
 
     private func refreshIncomingFriendSharesWhenReady(reason: String) async {
+        // coordinator 未生成（モデルストア初期化待ち）は最大10秒だけ待ち、
+        // fallback 等で永遠に来ない場合はスピナーを静かに終わらせる
+        var remainingAttempts = 100
         while cloudFriendShareRefreshCoordinator == nil {
+            guard remainingAttempts > 0 else { return }
+            remainingAttempts -= 1
             do {
                 try await Task.sleep(nanoseconds: 100_000_000)
             } catch {
