@@ -974,6 +974,20 @@ refactor: split plan store
 
 ---
 
+## 8.14 UXフィードバック v2（docs/26・v1ユーザーFB対応）
+
+設計: **[../Liminalog/Views/Profile/docs/26-ux-feedback-v2.md](../Liminalog/Views/Profile/docs/26-ux-feedback-v2.md)**。開始地点 `codex/ux-improvements-v1`、統合先 `codex/ux-feedback-v2`、実行順 A→B→C→D→E→F→G。機能追加数より、画面占有・視認性・誤操作・震え・Release性能を優先する。
+
+- [ ] A: 実行中カードの停止/公開操作を視覚的にコンパクトへ戻し、予定/実績同居とアクセシビリティを維持する <!-- 担当: Codex -->
+- [ ] B: タイムラインのカテゴリ選択を黒文字＋濃色背景から軽い高コントラスト表現へ戻し、作成→即選択を維持する <!-- 担当: Codex -->
+- [ ] C: カテゴリアイコンを「従来のコンパクトグリッド＋から全ライブラリsheet」の二層へ再構成する <!-- 担当: Codex -->
+- [ ] D: 過去日の月セル長押し予定追加を禁止し、終日予定へのfallbackで制限を迂回しないpolicy/testを追加する <!-- 担当: Codex -->
+- [ ] E: 友達行の長押しへ既存APIによる詳細/解除/ブロックを追加し、破壊的操作を確認付きにする <!-- 担当: Codex -->
+- [ ] F: カテゴリボード切替の重い副作用を確定後一度へ集約し、iPhone 13を含むRelease実機で改善を計測する <!-- 担当: Codex -->
+- [ ] G: タイムラインのhandle hit領域、15/5/1分精度切替、drag震え/遠距離snapを操作設計から再構築する <!-- 担当: Codex -->
+
+---
+
 ## 9. Phase 4 — UX向上・ソーシャル深化
 
 - [ ] ダッシュボード 2 人比較 UI（24時間バー + カード要約の新タイムライン仕様に合わせる）<!-- 担当: Claude, 理由: SwiftUI レイアウト -->
