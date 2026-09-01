@@ -10,6 +10,34 @@ struct TimelineDragPolicyTests {
         #expect(TimelineSnapPrecision.quarterHour.minutes == 15)
     }
 
+    @Test("刻み幅を大きくした後は差分ではなく時刻をきりのよい値へ揃える")
+    func alignsOffGridOriginalMinuteToClockGridAfterMovement() {
+        #expect(TimelineSnapPolicy.alignedMinute(
+            originalMinute: 29,
+            relativeDelta: 5,
+            precision: .fiveMinutes
+        ) == 35)
+        #expect(TimelineSnapPolicy.alignedMinute(
+            originalMinute: 29,
+            relativeDelta: -5,
+            precision: .fiveMinutes
+        ) == 25)
+        #expect(TimelineSnapPolicy.alignedMinute(
+            originalMinute: 29,
+            relativeDelta: 15,
+            precision: .quarterHour
+        ) == 45)
+    }
+
+    @Test("未操作時は刻み外の元時刻を勝手に移動しない")
+    func zeroMovementPreservesOffGridOriginalMinute() {
+        #expect(TimelineSnapPolicy.alignedMinute(
+            originalMinute: 29,
+            relativeDelta: 0,
+            precision: .fiveMinutes
+        ) == 29)
+    }
+
     @Test("固定global座標anchorから未丸め差分を計算して最後に一度だけ量子化する")
     func derivesEveryFrameFromFixedGlobalAnchor() {
         var session = TimelineDragSession(startGlobalY: 200, hourHeight: 60)
@@ -74,6 +102,17 @@ struct TimelineDragPolicyTests {
 
         #expect(abs(result) <= 15)
         #expect(abs(session.rawMinuteDelta) < 7)
+    }
+
+    @Test("到達限界で飽和すると超過量を溜めず逆方向の次snapから戻る")
+    func saturationDiscardsUnreachableOvershoot() {
+        var session = TimelineDragSession(startGlobalY: 200, hourHeight: 60)
+
+        #expect(session.update(currentGlobalY: 80, precision: .quarterHour) == -120)
+        session.saturate(currentGlobalY: 80, appliedMinuteDelta: -60)
+
+        #expect(session.rawMinuteDelta == -60)
+        #expect(session.update(currentGlobalY: 90, precision: .quarterHour) == -45)
     }
 
     @Test("resize hit領域は見えるgrip幅かblock幅の小さい方で隣へ侵入しない")

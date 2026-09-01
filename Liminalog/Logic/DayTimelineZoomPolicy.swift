@@ -1,11 +1,13 @@
 import CoreGraphics
 import Foundation
 
-enum DayTimelineZoomPolicy {
+enum TimelineZoomPolicy {
     static let supportedScales: [CGFloat] = [0.75, 1, 1.5, 2]
     static let defaultScale: CGFloat = 1
     static let baseHourHeight: CGFloat = 38
+    static let weekBaseHourHeight: CGFloat = 29
     static let userDefaultsKey = "timeline.day.hourScale"
+    static let weekUserDefaultsKey = "timeline.week.hourScale"
 
     private static let minutesPerDay: CGFloat = 24 * 60
 
@@ -32,7 +34,10 @@ enum DayTimelineZoomPolicy {
         normalizedScale(Double(proposed))
     }
 
-    static func hourHeight(for scale: CGFloat) -> CGFloat {
+    static func hourHeight(
+        for scale: CGFloat,
+        base baseHourHeight: CGFloat = baseHourHeight
+    ) -> CGFloat {
         let safeScale: CGFloat
         if scale.isFinite, scale > 0 {
             safeScale = min(
@@ -42,7 +47,10 @@ enum DayTimelineZoomPolicy {
         } else {
             safeScale = defaultScale
         }
-        return baseHourHeight * safeScale
+        let safeBaseHourHeight = baseHourHeight.isFinite && baseHourHeight > 0
+            ? baseHourHeight
+            : Self.baseHourHeight
+        return safeBaseHourHeight * safeScale
     }
 
     /// Returns the minute at the vertical center of the viewport.
@@ -88,13 +96,20 @@ enum DayTimelineZoomPolicy {
         return min(maximum, max(0, proposed))
     }
 
-    static func load(from defaults: UserDefaults = .standard) -> CGFloat {
-        guard defaults.object(forKey: userDefaultsKey) != nil else { return defaultScale }
-        return normalizedScale(defaults.double(forKey: userDefaultsKey))
+    static func load(
+        from defaults: UserDefaults = .standard,
+        key: String = userDefaultsKey
+    ) -> CGFloat {
+        guard defaults.object(forKey: key) != nil else { return defaultScale }
+        return normalizedScale(defaults.double(forKey: key))
     }
 
-    static func save(_ scale: CGFloat, to defaults: UserDefaults = .standard) {
-        defaults.set(Double(snappedScale(scale)), forKey: userDefaultsKey)
+    static func save(
+        _ scale: CGFloat,
+        to defaults: UserDefaults = .standard,
+        key: String = userDefaultsKey
+    ) {
+        defaults.set(Double(snappedScale(scale)), forKey: key)
     }
 
     private static func validHourHeight(_ proposed: CGFloat) -> CGFloat {
@@ -102,3 +117,7 @@ enum DayTimelineZoomPolicy {
         return proposed
     }
 }
+
+// Compatibility name for existing callers while the shared policy is adopted
+// by both daily and weekly timelines.
+typealias DayTimelineZoomPolicy = TimelineZoomPolicy

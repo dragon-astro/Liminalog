@@ -16,6 +16,15 @@ struct DayTimelineZoomPolicyTests {
         #expect(DayTimelineZoomPolicy.hourHeight(for: 2) == 76)
     }
 
+    @Test("共通zoom計算は週間の29pt基準にも再利用できる")
+    func sharedPolicySupportsWeekHourHeight() {
+        #expect(TimelineZoomPolicy.weekBaseHourHeight == 29)
+        #expect(TimelineZoomPolicy.hourHeight(for: 0.75, base: 29) == 21.75)
+        #expect(TimelineZoomPolicy.hourHeight(for: 1, base: 29) == 29)
+        #expect(TimelineZoomPolicy.hourHeight(for: 2, base: 29) == 58)
+        #expect(TimelineZoomPolicy.weekUserDefaultsKey != TimelineZoomPolicy.userDefaultsKey)
+    }
+
     @Test("非有限・不正値は1へ戻し未知の有限値は最寄りへ丸める")
     func normalizesInvalidAndUnknownScales() {
         #expect(DayTimelineZoomPolicy.normalizedScale(.nan) == 1)

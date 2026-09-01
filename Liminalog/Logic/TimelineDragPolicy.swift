@@ -18,12 +18,46 @@ enum TimelineSnapPrecision: Int, CaseIterable, Identifiable {
     }
 }
 
-/// Converts one drag sequence into a minute delta from a fixed origin.
+enum TimelineSnapPolicy {
+    /// Aligns a drag result to the selected wall-clock minute grid.
+    ///
+    /// A zero delta intentionally preserves an off-grid original minute so a
+    /// touch-down never moves the plan by itself. Once the drag advances by a
+    /// snap step, the resulting clock time is rounded to the nearest clean
+    /// boundary (for example, 29 + 5 becomes 35 rather than 34).
+    static func alignedMinute(
+        originalMinute: Int,
+        relativeDelta: Int,
+        precision: TimelineSnapPrecision
+    ) -> Int {
+        guard relativeDelta != 0 else { return originalMinute }
+        let step = precision.minutes
+        guard step > 0 else { return originalMinute + relativeDelta }
+        let proposed = originalMinute + relativeDelta
+        return Int((Double(proposed) / Double(step)).rounded()) * step
+    }
+
+    static func alignedDelta(
+        originalMinute: Int,
+        relativeDelta: Int,
+        precision: TimelineSnapPrecision
+    ) -> Int {
+        alignedMinute(
+            originalMinute: originalMinute,
+            relativeDelta: relativeDelta,
+            precision: precision
+        ) - originalMinute
+    }
+}
+
+/// Converts one drag sequence into a minute delta from a stable origin.
 ///
 /// The origin and hour height are captured once. Every frame is derived from
 /// the current global coordinate, then quantized exactly once. A small
 /// hysteresis around each boundary prevents finger noise from alternating
-/// between adjacent snap points.
+/// between adjacent snap points. When scheduling reaches a hard boundary, the
+/// caller can explicitly saturate the origin so unreachable pointer travel does
+/// not accumulate and make the reverse gesture feel frozen.
 struct TimelineDragSession: Equatable {
     static let hysteresisFraction = 0.15
 
@@ -32,19 +66,22 @@ struct TimelineDragSession: Equatable {
 
     private(set) var rawMinuteDelta: Double = 0
     private(set) var minuteDelta: Int = 0
+    private var anchorGlobalY: CGFloat
+    private var anchorMinuteDelta: Double = 0
     private var precision: TimelineSnapPrecision?
 
     init(startGlobalY: CGFloat, hourHeight: CGFloat) {
         self.startGlobalY = startGlobalY
         self.hourHeight = hourHeight
+        self.anchorGlobalY = startGlobalY
     }
 
     mutating func update(
         currentGlobalY: CGFloat,
         precision newPrecision: TimelineSnapPrecision
     ) -> Int {
-        let raw = Self.rawMinuteDelta(
-            startGlobalY: startGlobalY,
+        let raw = anchorMinuteDelta + Self.rawMinuteDelta(
+            startGlobalY: anchorGlobalY,
             currentGlobalY: currentGlobalY,
             hourHeight: hourHeight
         )
@@ -69,6 +106,16 @@ struct TimelineDragSession: Equatable {
             minuteDelta = candidate
         }
         return minuteDelta
+    }
+
+    /// Rebases only after the scheduler has clamped the requested delta to a
+    /// reachable one. Normal drags continue to use their original fixed anchor.
+    mutating func saturate(currentGlobalY: CGFloat, appliedMinuteDelta: Int) {
+        guard currentGlobalY.isFinite else { return }
+        anchorGlobalY = currentGlobalY
+        anchorMinuteDelta = Double(appliedMinuteDelta)
+        rawMinuteDelta = Double(appliedMinuteDelta)
+        minuteDelta = appliedMinuteDelta
     }
 
     static func rawMinuteDelta(

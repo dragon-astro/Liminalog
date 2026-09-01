@@ -5,8 +5,36 @@ import Testing
 
 @Suite("PlanTimelineRescheduler")
 struct PlanTimelineReschedulerTests {
-    @Test("開始ハンドルを終了時刻より後ろへ越えても最小幅のまま後ろへ動く")
-    func startHandlePastEndMovesMinimumBlockLater() {
+    @Test("週間予定の差分は提案値ではなく保存済み位置との比較で抽出する")
+    func changedIntervalsKeepsEditingPlanAndPushedNeighbours() {
+        let upperID = UUID()
+        let editingID = UUID()
+        let originals = [
+            upperID: PlanTimelineInterval(id: upperID, startMinute: 0, endMinute: 60),
+            editingID: PlanTimelineInterval(id: editingID, startMinute: 60, endMinute: 120)
+        ]
+
+        let normalMove = PlanTimelineRescheduler.changedIntervals(
+            in: [
+                originals[upperID]!,
+                PlanTimelineInterval(id: editingID, startMinute: 75, endMinute: 135)
+            ],
+            comparedTo: originals
+        )
+        #expect(normalMove.map(\.id) == [editingID])
+
+        let pushedMove = PlanTimelineRescheduler.changedIntervals(
+            in: [
+                PlanTimelineInterval(id: upperID, startMinute: 15, endMinute: 75),
+                PlanTimelineInterval(id: editingID, startMinute: 75, endMinute: 135)
+            ],
+            comparedTo: originals
+        )
+        #expect(Set(pushedMove.map(\.id)) == Set([upperID, editingID]))
+    }
+
+    @Test("開始ハンドルは終了時刻を越えず最小幅で止まる")
+    func startHandleStopsAtMinimumDuration() {
         let result = PlanTimelineRescheduler.resizedBounds(
             originalStartMinute: 10 * 60,
             originalEndMinute: 11 * 60,
@@ -14,14 +42,14 @@ struct PlanTimelineReschedulerTests {
             delta: 90
         )
 
-        #expect(result.startMinute == 11 * 60 + 30)
-        #expect(result.endMinute == 11 * 60 + 45)
+        #expect(result.startMinute == 10 * 60 + 45)
+        #expect(result.endMinute == 11 * 60)
         #expect(result.pushDirection == .later)
-        #expect(result.feedbackMinute == 11 * 60 + 30)
+        #expect(result.feedbackMinute == 10 * 60 + 45)
     }
 
-    @Test("終了ハンドルを開始時刻より前へ越えても最小幅のまま前へ動く")
-    func endHandlePastStartMovesMinimumBlockEarlier() {
+    @Test("終了ハンドルは開始時刻を越えず最小幅で止まる")
+    func endHandleStopsAtMinimumDuration() {
         let result = PlanTimelineRescheduler.resizedBounds(
             originalStartMinute: 10 * 60,
             originalEndMinute: 11 * 60,
@@ -29,10 +57,59 @@ struct PlanTimelineReschedulerTests {
             delta: -90
         )
 
-        #expect(result.startMinute == 9 * 60 + 15)
-        #expect(result.endMinute == 9 * 60 + 30)
+        #expect(result.startMinute == 10 * 60)
+        #expect(result.endMinute == 10 * 60 + 15)
         #expect(result.pushDirection == .earlier)
-        #expect(result.feedbackMinute == 9 * 60 + 30)
+        #expect(result.feedbackMinute == 10 * 60 + 15)
+    }
+
+    @Test("ハンドルの超過移動量を保持し指が境界へ戻るまで逆方向へ動かない")
+    func resizeHandlePreservesOvershootUntilFingerReturnsToBoundary() {
+        let overshot = PlanTimelineRescheduler.resizedBounds(
+            originalStartMinute: 10 * 60,
+            originalEndMinute: 11 * 60,
+            edge: .end,
+            delta: -2 * 60
+        )
+        let partiallyReturned = PlanTimelineRescheduler.resizedBounds(
+            originalStartMinute: 10 * 60,
+            originalEndMinute: 11 * 60,
+            edge: .end,
+            delta: -90
+        )
+        let returnedInsideRange = PlanTimelineRescheduler.resizedBounds(
+            originalStartMinute: 10 * 60,
+            originalEndMinute: 11 * 60,
+            edge: .end,
+            delta: -30
+        )
+
+        #expect(overshot.endMinute == 10 * 60 + 15)
+        #expect(partiallyReturned.endMinute == 10 * 60 + 15)
+        #expect(returnedInsideRange.endMinute == 10 * 60 + 30)
+    }
+
+    @Test("ハンドルの最小長は選択した移動幅に一致する")
+    func resizeMinimumDurationMatchesSnapPrecision() {
+        let oneMinute = PlanTimelineRescheduler.resizedBounds(
+            originalStartMinute: 10 * 60,
+            originalEndMinute: 11 * 60,
+            edge: .end,
+            delta: -2 * 60,
+            minimumDuration: 1
+        )
+        let fiveMinutes = PlanTimelineRescheduler.resizedBounds(
+            originalStartMinute: 10 * 60,
+            originalEndMinute: 11 * 60,
+            edge: .start,
+            delta: 2 * 60,
+            minimumDuration: 5
+        )
+
+        #expect(oneMinute.startMinute == 10 * 60)
+        #expect(oneMinute.endMinute == 10 * 60 + 1)
+        #expect(fiveMinutes.startMinute == 10 * 60 + 55)
+        #expect(fiveMinutes.endMinute == 11 * 60)
     }
 
     @Test("開始ハンドルは日付終端を越えず最小幅を保つ")
@@ -44,10 +121,10 @@ struct PlanTimelineReschedulerTests {
             delta: 60
         )
 
-        #expect(result.startMinute == 23 * 60 + 45)
-        #expect(result.endMinute == 24 * 60)
+        #expect(result.startMinute == 23 * 60 + 35)
+        #expect(result.endMinute == 23 * 60 + 50)
         #expect(result.pushDirection == .later)
-        #expect(result.feedbackMinute == 23 * 60 + 45)
+        #expect(result.feedbackMinute == 23 * 60 + 35)
     }
 
     @Test("終了ハンドルは日付始端を越えず最小幅を保つ")
@@ -59,10 +136,10 @@ struct PlanTimelineReschedulerTests {
             delta: -60
         )
 
-        #expect(result.startMinute == 0)
-        #expect(result.endMinute == 15)
+        #expect(result.startMinute == 10)
+        #expect(result.endMinute == 25)
         #expect(result.pushDirection == .earlier)
-        #expect(result.feedbackMinute == 15)
+        #expect(result.feedbackMinute == 25)
     }
 
     @Test("予定がない方向へ終了ハンドルを伸ばすと日付終端まで伸ばせる")
@@ -416,6 +493,35 @@ struct PlanTimelineReschedulerTests {
         #expect(items[secondID]?.endMinute == 6 * 60)
     }
 
+    @Test("終了ハンドルを上へ越境しても上側予定を判定せず最小長で止まる")
+    func crossedEndResizeStopsBeforeEarlierPlan() {
+        let upperID = UUID()
+        let editingID = UUID()
+        let resize = PlanTimelineRescheduler.resizedBounds(
+            originalStartMinute: 60,
+            originalEndMinute: 120,
+            edge: .end,
+            delta: -120
+        )
+        let resolved = PlanTimelineRescheduler.resolveClamped(
+            items: [
+                PlanTimelineInterval(id: upperID, startMinute: 0, endMinute: 60),
+                PlanTimelineInterval(id: editingID, startMinute: 60, endMinute: 120)
+            ],
+            editingID: editingID,
+            proposedStartMinute: resize.startMinute,
+            proposedEndMinute: resize.endMinute,
+            pushDirection: resize.pushDirection,
+            adjustment: .resizeEnd
+        )
+
+        let items = Dictionary(uniqueKeysWithValues: (resolved ?? []).map { ($0.id, $0) })
+        #expect(items[upperID]?.startMinute == 0)
+        #expect(items[upperID]?.endMinute == 60)
+        #expect(items[editingID]?.startMinute == 60)
+        #expect(items[editingID]?.endMinute == 75)
+    }
+
     @Test("速い後方移動で到達限界を越えても一回の補正で有効位置へ収める")
     func clampedMoveLaterStopsAtReachableCollisionLimit() {
         let firstID = UUID()
@@ -462,96 +568,62 @@ struct PlanTimelineReschedulerTests {
         #expect(items[secondID]?.endMinute == 2 * 60)
     }
 
-    @Test("終了ハンドルで上側に入り込んだ後に下へ戻しても上側予定と入れ替わらない")
-    func endHandleCrossedAboveKeepsEarlierPlanAboveWhenDraggingBackDown() {
+    @Test("終了ハンドルを上側予定へ越えて動かしても最小長で止まり入れ替わらない")
+    func endHandleCannotCrossIntoEarlierPlan() {
         let upperID = UUID()
         let editingID = UUID()
+        let resize = PlanTimelineRescheduler.resizedBounds(
+            originalStartMinute: 10 * 60,
+            originalEndMinute: 11 * 60,
+            edge: .end,
+            delta: -2 * 60
+        )
         let resolved = PlanTimelineRescheduler.resolveClamped(
             items: [
                 PlanTimelineInterval(id: upperID, startMinute: 9 * 60, endMinute: 10 * 60),
                 PlanTimelineInterval(id: editingID, startMinute: 10 * 60, endMinute: 11 * 60)
             ],
             editingID: editingID,
-            proposedStartMinute: 8 * 60 + 45,
-            proposedEndMinute: 9 * 60 + 30,
-            pushDirection: .later,
+            proposedStartMinute: resize.startMinute,
+            proposedEndMinute: resize.endMinute,
+            pushDirection: resize.pushDirection,
             adjustment: .resizeEnd
         )
 
         let items = Dictionary(uniqueKeysWithValues: (resolved ?? []).map { ($0.id, $0) })
-        #expect(items[upperID]?.startMinute == 7 * 60 + 45)
-        #expect(items[upperID]?.endMinute == 8 * 60 + 45)
-        #expect(items[editingID]?.startMinute == 8 * 60 + 45)
-        #expect(items[editingID]?.endMinute == 9 * 60 + 30)
+        #expect(items[upperID]?.startMinute == 9 * 60)
+        #expect(items[upperID]?.endMinute == 10 * 60)
+        #expect(items[editingID]?.startMinute == 10 * 60)
+        #expect(items[editingID]?.endMinute == 10 * 60 + 15)
     }
 
-    @Test("上側に押された予定は元の終了位置を通るまで選択中予定の下へ潜らない")
-    func pushedEarlierPlanDoesNotSwapBelowEditingPlanBeforeOriginalBoundary() {
-        let upperID = UUID()
-        let editingID = UUID()
-        let resolved = PlanTimelineRescheduler.resolveClamped(
-            items: [
-                PlanTimelineInterval(id: upperID, startMinute: 9 * 60 + 30, endMinute: 10 * 60 + 30),
-                PlanTimelineInterval(id: editingID, startMinute: 10 * 60, endMinute: 11 * 60)
-            ],
-            editingID: editingID,
-            proposedStartMinute: 10 * 60 + 15,
-            proposedEndMinute: 10 * 60 + 45,
-            pushDirection: .later,
-            adjustment: .resizeEnd
-        )
-
-        let items = Dictionary(uniqueKeysWithValues: (resolved ?? []).map { ($0.id, $0) })
-        #expect(items[upperID]?.startMinute == 9 * 60 + 15)
-        #expect(items[upperID]?.endMinute == 10 * 60 + 15)
-        #expect(items[editingID]?.startMinute == 10 * 60 + 15)
-        #expect(items[editingID]?.endMinute == 10 * 60 + 45)
-    }
-
-    @Test("開始ハンドルで下側に入り込んだ後に上へ戻しても下側予定と入れ替わらない")
-    func startHandleCrossedBelowKeepsLaterPlanBelowWhenDraggingBackUp() {
+    @Test("開始ハンドルを下側予定へ越えて動かしても最小長で止まり入れ替わらない")
+    func startHandleCannotCrossIntoLaterPlan() {
         let editingID = UUID()
         let lowerID = UUID()
+        let resize = PlanTimelineRescheduler.resizedBounds(
+            originalStartMinute: 9 * 60,
+            originalEndMinute: 10 * 60,
+            edge: .start,
+            delta: 2 * 60
+        )
         let resolved = PlanTimelineRescheduler.resolveClamped(
             items: [
                 PlanTimelineInterval(id: editingID, startMinute: 9 * 60, endMinute: 10 * 60),
                 PlanTimelineInterval(id: lowerID, startMinute: 10 * 60, endMinute: 11 * 60)
             ],
             editingID: editingID,
-            proposedStartMinute: 10 * 60 + 15,
-            proposedEndMinute: 10 * 60 + 45,
-            pushDirection: .earlier,
+            proposedStartMinute: resize.startMinute,
+            proposedEndMinute: resize.endMinute,
+            pushDirection: resize.pushDirection,
             adjustment: .resizeStart
         )
 
         let items = Dictionary(uniqueKeysWithValues: (resolved ?? []).map { ($0.id, $0) })
-        #expect(items[editingID]?.startMinute == 10 * 60 + 15)
-        #expect(items[editingID]?.endMinute == 10 * 60 + 45)
-        #expect(items[lowerID]?.startMinute == 10 * 60 + 45)
-        #expect(items[lowerID]?.endMinute == 11 * 60 + 45)
-    }
-
-    @Test("下側に押された予定は元の開始位置を通るまで選択中予定の上へ潜らない")
-    func pushedLaterPlanDoesNotSwapAboveEditingPlanBeforeOriginalBoundary() {
-        let editingID = UUID()
-        let lowerID = UUID()
-        let resolved = PlanTimelineRescheduler.resolveClamped(
-            items: [
-                PlanTimelineInterval(id: editingID, startMinute: 9 * 60, endMinute: 10 * 60),
-                PlanTimelineInterval(id: lowerID, startMinute: 9 * 60 + 30, endMinute: 10 * 60 + 30)
-            ],
-            editingID: editingID,
-            proposedStartMinute: 9 * 60 + 15,
-            proposedEndMinute: 9 * 60 + 45,
-            pushDirection: .earlier,
-            adjustment: .resizeStart
-        )
-
-        let items = Dictionary(uniqueKeysWithValues: (resolved ?? []).map { ($0.id, $0) })
-        #expect(items[editingID]?.startMinute == 9 * 60 + 15)
-        #expect(items[editingID]?.endMinute == 9 * 60 + 45)
-        #expect(items[lowerID]?.startMinute == 9 * 60 + 45)
-        #expect(items[lowerID]?.endMinute == 10 * 60 + 45)
+        #expect(items[editingID]?.startMinute == 9 * 60 + 45)
+        #expect(items[editingID]?.endMinute == 10 * 60)
+        #expect(items[lowerID]?.startMinute == 10 * 60)
+        #expect(items[lowerID]?.endMinute == 11 * 60)
     }
 
     @Test("ロック済み予定を押す必要がある配置は拒否する")

@@ -21,7 +21,7 @@ enum PlanTimelineResizeEdge {
     case end
 }
 
-enum PlanTimelineAdjustment {
+enum PlanTimelineAdjustment: Equatable {
     case move
     case resizeStart
     case resizeEnd
@@ -38,6 +38,17 @@ enum PlanTimelineRescheduler {
     static let dayStartMinute = 0
     static let dayEndMinute = 24 * 60
 
+    static func changedIntervals(
+        in resolved: [PlanTimelineInterval],
+        comparedTo originals: [UUID: PlanTimelineInterval]
+    ) -> [PlanTimelineInterval] {
+        resolved.filter { interval in
+            guard let original = originals[interval.id] else { return true }
+            return original.startMinute != interval.startMinute
+                || original.endMinute != interval.endMinute
+        }
+    }
+
     static func resizedBounds(
         originalStartMinute: Int,
         originalEndMinute: Int,
@@ -50,16 +61,8 @@ enum PlanTimelineRescheduler {
             let rawStart = originalStartMinute + delta
             let clampedStart = max(
                 dayStartMinute,
-                min(dayEndMinute - minimumDuration, rawStart)
+                min(originalEndMinute - minimumDuration, rawStart)
             )
-            if clampedStart > originalEndMinute - minimumDuration {
-                return PlanTimelineResizeResult(
-                    startMinute: clampedStart,
-                    endMinute: clampedStart + minimumDuration,
-                    pushDirection: .later,
-                    feedbackMinute: clampedStart
-                )
-            }
             return PlanTimelineResizeResult(
                 startMinute: clampedStart,
                 endMinute: originalEndMinute,
@@ -71,16 +74,8 @@ enum PlanTimelineRescheduler {
             let rawEnd = originalEndMinute + delta
             let clampedEnd = min(
                 dayEndMinute,
-                max(dayStartMinute + minimumDuration, rawEnd)
+                max(originalStartMinute + minimumDuration, rawEnd)
             )
-            if clampedEnd < originalStartMinute + minimumDuration {
-                return PlanTimelineResizeResult(
-                    startMinute: clampedEnd - minimumDuration,
-                    endMinute: clampedEnd,
-                    pushDirection: .earlier,
-                    feedbackMinute: clampedEnd
-                )
-            }
             return PlanTimelineResizeResult(
                 startMinute: originalStartMinute,
                 endMinute: clampedEnd,
