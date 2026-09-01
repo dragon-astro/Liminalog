@@ -1,6 +1,10 @@
 import SwiftData
 import SwiftUI
 
+private struct ProfileDailyCardBackfillSignature: Hashable {
+    let dayIdentifiers: [String]
+}
+
 struct ProfileView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \UserSettings.createdAt) private var settingsList: [UserSettings]
@@ -17,7 +21,7 @@ struct ProfileView: View {
     @State private var isShowingDailyCardAlbum = false
     @State private var performanceSnapshot = ProfilePerformanceSnapshot.empty
     @State private var performanceSnapshotLoadedAt: Date?
-    @State private var lastDailyCardBackfillSignature: String?
+    @State private var lastDailyCardBackfillSignature: ProfileDailyCardBackfillSignature?
     @State private var saveError: String?
     @State private var shareError: String?
     #if DEBUG
@@ -77,11 +81,10 @@ struct ProfileView: View {
         )
     }
 
-    private var dailyCardBackfillSignature: String {
-        dailyScoreSnapshots
-            .prefix(120)
-            .map(\.dayIdentifier)
-            .joined(separator: "|")
+    private var dailyCardBackfillSignature: ProfileDailyCardBackfillSignature {
+        ProfileDailyCardBackfillSignature(
+            dayIdentifiers: dailyScoreSnapshots.prefix(120).map(\.dayIdentifier)
+        )
     }
 
     private var cumulativeScore: Int {
@@ -252,7 +255,7 @@ struct ProfileView: View {
     }
 
     private var acceptedFriendCount: Int {
-        friends.filter { $0.status == .accepted }.count
+        friends.count { $0.status == .accepted }
     }
 
     private func ensureUserSettings() {

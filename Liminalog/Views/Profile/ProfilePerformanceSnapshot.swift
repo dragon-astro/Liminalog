@@ -59,12 +59,12 @@ struct ProfilePerformanceSnapshot {
               let todayStats = todayProfileStats(modelContext: modelContext, now: now, calendar: calendar)
         else { return nil }
 
-        let recordedDayCount = finalizedSnapshots.filter(\.hasRecord).count + (todayStats.hasRecord ? 1 : 0)
+        let recordedDayCount = finalizedSnapshots.count(where: \.hasRecord) + (todayStats.hasRecord ? 1 : 0)
         let totalRecordedDuration = finalizedSnapshots.reduce(todayStats.recordedDuration) { total, snapshot in
             total + max(0, snapshot.recordedDuration)
         }
-        let earlyRecordDayCount = finalizedSnapshots.filter(\.earlyRecordDay).count + (todayStats.earlyRecordDay ? 1 : 0)
-        let lateNightRecordDayCount = finalizedSnapshots.filter(\.lateNightRecordDay).count + (todayStats.lateNightRecordDay ? 1 : 0)
+        let earlyRecordDayCount = finalizedSnapshots.count(where: \.earlyRecordDay) + (todayStats.earlyRecordDay ? 1 : 0)
+        let lateNightRecordDayCount = finalizedSnapshots.count(where: \.lateNightRecordDay) + (todayStats.lateNightRecordDay ? 1 : 0)
         var distinctCategoryIDs = Set(finalizedSnapshots.flatMap(\.categoryIDs))
         distinctCategoryIDs.formUnion(todayStats.categoryIDs)
         let dailyCardMetrics = DailyCardUnlockMetrics(snapshots: finalizedSnapshots, today: todayStats.cardMetrics)
@@ -237,17 +237,17 @@ private struct DailyCardUnlockMetrics {
     }
 
     init(snapshots: [DailyScoreSnapshot], today: DailyCardUnlockMetrics) {
-        planMatchedDays = snapshots.filter(\.planMatchedDay).count + today.planMatchedDays
-        chargeDays = snapshots.filter(\.chargeDay).count + today.chargeDays
-        morningPersonaDays = snapshots.filter(\.morningPersonaDay).count + today.morningPersonaDays
-        nightPersonaDays = snapshots.filter(\.nightPersonaDay).count + today.nightPersonaDays
-        recordingHabitDays = snapshots.filter(\.recordingHabitDay).count + today.recordingHabitDays
-        personalBestDays = snapshots.filter(\.personalBestDay).count + today.personalBestDays
-        returnAfterGapDays = snapshots.filter(\.returnAfterGapDay).count + today.returnAfterGapDays
-        firstRecordDays = snapshots.filter(\.firstRecordDay).count + today.firstRecordDays
-        balancedDays = snapshots.filter(\.balancedDay).count + today.balancedDays
-        focusedDays = snapshots.filter(\.focusedDay).count + today.focusedDays
-        changeSignalDays = snapshots.filter(\.changeSignalDay).count + today.changeSignalDays
+        planMatchedDays = snapshots.count(where: \.planMatchedDay) + today.planMatchedDays
+        chargeDays = snapshots.count(where: \.chargeDay) + today.chargeDays
+        morningPersonaDays = snapshots.count(where: \.morningPersonaDay) + today.morningPersonaDays
+        nightPersonaDays = snapshots.count(where: \.nightPersonaDay) + today.nightPersonaDays
+        recordingHabitDays = snapshots.count(where: \.recordingHabitDay) + today.recordingHabitDays
+        personalBestDays = snapshots.count(where: \.personalBestDay) + today.personalBestDays
+        returnAfterGapDays = snapshots.count(where: \.returnAfterGapDay) + today.returnAfterGapDays
+        firstRecordDays = snapshots.count(where: \.firstRecordDay) + today.firstRecordDays
+        balancedDays = snapshots.count(where: \.balancedDay) + today.balancedDays
+        focusedDays = snapshots.count(where: \.focusedDay) + today.focusedDays
+        changeSignalDays = snapshots.count(where: \.changeSignalDay) + today.changeSignalDays
     }
 }
 

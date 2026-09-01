@@ -57,6 +57,134 @@ struct ScoreCalculatorTests {
 @MainActor
 @Suite("ScoreStore")
 struct ScoreStoreTests {
+    @Test("期間集計は日付またぎと日境界を従来どおり各日に振り分ける")
+    func rangeSummariesBucketOverlapsWithoutChangingDayBoundaries() throws {
+        let calendar = Calendar.liminalogTest
+        let container = try TestModelContainer.make()
+        let context = container.mainContext
+        let category = Category(name: "睡眠", colorHex: "#8B5CF6")
+        context.insert(category)
+
+        let firstDay = try #require(
+            calendar.date(from: DateComponents(year: 2026, month: 5, day: 27))
+        )
+        let secondDay = try #require(calendar.date(byAdding: .day, value: 1, to: firstDay))
+        let thirdDay = try #require(calendar.date(byAdding: .day, value: 2, to: firstDay))
+        let crossStart = try #require(calendar.date(byAdding: .hour, value: 23, to: firstDay))
+        let crossEnd = try #require(calendar.date(byAdding: .hour, value: 1, to: secondDay))
+
+        context.insert(
+            PlanBlock(
+                category: category,
+                title: "日付またぎ",
+                startTime: crossStart,
+                endTime: crossEnd
+            )
+        )
+        context.insert(
+            PlanBlock(
+                category: category,
+                title: "日境界で終了",
+                startTime: try #require(calendar.date(byAdding: .hour, value: 22, to: firstDay)),
+                endTime: secondDay
+            )
+        )
+        let chapter = Chapter(
+            category: category,
+            startTime: try #require(calendar.date(byAdding: .minute, value: 30, to: crossStart))
+        )
+        chapter.endTime = calendar.date(byAdding: .minute, value: 30, to: secondDay)
+        context.insert(chapter)
+        try context.save()
+
+        let summaries = ScoreSnapshotLoader.summaries(
+            in: DateInterval(start: firstDay, end: thirdDay),
+            modelContext: context,
+            now: thirdDay,
+            calendar: calendar
+        )
+
+        #expect(summaries.count == 2)
+        #expect(summaries[0].plannedDuration == 3 * 60 * 60)
+        #expect(summaries[1].plannedDuration == 60 * 60)
+        #expect(summaries[0].recordedDuration == 30 * 60)
+        #expect(summaries[1].recordedDuration == 30 * 60)
+    }
+
+    @Test("日別bucket集計は従来の日ごとのfilterと全ScoreSummaryが一致する")
+    func bucketedRangeSummariesMatchReferenceFiltering() throws {
+        let calendar = Calendar.liminalogTest
+        let container = try TestModelContainer.make()
+        let context = container.mainContext
+        let category = Category(name: "制作", colorHex: "#2F80ED")
+        context.insert(category)
+        let rangeStart = try #require(
+            calendar.date(from: DateComponents(year: 2026, month: 7, day: 1))
+        )
+        let rangeEnd = try #require(calendar.date(byAdding: .day, value: 31, to: rangeStart))
+        var plans: [PlanBlock] = []
+        var chapters: [Chapter] = []
+
+        for offset in 0..<30 {
+            let day = try #require(calendar.date(byAdding: .day, value: offset, to: rangeStart))
+            let planStart = try #require(calendar.date(byAdding: .hour, value: 23, to: day))
+            let planEnd = try #require(calendar.date(byAdding: .hour, value: 3, to: planStart))
+            let plan = PlanBlock(
+                category: category,
+                title: "制作 \(offset)",
+                startTime: planStart,
+                endTime: planEnd
+            )
+            let chapter = Chapter(
+                category: category,
+                startTime: try #require(calendar.date(byAdding: .minute, value: 15, to: planStart))
+            )
+            chapter.endTime = calendar.date(byAdding: .minute, value: 150, to: chapter.startTime)
+            plans.append(plan)
+            chapters.append(chapter)
+            context.insert(plan)
+            context.insert(chapter)
+        }
+        try context.save()
+
+        let now = rangeEnd
+        let summaries = ScoreSnapshotLoader.summaries(
+            in: DateInterval(start: rangeStart, end: rangeEnd),
+            modelContext: context,
+            now: now,
+            calendar: calendar
+        )
+        let dates = ScoreSnapshotLoader.days(
+            in: DateInterval(start: rangeStart, end: rangeEnd),
+            calendar: calendar
+        )
+        let reference = dates.map { date in
+            let boundary = DayBoundary(date: date, calendar: calendar)
+            return ScoreCalculator.summary(
+                date: date,
+                plans: plans.filter {
+                    $0.startTime < boundary.dayEnd && $0.endTime > boundary.dayStart
+                },
+                chapters: chapters.filter {
+                    $0.startTime < boundary.dayEnd && ($0.endTime ?? now) > boundary.dayStart
+                },
+                calendar: calendar,
+                now: now
+            )
+        }
+
+        #expect(summaries.count == reference.count)
+        for (actual, expected) in zip(summaries, reference) {
+            #expect(actual.date == expected.date)
+            #expect(actual.categoryScore == expected.categoryScore)
+            #expect(actual.timelineScore == expected.timelineScore)
+            #expect(actual.totalScore == expected.totalScore)
+            #expect(actual.plannedDuration == expected.plannedDuration)
+            #expect(actual.recordedDuration == expected.recordedDuration)
+            #expect(actual.matchedDuration == expected.matchedDuration)
+        }
+    }
+
     @Test("30点以上の日だけストリークとして連続カウントする")
     func streakCountStopsAtFirstMissingOrLowScoreDay() throws {
         let calendar = Calendar.current

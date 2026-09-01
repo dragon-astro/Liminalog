@@ -71,13 +71,14 @@ final class DailyCardSnapshot {
 
     static func dayIdentifier(for dayStart: Date, calendar: Calendar) -> String {
         let components = calendar.dateComponents([.year, .month, .day], from: dayStart)
-        return [
-            components.year ?? 0,
-            components.month ?? 0,
-            components.day ?? 0
-        ]
-        .map { String(format: "%02d", $0) }
-        .joined(separator: "-")
+        let year = paddedDateComponent(components.year ?? 0)
+        let month = paddedDateComponent(components.month ?? 0)
+        let day = paddedDateComponent(components.day ?? 0)
+        return "\(year)-\(month)-\(day)"
+    }
+
+    private static func paddedDateComponent(_ value: Int) -> String {
+        (0..<10).contains(value) ? "0\(value)" : String(value)
     }
 
     static func encode<Value: Encodable>(_ value: Value) -> String {

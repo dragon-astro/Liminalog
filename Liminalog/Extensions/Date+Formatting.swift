@@ -1,5 +1,28 @@
 import Foundation
 
+private final class JapaneseCalendarCache: @unchecked Sendable {
+    private let lock = NSLock()
+    nonisolated(unsafe) private var cachedTimeZone: TimeZone?
+    nonisolated(unsafe) private var cachedCalendar: Calendar?
+
+    nonisolated func value(for timeZone: TimeZone) -> Calendar {
+        lock.lock()
+        defer { lock.unlock() }
+
+        if cachedTimeZone == timeZone, let cachedCalendar {
+            return cachedCalendar
+        }
+
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.locale = Locale(identifier: "ja_JP")
+        calendar.firstWeekday = 1
+        calendar.timeZone = timeZone
+        cachedTimeZone = timeZone
+        cachedCalendar = calendar
+        return calendar
+    }
+}
+
 func formatDuration(_ seconds: TimeInterval) -> String {
     let total = Int(seconds)
     let h = total / 3600
@@ -52,12 +75,14 @@ extension Date {
 }
 
 extension Calendar {
+    nonisolated private static let japaneseCalendarCache = JapaneseCalendarCache()
+
     nonisolated static var japanese: Calendar {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.locale = Locale(identifier: "ja_JP")
-        calendar.firstWeekday = 1
-        calendar.timeZone = .current
-        return calendar
+        japanese(timeZone: .current)
+    }
+
+    nonisolated static func japanese(timeZone: TimeZone) -> Calendar {
+        japaneseCalendarCache.value(for: timeZone)
     }
 
     static let japaneseShortWeekdaySymbols = ["日", "月", "火", "水", "木", "金", "土"]

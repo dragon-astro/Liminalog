@@ -104,12 +104,7 @@ enum PlanTimelineRescheduler {
             return nil
         }
 
-        var resolved = items.sorted { lhs, rhs in
-            if lhs.startMinute == rhs.startMinute {
-                return lhs.id.uuidString < rhs.id.uuidString
-            }
-            return lhs.startMinute < rhs.startMinute
-        }
+        var resolved = sortedIntervals(items)
         guard let editingIndex = resolved.firstIndex(where: { $0.id == editingID }),
               !resolved[editingIndex].isLocked
         else {
@@ -118,12 +113,7 @@ enum PlanTimelineRescheduler {
 
         resolved[editingIndex].startMinute = proposedStartMinute
         resolved[editingIndex].endMinute = proposedEndMinute
-        resolved.sort { lhs, rhs in
-            if lhs.startMinute == rhs.startMinute {
-                return lhs.id.uuidString < rhs.id.uuidString
-            }
-            return lhs.startMinute < rhs.startMinute
-        }
+        resolved = sortedIntervals(resolved)
 
         guard let updatedEditingIndex = resolved.firstIndex(where: { $0.id == editingID }) else {
             return nil
@@ -136,12 +126,21 @@ enum PlanTimelineRescheduler {
             guard pushEarlier(in: &resolved, editingIndex: updatedEditingIndex) else { return nil }
         }
 
-        return resolved.sorted { lhs, rhs in
-            if lhs.startMinute == rhs.startMinute {
-                return lhs.id.uuidString < rhs.id.uuidString
+        return sortedIntervals(resolved)
+    }
+
+    private static func sortedIntervals(
+        _ intervals: [PlanTimelineInterval]
+    ) -> [PlanTimelineInterval] {
+        intervals
+            .map { (interval: $0, idSortKey: $0.id.uuidString) }
+            .sorted { lhs, rhs in
+                if lhs.interval.startMinute == rhs.interval.startMinute {
+                    return lhs.idSortKey < rhs.idSortKey
+                }
+                return lhs.interval.startMinute < rhs.interval.startMinute
             }
-            return lhs.startMinute < rhs.startMinute
-        }
+            .map(\.interval)
     }
 
     static func resolveClamped(

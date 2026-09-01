@@ -51,8 +51,8 @@ struct DashboardPeriodDeltaSummary {
                 previous: previousSummaries.reduce(0) { $0 + $1.matchedDuration }
             ),
             scoredDayCount: DashboardDeltaMetric(
-                current: Double(currentSummaries.filter { $0.plannedDuration > 0 }.count),
-                previous: Double(previousSummaries.filter { $0.plannedDuration > 0 }.count)
+                current: Double(currentSummaries.count { $0.plannedDuration > 0 }),
+                previous: Double(previousSummaries.count { $0.plannedDuration > 0 })
             )
         )
     }

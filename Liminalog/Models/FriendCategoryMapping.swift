@@ -74,14 +74,21 @@ enum FriendCategoryMappingResolver {
             )
         }
 
-        return descriptorsByID.values.sorted {
-            let left = normalizedCategoryName($0.title)
-            let right = normalizedCategoryName($1.title)
-            if left == right {
-                return $0.id.uuidString < $1.id.uuidString
+        return descriptorsByID.values
+            .map {
+                (
+                    descriptor: $0,
+                    nameSortKey: normalizedCategoryName($0.title),
+                    idSortKey: $0.id.uuidString
+                )
             }
-            return left < right
-        }
+            .sorted { lhs, rhs in
+                if lhs.nameSortKey == rhs.nameSortKey {
+                    return lhs.idSortKey < rhs.idSortKey
+                }
+                return lhs.nameSortKey < rhs.nameSortKey
+            }
+            .map(\.descriptor)
     }
 
     static func defaultMappings(

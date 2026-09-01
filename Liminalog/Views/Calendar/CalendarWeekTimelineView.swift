@@ -36,9 +36,9 @@ private struct WeekTimelineDraftSignature: Hashable {
 
 private struct WeekTimelineRenderCacheKey: Hashable {
     let weekStart: Date
-    let visibleCategoryIDs: [UUID]?
+    let visibleCategoryIDs: Set<UUID>?
     let plans: [WeekTimelinePlanSignature]
-    let drafts: [WeekTimelineDraftSignature]
+    let drafts: Set<WeekTimelineDraftSignature>
 }
 
 private struct WeekTimelineRenderCache {
@@ -1448,7 +1448,7 @@ struct CalendarWeekTimelineView: View {
     private var renderCacheKey: WeekTimelineRenderCacheKey {
         WeekTimelineRenderCacheKey(
             weekStart: weekStart,
-            visibleCategoryIDs: visibleCategoryIDs?.sorted { $0.uuidString < $1.uuidString },
+            visibleCategoryIDs: visibleCategoryIDs,
             plans: plans.map {
                 WeekTimelinePlanSignature(
                     id: $0.id,
@@ -1459,9 +1459,13 @@ struct CalendarWeekTimelineView: View {
                     categoryID: $0.category?.id
                 )
             },
-            drafts: movingDrafts.values
-                .map { WeekTimelineDraftSignature(planID: $0.planID, startTime: $0.startTime, endTime: $0.endTime) }
-                .sorted { $0.planID.uuidString < $1.planID.uuidString }
+            drafts: Set(movingDrafts.values.map {
+                WeekTimelineDraftSignature(
+                    planID: $0.planID,
+                    startTime: $0.startTime,
+                    endTime: $0.endTime
+                )
+            })
         )
     }
 

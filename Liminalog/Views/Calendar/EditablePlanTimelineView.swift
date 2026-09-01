@@ -23,7 +23,7 @@ private struct EditableTimelinePlanSignature: Hashable {
 private struct EditableTimelineRenderCacheKey: Hashable {
     let dayStart: Date
     let dayEnd: Date
-    let visibleCategoryIDs: [UUID]?
+    let visibleCategoryIDs: Set<UUID>?
     let plans: [EditableTimelinePlanSignature]
 }
 
@@ -119,7 +119,7 @@ struct EditablePlanTimelineView: View {
         EditableTimelineRenderCacheKey(
             dayStart: dayStart,
             dayEnd: dayEnd,
-            visibleCategoryIDs: visibleCategoryIDs?.sorted { $0.uuidString < $1.uuidString },
+            visibleCategoryIDs: visibleCategoryIDs,
             plans: plans.map {
                 EditableTimelinePlanSignature(
                     id: $0.id,

@@ -2,6 +2,23 @@ import SwiftUI
 import SwiftData
 import UIKit
 
+private struct CalendarPlanDuplicateCategoryKey: Hashable {
+    let isDefault: Bool
+    let normalizedName: String
+}
+
+private enum CalendarPlanDuplicateKey: Hashable {
+    case source(String)
+    case manual(
+        category: CalendarPlanDuplicateCategoryKey?,
+        normalizedTitle: String,
+        startMinute: Int,
+        endMinute: Int,
+        isAllDay: Bool,
+        normalizedNote: String
+    )
+}
+
 struct CalendarView: View {
     @Environment(ChapterStore.self) private var store
     @Environment(\.modelContext) private var modelContext
@@ -1181,30 +1198,31 @@ struct CalendarView: View {
     }
 
     private func deduplicatedCalendarPlans(_ plans: [PlanBlock]) -> [PlanBlock] {
-        var seenKeys: Set<String> = []
+        var seenKeys: Set<CalendarPlanDuplicateKey> = []
         return plans.filter { plan in
             seenKeys.insert(calendarDuplicateKey(for: plan)).inserted
         }
     }
 
-    private func calendarDuplicateKey(for plan: PlanBlock) -> String {
+    private func calendarDuplicateKey(for plan: PlanBlock) -> CalendarPlanDuplicateKey {
         if let sourceEventID = plan.sourceEventID?.trimmingCharacters(in: .whitespacesAndNewlines),
            !sourceEventID.isEmpty {
-            return "source:\(sourceEventID)"
+            return .source(sourceEventID)
         }
         let categoryKey = plan.category.map {
-            "\($0.isDefault ? "default" : "custom"):\(normalizedCalendarText($0.name))"
-        } ?? "none"
-        let note = plan.note.map(normalizedCalendarText) ?? ""
-        return [
-            "manual",
-            categoryKey,
-            normalizedCalendarText(plan.title),
-            calendarMinuteKey(plan.startTime),
-            calendarMinuteKey(plan.endTime),
-            plan.isAllDay ? "all-day" : "timed",
-            note
-        ].joined(separator: "|")
+            CalendarPlanDuplicateCategoryKey(
+                isDefault: $0.isDefault,
+                normalizedName: normalizedCalendarText($0.name)
+            )
+        }
+        return .manual(
+            category: categoryKey,
+            normalizedTitle: normalizedCalendarText(plan.title),
+            startMinute: calendarMinuteKey(plan.startTime),
+            endMinute: calendarMinuteKey(plan.endTime),
+            isAllDay: plan.isAllDay,
+            normalizedNote: plan.note.map(normalizedCalendarText) ?? ""
+        )
     }
 
     private func normalizedCalendarText(_ value: String) -> String {
@@ -1212,8 +1230,8 @@ struct CalendarView: View {
             .folding(options: [.caseInsensitive, .widthInsensitive], locale: .current)
     }
 
-    private func calendarMinuteKey(_ date: Date) -> String {
-        String(Int((date.timeIntervalSinceReferenceDate / 60).rounded()))
+    private func calendarMinuteKey(_ date: Date) -> Int {
+        Int((date.timeIntervalSinceReferenceDate / 60).rounded())
     }
 
     private func monthStart(for date: Date) -> Date {

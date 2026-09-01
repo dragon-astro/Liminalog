@@ -50,6 +50,6 @@ enum LiminalLevel {
 
     /// 交換済みアイテム数（unlockItems から導出するヘルパ）。
     static func exchangedCount(in unlockItems: [UnlockItem]) -> Int {
-        unlockItems.filter { $0.requirementKind == .exchange && $0.unlockedAt != nil }.count
+        unlockItems.count { $0.requirementKind == .exchange && $0.unlockedAt != nil }
     }
 }

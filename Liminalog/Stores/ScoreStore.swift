@@ -163,45 +163,50 @@ enum ScoreSnapshotLoader {
         now: Date = Date(),
         calendar: Calendar = .japanese
     ) -> [ScoreSummary]? {
-        dailyScoreDraftsIfAvailable(
+        guard let inputs = dailyScoreInputsIfAvailable(
             in: interval,
             modelContext: modelContext,
             now: now,
-            calendar: calendar,
-            includeCardMetrics: false
-        )?.map(\.summary)
+            calendar: calendar
+        ) else {
+            return nil
+        }
+
+        return inputs.dates.map { date in
+            ScoreCalculator.summary(
+                date: date,
+                plans: inputs.plansByDay[date] ?? [],
+                chapters: inputs.chaptersByDay[date] ?? [],
+                calendar: calendar,
+                now: now
+            )
+        }
     }
 
     private static func dailyScoreDraftsIfAvailable(
         in interval: DateInterval,
         modelContext: ModelContext,
         now: Date = Date(),
-        calendar: Calendar = .japanese,
-        includeCardMetrics: Bool
+        calendar: Calendar = .japanese
     ) -> [DailyScoreSnapshotDraft]? {
-        let dates = days(in: interval, calendar: calendar)
-        guard !dates.isEmpty else { return [] }
-
-        guard let plans = plannedBlocksIfAvailable(in: interval, modelContext: modelContext),
-              let chapters = chaptersIfAvailable(in: interval, modelContext: modelContext, now: now, calendar: calendar)
-        else {
+        guard let inputs = dailyScoreInputsIfAvailable(
+            in: interval,
+            modelContext: modelContext,
+            now: now,
+            calendar: calendar
+        ) else {
             return nil
         }
-        let dailyCardsByIdentifier: [String: DailyCardSnapshot]
-        if includeCardMetrics {
-            let dailyCards = dailyCardSnapshots(in: interval, modelContext: modelContext) ?? []
-            dailyCardsByIdentifier = Dictionary(grouping: dailyCards, by: \.dayIdentifier)
-                .compactMapValues { snapshots in
-                    snapshots.sorted { $0.updatedAt > $1.updatedAt }.first
-                }
-        } else {
-            dailyCardsByIdentifier = [:]
-        }
+        let dailyCards = dailyCardSnapshots(in: interval, modelContext: modelContext) ?? []
+        let dailyCardsByIdentifier = Dictionary(grouping: dailyCards, by: \.dayIdentifier)
+            .compactMapValues { snapshots in
+                snapshots.sorted { $0.updatedAt > $1.updatedAt }.first
+            }
 
-        return dates.map { date in
+        return inputs.dates.map { date in
             let boundary = DayBoundary(date: date, calendar: calendar)
-            let dayPlans = plans.filter { $0.startTime < boundary.dayEnd && $0.endTime > boundary.dayStart }
-            let dayChapters = chapters.filter { $0.startTime < boundary.dayEnd && ($0.endTime ?? now) > boundary.dayStart }
+            let dayPlans = inputs.plansByDay[boundary.dayStart] ?? []
+            let dayChapters = inputs.chaptersByDay[boundary.dayStart] ?? []
             let summary = ScoreCalculator.summary(
                 date: date,
                 plans: dayPlans,
@@ -211,7 +216,9 @@ enum ScoreSnapshotLoader {
             )
             let completedChapters = dayChapters.filter { $0.endTime != nil }
             let categoryIDs = Set(dayChapters.compactMap { $0.category?.id })
-                .sorted { $0.uuidString < $1.uuidString }
+                .map { (id: $0, sortKey: $0.uuidString) }
+                .sorted { $0.sortKey < $1.sortKey }
+                .map(\.id)
             let dayIdentifier = DailyCardSnapshot.dayIdentifier(for: boundary.dayStart, calendar: calendar)
             return DailyScoreSnapshotDraft(
                 dayStart: boundary.dayStart,
@@ -227,11 +234,83 @@ enum ScoreSnapshotLoader {
                     return hour >= 23 || hour < 3
                 },
                 categoryIDs: categoryIDs,
-                cardMetrics: includeCardMetrics
-                    ? DailyScoreCardMetrics(snapshot: dailyCardsByIdentifier[dayIdentifier])
-                    : DailyScoreCardMetrics()
+                cardMetrics: DailyScoreCardMetrics(snapshot: dailyCardsByIdentifier[dayIdentifier])
             )
         }
+    }
+
+    private static func dailyScoreInputsIfAvailable(
+        in interval: DateInterval,
+        modelContext: ModelContext,
+        now: Date,
+        calendar: Calendar
+    ) -> DailyScoreInputs? {
+        let dates = days(in: interval, calendar: calendar)
+        guard !dates.isEmpty else {
+            return DailyScoreInputs(dates: [], plansByDay: [:], chaptersByDay: [:])
+        }
+
+        guard let plans = plannedBlocksIfAvailable(in: interval, modelContext: modelContext),
+              let chapters = chaptersIfAvailable(
+                in: interval,
+                modelContext: modelContext,
+                now: now,
+                calendar: calendar
+              )
+        else {
+            return nil
+        }
+
+        let validDayStarts = Set(dates)
+        let plansByDay = bucketByOverlappingDay(
+            plans,
+            interval: interval,
+            calendar: calendar,
+            validDayStarts: validDayStarts,
+            start: \.startTime,
+            end: \.endTime
+        )
+        let chaptersByDay = bucketByOverlappingDay(
+            chapters,
+            interval: interval,
+            calendar: calendar,
+            validDayStarts: validDayStarts,
+            start: \.startTime,
+            end: { $0.endTime ?? now }
+        )
+        return DailyScoreInputs(
+            dates: dates,
+            plansByDay: plansByDay,
+            chaptersByDay: chaptersByDay
+        )
+    }
+
+    private static func bucketByOverlappingDay<Value>(
+        _ values: [Value],
+        interval: DateInterval,
+        calendar: Calendar,
+        validDayStarts: Set<Date>,
+        start: (Value) -> Date,
+        end: (Value) -> Date
+    ) -> [Date: [Value]] {
+        var result: [Date: [Value]] = [:]
+        for value in values {
+            let clippedStart = max(start(value), interval.start)
+            let clippedEnd = min(end(value), interval.end)
+            guard clippedStart < clippedEnd else { continue }
+
+            var dayStart = DayBoundary.dayStart(for: clippedStart, calendar: calendar)
+            while dayStart < clippedEnd {
+                if validDayStarts.contains(dayStart) {
+                    result[dayStart, default: []].append(value)
+                }
+                guard let nextDay = calendar.date(byAdding: .day, value: 1, to: dayStart) else {
+                    break
+                }
+                dayStart = nextDay
+            }
+        }
+        return result
     }
 
     /// 累積スコア。昨日以前は日別の確定台帳、今日はライブ計算を足す。
@@ -312,8 +391,7 @@ enum ScoreSnapshotLoader {
                 in: interval,
                 modelContext: modelContext,
                 now: now,
-                calendar: calendar,
-                includeCardMetrics: true
+                calendar: calendar
               )
         else { return }
 
@@ -366,8 +444,7 @@ enum ScoreSnapshotLoader {
                 in: interval,
                 modelContext: modelContext,
                 now: now,
-                calendar: calendar,
-                includeCardMetrics: true
+                calendar: calendar
             ) else { return }
             let existingByDayIdentifier = Dictionary(grouping: existingSnapshots, by: \.dayIdentifier)
                 .compactMapValues { snapshots in
@@ -697,6 +774,12 @@ enum ScoreSnapshotLoader {
                 || hasRecord
                 || cardMetrics.hasAnyValue
         }
+    }
+
+    private struct DailyScoreInputs {
+        let dates: [Date]
+        let plansByDay: [Date: [PlanBlock]]
+        let chaptersByDay: [Date: [Chapter]]
     }
 
     private struct DailyScoreCardMetrics {

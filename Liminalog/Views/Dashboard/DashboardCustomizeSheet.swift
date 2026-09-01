@@ -17,7 +17,7 @@ struct DashboardCustomizeSheet: View {
     }
 
     private var visibleCount: Int {
-        orderedKeys.filter { $0 == .hero || !hiddenKeys.contains($0) }.count
+        orderedKeys.count { $0 == .hero || !hiddenKeys.contains($0) }
     }
 
     private var hasCustomLayout: Bool {
@@ -103,7 +103,7 @@ struct DashboardCustomizeSheet: View {
             nextOrder.remove(at: index)
         }
 
-        let adjustedDestination = destination - source.filter { $0 < destination }.count
+        let adjustedDestination = destination - source.count { $0 < destination }
         let insertionIndex = min(max(adjustedDestination, 0), nextOrder.count)
         nextOrder.insert(contentsOf: movingKeys, at: insertionIndex)
         guard nextOrder != orderedKeys else { return }

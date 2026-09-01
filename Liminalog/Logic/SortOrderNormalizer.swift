@@ -32,7 +32,7 @@ enum SortOrderNormalizer {
             reordered.remove(at: index)
         }
 
-        let removedBeforeDestination = source.filter { $0 < destination }.count
+        let removedBeforeDestination = source.count { $0 < destination }
         let insertionIndex = destination - removedBeforeDestination
         guard (0...reordered.count).contains(insertionIndex) else { return false }
 

@@ -331,12 +331,14 @@ final class PlanStore {
             }
             return (id: plan.id, start: plan.startTime, end: plan.endTime)
         }
+        .map { (interval: $0, idSortKey: $0.id.uuidString) }
         .sorted { lhs, rhs in
-            if lhs.start == rhs.start {
-                return lhs.id.uuidString < rhs.id.uuidString
+            if lhs.interval.start == rhs.interval.start {
+                return lhs.idSortKey < rhs.idSortKey
             }
-            return lhs.start < rhs.start
+            return lhs.interval.start < rhs.interval.start
         }
+        .map(\.interval)
 
         guard intervals.allSatisfy({ $0.start < $0.end }) else { return false }
         for pair in zip(intervals, intervals.dropFirst()) {

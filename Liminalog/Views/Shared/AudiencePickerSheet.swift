@@ -215,7 +215,10 @@ struct CategoryAudiencePickerSheet: View {
 
     private func applyAudienceToPastPlans() {
         let now = Date()
-        let audienceFriendIDs = Array(resolvedIDs).sorted { $0.uuidString < $1.uuidString }
+        let audienceFriendIDs = resolvedIDs
+            .map { (id: $0, sortKey: $0.uuidString) }
+            .sorted { $0.sortKey < $1.sortKey }
+            .map(\.id)
 
         for plan in pastPlansInCategory {
             plan.audienceFriendIDs = audienceFriendIDs
@@ -457,7 +460,7 @@ struct AudienceSnapshotPickerSheet: View {
     private func checkState(for set: FriendSet) -> RoundAudienceCheckmark.State {
         let memberIDs = members(in: set).map(\.id)
         guard !memberIDs.isEmpty else { return .empty }
-        let selectedCount = memberIDs.filter { audienceFriendIDs.contains($0) }.count
+        let selectedCount = memberIDs.count { audienceFriendIDs.contains($0) }
         if selectedCount == memberIDs.count { return .selected }
         if selectedCount > 0 { return .mixed }
         return .empty

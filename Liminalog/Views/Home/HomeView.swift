@@ -398,8 +398,6 @@ private struct TodayPageTextTabs: View {
 }
 
 private struct TodayRecordPage: View {
-    @Environment(ChapterStore.self) private var store
-
     let date: Date
     @Binding var editingChapter: Chapter?
 
@@ -415,7 +413,7 @@ private struct TodayRecordPage: View {
                     editingChapter: $editingChapter,
                     splitCards: true
                 )
-                .id("\(date.timeIntervalSince1970)-\(store.contentRevision)")
+                .id(date)
             }
             .padding(.horizontal, 16)
             .padding(.top, 12)
@@ -677,13 +675,30 @@ private struct HomeTomorrowTimelineCategoryPalette: View {
     }
 }
 
+private struct DailyReflectionPayloadSourceSignature: Hashable {
+    struct Plan: Hashable {
+        let id: UUID
+        let updatedAt: Date
+    }
+
+    struct Chapter: Hashable {
+        let id: UUID
+        let updatedAt: Date
+        let endTime: Date?
+    }
+
+    let date: Date
+    let plans: [Plan]
+    let chapters: [Chapter]
+}
+
 private struct YesterdayReviewPage: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var queriedChapters: [Chapter]
     @Query private var queriedPlans: [PlanBlock]
     @State private var cachedPayload: DailyReflectionPayload?
-    @State private var cachedPayloadSourceSignature: String?
-    @State private var persistedSnapshotSignatures: Set<String> = []
+    @State private var cachedPayloadSourceSignature: DailyReflectionPayloadSourceSignature?
+    @State private var persistedSnapshotSignatures: Set<DailyReflectionSnapshotSignature> = []
 
     let date: Date
     let onPlanTomorrow: () -> Void
@@ -710,7 +725,8 @@ private struct YesterdayReviewPage: View {
     }
 
     var body: some View {
-        let payload = resolvedPayload
+        let sourceSignature = payloadSourceSignature
+        let payload = resolvedPayload(sourceSignature: sourceSignature)
 
         ScrollView {
             VStack(spacing: 14) {
@@ -725,25 +741,38 @@ private struct YesterdayReviewPage: View {
             .padding(.top, 12)
             .padding(.bottom, 32)
         }
-        .task(id: payloadSourceSignature) {
-            refreshPayloadCache()
+        .task(id: sourceSignature) {
+            refreshPayloadCache(sourceSignature: sourceSignature)
         }
     }
 
-    private var resolvedPayload: DailyReflectionPayload {
-        if cachedPayloadSourceSignature == payloadSourceSignature,
+    private func resolvedPayload(
+        sourceSignature: DailyReflectionPayloadSourceSignature
+    ) -> DailyReflectionPayload {
+        if cachedPayloadSourceSignature == sourceSignature,
            let cachedPayload {
             return cachedPayload
         }
         return makePayload()
     }
 
-    private var payloadSourceSignature: String {
-        [
-            "\(date.timeIntervalSince1970)",
-            queriedPlans.map { "\($0.id.uuidString):\($0.updatedAt.timeIntervalSince1970)" }.joined(separator: ","),
-            queriedChapters.map { "\($0.id.uuidString):\($0.updatedAt.timeIntervalSince1970):\($0.endTime?.timeIntervalSince1970 ?? -1)" }.joined(separator: ",")
-        ].joined(separator: "|")
+    private var payloadSourceSignature: DailyReflectionPayloadSourceSignature {
+        DailyReflectionPayloadSourceSignature(
+            date: date,
+            plans: queriedPlans.map {
+                DailyReflectionPayloadSourceSignature.Plan(
+                    id: $0.id,
+                    updatedAt: $0.updatedAt
+                )
+            },
+            chapters: queriedChapters.map {
+                DailyReflectionPayloadSourceSignature.Chapter(
+                    id: $0.id,
+                    updatedAt: $0.updatedAt,
+                    endTime: $0.endTime
+                )
+            }
+        )
     }
 
     private func makePayload() -> DailyReflectionPayload {
@@ -755,9 +784,9 @@ private struct YesterdayReviewPage: View {
     }
 
     @MainActor
-    private func refreshPayloadCache() {
+    private func refreshPayloadCache(sourceSignature: DailyReflectionPayloadSourceSignature) {
         cachedPayload = makePayload()
-        cachedPayloadSourceSignature = payloadSourceSignature
+        cachedPayloadSourceSignature = sourceSignature
     }
 
     @MainActor

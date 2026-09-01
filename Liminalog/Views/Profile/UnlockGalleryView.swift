@@ -651,26 +651,26 @@ struct UnlockGalleryView: View {
     private var selectedTabCounts: (unlocked: Int, total: Int) {
         switch selectedTab {
         case .badges:
-            return (badges.filter(\.isUnlocked).count, badges.count)
+            return (badges.count(where: \.isUnlocked), badges.count)
         case .frames:
             return (
-                galleryFrameStyles.filter { unlocks.iconFrameIsUnlocked($0.id) }.count,
+                galleryFrameStyles.count { unlocks.iconFrameIsUnlocked($0.id) },
                 galleryFrameStyles.count
             )
         case .streaks:
             return (
-                ProfileStreakIconCatalog.equippableItems.filter { unlocks.streakIconIsUnlocked($0.id) }.count,
+                ProfileStreakIconCatalog.equippableItems.count { unlocks.streakIconIsUnlocked($0.id) },
                 ProfileStreakIconCatalog.equippableItems.count
             )
         case .cards:
             return (
-                galleryCardStyles.filter { unlocks.cardStyleIsUnlocked($0.id) }.count,
+                galleryCardStyles.count { unlocks.cardStyleIsUnlocked($0.id) },
                 galleryCardStyles.count
             )
         case .themes:
             let standardCount = LiminalThemeCatalog.fixedDefaultThemes.count + 1
             let total = LiminalThemeCatalog.selectableThemes.count + standardCount
-            let unlocked = LiminalThemeCatalog.selectableThemes.filter { unlocks.themeIsUnlocked($0.id) }.count + standardCount
+            let unlocked = LiminalThemeCatalog.selectableThemes.count { unlocks.themeIsUnlocked($0.id) } + standardCount
             return (unlocked, total)
         }
     }
@@ -1179,7 +1179,7 @@ private struct UnlockGalleryFrameStackCard: View {
     @State private var isShowingDetail = false
 
     private var unlockedCount: Int {
-        entries.filter(\.isUnlocked).count
+        entries.count(where: \.isUnlocked)
     }
 
     /// スタックの顔は解放済みの最高ランク（未解放のみならRank 1）。

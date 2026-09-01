@@ -57,8 +57,15 @@ enum ScoreCalculator {
             )
         }
 
-        let categoryScore = categoryAchievementScore(plans: clippedPlans, chapters: clippedChapters)
-        let matchedDuration = timelineMatchedDuration(plans: clippedPlans, chapters: clippedChapters)
+        let chaptersByCategory = Dictionary(grouping: clippedChapters, by: \.categoryID)
+        let categoryScore = categoryAchievementScore(
+            plans: clippedPlans,
+            chaptersByCategory: chaptersByCategory
+        )
+        let matchedDuration = timelineMatchedDuration(
+            plans: clippedPlans,
+            chaptersByCategory: chaptersByCategory
+        )
         let timelineScore = min(matchedDuration / plannedDuration, 1) * 100
         let total = categoryScore * categoryWeight + timelineScore * timelineWeight
 
@@ -73,10 +80,13 @@ enum ScoreCalculator {
         )
     }
 
-    private static func categoryAchievementScore(plans: [TimeSlice], chapters: [TimeSlice]) -> Double {
+    private static func categoryAchievementScore(
+        plans: [TimeSlice],
+        chaptersByCategory: [UUID?: [TimeSlice]]
+    ) -> Double {
         let plannedByCategory = Dictionary(grouping: plans, by: \.categoryID)
             .mapValues { $0.reduce(0) { $0 + $1.duration } }
-        let recordedByCategory = Dictionary(grouping: chapters, by: \.categoryID)
+        let recordedByCategory = chaptersByCategory
             .mapValues { $0.reduce(0) { $0 + $1.duration } }
         let plannedTotal = plannedByCategory.values.reduce(0, +)
         guard plannedTotal > 0 else { return 0 }
@@ -88,10 +98,13 @@ enum ScoreCalculator {
         return min(achieved / plannedTotal, 1) * 100
     }
 
-    private static func timelineMatchedDuration(plans: [TimeSlice], chapters: [TimeSlice]) -> TimeInterval {
+    private static func timelineMatchedDuration(
+        plans: [TimeSlice],
+        chaptersByCategory: [UUID?: [TimeSlice]]
+    ) -> TimeInterval {
         let tolerance: TimeInterval = 15 * 60
         return plans.reduce(0) { partial, plan in
-            let matches = chapters.filter { $0.categoryID == plan.categoryID }
+            let matches = chaptersByCategory[plan.categoryID] ?? []
             let matched = matches.reduce(0) { chapterPartial, chapter in
                 let toleratedStart = chapter.start.addingTimeInterval(-tolerance)
                 let toleratedEnd = chapter.end.addingTimeInterval(tolerance)

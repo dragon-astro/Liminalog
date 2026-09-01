@@ -469,6 +469,42 @@ private struct DailyRingSegment {
     let color: Color
 }
 
+struct DailyReflectionSnapshotSignature: Hashable {
+    struct Category: Hashable {
+        let id: UUID
+        let roundedDuration: Int
+    }
+
+    let dayStart: Date
+    let chapterCount: Int
+    let planCount: Int
+    let roundedRecordedDuration: Int
+    let roundedTotalScore: Int
+    let personaKind: String
+    let personaTitle: String
+    let categories: [Category]
+}
+
+struct DailyReflectionRenderSignature: Hashable {
+    struct Plan: Hashable {
+        let id: UUID
+        let startTime: Date
+        let endTime: Date
+        let updatedAt: Date
+    }
+
+    struct Chapter: Hashable {
+        let id: UUID
+        let startTime: Date
+        let endTime: Date?
+        let updatedAt: Date
+    }
+
+    let snapshot: DailyReflectionSnapshotSignature
+    let plans: [Plan]
+    let chapters: [Chapter]
+}
+
 struct DailyReflectionPayload {
     let date: Date
     let dayBoundary: DayBoundary
@@ -480,39 +516,44 @@ struct DailyReflectionPayload {
     let categoryRows: [(category: Category, duration: TimeInterval)]
     let persona: DailyPersona
 
-    var snapshotSignature: String {
-        [
-            "\(dayBoundary.dayStart.timeIntervalSince1970)",
-            "\(dayChapters.count)",
-            "\(dayPlans.count)",
-            "\(Int(recordedDuration.rounded()))",
-            "\(Int(summary.totalScore.rounded()))",
-            persona.kind.rawValue,
-            persona.title,
-            categoryRows.map { "\($0.category.id.uuidString):\(Int($0.duration.rounded()))" }.joined(separator: ",")
-        ].joined(separator: ":")
+    var snapshotSignature: DailyReflectionSnapshotSignature {
+        DailyReflectionSnapshotSignature(
+            dayStart: dayBoundary.dayStart,
+            chapterCount: dayChapters.count,
+            planCount: dayPlans.count,
+            roundedRecordedDuration: Int(recordedDuration.rounded()),
+            roundedTotalScore: Int(summary.totalScore.rounded()),
+            personaKind: persona.kind.rawValue,
+            personaTitle: persona.title,
+            categories: categoryRows.map {
+                DailyReflectionSnapshotSignature.Category(
+                    id: $0.category.id,
+                    roundedDuration: Int($0.duration.rounded())
+                )
+            }
+        )
     }
 
-    var renderSignature: String {
-        [
-            snapshotSignature,
-            dayPlans.map {
-                [
-                    $0.id.uuidString,
-                    "\($0.startTime.timeIntervalSince1970)",
-                    "\($0.endTime.timeIntervalSince1970)",
-                    "\($0.updatedAt.timeIntervalSince1970)"
-                ].joined(separator: ":")
-            }.joined(separator: ","),
-            dayChapters.map {
-                [
-                    $0.id.uuidString,
-                    "\($0.startTime.timeIntervalSince1970)",
-                    "\($0.endTime?.timeIntervalSince1970 ?? -1)",
-                    "\($0.updatedAt.timeIntervalSince1970)"
-                ].joined(separator: ":")
-            }.joined(separator: ",")
-        ].joined(separator: "|")
+    var renderSignature: DailyReflectionRenderSignature {
+        DailyReflectionRenderSignature(
+            snapshot: snapshotSignature,
+            plans: dayPlans.map {
+                DailyReflectionRenderSignature.Plan(
+                    id: $0.id,
+                    startTime: $0.startTime,
+                    endTime: $0.endTime,
+                    updatedAt: $0.updatedAt
+                )
+            },
+            chapters: dayChapters.map {
+                DailyReflectionRenderSignature.Chapter(
+                    id: $0.id,
+                    startTime: $0.startTime,
+                    endTime: $0.endTime,
+                    updatedAt: $0.updatedAt
+                )
+            }
+        )
     }
 
     static func make(
@@ -597,7 +638,7 @@ struct DailyReflectionPayloadCard: View, Equatable {
     let onPlanTomorrow: (() -> Void)?
     let onPersistSnapshot: ((DailyReflectionPayload) -> Void)?
 
-    private let renderSignature: String
+    private let renderSignature: DailyReflectionRenderSignature
     private let showsPlanTomorrowAction: Bool
     private let persistsSnapshot: Bool
 

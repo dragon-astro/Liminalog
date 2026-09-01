@@ -7,6 +7,10 @@ struct CategoryGrid: View {
     @AppStorage("homeCategoryGridExpanded") private var isExpanded = true
     @Query(sort: \CategorySet.sortOrder) private var categorySets: [CategorySet]
     @Query(sort: \Category.sortOrder) private var categories: [Category]
+    @Query(
+        filter: #Predicate<Chapter> { $0.endTime == nil },
+        sort: [SortDescriptor(\.startTime, order: .reverse)]
+    ) private var activeChapters: [Chapter]
 
     @State private var selectedSetID: UUID?
     @State private var scrolledSetID: UUID?
@@ -48,7 +52,7 @@ struct CategoryGrid: View {
             }
             .animation(.easeInOut(duration: 0.22), value: isExpanded)
             .onAppear { syncSelectionAfterLayout() }
-            .onChange(of: store.activeChapter?.category?.id) { _, newID in
+            .onChange(of: activeChapters.first?.category?.id) { _, newID in
                 activeID = newID
             }
             .onChange(of: categorySets.map(\.id)) { _, _ in
@@ -284,7 +288,7 @@ struct CategoryGrid: View {
     // MARK: - Sync
 
     private func syncSelection() {
-        activeID = store.activeChapter?.category?.id
+        activeID = activeChapters.first?.category?.id
 
         let restoration = CategoryBoardSelectionPolicy.restore(
             storedID: UUID(uuidString: activeSetIDString),

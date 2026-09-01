@@ -7,7 +7,7 @@ struct ProfileDailyCardArchivePagerView: View {
     let entries: [ProfileDailyCardEntry]
     @State private var scrolledEntryID: ProfileDailyCardEntry.ID?
     @State private var payloadsByDayIdentifier: [String: DailyReflectionPayload] = [:]
-    @State private var persistedSnapshotSignatures: Set<String> = []
+    @State private var persistedSnapshotSignatures: Set<DailyReflectionSnapshotSignature> = []
 
     init(entries: [ProfileDailyCardEntry], initialEntry: ProfileDailyCardEntry) {
         let sortedEntries = entries.sorted { $0.dayStart > $1.dayStart }

@@ -6,6 +6,20 @@ import Testing
 @MainActor
 struct DailyCardSnapshotStoreTests {
     @Test
+    func dayIdentifierKeepsAtLeastTwoDigitsWithoutFormatterAllocation() throws {
+        let calendar = Calendar.liminalogTest
+        let earlyDate = try #require(
+            calendar.date(from: DateComponents(year: 6, month: 1, day: 2))
+        )
+        let modernDate = try #require(
+            calendar.date(from: DateComponents(year: 2026, month: 11, day: 12))
+        )
+
+        #expect(DailyCardSnapshot.dayIdentifier(for: earlyDate, calendar: calendar) == "06-01-02")
+        #expect(DailyCardSnapshot.dayIdentifier(for: modernDate, calendar: calendar) == "2026-11-12")
+    }
+
+    @Test
     func upsertCreatesAndUpdatesSingleSnapshotPerDay() throws {
         let calendar = Calendar.liminalogTest
         let container = try TestModelContainer.make()
