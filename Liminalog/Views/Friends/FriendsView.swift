@@ -700,22 +700,24 @@ struct FriendsView: View {
     }
 
     private func selfScore(for period: FriendScorePeriod, anchorDate: Date?) -> Double {
-        switch period {
-        case .day:
-            return ScoreSnapshotLoader.summary(on: anchorDate ?? clock.now, modelContext: modelContext, now: clock.now).totalScore
-        case .today:
-            return ScoreSnapshotLoader.summary(on: clock.now, modelContext: modelContext, now: clock.now).totalScore
-        case .yesterday:
-            guard let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: clock.now) else {
-                return 0
+        TabPerformanceDiagnostics.measure("Friends self score") {
+            switch period {
+            case .day:
+                return ScoreSnapshotLoader.summary(on: anchorDate ?? clock.now, modelContext: modelContext, now: clock.now).totalScore
+            case .today:
+                return ScoreSnapshotLoader.summary(on: clock.now, modelContext: modelContext, now: clock.now).totalScore
+            case .yesterday:
+                guard let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: clock.now) else {
+                    return 0
+                }
+                return ScoreSnapshotLoader.summary(on: yesterday, modelContext: modelContext, now: clock.now).totalScore
+            case .week:
+                return averageSelfScore(in: dateInterval(.weekOfYear, containing: anchorDate ?? clock.now))
+            case .month:
+                return averageSelfScore(in: dateInterval(.month, containing: anchorDate ?? clock.now))
+            case .year:
+                return averageSelfScore(in: dateInterval(.year, containing: anchorDate ?? clock.now))
             }
-            return ScoreSnapshotLoader.summary(on: yesterday, modelContext: modelContext, now: clock.now).totalScore
-        case .week:
-            return averageSelfScore(in: dateInterval(.weekOfYear, containing: anchorDate ?? clock.now))
-        case .month:
-            return averageSelfScore(in: dateInterval(.month, containing: anchorDate ?? clock.now))
-        case .year:
-            return averageSelfScore(in: dateInterval(.year, containing: anchorDate ?? clock.now))
         }
     }
 
