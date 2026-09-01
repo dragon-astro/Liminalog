@@ -231,10 +231,12 @@ struct ProfileView: View {
             }
             .task {
                 ensureUserSettings()
-                refreshPerformanceSnapshot()
                 applyDebugLaunchRouteIfNeeded()
+                await refreshPerformanceSnapshotAfterTabPresentation()
             }
             .task(id: dailyCardBackfillSignature) {
+                await Task.yield()
+                guard !Task.isCancelled else { return }
                 backfillDailyCardSnapshots()
             }
             .onChange(of: isShowingSettings) { _, isShowing in
@@ -272,7 +274,10 @@ struct ProfileView: View {
            now.timeIntervalSince(performanceSnapshotLoadedAt) < 120 {
             return
         }
-        guard let snapshot = ProfilePerformanceSnapshot.loadIfAvailable(modelContext: modelContext, now: now) else {
+        let loadedSnapshot = TabPerformanceDiagnostics.measure("Profile performance snapshot") {
+            ProfilePerformanceSnapshot.loadIfAvailable(modelContext: modelContext, now: now)
+        }
+        guard let snapshot = loadedSnapshot else {
             NSLog("Liminalog: skipped profile unlock refresh because performance snapshot could not be loaded")
             return
         }
@@ -281,12 +286,22 @@ struct ProfileView: View {
         UnlockStore(modelContext: modelContext).refresh(metrics: snapshot.unlockMetrics)
     }
 
+    private func refreshPerformanceSnapshotAfterTabPresentation() async {
+        // .task は表示ライフサイクルに追従する。選択フレームを先に確定させ、
+        // 既存の120秒キャッシュ判定と最終結果は変えずに重い集計を次の実行機会へ送る。
+        await Task.yield()
+        guard !Task.isCancelled else { return }
+        refreshPerformanceSnapshot()
+    }
+
     private func backfillDailyCardSnapshots() {
         guard lastDailyCardBackfillSignature != dailyCardBackfillSignature else { return }
         lastDailyCardBackfillSignature = dailyCardBackfillSignature
-        DailyCardSnapshotStore(modelContext: modelContext).backfillMissingSnapshots(
-            from: dailyScoreSnapshots
-        )
+        TabPerformanceDiagnostics.measure("Profile daily card backfill") {
+            DailyCardSnapshotStore(modelContext: modelContext).backfillMissingSnapshots(
+                from: dailyScoreSnapshots
+            )
+        }
     }
 
     private func saveProfile(_ draft: ProfileDraft) -> Bool {

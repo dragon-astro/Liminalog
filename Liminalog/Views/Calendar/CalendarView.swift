@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import CoreData
 import UIKit
 
 private struct CalendarPlanDuplicateCategoryKey: Hashable {
@@ -19,6 +20,27 @@ private enum CalendarPlanDuplicateKey: Hashable {
     )
 }
 
+enum CalendarTabCacheRefreshPlan: Hashable {
+    case immediateVisibleRange
+    case deferredCurrentMonth
+    case deferredVisibleRange
+}
+
+enum CalendarTabCacheRefreshPolicy {
+    static func plan(
+        hasCachedPageData: Bool,
+        loadedContentRevision: Int?,
+        currentContentRevision: Int,
+        requiresExternalRefresh: Bool
+    ) -> CalendarTabCacheRefreshPlan {
+        guard hasCachedPageData else { return .immediateVisibleRange }
+        if requiresExternalRefresh || loadedContentRevision != currentContentRevision {
+            return .deferredVisibleRange
+        }
+        return .deferredCurrentMonth
+    }
+}
+
 struct CalendarView: View {
     @Environment(ChapterStore.self) private var store
     @Environment(\.modelContext) private var modelContext
@@ -35,6 +57,10 @@ struct CalendarView: View {
     @State private var anchorMonth = CalendarView.currentMonthStart
     @State private var monthScrolledOffset: Int? = 0
     @State private var pageDataByMonth: [Date: CalendarMonthPageData] = [:]
+    @State private var loadedContentRevision: Int?
+    @State private var deferredTabRefreshPlan: CalendarTabCacheRefreshPlan?
+    @State private var externalRefreshRevision = 0
+    @State private var loadedExternalRefreshRevision = 0
     @State private var showingMonthPicker = false
     @State private var pickerYear = Calendar.japanese.component(.year, from: Date())
     @State private var pickerMonth = Calendar.japanese.component(.month, from: Date())
@@ -138,7 +164,37 @@ struct CalendarView: View {
             .onAppear {
                 clock.start()
                 pruneCalendarFilterStorage()
-                reloadVisibleData()
+                let refreshPlan = CalendarTabCacheRefreshPolicy.plan(
+                    hasCachedPageData: !pageDataByMonth.isEmpty,
+                    loadedContentRevision: loadedContentRevision,
+                    currentContentRevision: store.contentRevision,
+                    requiresExternalRefresh: loadedExternalRefreshRevision != externalRefreshRevision
+                )
+                if refreshPlan == .immediateVisibleRange {
+                    reloadVisibleData()
+                } else {
+                    deferredTabRefreshPlan = refreshPlan
+                }
+            }
+            .task(id: deferredTabRefreshPlan) {
+                guard let refreshPlan = deferredTabRefreshPlan else { return }
+                await Task.yield()
+                guard !Task.isCancelled else { return }
+                let targetExternalRefreshRevision = externalRefreshRevision
+                let targetContentRevision = store.contentRevision
+                let effectivePlan: CalendarTabCacheRefreshPlan =
+                    loadedExternalRefreshRevision == targetExternalRefreshRevision
+                    ? refreshPlan
+                    : .deferredVisibleRange
+                await performDeferredTabRefresh(
+                    effectivePlan,
+                    targetContentRevision: targetContentRevision
+                )
+                guard !Task.isCancelled else { return }
+                if effectivePlan == .deferredVisibleRange {
+                    loadedExternalRefreshRevision = targetExternalRefreshRevision
+                }
+                deferredTabRefreshPlan = nil
             }
             .onDisappear {
                 clock.stop()
@@ -174,6 +230,9 @@ struct CalendarView: View {
             .onReceive(NotificationCenter.default.publisher(for: CloudFriendShareRefreshCoordinator.sharedRecordsDidChange)) { notification in
                 guard shouldReloadForSharedRecordChange(notification) else { return }
                 reloadVisibleData(forSharedRecordChange: notification)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .NSPersistentStoreRemoteChange)) { _ in
+                externalRefreshRevision &+= 1
             }
         }
     }
@@ -933,14 +992,58 @@ struct CalendarView: View {
 
     /// データ変更後（日編集シートを閉じた等）にキャッシュを破棄して現在月周辺を作り直す。
     private func reloadVisibleData() {
-        let monthOffset = currentMonthOffset
-        performWithoutAnimation {
-            pageDataByMonth.removeAll()
+        TabPerformanceDiagnostics.measure("Calendar reload visible data") {
+            let monthOffset = currentMonthOffset
+            performWithoutAnimation {
+                pageDataByMonth.removeAll()
+            }
+            ensureData(around: monthOffset)
+            if displayMode != .month {
+                reloadTimelinePlanData()
+            }
+            loadedContentRevision = store.contentRevision
+            loadedExternalRefreshRevision = externalRefreshRevision
         }
-        ensureData(around: monthOffset)
+    }
+
+    /// キャッシュ済み画面を先に表示してから、時刻依存スコアと変更データを更新する。
+    /// 表示範囲全体の更新も1ヶ月ずつyieldし、タブ選択フレームを同期計算で塞がない。
+    @MainActor
+    private func performDeferredTabRefresh(
+        _ plan: CalendarTabCacheRefreshPlan,
+        targetContentRevision: Int
+    ) async {
+        let visibleOffset = currentMonthOffset
+        let offsets: [Int]
+        switch plan {
+        case .immediateVisibleRange:
+            return
+        case .deferredCurrentMonth:
+            offsets = [visibleOffset]
+        case .deferredVisibleRange:
+            offsets = [visibleOffset, visibleOffset - 1, visibleOffset + 1]
+        }
+
+        for (index, offset) in offsets.enumerated() {
+            guard !Task.isCancelled else { return }
+            let visibleMonth = month(forOffset: offset)
+            let key = monthStart(for: visibleMonth)
+            let pageData = TabPerformanceDiagnostics.measure("Calendar refresh one month") {
+                computePageData(for: visibleMonth, now: clock.now)
+            }
+            performWithoutAnimation {
+                pageDataByMonth[key] = pageData
+            }
+            if index < offsets.count - 1 {
+                await Task.yield()
+            }
+        }
+
+        pruneMonthPageData(around: visibleOffset)
         if displayMode != .month {
             reloadTimelinePlanData()
         }
+        loadedContentRevision = targetContentRevision
     }
 
     private func reloadVisibleData(forSharedRecordChange notification: Notification) {

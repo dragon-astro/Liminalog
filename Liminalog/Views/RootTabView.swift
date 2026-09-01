@@ -72,14 +72,17 @@ struct RootTabView: View {
                         Tab("ホーム", systemImage: "clock.fill", value: RootTab.today) {
                             HomeView()
                                 .id(themeRefreshID(for: .today))
+                                .onAppear { TabPerformanceDiagnostics.event("Today tab visible") }
                         }
                         Tab("カレンダー", systemImage: "calendar", value: RootTab.calendar) {
                             CalendarView()
                                 .id(themeRefreshID(for: .calendar))
+                                .onAppear { TabPerformanceDiagnostics.event("Calendar tab visible") }
                         }
                         Tab("統計", systemImage: "chart.bar.fill", value: RootTab.dashboard) {
                             StatisticsTabContent(purchaseStore: appStores.purchaseStore)
                                 .id(themeRefreshID(for: .dashboard))
+                                .onAppear { TabPerformanceDiagnostics.event("Dashboard tab visible") }
                         }
                         Tab("友達", systemImage: "person.2.fill", value: RootTab.friends) {
                             FriendsView(
@@ -87,10 +90,12 @@ struct RootTabView: View {
                                 refreshIncomingFriendShares: refreshIncomingFriendShares
                             )
                                 .id(themeRefreshID(for: .friends))
+                                .onAppear { TabPerformanceDiagnostics.event("Friends tab visible") }
                         }
                         Tab("プロフィール", systemImage: "person.crop.circle", value: RootTab.profile) {
                             ProfileView()
                                 .id(themeRefreshID(for: .profile))
+                                .onAppear { TabPerformanceDiagnostics.event("Profile tab visible") }
                         }
                     }
                     .environment(store)
@@ -141,6 +146,7 @@ struct RootTabView: View {
             }
             .onChange(of: selectedTab) { oldTab, newTab in
                 guard oldTab != newTab else { return }
+                newTab.recordSelectionPerformanceEvent()
                 LiminalHaptics.tabSelection()
             }
             .onChange(of: selectedThemeID) { oldID, newID in
@@ -302,7 +308,9 @@ struct RootTabView: View {
     private func runCloudDuplicateMerge(reason: String, includeTimelineRecords: Bool) {
         let startedAt = Date()
         let mergeStore = CloudDuplicateMergeStore(modelContext: modelContext)
-        let merged = includeTimelineRecords ? mergeStore.mergeAll() : mergeStore.mergeLightweight()
+        let merged = TabPerformanceDiagnostics.measure("Cloud duplicate merge") {
+            includeTimelineRecords ? mergeStore.mergeAll() : mergeStore.mergeLightweight()
+        }
         lastRemoteChangeDuplicateMergeAt = Date()
         if includeTimelineRecords {
             pendingRemoteChangeRequiresFullMerge = false
@@ -415,6 +423,21 @@ private struct ThemeTransitionHost<Content: View>: View, Animatable {
 }
 
 private extension RootTab {
+    func recordSelectionPerformanceEvent() {
+        switch self {
+        case .today:
+            TabPerformanceDiagnostics.event("Today tab selected")
+        case .calendar:
+            TabPerformanceDiagnostics.event("Calendar tab selected")
+        case .dashboard:
+            TabPerformanceDiagnostics.event("Dashboard tab selected")
+        case .friends:
+            TabPerformanceDiagnostics.event("Friends tab selected")
+        case .profile:
+            TabPerformanceDiagnostics.event("Profile tab selected")
+        }
+    }
+
     init(_ shortcutRoute: LiminalogShortcutRoute) {
         switch shortcutRoute {
         case .today:
