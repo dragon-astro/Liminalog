@@ -73,6 +73,13 @@ private struct HomePlanCreateRequest: Identifiable {
     let startsAsAllDay: Bool
 }
 
+/// Scroll-position storage is intentionally not observable. The timeline keeps
+/// the same read/write binding without invalidating all three Home pages while
+/// the user scrolls.
+private final class HomeTomorrowTimelineViewportState {
+    var visibleHour = 7
+}
+
 struct HomeView: View {
     @Environment(ChapterStore.self) private var store
     @Environment(\.modelContext) private var modelContext
@@ -89,7 +96,7 @@ struct HomeView: View {
     @State private var tomorrowHasActionableGap = false
     @State private var didApplyInitialPage = false
     @State private var selectedTomorrowTimelineCategoryID: UUID?
-    @State private var tomorrowTimelineVisibleHour = 7
+    @State private var tomorrowTimelineViewportState = HomeTomorrowTimelineViewportState()
     @State private var tomorrowScheduleInteractionActive = false
     @State private var tomorrowPlanReloadToken = 0
     @State private var tomorrowCoverageContentRevision: Int?
@@ -242,7 +249,7 @@ struct HomeView: View {
                 planTitleFontSize: planTitleFontSize,
                 planTitleBold: planTitleBold,
                 reloadToken: tomorrowPlanReloadToken,
-                visibleHour: $tomorrowTimelineVisibleHour,
+                visibleHour: tomorrowTimelineVisibleHour,
                 selectedCategoryID: $selectedTomorrowTimelineCategoryID,
                 isScheduleInteractionActive: $tomorrowScheduleInteractionActive,
                 onEditPlan: { plan in
@@ -343,6 +350,13 @@ struct HomeView: View {
             set: { newValue in
                 selectedPage = newValue
             }
+        )
+    }
+
+    private var tomorrowTimelineVisibleHour: Binding<Int> {
+        Binding(
+            get: { tomorrowTimelineViewportState.visibleHour },
+            set: { tomorrowTimelineViewportState.visibleHour = $0 }
         )
     }
 
