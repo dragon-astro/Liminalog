@@ -110,7 +110,7 @@ final class CloudFriendShareRefreshCoordinator {
         requiresFullPublish: Bool? = nil,
         resetsPublishedItemState: Bool = false
     ) {
-        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
+        guard !LiminalogRuntime.isRunningUnitTests else { return }
         markPendingOutgoingRefresh()
         let shouldPublishFull = requiresFullPublish ?? (changedPlanSourceIDs.isEmpty && changedChapterSourceIDs.isEmpty && changedScoreDayStarts.isEmpty)
         NotificationCenter.default.post(
@@ -128,7 +128,7 @@ final class CloudFriendShareRefreshCoordinator {
     }
 
     static func requestIncomingRefresh(reason: String, friendID: UUID? = nil) {
-        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
+        guard !LiminalogRuntime.isRunningUnitTests else { return }
         var userInfo: [String: Any] = [refreshReasonKey: reason]
         if let friendID {
             userInfo[incomingFriendIDsKey] = [friendID.uuidString]
@@ -214,7 +214,7 @@ final class CloudFriendShareRefreshCoordinator {
         requiresFullPublish: Bool = true,
         resetsPublishedItemState: Bool = false
     ) {
-        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
+        guard !LiminalogRuntime.isRunningUnitTests else { return }
         let request = CloudFriendShareRefreshRequest(
             reason: reason,
             changedPlanSourceIDs: changedPlanSourceIDs,
@@ -236,7 +236,7 @@ final class CloudFriendShareRefreshCoordinator {
         friendIDs: Set<UUID> = [],
         delay: TimeInterval = 1.5
     ) {
-        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
+        guard !LiminalogRuntime.isRunningUnitTests else { return }
         let request = CloudFriendShareRefreshRequest(
             reason: reason,
             incomingFriendIDs: friendIDs,
@@ -265,7 +265,7 @@ final class CloudFriendShareRefreshCoordinator {
     }
 
     func scheduleConsentRefresh(reason: String) {
-        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
+        guard !LiminalogRuntime.isRunningUnitTests else { return }
         pendingConsentTask?.cancel()
         pendingConsentTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 1_500_000_000)

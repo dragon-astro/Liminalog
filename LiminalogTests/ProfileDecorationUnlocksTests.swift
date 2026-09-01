@@ -55,6 +55,20 @@ struct ProfileDecorationUnlocksTests {
     }
 
     @Test
+    func debugCatalogModeIncludesLockedDecorationTargets() throws {
+        let lockedFrame = try #require(
+            UnlockCatalog.items.first { $0.key == "frame.free_instrument_platinum" }
+        ).item()
+
+        let unlocks = ProfileDecorationUnlocks(
+            unlockItems: [lockedFrame],
+            includesLockedCatalogItems: true
+        )
+
+        #expect(unlocks.iconFrameIsUnlocked("free_instrument_platinum"))
+    }
+
+    @Test
     func cardStyleNoneIsLegacyOnlyAndDefaultCardIsVisible() {
         let unlocks = ProfileDecorationUnlocks(unlockItems: [])
 

@@ -151,7 +151,7 @@ struct WidgetSettingsView: View {
     }
 
     private func reloadRecordingWidget() {
-        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
+        guard !LiminalogRuntime.isRunningUnitTests else { return }
         WidgetCenter.shared.reloadTimelines(ofKind: "RecordingGridWidget")
     }
 }

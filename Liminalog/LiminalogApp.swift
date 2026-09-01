@@ -16,7 +16,7 @@ struct LiminalogApp: App {
     private static let currentOutgoingPublishStateRepairVersion = 1
 
     private let modelContainer: ModelContainer = {
-        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
+        if LiminalogRuntime.isRunningUnitTests {
             return (try? SharedModelContainer.inMemory()) ?? SharedModelContainer.shared
         }
         return SharedModelContainer.shared

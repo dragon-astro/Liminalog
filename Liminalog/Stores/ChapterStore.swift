@@ -20,6 +20,7 @@ final class ChapterStore {
     private static let pendingCategoryCacheKey = "recording.pendingCategoryID"
     private static let enabledCategorySetCacheKey = "recording.enabledCategorySetID"
     private static let surfaceSnapshotCacheKey = "recording.surfaceSnapshot"
+    private static let recordingSurfaceEncoder = JSONEncoder()
 
     init(
         modelContext: ModelContext,
@@ -57,7 +58,7 @@ final class ChapterStore {
     ) {
         contentRevision &+= 1
 
-        if reloadWidgets && ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil {
+        if reloadWidgets && !LiminalogRuntime.isRunningUnitTests {
             WidgetCenter.shared.reloadAllTimelines()
         }
         guard requestCloudFriendShareRefresh else { return }
@@ -71,12 +72,12 @@ final class ChapterStore {
     }
 
     private func reloadRecordingGridWidget() {
-        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
+        guard !LiminalogRuntime.isRunningUnitTests else { return }
         WidgetCenter.shared.reloadTimelines(ofKind: "RecordingGridWidget")
     }
 
     private func cacheActiveCategoryID(_ id: UUID?) {
-        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
+        guard !LiminalogRuntime.isRunningUnitTests else { return }
         guard let defaults = UserDefaults(suiteName: Self.appGroupID) else {
             NSLog("Liminalog: skipped active category cache because app group UserDefaults was unavailable")
             return
@@ -92,7 +93,7 @@ final class ChapterStore {
     }
 
     private static func cachedEnabledCategorySetID() -> UUID? {
-        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil,
+        guard !LiminalogRuntime.isRunningUnitTests,
               let value = UserDefaults(suiteName: Self.appGroupID)?.string(forKey: Self.enabledCategorySetCacheKey)
         else { return nil }
         return UUID(uuidString: value)
@@ -134,7 +135,7 @@ final class ChapterStore {
     }
 
     private func publishRecordingSurfaceSnapshot(_ snapshot: RecordingSurfaceSnapshot) {
-        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
+        guard !LiminalogRuntime.isRunningUnitTests else { return }
         guard let defaults = UserDefaults(suiteName: Self.appGroupID) else {
             NSLog("Liminalog: skipped recording surface snapshot cache because app group UserDefaults was unavailable")
             return
@@ -147,7 +148,7 @@ final class ChapterStore {
         }
 
         do {
-            let data = try JSONEncoder().encode(snapshot)
+            let data = try Self.recordingSurfaceEncoder.encode(snapshot)
             defaults.set(data, forKey: Self.surfaceSnapshotCacheKey)
         } catch {
             NSLog("Liminalog: failed to encode recording surface snapshot: \(String(describing: error))")

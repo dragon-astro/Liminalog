@@ -83,10 +83,6 @@ struct FriendsView: View {
         ProfileIconFrameCatalog.item(for: decorationUnlocks.equippedIconFrameID(settings: settings))
     }
 
-    private var ownVisualAccentColor: Color {
-        ownIconFrame.primaryColor
-    }
-
     private var ownCardStyle: ProfileCardStyle {
         ProfileCardStyleCatalog.item(for: settings?.profileCardStyleID)
     }
@@ -129,6 +125,9 @@ struct FriendsView: View {
     }
 
     var body: some View {
+        let ownIconFrame = self.ownIconFrame
+        let ownVisualAccentColor = ownIconFrame.primaryColor
+
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
@@ -139,9 +138,12 @@ struct FriendsView: View {
                     }
 
                     if acceptedFriends.isEmpty {
-                        emptyState
+                        emptyState(accentColor: ownVisualAccentColor)
                     } else {
-                        rankingSection
+                        rankingSection(
+                            ownIconFrame: ownIconFrame,
+                            accentColor: ownVisualAccentColor
+                        )
                         friendsListSection
                     }
 
@@ -189,7 +191,12 @@ struct FriendsView: View {
                 FriendRankingListSheet(
                     period: $rankingDetailPeriod,
                     anchorDate: $rankingAnchorDate,
-                    entries: rankingEntries(for: rankingDetailPeriod, anchorDate: rankingAnchorDate),
+                    entries: rankingEntries(
+                        for: rankingDetailPeriod,
+                        anchorDate: rankingAnchorDate,
+                        ownIconFrame: ownIconFrame,
+                        accentColor: ownVisualAccentColor
+                    ),
                     onSelectFriend: { friend in
                         selectedFriend = friend
                     }
@@ -431,16 +438,16 @@ struct FriendsView: View {
         }
     }
 
-    private var emptyState: some View {
+    private func emptyState(accentColor: Color) -> some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .top, spacing: 14) {
                 ZStack {
                     Circle()
-                        .fill(ownVisualAccentColor.opacity(0.16))
+                        .fill(accentColor.opacity(0.16))
                         .frame(width: 56, height: 56)
                     Image(systemName: "person.2.wave.2.fill")
                         .font(.title2.weight(.semibold))
-                        .foregroundStyle(ownVisualAccentColor)
+                        .foregroundStyle(accentColor)
                 }
 
                 VStack(alignment: .leading, spacing: 6) {
@@ -491,10 +498,19 @@ struct FriendsView: View {
         )
     }
 
-    private var rankingSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+    private func rankingSection(
+        ownIconFrame: ProfileIconFrameStyle,
+        accentColor: Color
+    ) -> some View {
+        let entries = rankingEntries(
+            for: .yesterday,
+            ownIconFrame: ownIconFrame,
+            accentColor: accentColor
+        )
+
+        return VStack(alignment: .leading, spacing: 10) {
             HStack {
-                SectionTitle(title: "昨日のランキング", count: yesterdayRankingEntries.count)
+                SectionTitle(title: "昨日のランキング", count: entries.count)
                 Spacer()
                 Button {
                     LiminalHaptics.openSheet()
@@ -519,7 +535,7 @@ struct FriendsView: View {
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 10) {
-                    ForEach(yesterdayRankingEntries) { entry in
+                    ForEach(entries) { entry in
                         Button {
                             if let friend = entry.friend {
                                 LiminalHaptics.openSheet()
@@ -625,18 +641,19 @@ struct FriendsView: View {
         }
     }
 
-    private var yesterdayRankingEntries: [FriendRankingEntry] {
-        rankingEntries(for: .yesterday)
-    }
-
-    private func rankingEntries(for period: FriendScorePeriod, anchorDate: Date? = nil) -> [FriendRankingEntry] {
+    private func rankingEntries(
+        for period: FriendScorePeriod,
+        anchorDate: Date? = nil,
+        ownIconFrame: ProfileIconFrameStyle,
+        accentColor: Color
+    ) -> [FriendRankingEntry] {
         let selfEntry = FriendRankingEntry(
             id: "me",
             rank: 0,
             name: ownDisplayName,
             imageName: activeChapter?.category?.icon ?? "person.fill",
             imageData: settings?.profileImageData,
-            tint: ownVisualAccentColor,
+            tint: accentColor,
             score: selfScore(for: period, anchorDate: anchorDate),
             status: "自分",
             iconFrame: ownIconFrame,

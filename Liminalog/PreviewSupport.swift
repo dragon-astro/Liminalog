@@ -2,6 +2,7 @@ import Foundation
 import SwiftData
 import SwiftUI
 
+#if DEBUG
 @MainActor
 enum PreviewSupport {
     static let container: ModelContainer = {
@@ -213,12 +214,17 @@ enum PreviewSupport {
         try? context.save()
     }
 }
+#endif
 
 extension View {
     @MainActor
     func liminalogPreviewEnvironment() -> some View {
+        #if DEBUG
         modelContainer(PreviewSupport.container)
             .environment(PreviewSupport.store)
             .environment(PurchaseStore.preview)
+        #else
+        self
+        #endif
     }
 }

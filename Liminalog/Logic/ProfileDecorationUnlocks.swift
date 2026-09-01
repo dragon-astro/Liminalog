@@ -19,46 +19,35 @@ struct ProfileDecorationUnlocks {
     let themeIDs: Set<String>
 
     init(unlockItems: [UnlockItem], includesLockedCatalogItems: Bool = false) {
-        var themeIDs = Self.unlockedTargetIDs(
-            in: unlockItems,
-            kind: .theme,
-            defaultID: Self.defaultThemeID,
-            unequippedID: nil
-        )
-        var nameBadgeIDs = Self.unlockedTargetIDs(
-            in: unlockItems,
-            kind: .nameBadge,
-            defaultID: Self.defaultNameBadgeID,
-            unequippedID: Self.noNameBadgeID
-        )
-        var iconFrameIDs = Self.unlockedTargetIDs(
-            in: unlockItems,
-            kind: .iconFrame,
-            defaultID: Self.defaultIconFrameID,
-            unequippedID: Self.noIconFrameID
-        )
-        var streakIconIDs = Self.unlockedTargetIDs(
-            in: unlockItems,
-            kind: .streakIcon,
-            defaultID: Self.defaultStreakIconID,
-            unequippedID: nil
-        )
-        var cardStyleIDs = Self.unlockedTargetIDs(
-            in: unlockItems,
-            kind: .cardStyle,
-            defaultID: Self.defaultCardStyleID,
-            unequippedID: nil
-        )
+        var themeIDs = Set([Self.defaultThemeID])
+        var nameBadgeIDs = Set([Self.defaultNameBadgeID, Self.noNameBadgeID])
+        var iconFrameIDs = Set([Self.defaultIconFrameID, Self.noIconFrameID])
+        var streakIconIDs = Set([Self.defaultStreakIconID])
+        var cardStyleIDs = Set([Self.defaultCardStyleID])
 
-        #if DEBUG
-        if includesLockedCatalogItems {
-            themeIDs.formUnion(Self.targetIDs(in: unlockItems, kind: .theme))
-            nameBadgeIDs.formUnion(Self.targetIDs(in: unlockItems, kind: .nameBadge))
-            iconFrameIDs.formUnion(Self.targetIDs(in: unlockItems, kind: .iconFrame))
-            streakIconIDs.formUnion(Self.targetIDs(in: unlockItems, kind: .streakIcon))
-            cardStyleIDs.formUnion(Self.targetIDs(in: unlockItems, kind: .cardStyle))
+        for item in unlockItems where !item.targetID.isEmpty {
+            #if DEBUG
+            let shouldInclude = includesLockedCatalogItems || item.unlockedAt != nil
+            #else
+            let shouldInclude = item.unlockedAt != nil
+            #endif
+            guard shouldInclude else { continue }
+
+            switch item.kind {
+            case .theme:
+                themeIDs.insert(item.targetID)
+            case .nameBadge:
+                nameBadgeIDs.insert(item.targetID)
+            case .iconFrame:
+                iconFrameIDs.insert(item.targetID)
+            case .streakIcon:
+                streakIconIDs.insert(item.targetID)
+            case .cardStyle:
+                cardStyleIDs.insert(item.targetID)
+            case .iconSet, .barStyle, .monthArt:
+                break
+            }
         }
-        #endif
 
         self.themeIDs = themeIDs
         self.nameBadgeIDs = nameBadgeIDs
@@ -126,9 +115,10 @@ struct ProfileDecorationUnlocks {
     static func freshUnlockedItems(
         unlockItems: [UnlockItem],
         settings: UserSettings?,
-        visibleThemeIDs: Set<String>
+        visibleThemeIDs: Set<String>,
+        resolvedUnlocks: ProfileDecorationUnlocks? = nil
     ) -> [UnlockItem] {
-        let unlocks = ProfileDecorationUnlocks(unlockItems: unlockItems)
+        let unlocks = resolvedUnlocks ?? ProfileDecorationUnlocks(unlockItems: unlockItems)
         let seenKeys = Set(settings?.seenUnlockItemKeys ?? [])
             .union(settings?.equippedUnlockItemKeys ?? [])
         let equippedBadgeID = unlocks.equippedBadgeID(settings?.profileBadgeID)
@@ -261,32 +251,6 @@ struct ProfileDecorationUnlocks {
         default:
             return nil
         }
-    }
-
-    private static func unlockedTargetIDs(
-        in unlockItems: [UnlockItem],
-        kind: UnlockKind,
-        defaultID: String,
-        unequippedID: String?
-    ) -> Set<String> {
-        var ids = Set([defaultID])
-        if let unequippedID {
-            ids.insert(unequippedID)
-        }
-        ids.formUnion(
-            unlockItems
-                .filter { $0.kind == kind && $0.unlockedAt != nil && !$0.targetID.isEmpty }
-                .map(\.targetID)
-        )
-        return ids
-    }
-
-    private static func targetIDs(in unlockItems: [UnlockItem], kind: UnlockKind) -> Set<String> {
-        Set(
-            unlockItems
-                .filter { $0.kind == kind && !$0.targetID.isEmpty }
-                .map(\.targetID)
-        )
     }
 
     private func equippedID(

@@ -209,7 +209,7 @@ enum SharedModelContainer {
 
     private static func prepareDevelopmentStoresIfNeeded() {
         #if DEBUG
-        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil,
+        guard !LiminalogRuntime.isRunningUnitTests,
               let defaults = UserDefaults(suiteName: appGroupID),
               let appGroupURL = FileManager.default.containerURL(
                 forSecurityApplicationGroupIdentifier: appGroupID

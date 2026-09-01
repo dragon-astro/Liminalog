@@ -9,7 +9,7 @@ final class LiveActivityCoordinator {
     }
 
     func update(activeChapter: Chapter?, categorySet: CategorySet?) {
-        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
+        guard !LiminalogRuntime.isRunningUnitTests else { return }
         guard #available(iOS 16.2, *) else { return }
 
         // SwiftDataモデルは Task に持ち込まず、ここ（MainActor・同期）でプレーン値へ変換する。
@@ -43,7 +43,7 @@ final class LiveActivityCoordinator {
     }
 
     func update(activeChapter: Chapter?, snapshot: RecordingSurfaceSnapshot) {
-        guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
+        guard !LiminalogRuntime.isRunningUnitTests else { return }
         guard #available(iOS 16.2, *) else { return }
 
         let chapterSnapshot = LiveActivityChapterSnapshot(activeChapter: activeChapter)

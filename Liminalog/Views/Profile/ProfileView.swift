@@ -46,13 +46,6 @@ struct ProfileView: View {
         settings?.profileBio.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
     }
 
-    private var accentColor: Color {
-        if iconFrame.id == ProfileDecorationUnlocks.noIconFrameID {
-            return Color(hex: settings?.profileAccentColorHex ?? "#2F80ED")
-        }
-        return iconFrame.primaryColor
-    }
-
     private var decorationUnlocks: ProfileDecorationUnlocks {
         ProfileDecorationUnlocks(
             unlockItems: unlockItems,
@@ -76,22 +69,6 @@ struct ProfileView: View {
         )
     }
 
-    private var equippedBadge: ProfileBadgeModel {
-        ProfileBadgeCatalog.equippedBadge(id: settings?.profileBadgeID, badges: badges)
-    }
-
-    private var freshUnlockItems: [UnlockItem] {
-        ProfileDecorationUnlocks.freshUnlockedItems(
-            unlockItems: unlockItems,
-            settings: settings,
-            visibleThemeIDs: Set(LiminalThemeCatalog.selectableThemes.map(\.id))
-        )
-    }
-
-    private var hasFreshUnlockItems: Bool {
-        !freshUnlockItems.isEmpty
-    }
-
     private var dailyCardEntries: [ProfileDailyCardEntry] {
         ProfileDailyCardEntry.merged(
             snapshots: dailyCardSnapshots,
@@ -105,18 +82,6 @@ struct ProfileView: View {
             .prefix(120)
             .map(\.dayIdentifier)
             .joined(separator: "|")
-    }
-
-    private var iconFrame: ProfileIconFrameStyle {
-        ProfileIconFrameCatalog.item(for: decorationUnlocks.equippedIconFrameID(settings: settings))
-    }
-
-    private var streakIcon: ProfileStreakIconStyle {
-        ProfileStreakIconCatalog.item(for: decorationUnlocks.equippedStreakIconID(settings?.profileStreakIconID))
-    }
-
-    private var cardStyle: ProfileCardStyle {
-        ProfileCardStyleCatalog.item(for: decorationUnlocks.equippedCardStyleID(settings?.profileCardStyleID))
     }
 
     private var cumulativeScore: Int {
@@ -139,6 +104,32 @@ struct ProfileView: View {
     }
 
     var body: some View {
+        let decorationUnlocks = self.decorationUnlocks
+        let badges = self.badges
+        let equippedBadge = ProfileBadgeCatalog.equippedBadge(
+            id: settings?.profileBadgeID,
+            badges: badges
+        )
+        let iconFrame = ProfileIconFrameCatalog.item(
+            for: decorationUnlocks.equippedIconFrameID(settings: settings)
+        )
+        let streakIcon = ProfileStreakIconCatalog.item(
+            for: decorationUnlocks.equippedStreakIconID(settings?.profileStreakIconID)
+        )
+        let cardStyle = ProfileCardStyleCatalog.item(
+            for: decorationUnlocks.equippedCardStyleID(settings?.profileCardStyleID)
+        )
+        let accentColor = iconFrame.id == ProfileDecorationUnlocks.noIconFrameID
+            ? Color(hex: settings?.profileAccentColorHex ?? "#2F80ED")
+            : iconFrame.primaryColor
+        let hasFreshUnlockItems = !ProfileDecorationUnlocks.freshUnlockedItems(
+            unlockItems: unlockItems,
+            settings: settings,
+            visibleThemeIDs: Set(LiminalThemeCatalog.selectableThemes.map(\.id)),
+            resolvedUnlocks: decorationUnlocks
+        ).isEmpty
+        let dailyCardEntries = self.dailyCardEntries
+
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
