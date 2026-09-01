@@ -1,5 +1,19 @@
+import Combine
+import CoreData
 import SwiftUI
 import SwiftData
+
+enum HomeTabCacheReloadPolicy {
+    static func shouldReload(
+        loadedContentRevision: Int?,
+        currentContentRevision: Int,
+        loadedExternalRefreshRevision: Int,
+        currentExternalRefreshRevision: Int
+    ) -> Bool {
+        loadedContentRevision != currentContentRevision
+            || loadedExternalRefreshRevision != currentExternalRefreshRevision
+    }
+}
 
 private enum TodayPage: String, CaseIterable, Identifiable {
     case yesterday
@@ -78,6 +92,9 @@ struct HomeView: View {
     @State private var tomorrowTimelineVisibleHour = 7
     @State private var tomorrowScheduleInteractionActive = false
     @State private var tomorrowPlanReloadToken = 0
+    @State private var tomorrowCoverageContentRevision: Int?
+    @State private var tomorrowCoverageExternalRefreshRevision = 0
+    @State private var externalRefreshRevision = 0
 
     var body: some View {
         // 各ページをプロフィールと同じ NavigationStack { ScrollView } 構造にする。
@@ -105,7 +122,7 @@ struct HomeView: View {
             .ignoresSafeArea()
         }
         .onChange(of: selectedPage) { _, _ in
-            refreshTomorrowCoverage()
+            refreshTomorrowCoverageIfNeeded()
         }
         .sheet(item: $editingChapter) { chapter in
             ChapterEditSheet(chapter: chapter)
@@ -121,12 +138,19 @@ struct HomeView: View {
             applyInitialPage()
             store.seedDefaultCategorySetsIfNeeded()
             scheduleLiveActivitySyncAfterAppear()
-            refreshTomorrowCoverage()
+            refreshTomorrowCoverageIfNeeded()
         }
         .onDisappear {
             pendingLiveActivitySyncTask?.cancel()
             pendingLiveActivitySyncTask = nil
             clock.stop()
+        }
+        .onReceive(
+            NotificationCenter.default
+                .publisher(for: .NSPersistentStoreRemoteChange)
+                .receive(on: DispatchQueue.main)
+        ) { _ in
+            externalRefreshRevision &+= 1
         }
     }
 
@@ -150,7 +174,8 @@ struct HomeView: View {
         ToolbarItem(placement: .principal) {
             TodayPageTextTabs(
                 selection: todayPageSelection,
-                showsTomorrowIndicator: tomorrowHasActionableGap
+                showsTomorrowIndicator: tomorrowHasActionableGap,
+                isActive: selectedPage == page
             )
         }
         if page == .today {
@@ -283,12 +308,29 @@ struct HomeView: View {
     }
 
     private func refreshTomorrowCoverage() {
-        let boundary = DayBoundary(date: tomorrowDate, calendar: .japanese)
-        let plans = ScoreSnapshotLoader.plannedBlocks(
-            in: DateInterval(start: boundary.dayStart, end: boundary.dayEnd),
-            modelContext: modelContext
-        )
-        tomorrowHasActionableGap = PlanCoverageSummary.make(date: tomorrowDate, plans: plans).hasActionableGap
+        TabPerformanceDiagnostics.measure("Home tomorrow coverage") {
+            let boundary = DayBoundary(date: tomorrowDate, calendar: .japanese)
+            let plans = ScoreSnapshotLoader.plannedBlocks(
+                in: DateInterval(start: boundary.dayStart, end: boundary.dayEnd),
+                modelContext: modelContext
+            )
+            tomorrowHasActionableGap = PlanCoverageSummary.make(
+                date: tomorrowDate,
+                plans: plans
+            ).hasActionableGap
+            tomorrowCoverageContentRevision = store.contentRevision
+            tomorrowCoverageExternalRefreshRevision = externalRefreshRevision
+        }
+    }
+
+    private func refreshTomorrowCoverageIfNeeded() {
+        guard HomeTabCacheReloadPolicy.shouldReload(
+            loadedContentRevision: tomorrowCoverageContentRevision,
+            currentContentRevision: store.contentRevision,
+            loadedExternalRefreshRevision: tomorrowCoverageExternalRefreshRevision,
+            currentExternalRefreshRevision: externalRefreshRevision
+        ) else { return }
+        refreshTomorrowCoverage()
     }
 
     private var debugInitialTodayPage: TodayPage {
@@ -348,6 +390,7 @@ struct HomeView: View {
 private struct TodayPageTextTabs: View {
     @Binding var selection: TodayPage
     let showsTomorrowIndicator: Bool
+    let isActive: Bool
     @Namespace private var underlineNamespace
 
     var body: some View {
@@ -394,6 +437,11 @@ private struct TodayPageTextTabs: View {
             }
         }
         .frame(maxWidth: 220)
+        .transaction { transaction in
+            if !isActive {
+                transaction.animation = nil
+            }
+        }
     }
 }
 
@@ -439,6 +487,9 @@ private struct TomorrowPlanPage: View {
     let onScheduleChanged: () -> Void
 
     @State private var timelinePlans: [PlanBlock] = []
+    @State private var loadedContentRevision: Int?
+    @State private var externalRefreshRevision = 0
+    @State private var loadedExternalRefreshRevision = 0
     @State private var clock = TickClock(interval: 60)
     @State private var showingCategoryEditor = false
 
@@ -460,7 +511,7 @@ private struct TomorrowPlanPage: View {
         .onAppear {
             clock.start()
             normalizeSelectedCategory()
-            reloadTimelinePlans()
+            reloadTimelinePlansIfNeeded()
         }
         .onDisappear {
             clock.stop()
@@ -473,6 +524,13 @@ private struct TomorrowPlanPage: View {
         }
         .onChange(of: categories.map(\.id)) { _, _ in
             normalizeSelectedCategory()
+        }
+        .onReceive(
+            NotificationCenter.default
+                .publisher(for: .NSPersistentStoreRemoteChange)
+                .receive(on: DispatchQueue.main)
+        ) { _ in
+            externalRefreshRevision &+= 1
         }
         .sheet(isPresented: $showingCategoryEditor) {
             CategoryEditSheet(category: nil) { category in
@@ -535,7 +593,21 @@ private struct TomorrowPlanPage: View {
     }
 
     private func reloadTimelinePlans() {
-        timelinePlans = PlanStore(modelContext: modelContext).plannedBlocks(on: date)
+        timelinePlans = TabPerformanceDiagnostics.measure("Home tomorrow plans") {
+            PlanStore(modelContext: modelContext).plannedBlocks(on: date)
+        }
+        loadedContentRevision = store.contentRevision
+        loadedExternalRefreshRevision = externalRefreshRevision
+    }
+
+    private func reloadTimelinePlansIfNeeded() {
+        guard HomeTabCacheReloadPolicy.shouldReload(
+            loadedContentRevision: loadedContentRevision,
+            currentContentRevision: store.contentRevision,
+            loadedExternalRefreshRevision: loadedExternalRefreshRevision,
+            currentExternalRefreshRevision: externalRefreshRevision
+        ) else { return }
+        reloadTimelinePlans()
     }
 
     private var planningCoverage: PlanCoverageSummary {
@@ -742,7 +814,7 @@ private struct YesterdayReviewPage: View {
             .padding(.bottom, 32)
         }
         .task(id: sourceSignature) {
-            refreshPayloadCache(sourceSignature: sourceSignature)
+            refreshPayloadCache(sourceSignature: sourceSignature, payload: payload)
         }
     }
 
@@ -784,8 +856,11 @@ private struct YesterdayReviewPage: View {
     }
 
     @MainActor
-    private func refreshPayloadCache(sourceSignature: DailyReflectionPayloadSourceSignature) {
-        cachedPayload = makePayload()
+    private func refreshPayloadCache(
+        sourceSignature: DailyReflectionPayloadSourceSignature,
+        payload: DailyReflectionPayload
+    ) {
+        cachedPayload = payload
         cachedPayloadSourceSignature = sourceSignature
     }
 

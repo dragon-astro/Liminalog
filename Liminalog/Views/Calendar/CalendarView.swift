@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import CoreData
+import Combine
 import UIKit
 
 private struct CalendarPlanDuplicateCategoryKey: Hashable {
@@ -231,7 +232,11 @@ struct CalendarView: View {
                 guard shouldReloadForSharedRecordChange(notification) else { return }
                 reloadVisibleData(forSharedRecordChange: notification)
             }
-            .onReceive(NotificationCenter.default.publisher(for: .NSPersistentStoreRemoteChange)) { _ in
+            .onReceive(
+                NotificationCenter.default
+                    .publisher(for: .NSPersistentStoreRemoteChange)
+                    .receive(on: DispatchQueue.main)
+            ) { _ in
                 externalRefreshRevision &+= 1
             }
         }
