@@ -613,6 +613,20 @@ final class ChapterStore {
     }
 
     @discardableResult
+    func applyPlanTemplates(
+        _ applications: [PlanStore.TemplateApplication],
+        to targetDate: Date
+    ) -> Bool {
+        guard planStore.applyTemplates(applications, to: targetDate) else { return false }
+        markChanged(requestCloudFriendShareRefresh: false)
+        return true
+    }
+
+    func plannedBlocks(from start: Date, to end: Date) -> [PlanBlock] {
+        planStore.plannedBlocks(from: start, to: end)
+    }
+
+    @discardableResult
     func deletePlanBlock(_ plan: PlanBlock) -> Bool {
         guard planStore.deletePlanBlock(plan) else { return false }
         markChanged(requestCloudFriendShareRefresh: false)

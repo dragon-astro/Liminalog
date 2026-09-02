@@ -9,6 +9,8 @@ enum LiminalogSchemaV1: VersionedSchema {
             CategorySet.self,
             Chapter.self,
             PlanBlock.self,
+            PlanPreset.self,
+            DayPreset.self,
             UnlockItem.self,
             VisibilityPreset.self,
             UserSettings.self,

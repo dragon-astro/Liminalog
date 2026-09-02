@@ -2229,6 +2229,8 @@ struct CalendarSettingsContent: View {
     @AppStorage("calendarPlanTitleBold") private var planTitleBold = false
     @AppStorage("calendarDimPastPlans") private var dimPastPlans = true
     @AppStorage("calendarStrikePastPlans") private var strikePastPlans = false
+    @AppStorage(TimelineSnapPrecision.userDefaultsKey)
+    private var storedSnapPrecisionMinutes = TimelineSnapPrecision.quarterHour.minutes
 
     var body: some View {
         Form {
@@ -2264,6 +2266,15 @@ struct CalendarSettingsContent: View {
             }
 
             Section {
+                TimelineSnapPrecisionSelector(precision: snapPrecisionBinding)
+                    .padding(.vertical, 4)
+            } header: {
+                Text("タイムライン操作")
+            } footer: {
+                Text("日間・週間タイムラインで、予定を移動したり長さを変えたりするときの刻み幅です。")
+            }
+
+            Section {
                 Toggle("過去の予定を薄くする", isOn: $dimPastPlans)
                 Toggle("打ち消し線を入れる", isOn: $strikePastPlans)
             } header: {
@@ -2277,6 +2288,7 @@ struct CalendarSettingsContent: View {
         .onAppear {
             normalizePlanTitleFontSize()
             normalizePlanLabelStyleRawValues()
+            normalizeSnapPrecision()
         }
         .onChange(of: planTitleFontSize) { _, _ in
             normalizePlanTitleFontSize()
@@ -2289,6 +2301,9 @@ struct CalendarSettingsContent: View {
         }
         .onChange(of: multiDayPlanLabelStyleRaw) { _, _ in
             normalizePlanLabelStyleRawValues()
+        }
+        .onChange(of: storedSnapPrecisionMinutes) { _, _ in
+            normalizeSnapPrecision()
         }
     }
 
@@ -2304,10 +2319,27 @@ struct CalendarSettingsContent: View {
         }
     }
 
+    private var snapPrecisionBinding: Binding<TimelineSnapPrecision> {
+        Binding(
+            get: {
+                TimelineSnapPrecision.normalized(minutes: storedSnapPrecisionMinutes)
+            },
+            set: { newValue in
+                storedSnapPrecisionMinutes = newValue.minutes
+            }
+        )
+    }
+
     private func normalizePlanTitleFontSize() {
         let normalized = normalizedPlanTitleFontSize
         guard planTitleFontSize != normalized else { return }
         planTitleFontSize = normalized
+    }
+
+    private func normalizeSnapPrecision() {
+        let normalized = TimelineSnapPrecision.normalized(minutes: storedSnapPrecisionMinutes).minutes
+        guard storedSnapPrecisionMinutes != normalized else { return }
+        storedSnapPrecisionMinutes = normalized
     }
 
     private func normalizePlanLabelStyleRawValues() {

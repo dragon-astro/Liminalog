@@ -6,7 +6,7 @@ import SwiftUI
 @MainActor
 enum PreviewSupport {
     static let container: ModelContainer = {
-        let schema = Schema([Category.self, CategorySet.self, Chapter.self, PlanBlock.self, UnlockItem.self, VisibilityPreset.self, UserSettings.self, Friend.self, FriendSet.self, FriendCategoryMapping.self, DailyCardSnapshot.self, DailyScoreSnapshot.self, CalendarEventCache.self])
+        let schema = Schema([Category.self, CategorySet.self, Chapter.self, PlanBlock.self, PlanPreset.self, DayPreset.self, UnlockItem.self, VisibilityPreset.self, UserSettings.self, Friend.self, FriendSet.self, FriendCategoryMapping.self, DailyCardSnapshot.self, DailyScoreSnapshot.self, CalendarEventCache.self])
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
         let container = try! ModelContainer(for: schema, configurations: [configuration])
         seed(in: container.mainContext)
@@ -15,6 +15,10 @@ enum PreviewSupport {
 
     static var store: ChapterStore {
         ChapterStore(modelContext: container.mainContext)
+    }
+
+    static var planPresetStore: PlanPresetStore {
+        PlanPresetStore(modelContext: container.mainContext)
     }
 
     private static func seed(in context: ModelContext) {
@@ -222,6 +226,7 @@ extension View {
         #if DEBUG
         modelContainer(PreviewSupport.container)
             .environment(PreviewSupport.store)
+            .environment(PreviewSupport.planPresetStore)
             .environment(PurchaseStore.preview)
         #else
         self

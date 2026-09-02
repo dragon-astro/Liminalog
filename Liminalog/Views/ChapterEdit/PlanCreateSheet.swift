@@ -4,10 +4,12 @@ import SwiftData
 struct PlanCreateSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(ChapterStore.self) private var store
+    @Environment(PlanPresetStore.self) private var planPresetStore
     @Query(sort: \Category.sortOrder) private var categories: [Category]
     @Query(sort: \CategorySet.sortOrder) private var categorySets: [CategorySet]
     @Query(sort: \FriendSet.sortOrder) private var friendSets: [FriendSet]
     @Query(sort: \Friend.displayName) private var friends: [Friend]
+    @Query(sort: \PlanPreset.sortOrder) private var planPresets: [PlanPreset]
 
     private let editingPlan: PlanBlock?
 
@@ -27,6 +29,9 @@ struct PlanCreateSheet: View {
     @State private var didInitializeAudience = false
     @State private var saveError: String?
     @State private var errorTitle = "保存できませんでした"
+    @State private var showingPresetNamePrompt = false
+    @State private var presetName = ""
+    @State private var editingPreset: PlanPreset?
 
     init(initialDate: Date = Date(), startsAsAllDay: Bool = false) {
         editingPlan = nil
@@ -63,6 +68,9 @@ struct PlanCreateSheet: View {
             ScrollView {
                 VStack(spacing: 14) {
                     planPreviewCard
+                    if !planPresets.isEmpty {
+                        presetChips
+                    }
                     planTitleCard
                     categoryCard
                     timeCard
@@ -89,6 +97,20 @@ struct PlanCreateSheet: View {
                     Button("保存") { save() }
                         .fontWeight(.semibold)
                         .disabled(!canSave)
+                }
+                ToolbarItem(placement: .secondaryAction) {
+                    Menu {
+                        Button {
+                            presetName = resolvedPlanTitle
+                            showingPresetNamePrompt = true
+                        } label: {
+                            Label("プリセットとして保存", systemImage: "bookmark")
+                        }
+                        .disabled(!canSave)
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                    }
+                    .accessibilityLabel("その他の操作")
                 }
             }
             .onAppear {
@@ -133,12 +155,76 @@ struct PlanCreateSheet: View {
             .sheet(isPresented: $showingAudiencePicker) {
                 AudienceSnapshotPickerSheet(audienceFriendIDs: $audienceFriendIDs)
             }
+            .sheet(item: $editingPreset) { preset in
+                PlanPresetEditSheet(preset: preset)
+            }
+            .alert("プリセット名", isPresented: $showingPresetNamePrompt) {
+                TextField("名前", text: $presetName)
+                Button("保存") { saveAsPreset() }
+                Button("キャンセル", role: .cancel) {}
+            } message: {
+                Text("このフォームの内容を予定プリセットに保存します。")
+            }
             .alert(errorTitle, isPresented: saveErrorPresented) {
                 Button("OK") {
                     saveError = nil
                 }
             } message: {
                 Text(saveError ?? "")
+            }
+        }
+    }
+
+    private var presetChips: some View {
+        PlanEditorCard(tint: selectedTint) {
+            VStack(alignment: .leading, spacing: 10) {
+                PlanEditorSectionHeader(
+                    title: "プリセット",
+                    systemImage: "bookmark.fill",
+                    tint: selectedTint
+                )
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(planPresets) { preset in
+                            Button {
+                                applyPreset(preset, usesPresetStartTime: false)
+                            } label: {
+                                Text(preset.name)
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(LiminalTheme.text)
+                                    .padding(.horizontal, 12)
+                                    .frame(height: 36)
+                                    .background(
+                                        category(for: preset)?.displayColor.opacity(0.12)
+                                            ?? LiminalTheme.elevated,
+                                        in: Capsule()
+                                    )
+                                    .overlay(
+                                        Capsule()
+                                            .stroke(
+                                                category(for: preset)?.displayColor.opacity(0.28)
+                                                    ?? LiminalTheme.divider.opacity(0.5),
+                                                lineWidth: 1
+                                            )
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                            .contextMenu {
+                                Button {
+                                    applyPreset(preset, usesPresetStartTime: true)
+                                } label: {
+                                    Label("開始時刻もプリセットに合わせる", systemImage: "clock.arrow.circlepath")
+                                }
+                                Button {
+                                    editingPreset = preset
+                                } label: {
+                                    Label("プリセットを編集", systemImage: "pencil")
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -504,6 +590,116 @@ struct PlanCreateSheet: View {
             friends: friends
         )
         audienceSource = .categoryDefaultSnapshot
+    }
+
+    private func category(for preset: PlanPreset) -> Category? {
+        guard let categoryID = preset.categoryID else { return nil }
+        return categories.first { $0.id == categoryID }
+    }
+
+    private func applyPreset(
+        _ preset: PlanPreset,
+        usesPresetStartTime: Bool
+    ) {
+        let snapshot = preset.snapshot
+        let calendar = Calendar.current
+        let targetDay = calendar.startOfDay(for: startTime)
+
+        title = snapshot.title
+        selectedCategory = category(for: preset)
+        note = snapshot.note ?? ""
+        isAllDay = snapshot.isAllDay
+        isImportant = snapshot.isImportant
+        isPublic = snapshot.isPublic
+
+        if snapshot.isAllDay {
+            startTime = targetDay
+            allDayEndDate = targetDay
+        } else {
+            if usesPresetStartTime,
+               let presetStart = wallClockDate(
+                    minuteOffset: snapshot.startMinute,
+                    from: targetDay,
+                    calendar: calendar
+               ) {
+                startTime = presetStart
+            }
+            endTime = calendar.date(
+                byAdding: .minute,
+                value: snapshot.durationMinutes,
+                to: startTime
+            ) ?? startTime.addingTimeInterval(TimeInterval(snapshot.durationMinutes * 60))
+        }
+
+        resetAudienceToCategoryDefault()
+        _ = planPresetStore.markUsed(preset)
+        LiminalHaptics.selection()
+    }
+
+    private func saveAsPreset() {
+        guard let snapshot = currentPresetSnapshot else {
+            errorTitle = "保存できませんでした"
+            saveError = "現在の時刻設定ではプリセットを作成できません。"
+            return
+        }
+        guard planPresetStore.createPlanPreset(name: presetName, snapshot: snapshot) != nil else {
+            errorTitle = "保存できませんでした"
+            saveError = "プリセットを保存できませんでした。時間をおいてもう一度試してください。"
+            return
+        }
+        LiminalHaptics.commit()
+    }
+
+    private var currentPresetSnapshot: PlanTemplateSnapshot? {
+        let calendar = Calendar.current
+        let startMinute: Int
+        let endMinute: Int
+
+        if isAllDay {
+            let startDay = calendar.startOfDay(for: startTime)
+            let inclusiveEnd = max(calendar.startOfDay(for: allDayEndDate), startDay)
+            let dayCount = (calendar.dateComponents([.day], from: startDay, to: inclusiveEnd).day ?? 0) + 1
+            guard dayCount == 1 else { return nil }
+            startMinute = 0
+            endMinute = dayCount * 24 * 60
+        } else {
+            let startDay = calendar.startOfDay(for: startTime)
+            let endDay = calendar.startOfDay(for: endTime)
+            let startComponents = calendar.dateComponents([.hour, .minute], from: startTime)
+            let endComponents = calendar.dateComponents([.hour, .minute], from: endTime)
+            let endDayOffset = calendar.dateComponents([.day], from: startDay, to: endDay).day ?? 0
+            startMinute = (startComponents.hour ?? 0) * 60 + (startComponents.minute ?? 0)
+            endMinute = endDayOffset * 24 * 60 + (endComponents.hour ?? 0) * 60 + (endComponents.minute ?? 0)
+        }
+
+        let snapshot = PlanTemplateSnapshot(
+            title: resolvedPlanTitle,
+            categoryID: selectedCategory?.id,
+            startMinute: startMinute,
+            endMinute: endMinute,
+            isAllDay: isAllDay,
+            isImportant: isImportant,
+            note: note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : note,
+            isPublic: isPublic
+        )
+        return snapshot.hasValidTime ? snapshot : nil
+    }
+
+    private func wallClockDate(
+        minuteOffset: Int,
+        from dayStart: Date,
+        calendar: Calendar
+    ) -> Date? {
+        let dayOffset = minuteOffset / (24 * 60)
+        let minuteOfDay = minuteOffset % (24 * 60)
+        guard let targetDay = calendar.date(byAdding: .day, value: dayOffset, to: dayStart) else {
+            return nil
+        }
+        var components = calendar.dateComponents([.era, .year, .month, .day], from: targetDay)
+        components.hour = minuteOfDay / 60
+        components.minute = minuteOfDay % 60
+        components.second = 0
+        return calendar.date(from: components)
     }
 
     private func save() {

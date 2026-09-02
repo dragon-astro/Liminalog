@@ -1,7 +1,7 @@
 # 22. 予定プリセット / 一日プリセット 設計
 
 作成: Claude / 2026-07-06
-ステータス: 設計初版（Codex プランレビュー待ち）
+ステータス: Codexレビュー済み・段階実装中（2026-09-02）
 前提docs: [03-architecture.md](03-architecture.md)（スキーマ規約）/ [10-today-tab-structure.md](10-today-tab-structure.md)（明日ページ）/ [21-refactoring-playbook.md](21-refactoring-playbook.md) §2 不変条件
 
 ---
@@ -50,7 +50,7 @@ struct PlanTemplateSnapshot: Codable, Equatable {
 }
 ```
 
-- 時刻は**その日の 0:00 からの分**で持つ（絶対 Date を持たない）。`DayBoundary.dayStart(for: targetDate) + startMinute * 60` で絶対時刻に変換
+- 時刻は**その日の 0:00 からの分**で持つ（絶対 Date を持たない）。適用先日の年月日と時・分から壁時計時刻を組み立て、DST日でも 9:00 を 9:00 として維持する
 - 日跨ぎ（睡眠 23:00→7:00）は `endMinute = 31 * 60` のように 1440 超で表現。**スパン上限は24時間**
 - 公開範囲: `isPublic` のみ保存する。`audienceFriendIDs` は**保存しない**（§4.4）
 
@@ -61,7 +61,7 @@ struct PlanTemplateSnapshot: Codable, Equatable {
     var id: UUID = UUID()
     var name: String = ""            // チップ表示名。trim後空なら title を使う
     var title: String = ""
-    var category: Category?          // to-one 関係（PlanBlock と同型。カテゴリ削除で自動 nil）
+    var categoryID: UUID?            // CloudKitの関係追加を避け、適用/表示時に解決
     var startMinute: Int = 540       // 9:00
     var endMinute: Int = 600         // 10:00
     var isAllDay: Bool = false
@@ -285,7 +285,7 @@ final class PlanPresetStore {
 6. **プリセット内重複 + 片方チェックOFF**: 選択集合で再判定し、残った方は insertable になる
 7. **保存中のキル/クラッシュ**: save 1回なので中間状態なし（全件 or ゼロ件）
 8. **note/title の空**: 既存 `normalizedTitle` 経路と `note.flatMap { $0.isEmpty ? nil : $0 }` を踏襲
-9. **時刻の DST**: 分→絶対時刻変換は `DayBoundary.dayStart + TimeInterval` を使う（`DateComponents` の時刻指定と挙動差が出ないよう、変換ヘルパーを1箇所に置きテストで固定）
+9. **時刻の DST**: 分→絶対時刻変換は対象日の年月日と時・分を `DateComponents` で組み立てる。経過秒加算による1時間ずれを避け、変換ヘルパーを1箇所に置いてテストで固定する
 
 ## 9. テスト計画
 

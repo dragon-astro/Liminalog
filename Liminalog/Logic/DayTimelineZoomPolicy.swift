@@ -2,7 +2,7 @@ import CoreGraphics
 import Foundation
 
 enum TimelineZoomPolicy {
-    static let supportedScales: [CGFloat] = [0.75, 1, 1.5, 2]
+    static let supportedScales: [CGFloat] = [0.75, 1, 1.5, 2, 3]
     static let defaultScale: CGFloat = 1
     static let baseHourHeight: CGFloat = 38
     static let weekBaseHourHeight: CGFloat = 29

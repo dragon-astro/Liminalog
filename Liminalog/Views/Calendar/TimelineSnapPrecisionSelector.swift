@@ -4,53 +4,63 @@ struct TimelineSnapPrecisionSelector: View {
     @Binding var precision: TimelineSnapPrecision
 
     var body: some View {
-        Menu {
-            ForEach(TimelineSnapPrecision.allCases) { option in
-                Button {
-                    guard precision != option else { return }
-                    precision = option
-                    LiminalHaptics.selection()
-                } label: {
-                    HStack {
-                        Text(option.accessibilityLabel)
-                        if precision == option {
-                            Image(systemName: "checkmark")
-                        }
-                    }
-                }
-                .accessibilityIdentifier("timeline-snap-\(option.minutes)")
-            }
-        } label: {
-            HStack(spacing: 4) {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
                 Image(systemName: "timer")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.body.weight(.semibold))
                     .foregroundStyle(LiminalTheme.accent)
 
-                Text("\(precision.shortLabel)分")
-                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                Text("移動・長さ調整の間隔")
+                    .font(.body)
                     .foregroundStyle(LiminalTheme.text)
-                    .monospacedDigit()
 
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 8, weight: .bold))
+                Spacer(minLength: 0)
+
+                Text("\(precision.shortLabel)分")
+                    .font(.body.weight(.semibold))
                     .foregroundStyle(LiminalTheme.secondaryText)
+                    .monospacedDigit()
+            }
+
+            Slider(
+                value: precisionIndex,
+                in: 0...Double(TimelineSnapPrecision.sliderOptions.count - 1),
+                step: 1
+            )
+            .tint(LiminalTheme.accent)
+            .accessibilityLabel("予定調整の刻み幅")
+            .accessibilityValue("\(precision.minutes)分")
+
+            HStack(spacing: 0) {
+                ForEach(TimelineSnapPrecision.sliderOptions) { option in
+                    Text("\(option.shortLabel)分")
+                        .font(.caption2.weight(precision == option ? .bold : .medium))
+                        .foregroundStyle(precision == option ? LiminalTheme.accent : LiminalTheme.secondaryText)
+                        .frame(maxWidth: .infinity)
+                        .accessibilityHidden(true)
+                }
             }
             .padding(.horizontal, 10)
-            .frame(minWidth: 64, minHeight: 40)
-            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
-        .background(
-            Capsule(style: .continuous)
-                .fill(LiminalTheme.surface.opacity(0.96))
-        )
-        .overlay {
-            Capsule(style: .continuous)
-                .stroke(LiminalTheme.divider.opacity(0.72), lineWidth: 1)
-        }
-        .shadow(color: LiminalTheme.dusk.opacity(0.18), radius: 5, y: 2)
-        .accessibilityLabel("予定調整の刻み幅、\(precision.minutes)分")
         .accessibilityHint("予定の移動と長さ調整に使う刻み幅を変更")
         .accessibilityIdentifier("timeline-snap-selector")
+    }
+
+    private var precisionIndex: Binding<Double> {
+        Binding(
+            get: {
+                Double(TimelineSnapPrecision.sliderOptions.firstIndex(of: precision) ?? 0)
+            },
+            set: { proposedIndex in
+                let index = min(
+                    TimelineSnapPrecision.sliderOptions.count - 1,
+                    max(0, Int(proposedIndex.rounded()))
+                )
+                let newPrecision = TimelineSnapPrecision.sliderOptions[index]
+                guard precision != newPrecision else { return }
+                precision = newPrecision
+                LiminalHaptics.selection()
+            }
+        )
     }
 }

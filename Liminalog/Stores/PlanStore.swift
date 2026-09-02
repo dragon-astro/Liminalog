@@ -3,6 +3,11 @@ import SwiftData
 
 @MainActor
 final class PlanStore {
+    struct TemplateApplication {
+        let snapshot: PlanTemplateSnapshot
+        let resolvedCategory: Category?
+    }
+
     struct ScheduleChange {
         let plan: PlanBlock
         let startTime: Date
@@ -11,10 +16,31 @@ final class PlanStore {
 
     private let modelContext: ModelContext
     private let clock: any LiminalogClock
+    private let requestRefresh: @MainActor (
+        _ reason: String,
+        _ changedPlanSourceIDs: Set<UUID>,
+        _ changedScoreDayStarts: Set<Date>
+    ) -> Void
 
-    init(modelContext: ModelContext, clock: any LiminalogClock = SystemClock()) {
+    init(
+        modelContext: ModelContext,
+        clock: any LiminalogClock = SystemClock(),
+        requestRefresh: @escaping @MainActor (
+            _ reason: String,
+            _ changedPlanSourceIDs: Set<UUID>,
+            _ changedScoreDayStarts: Set<Date>
+        ) -> Void = { reason, changedPlanSourceIDs, changedScoreDayStarts in
+            CloudFriendShareRefreshCoordinator.requestRefresh(
+                reason: reason,
+                changedPlanSourceIDs: changedPlanSourceIDs,
+                changedScoreDayStarts: changedScoreDayStarts,
+                requiresFullPublish: false
+            )
+        }
+    ) {
         self.modelContext = modelContext
         self.clock = clock
+        self.requestRefresh = requestRefresh
     }
 
     func isScheduleLocked(_ plan: PlanBlock, now: Date? = nil) -> Bool {
@@ -106,6 +132,94 @@ final class PlanStore {
             NSLog("Liminalog: failed to fetch all planned blocks: \(String(describing: error))")
             return nil
         }
+    }
+
+    @discardableResult
+    func applyTemplates(
+        _ applications: [TemplateApplication],
+        to targetDate: Date,
+        calendar: Calendar = .current
+    ) -> Bool {
+        guard !applications.isEmpty else { return false }
+        let snapshots = applications.map(\.snapshot)
+        let targetBoundary = DayBoundary(date: targetDate, calendar: calendar)
+        guard let fetchEnd = calendar.date(
+            byAdding: .day,
+            value: 2,
+            to: targetBoundary.dayStart
+        ),
+        let existingPlans = plannedBlocksIfAvailable(
+            from: targetBoundary.dayStart,
+            to: fetchEnd
+        ) else { return false }
+
+        let existing = existingPlans.map {
+            DayPresetApplyPlanner.ExistingInterval(
+                id: $0.id,
+                start: $0.startTime,
+                end: $0.endTime,
+                isAllDay: $0.isAllDay
+            )
+        }
+        let verdicts = DayPresetApplyPlanner.plan(
+            items: snapshots,
+            targetDate: targetDate,
+            existing: existing,
+            now: clock.now,
+            calendar: calendar
+        )
+        guard verdicts.allSatisfy({ $0 == .insertable }) else { return false }
+
+        let audienceContext = fetchAudienceContext()
+        guard audienceContext.didFetch else { return false }
+
+        var insertedPlans: [PlanBlock] = []
+        var changedScoreDayStarts: Set<Date> = []
+        for application in applications {
+            guard let interval = application.snapshot.interval(
+                on: targetDate,
+                calendar: calendar
+            ) else {
+                modelContext.rollback()
+                return false
+            }
+            let snapshot = application.snapshot
+            let audienceFriendIDs = AudienceResolver.categoryDefaultAudience(
+                for: application.resolvedCategory,
+                friendSets: audienceContext.friendSets,
+                friends: audienceContext.friends
+            )
+            let audienceSource = AudienceSource.categoryDefaultSnapshot
+            let plan = PlanBlock(
+                category: application.resolvedCategory,
+                title: normalizedTitle(snapshot.title, category: application.resolvedCategory),
+                startTime: interval.start,
+                endTime: interval.end,
+                isAllDay: snapshot.isAllDay,
+                isImportant: snapshot.isImportant,
+                note: snapshot.note.flatMap { $0.isEmpty ? nil : $0 },
+                isPublic: snapshot.isPublic
+            )
+            plan.audienceFriendIDs = audienceFriendIDs
+            plan.audienceSource = audienceSource
+            plan.hasAudienceSnapshot = AudienceSnapshotPolicy.shouldSaveSnapshot(
+                isPublic: snapshot.isPublic,
+                audienceSource: audienceSource,
+                audienceFriendIDs: audienceFriendIDs
+            )
+            plan.updatedAt = clock.now
+            modelContext.insert(plan)
+            insertedPlans.append(plan)
+            changedScoreDayStarts.formUnion(
+                affectedScoreDayStarts(start: interval.start, end: interval.end)
+            )
+        }
+
+        return saveChanges(
+            "plan template batch add",
+            changedPlanSourceIDs: Set(insertedPlans.map(\.id)),
+            changedScoreDayStarts: changedScoreDayStarts
+        )
     }
 
     @discardableResult
@@ -295,17 +409,31 @@ final class PlanStore {
     ) -> Bool {
         do {
             try modelContext.save()
-            CloudFriendShareRefreshCoordinator.requestRefresh(
-                reason: action,
-                changedPlanSourceIDs: changedPlanSourceIDs,
-                changedScoreDayStarts: changedScoreDayStarts,
-                requiresFullPublish: false
-            )
+            requestRefresh(action, changedPlanSourceIDs, changedScoreDayStarts)
             return true
         } catch {
             NSLog("Liminalog: failed to save \(action): \(String(describing: error))")
             modelContext.rollback()
             return false
+        }
+    }
+
+    private func fetchAudienceContext() -> (
+        friendSets: [FriendSet],
+        friends: [Friend],
+        didFetch: Bool
+    ) {
+        do {
+            let friendSets = try modelContext.fetch(FetchDescriptor<FriendSet>(
+                sortBy: [SortDescriptor(\.sortOrder)]
+            ))
+            let friends = try modelContext.fetch(FetchDescriptor<Friend>(
+                sortBy: [SortDescriptor(\.displayName)]
+            ))
+            return (friendSets, friends, true)
+        } catch {
+            NSLog("Liminalog: failed to resolve template audiences: \(String(describing: error))")
+            return ([], [], false)
         }
     }
 

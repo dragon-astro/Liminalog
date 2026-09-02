@@ -7,6 +7,7 @@ final class AppStores {
     let categoryStore: CategoryStore
     let categorySetStore: CategorySetStore
     let planStore: PlanStore
+    let planPresetStore: PlanPresetStore
     let scoreStore: ScoreStore
     let unlockStore: UnlockStore
     let purchaseStore: PurchaseStore
@@ -19,6 +20,7 @@ final class AppStores {
         let categoryStore = CategoryStore(modelContext: modelContext)
         let categorySetStore = CategorySetStore(modelContext: modelContext, categoryStore: categoryStore)
         let planStore = PlanStore(modelContext: modelContext, clock: clock)
+        let planPresetStore = PlanPresetStore(modelContext: modelContext, clock: clock)
         let scoreStore = ScoreStore(modelContext: modelContext, clock: clock)
         let unlockStore = UnlockStore(modelContext: modelContext)
         let purchaseConfiguration = PurchaseConfiguration.current
@@ -49,6 +51,7 @@ final class AppStores {
         self.categoryStore = categoryStore
         self.categorySetStore = categorySetStore
         self.planStore = planStore
+        self.planPresetStore = planPresetStore
         self.scoreStore = scoreStore
         self.unlockStore = unlockStore
         self.purchaseStore = purchaseStore

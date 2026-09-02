@@ -84,7 +84,8 @@ struct CalendarWeekTimelineView: View {
     private let renderCacheKey: WeekTimelineRenderCacheKey
 
     @State private var selectedPlanID: UUID?
-    @State private var snapPrecision = TimelineSnapPrecision.quarterHour
+    @AppStorage(TimelineSnapPrecision.userDefaultsKey)
+    private var storedSnapPrecisionMinutes = TimelineSnapPrecision.quarterHour.minutes
     @State private var creationDraft: WeekPlanCreationDraft?
     @State private var creationGestureIsActive = false
     @State private var movingDrafts: [UUID: WeekPlanMoveDraft] = [:]
@@ -118,6 +119,10 @@ struct CalendarWeekTimelineView: View {
 
     private var minimumDurationMinutes: Int {
         snapPrecision.minutes
+    }
+
+    private var snapPrecision: TimelineSnapPrecision {
+        TimelineSnapPrecision.normalized(minutes: storedSnapPrecisionMinutes)
     }
 
     private var hourScale: CGFloat {
@@ -236,11 +241,6 @@ struct CalendarWeekTimelineView: View {
                     .scrollDisabled(shouldDisableTimelineScroll || isPageSwipeActive)
                     .scrollIndicators(.visible)
                     .background(timelineBackground)
-                    .overlay(alignment: .topTrailing) {
-                        weekSnapPrecisionSelector
-                            .padding(.top, 8)
-                            .padding(.trailing, 10)
-                    }
                     .onAppear {
                         normalizeStoredHourScale()
                         scrollToVisibleHour(with: scrollProxy)
@@ -288,9 +288,6 @@ struct CalendarWeekTimelineView: View {
                 return
             }
             selectedCategoryID = categories.first?.id
-        }
-        .onChange(of: selectedPlanID) { _, _ in
-            snapPrecision = .quarterHour
         }
         .alert("予定を調整できませんでした", isPresented: operationErrorPresented) {
             Button("OK", role: .cancel) {
@@ -479,19 +476,6 @@ struct CalendarWeekTimelineView: View {
             return "\(Int(scale))倍"
         }
         return "\(String(format: "%.2g", Double(scale)))倍"
-    }
-
-    @ViewBuilder
-    private var weekSnapPrecisionSelector: some View {
-        if isInteractionEnabled,
-           !isPageSwipeActive,
-           let selectedPlanID,
-           let plan = sortedPlans.first(where: { $0.id == selectedPlanID }),
-           !store.isPlanScheduleLocked(plan) {
-            TimelineSnapPrecisionSelector(precision: $snapPrecision)
-                .transition(.opacity.combined(with: .scale(scale: 0.96)))
-                .zIndex(500)
-        }
     }
 
     private func weekHeader(dayWidth: CGFloat, totalWidth: CGFloat, snapshot: WeekTimelineRenderSnapshot) -> some View {

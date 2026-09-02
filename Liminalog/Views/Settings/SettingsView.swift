@@ -76,6 +76,18 @@ struct SettingsView: View {
                 }
 
                 NavigationLink {
+                    PlanPresetSettingsView()
+                } label: {
+                    Label("予定プリセット", systemImage: "bookmark")
+                }
+
+                NavigationLink {
+                    DayPresetSettingsView()
+                } label: {
+                    Label("一日プリセット", systemImage: "calendar.badge.clock")
+                }
+
+                NavigationLink {
                     WidgetSettingsView()
                 } label: {
                     Label("ウィジェット", systemImage: "rectangle.grid.2x2")

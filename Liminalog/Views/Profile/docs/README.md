@@ -30,13 +30,16 @@
 | 19 | [19-statistics-pro-gate.md](19-statistics-pro-gate.md) | 統計タブ Pro 化設計（タブは残す・ロック時は重い集計を構築しない・購入導線と機能制限を分離） | ✅ 初版 |
 | 20 | [20-premium-decoration-data.md](20-premium-decoration-data.md) | プレミアム装飾データ設計（獲得装飾と課金所有/レンタルを分離・失効時フォールバック） | ✅ 初版 |
 | 21 | [21-refactoring-playbook.md](21-refactoring-playbook.md) | 全体リファクタリング・最適化プレイブック（不変条件・検証プロトコル・カタログR1〜R8。他エージェントが単独で実行できる手順書） | ✅ 初版 |
-| 22 | [22-plan-presets.md](22-plan-presets.md) | 予定プリセット / 一日プリセット設計（PlanTemplateSnapshot・items blob方式・適用パイプライン・競合プレビュー） | 🟡 Codexレビュー待ち |
+| 22 | [22-plan-presets.md](22-plan-presets.md) | 予定プリセット / 一日プリセット設計（PlanTemplateSnapshot・items blob方式・適用パイプライン・競合プレビュー） | 🟠 段階実装中 |
 | 23 | [23-decoration-production-pipeline.md](23-decoration-production-pipeline.md) | 装飾画像 制作パイプライン（規格の機械検証・位置補正提案・被り検知・選抜シート・美術館モデル凍結運用。16の制作手段〔ベクター/画像ハイブリッド〕を上書き） | 🟡 Codexレビュー待ち |
 | 24 | [24-ux-improvements-batch.md](24-ux-improvements-batch.md) | UX改善バッチ v1（友達pull-to-refresh・タイムライン下地/その場カテゴリ追加・タイムラインズーム・アイコン表裏ライブラリ・並び替え横展開。Codex用goalプロンプト同梱） | 🟢 Codex着手可 |
 | 25 | [25-codex-review-playbook.md](25-codex-review-playbook.md) | Codex実装をClaudeが別セッションでレビューする手順書（制約・優先順・検証・記録） | ✅ 初版 |
 | 26 | [26-ux-feedback-v2.md](26-ux-feedback-v2.md) | UX改善バッチ v1へのフィードバック対応（密度・視認性・直接操作・性能・drag安定性） | ✅ 完了 |
 | 27 | [27-plan-edit-transparency.md](27-plan-edit-transparency.md) | 予定編集の透明化モデル（編集ロック緩和・当日変更マーク・計画キープバッジ） | 🟡 Codexレビュー待ち |
 | 28 | [28-ux-interaction-performance-v3.md](28-ux-interaction-performance-v3.md) | UXフィードバック v3（カテゴリ選択状態・Timeline/Tab/横断性能） | 🟢 Codex着手中 |
+| 29 | [29-performance-hotspot-catalog.md](29-performance-hotspot-catalog.md) | 性能ホットスポット台帳 H1〜H6（28 v3 Item C/D への入力・証拠つき候補） | 🟢 Codex着手可 |
+| 30 | [30-claude-design-brief.md](30-claude-design-brief.md) | Claude Design 引き継ぎブリーフ（リポジトリ外へ貼る自己完結のアプリ全体像） | ✅ 初版 |
+| 31 | [31-over-implementation-and-lightweight-audit.md](31-over-implementation-and-lightweight-audit.md) | 過剰実装・軽量化台帳（全体監査。二重実装/死蔵コード O-1〜O-7 ＋ 挙動不変の軽量化 P-1〜P-11） | 🟢 §3はCodex着手可 / §2はユーザー確認待ち |
 
 ---
 

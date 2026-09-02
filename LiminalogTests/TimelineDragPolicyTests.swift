@@ -7,7 +7,10 @@ struct TimelineDragPolicyTests {
     @Test("precisionは15分を標準に5分と1分を選べる")
     func supportedPrecisions() {
         #expect(TimelineSnapPrecision.allCases.map(\.minutes) == [15, 5, 1])
+        #expect(TimelineSnapPrecision.sliderOptions.map(\.minutes) == [1, 5, 15])
         #expect(TimelineSnapPrecision.quarterHour.minutes == 15)
+        #expect(TimelineSnapPrecision.normalized(minutes: 5) == .fiveMinutes)
+        #expect(TimelineSnapPrecision.normalized(minutes: 7) == .quarterHour)
     }
 
     @Test("刻み幅を大きくした後は差分ではなく時刻をきりのよい値へ揃える")

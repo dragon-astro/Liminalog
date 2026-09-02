@@ -81,6 +81,33 @@
 - persistenceとWidget/Live Activity/App Group等の副作用を描画経路から分離するが、順序・回数・最終結果は維持する。
 - cacheは完全なinvalidation keyを持ち、stale表示を許さない。
 
+進行中の調査・実装（2026-07-19）:
+
+- scroll geometryの生イベントごとに、描画へ直接使わない`latestScrollMinY`を`@State`へ書き、24時間timeline全体のView更新候補を作っていた。値は次回zoomの中央時刻アンカーにだけ必要なため、SwiftUI非監視のinteraction scratchへ移した。可視時刻の更新とzoom時のアンカー計算は従来どおり全イベントを受け取る。
+- move/開始resize/終了resizeでは、pixel単位の生ドラッグごとに`TimelineDragSession`を`@State`へ再代入していた。sessionは累積delta計算専用で表示値ではないため、同じscratchへ移した。15/5/1分snap、指への連続追従、衝突解決、draft更新、guide、haptics、保存条件は変更していない。
+- gesture中のwarning latchとresize hapticの前回minuteも描画へ使わないためscratchへ移した。moveの前回minuteは画面上の時刻guideが参照するので`@State`のまま維持した。
+- `draftIntervals`は同値なら書き戻さない既存guardがあり、render cacheにも完全な入力比較があるため維持した。入力を間引くdebounce/throttle、animation停止、古いsnapshot表示は追加していない。
+- `PlanTimelineRescheduler.resolveClamped`のsortを疑い、48 intervals × 50,000 resolve × 5 runsで単体計測したところ、平均約0.612秒（約12µs/call）だった。通常日の件数では支配的hotspotという証拠がなく、順序・衝突挙動を変える危険があるため書き換えを棄却した。
+
+同一データSimulatorの互換性比較（Release / iOS 26.1）:
+
+- Debug fixtureで390 plans / 219 chaptersを生成し、同じstore、同じRelease UIテスト、同じSimulatorでItem A統合地点のbinaryと変更後binaryを比較した。途中のApp Group entitlement不整合runと空store runは正準データから除外した。
+- before: `/private/tmp/ux-interaction-performance-v3/item-b/equal-data-before-ui.xcresult`、after: `/private/tmp/ux-interaction-performance-v3/item-b/equal-data-after-ui.xcresult`。再利用fixtureは`/private/tmp/ux-interaction-performance-v3/item-b/seed-store/`へ保存した。
+
+| 操作 | before median / p95 | after median / p95 | 判定 |
+| --- | ---: | ---: | --- |
+| category選択 | 1.009s / 1.022s | 1.015s / 1.021s | 固定waitを含み実質同等。選択挙動の回帰なし |
+| 4段階pinch/zoom | 8.449s / 8.497s | 8.448s / 8.525s | 実質同等。4 scaleと永続化の回帰なし |
+| scroll signpost | 0.701s / 0.718s | 0.701s / 0.714s | 実質同等。連続scrollの回帰なし |
+| scroll UI test全体 | 5.306s / 5.332s | 5.376s / 5.567s | element探索と固定waitを含み、改善証拠には使わない |
+
+- Simulatorのwall-clockは入力互換性の回帰確認には使えるが、SwiftUI再評価回数、FPS、hitch、main-thread stallの改善判定には不十分である。この結果だけで性能改善・Item B完了とはしない。
+- 対象41 tests / 3 suites成功（`/private/tmp/ux-interaction-performance-v3/item-b/targeted-tests.xcresult`）。timeline表示等を加えた関連51 tests / 5 suites成功（`related-tests.xcresult`）。generic iOS Release build成功（`generic-release-derived/Build/Products/Release-iphoneos/Liminalog.app`）。
+- Item A統合地点`7a7c006`を隔離worktreeへ固定し、beforeの署名付きReleaseを`before-device-derived/Build/Products/Release-iphoneos/Liminalog.app`へ作成した。変更後も同じXcode、Release、arm64、Team `7834TP2P53`、開発証明書・プロファイルで`after-device-derived/Build/Products/Release-iphoneos/Liminalog.app`へ作成し、両方のdeep/strict code signing検証に成功した。
+- 一時UIハーネスも同じTeamで`device-harness-derived`へ署名付き`build-for-testing`済み。scroll/zoom/categoryのclock・scroll signpost・hitch、move/開始resize/終了resize/15・5・1分/4 zoomの機能回帰、Instruments用連続操作driverを同じtest binaryでbefore/afterへ適用する。ハーネスは`/private/tmp`だけに置き、製品repoへ含めない。
+- 正準端末のiPhone 13（`00008110-00114DE01EB9801E` / iOS 26.5.2）へItem A統合地点の署名付きReleaseを、既存データを保持して導入した。beforeのpinchは3反復成功（clock平均9.113秒、app hitch 3回/run、hitch total約50ms/run、`before-device-pinch-v2.xcresult`）。scrollと1.5倍への変更→再起動後永続化→2倍への復元も3反復成功し、scroll signpost平均2.392秒、平均58.38fps、scroll signpost内hitch 0、app hitch平均0.67回/runだった（`before-device-scroll-v3.xcresult`）。
+- 実機UIハーネスの固定日・offscreen element・後片付けに起因した失敗runは製品の合否証拠から除外した。現在は実データの09:00〜11:24付近と衝突しない将来日を選び、作成した一時予定を製品UIから削除するハーネスへ是正済み。ただしXCTest再開時に端末の「Enable UI Automation」パスコード入力が要求されており、final before category/move/開始resize/終了resize、after全操作、Time Profiler/SwiftUI Instrument、p95 frame time、100ms以上stall、SwiftUI View更新、60fps動画は未確認である。Item Bは進行中のまま統合しない。
+
 ## 7. Item C — Tab性能
 
 - `RootTabView`と各タブの常駐Query、非表示中task/timer/notification、lifecycle refresh、Environment/store伝播、初回View構築を計測する。

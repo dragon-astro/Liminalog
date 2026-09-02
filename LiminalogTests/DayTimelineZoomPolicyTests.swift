@@ -5,15 +5,16 @@ import Testing
 
 @Suite("DayTimelineZoomPolicy")
 struct DayTimelineZoomPolicyTests {
-    @Test("対応scaleは0.75・1・1.5・2で基準hourHeightは38pt")
+    @Test("対応scaleは0.75・1・1.5・2・3で基準hourHeightは38pt")
     func supportedScalesAndHourHeights() {
-        #expect(DayTimelineZoomPolicy.supportedScales == [0.75, 1, 1.5, 2])
+        #expect(DayTimelineZoomPolicy.supportedScales == [0.75, 1, 1.5, 2, 3])
         #expect(DayTimelineZoomPolicy.defaultScale == 1)
         #expect(DayTimelineZoomPolicy.baseHourHeight == 38)
         #expect(DayTimelineZoomPolicy.hourHeight(for: 0.75) == 28.5)
         #expect(DayTimelineZoomPolicy.hourHeight(for: 1) == 38)
         #expect(DayTimelineZoomPolicy.hourHeight(for: 1.5) == 57)
         #expect(DayTimelineZoomPolicy.hourHeight(for: 2) == 76)
+        #expect(DayTimelineZoomPolicy.hourHeight(for: 3) == 114)
     }
 
     @Test("共通zoom計算は週間の29pt基準にも再利用できる")
@@ -22,6 +23,7 @@ struct DayTimelineZoomPolicyTests {
         #expect(TimelineZoomPolicy.hourHeight(for: 0.75, base: 29) == 21.75)
         #expect(TimelineZoomPolicy.hourHeight(for: 1, base: 29) == 29)
         #expect(TimelineZoomPolicy.hourHeight(for: 2, base: 29) == 58)
+        #expect(TimelineZoomPolicy.hourHeight(for: 3, base: 29) == 87)
         #expect(TimelineZoomPolicy.weekUserDefaultsKey != TimelineZoomPolicy.userDefaultsKey)
     }
 
@@ -40,7 +42,7 @@ struct DayTimelineZoomPolicyTests {
     @Test("pinch中は連続値を許し対応範囲の上下端でclampする")
     func clampsScaleDuringMagnification() {
         #expect(DayTimelineZoomPolicy.magnifiedScale(baseScale: 1, magnification: 1.2) == 1.2)
-        #expect(DayTimelineZoomPolicy.magnifiedScale(baseScale: 1.5, magnification: 2) == 2)
+        #expect(DayTimelineZoomPolicy.magnifiedScale(baseScale: 1.5, magnification: 2) == 3)
         #expect(DayTimelineZoomPolicy.magnifiedScale(baseScale: 1, magnification: 0.2) == 0.75)
         #expect(DayTimelineZoomPolicy.magnifiedScale(baseScale: 1.5, magnification: .nan) == 1.5)
     }
@@ -50,6 +52,7 @@ struct DayTimelineZoomPolicyTests {
         #expect(DayTimelineZoomPolicy.snappedScale(0.9) == 1)
         #expect(DayTimelineZoomPolicy.snappedScale(1.35) == 1.5)
         #expect(DayTimelineZoomPolicy.snappedScale(1.9) == 2)
+        #expect(DayTimelineZoomPolicy.snappedScale(2.6) == 3)
         #expect(DayTimelineZoomPolicy.snappedScale(.infinity) == 1)
     }
 
@@ -63,7 +66,7 @@ struct DayTimelineZoomPolicyTests {
                 sourceScale == destinationScale ? nil : (sourceScale, destinationScale)
             }
         }
-        #expect(transitions.count == 12)
+        #expect(transitions.count == 20)
 
         for (sourceScale, destinationScale) in transitions {
             let sourceHourHeight = DayTimelineZoomPolicy.hourHeight(for: sourceScale)
@@ -105,7 +108,7 @@ struct DayTimelineZoomPolicyTests {
         let viewportHeight: CGFloat = 560
         let topInset: CGFloat = 30
         let expectedCenter: CGFloat = 713.25
-        let scaleSequence: [CGFloat] = [0.75, 2, 1, 1.5, 1, 2, 0.75]
+        let scaleSequence: [CGFloat] = [0.75, 3, 2, 1, 1.5, 1, 3, 0.75]
         var currentCenter = expectedCenter
 
         for _ in 0..<20 {
@@ -172,7 +175,7 @@ struct DayTimelineZoomPolicyTests {
 
 @Suite("Day timeline zoom persistence", .serialized)
 struct DayTimelineZoomPersistenceTests {
-    @Test("4tierすべてを標準キーへ保存しUserDefaults再生成後に読み込む")
+    @Test("5tierすべてを標準キーへ保存しUserDefaults再生成後に読み込む")
     func everyTierRoundTripsAfterDefaultsRecreation() throws {
         let suiteName = "DayTimelineZoomPersistenceTests.\(UUID().uuidString)"
         let writer = try #require(UserDefaults(suiteName: suiteName))

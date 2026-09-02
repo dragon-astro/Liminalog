@@ -942,18 +942,19 @@ refactor: split plan store
 
 ## 8.12 予定プリセット / 一日プリセット（docs/22）
 
-> 設計: [docs/22-plan-presets.md](../Liminalog/Views/Profile/docs/22-plan-presets.md)。ステータス: **Codex プランレビュー待ち**（§8 エッジケース一覧と §4 適用パイプラインを重点レビュー）。Pro ゲート等の未確定論点は docs/22 §10。
+> 設計: [docs/22-plan-presets.md](../Liminalog/Views/Profile/docs/22-plan-presets.md)。ステータス: **Codexレビュー済み・段階実装中**。レビューで PlanPreset の Category 関係を `categoryID` に変更し、DST変換を壁時計 `DateComponents` 方式に修正。Pro ゲート等の未確定論点は docs/22 §10。
 
-- [ ] Codex プランレビュー（docs/22 全体。特に blob方式の妥当性・Planner判定仕様・applyTemplates の原子性）<!-- 担当: Codex -->
-- [ ] モデル追加: `PlanPreset` / `DayPreset` / `PlanTemplateSnapshot` / envelope + スキーマ3箇所登録 + codecテスト <!-- 担当: Codex, 理由: CloudKit互換スキーマ設計, 依存: プランレビュー -->
-- [ ] `DayPresetApplyPlanner`（Logic/・純粋関数）+ 判定マトリクステスト <!-- 担当: Codex, 理由: 複雑な条件分岐（重複/日跨ぎ/lockedDay）, 依存: モデル -->
-- [ ] `PlanStore.applyTemplates`（一括検証→一括insert→save1回→requestRefresh1回・全件or全ロールバック）+ テスト <!-- 担当: Codex, 理由: トランザクション境界, 依存: Planner -->
-- [ ] `PlanPresetStore` + `AppStores` 配線 + CRUD/除外規則テスト <!-- 担当: Codex, 依存: モデル -->
-- [ ] PlanCreateSheet プリセットチップ行 + 「プリセットとして保存」導線 <!-- 担当: Claude, 理由: 既存シートUIへの馴染み, 依存: PlanPresetStore -->
-- [ ] `PlanPresetSettingsView`（設定 > 予定プリセット管理）<!-- 担当: Claude, 依存: PlanPresetStore -->
+- [x] Codex プランレビュー（docs/22 全体。特に blob方式の妥当性・Planner判定仕様・applyTemplates の原子性）<!-- 担当: Codex, 完了: 2026-09-02 -->
+- [x] モデル追加: `PlanPreset` / `DayPreset` / `PlanTemplateSnapshot` / envelope + スキーマ3箇所登録 + codecテスト <!-- 担当: Codex, 完了: 2026-09-02 -->
+- [x] `DayPresetApplyPlanner`（Logic/・純粋関数）+ 判定マトリクステスト <!-- 担当: Codex, 完了: 2026-09-02 -->
+- [x] `PlanStore.applyTemplates`（一括検証→一括insert→save1回→requestRefresh1回・全件or全ロールバック）+ テスト <!-- 担当: Codex, 完了: 2026-09-02 -->
+- [x] `PlanPresetStore` + `AppStores` 配線 + CRUD/除外規則テスト <!-- 担当: Codex, 完了: 2026-09-02 -->
+- [x] PlanCreateSheet プリセットチップ行 + 「プリセットとして保存」導線 <!-- 担当: Codex, 完了: 2026-09-02 -->
+- [x] `PlanPresetSettingsView`（設定 > 予定プリセット管理）<!-- 担当: Codex, 完了: 2026-09-02 -->
 - [ ] `DayPresetEditSheet`（手動作成/編集・プリセット内重複の赤示・予定プリセット取り込み）<!-- 担当: Claude, 依存: PlanPresetStore -->
-- [ ] `DayPresetApplySheet`（プレビュー・チェック取捨・n件追加）<!-- 担当: Claude, 依存: applyTemplates + EditSheet -->
-- [ ] 適用起点: CalendarDayView メニュー / 明日ページ空状態 + 「この日の予定を一日プリセットとして保存」<!-- 担当: Claude, 依存: ApplySheet -->
+- [x] `DayPresetApplySheet`（プレビュー・チェック取捨・n件追加）<!-- 担当: Codex, 完了: 2026-09-02 -->
+- [x] CalendarDayView メニュー + 「この日の予定を一日プリセットとして保存」<!-- 担当: Codex, 完了: 2026-09-02 -->
+- [ ] 今日タブ・明日ページ空状態からの一日プリセット適用導線 <!-- 担当: Claude, 依存: ApplySheet -->
 - [ ] Pro ゲート/個数上限の最終決定 <!-- 担当: ユーザー, 理由: docs/22 §10-1（docs/17 の機能ティア線引きに関わる） -->
 
 ---
@@ -1008,10 +1009,13 @@ refactor: split plan store
 
 設計: **[../Liminalog/Views/Profile/docs/28-ux-interaction-performance-v3.md](../Liminalog/Views/Profile/docs/28-ux-interaction-performance-v3.md)**。開始地点 `codex/ux-feedback-v2`、統合先 `codex/ux-interaction-performance-v3`、実行順 A→B→C→D。入力間引き・animation停止・View破棄・状態喪失で軽く見せず、同条件のRelease iPhone 13 before/afterを正準証拠にする。
 
+2026-07-20 ユーザー指示の追記（全Item・以後の性能作業に常設適用）: **操作感の変更（アニメーション削除・簡略化、連続操作の離散化、機能/表示の削減）による軽量化は禁止。機能維持のままではどうしても軽くできない場合は、勝手に変えず §11 に「何を・なぜ・どう変えれば・どれだけ軽くなるか」を起票してユーザー相談。** また、コード監査による証拠つきホットスポット台帳を **[docs/29](../Liminalog/Views/Profile/docs/29-performance-hotspot-catalog.md)** に整備済み（H1 記録タップ同期副作用 / H2 TickClock毎分全ツリー再評価 / H3 スコアのライブ計算 / H4 ボード切替2.7s残存 / H5 R4未消化 / H6 描画レイヤ）。C/D の計測対象へ組み込むこと。
+
 - [x] A: v2の軽いカテゴリ表示を維持し、色以外を含む2つ以上の手掛かりで選択中を瞬時に判別可能にする <!-- 担当: Codex, 完了: 2026-07-19。専用ブランチ: codex/ux3-category-selection。3案比較から、11pt固定slot内のicon→check切替、1pt→2pt枠、20% tintを採用。実layout frame不変、曙/宵×淡色/濃色、Home明日/Calendar日間・週間、作成即選択、custom filter、Release buildを検証 -->
-- [ ] B: Timelineのscroll/category/move/resize/4 zoomを計測し、連続追従と挙動を変えずにView更新・計算・副作用hotspotを除去する <!-- 担当: Codex, 専用ブランチ: codex/ux3-timeline-performance, 依存: A -->
+- [~] B: Timelineのscroll/category/move/resize/4 zoomを計測し、連続追従と挙動を変えずにView更新・計算・副作用hotspotを除去する <!-- 担当: Codex, 進行中: 2026-07-19。専用ブランチ: codex/ux3-timeline-performance。描画に使わないscroll/drag/haptic bookkeepingの生イベントごとの@State更新を非監視scratchへ分離し、入力・snap・draft・guide・haptics・保存は維持。同一390 plans/219 chaptersのRelease Simulator before/afterと対象41件/関連51件、generic Release build、同一署名条件の実機before/after buildまで成功。iPhone 13 beforeはpinch 3反復とscroll/zoom永続化3反復が成功し、scroll平均58.38fps・signpost内hitch 0。final before category/move/resize、after全操作、stall/View更新、60fps動画は端末のEnable UI Automationパスコード入力後に同条件比較するため、未完了・未統合 -->
 - [ ] C: 5タブ初回/warm/20往復を計測し、状態と自動更新を維持したままtab選択のmain-thread hotspotと重複処理を除去する <!-- 担当: Codex, 専用ブランチ: codex/ux3-tab-performance, 依存: B -->
 - [ ] D: A〜C後の主要操作を横断再計測し、証拠のあるhotspotだけを改善する <!-- 担当: Codex, 専用ブランチ: codex/ux3-interaction-performance-sweep, 依存: C -->
+- [ ] docs/29 台帳の消化（C/Dの一部として）: H1 記録タップ副作用の次フレーム遅延化 / H2 TickClock読み取りの葉View隔離+Text(timerInterval:)置換 / H3 スコアのbody外キャッシュ+確定日スナップショット読み（**§8.15 / docs/27 §5.3 と共有タスク・二重実装禁止**）/ H4 ボード切替2.7sのos_signpost区間分解→§11報告→修正 / H5・H6 は計測が犯人と示した場合のみ <!-- 担当: Codex, 依存: C/D の計測で犯人確認後。H2 のTimelineView系は Item B 統合後にリベース、docs/29 §4 の衝突回避ルール遵守 -->
 
 ---
 
@@ -1083,6 +1087,7 @@ refactor: split plan store
 
 | 日付 | 担当 | 内容 |
 |---|---|---|
+| 2026-09-01 | Codex | **docs/31 §3 軽量化 P-1〜P-11 完了**（P-10は証拠不足で条件付き不採用、P-11のID配列監視8箇所はユーザー判断で挙動変更ゼロを優先して現状維持）。環境判定キャッシュ、構造化署名、装飾解放の一回化、Score日別bucket/summary-only、章group共有、active chapterのpredicate付きQuery、Calendar条件付きcache、Set/安定sort、Timeline identity整理、小粒置換を実装。検証: `git diff --check`、generic iOS Release、iPhone 17/iOS 26.5 SimulatorでSwift Testing 558件＋XCTest 15件（failure 0、環境依存15件skip）。署名済みbefore=`7a7c006` / after=`d240a32`をiPhone 16/iOS 26.6へ同一bundle IDで順に上書きし、双方の前面起動・プロセス生存、appDataContainer直下構成一致を確認。最終的にafter版（1.1 build 2）を端末へ残した。詳細: docs/31 §8。 |
 | 2026-07-19 | Codex | **UXフィードバック v3 Item A 完了**（専用ブランチ `codex/ux3-category-selection`）。tint＋枠のみ、全chip末尾check常設、既存先頭slotのcheck切替＋2pt枠を比較し、横密度を増やさず色以外の手掛かりを持つ3案目を採用。通常icon/checkを同じ11pt slotへ重ね、選択時はcheck・2pt輪郭・20% tint、未選択は既存icon・1pt輪郭・8% tintとした。後続chipの選択前後位置/幅は完全一致し、アクセシビリティのselected trait/valueも追加。対象・関連12 tests/2 suites成功（`/private/tmp/ux-interaction-performance-v3/item-a/final-unit-ios261.xcresult`）。UIは作成即選択を含む曙/宵×淡色/濃色×Home明日/Calendar日間・週間の12枚（`ui-full-final.xcresult`）、layout診断（`ui-frame-diagnosis.xcresult`）、Calendar淡色選択の追加4枚（`ui-calendar-focused.xcresult`）を成功・目視監査。generic iOS Release build成功。課金・CloudKit・同期ファイル変更なし。 |
 | 2026-07-19 | Codex | **UXフィードバック v2 A〜G 最終統合検証完了**（統合ブランチ `codex/ux-feedback-v2`）。A→B→C→D→E→F→Gを各専用ブランチ/専用コミットからno-ff統合し、`codex/ux-improvements-v1`・`codex/monetization-foundation`・`main`へは未マージ。Item G統合後46 tests/5 suites成功（`/private/tmp/ux-feedback-v2/post-merge-item-g-retry.xcresult`）。LiminalogTests全体はxcodebuild結果Passed、Swift Testing 551 tests/86 suites成功、xcresult集計566件中failure 0・環境依存17件skip（`final-all-tests.xcresult`）。課金回帰110 tests/9 suites成功（`final-monetization-9-suites.xcresult`）。generic iOS Release build成功（`final-release-derived/Build/Products/Release-iphoneos/Liminalog.app`）、`Scripts/validate-purchase-readiness.sh --release-build`成功（Terms/Privacy HTTP 200を含む）。曙/宵、再起動永続化、過去日拒否、カテゴリ作成/アイコン/友達操作/ボード切替、15/5/1分とRelease iPhone 13性能は各Item証跡を再監査。`codex/ux-improvements-v1..codex/ux-feedback-v2` の課金禁止パス差分0、A〜G専用ブランチ7本すべてmerged、作業ツリーcleanを確認。 |
 | 2026-07-19 | Codex | **UXフィードバック v2 Item G 完了**（専用ブランチ `codex/ux2-timeline-direct-manipulation`）。既存の開始/終了ハンドルを増やさず、予定選択中だけ表示するコンパクトな15/5/1分精度メニューを採用。二重ハンドルは常駐密度と誤操作、ドラッグ中切替は同じ指で操作不能、長押し精密モードは削除操作との競合と発見性から不採用とした。resizeの横hitをblock幅内へ限定し、移動・開始/終了resizeを固定global座標anchor、未丸め時刻からの一回量子化、0.15段階hysteresisへ統一。前フレームの丸め値再加算による震え・遠距離snapを防いだ。検証: policy 8件、対象・関連41件（`/private/tmp/ux-feedback-v2/item-g/target-tests-v2.xcresult`）、最終関連46件/5 suites（`related-fresh-simulator.xcresult`）、generic iOS Release build成功。曙/宵UIで移動・開始/終了resize・15/5/1分・横誤判定を確認。iPhone 13/iOS 26.5.2 Release実機では4ズームでの移動、終了resizeの15/5/1分、開始resizeの1分（09:00→09:21）、旧横slop非発火を確認（`ui-release-device-move-resize-v7.xcresult`、`ui-release-device-start-handle-v8.xcresult`）。検証予定は削除済み。現行に自動edge autoscrollはないため新設せず、手動scrollとの座標分離と日付境界回帰を確認。課金・CloudKit・同期ファイル変更なし。 |
@@ -1595,3 +1600,5 @@ Claude 作業中のため、Codex は読み取り中心で進捗確認。ファ�
 | 15 | Chapter.photoData の保存戦略（SwiftData直 / CKAsset別管理）| Phase 1 写真添付 | 🟠 中 |
 | 16 | **フェーズ順の戦略判断**：デイリーカード(§7.7)+ビジュアル(§7.8)を、Phase 3 友達インフラより先にやるか。docs/12/13 の戦略は「カード先行→solo配布→拡散測定→その後 友達」。現状 Codex は友達まわりを進行中。カード拡散を証明する前に重い友達インフラ(CKShare等)に投資するリスクをどう取るか | Phase順全体 | 🔴 高 |
 | 17 | 称号の実コピー温度・和文Display書体・最終hex（docs/12 §6 / docs/13 §2-3）＝ユーザーの編集/美的判断待ち | カード/ビジュアル | 🟠 中 |
+| ~~18~~ | ~~**docs/31 P-11 `onChange(of: models.map(\.id))` 8箇所の採否**~~ | ~~Home / Calendar / Profile~~ | ✅ 解決 (2026-09-01): ユーザー承認により、変更検知の意味論を弱めず挙動変更ゼロを優先して現状維持 |
+| ~~19~~ | ~~**docs/31 §5 実機Release before/afterの実施許可**~~ | ~~docs/31 軽量化の最終合否~~ | ✅ 解決 (2026-09-01): ユーザー許可後、iPhone 16へbefore→afterを順に導入し、双方の起動・プロセス生存・データコンテナ構成保持を確認 |

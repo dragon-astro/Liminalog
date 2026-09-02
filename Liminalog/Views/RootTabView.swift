@@ -99,6 +99,7 @@ struct RootTabView: View {
                         }
                     }
                     .environment(store)
+                    .environment(appStores.planPresetStore)
                     .environment(appStores.purchaseStore)
                 } else {
                     ProgressView()
