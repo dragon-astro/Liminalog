@@ -29,6 +29,7 @@ struct RootTabView: View {
     @State private var pendingRemoteChangeDuplicateMergeTask: Task<Void, Never>?
     @State private var pendingRemoteChangeRequiresFullMerge = false
     @State private var isShowingStorageFallbackNotice = false
+    @State private var isShowingDebugDayPresetEditor = ProcessInfo.processInfo.arguments.contains("-LiminalogDebugOpenDayPresetEditor")
     private let refreshIncomingFriendShares: (@MainActor (String) async -> Void)?
     #if DEBUG
     @AppStorage("debug.unlocks.allowLockedDecorations") private var allowsLockedDecorationTesting = false
@@ -124,6 +125,12 @@ struct RootTabView: View {
                 }
                 #endif
                 appStores = initializedStores
+                #if DEBUG
+                if ProcessInfo.processInfo.arguments.contains("-LiminalogDebugOpenDayPresetEditor") {
+                    seedDebugPlanPresetsIfNeeded(using: initializedStores.planPresetStore)
+                    isShowingDebugDayPresetEditor = true
+                }
+                #endif
                 let purchaseRuntimePolicy = PurchaseStoreRuntimePolicy.current()
                 if purchaseRuntimePolicy.shouldStartStoreKitOnAppLaunch {
                     Task {
@@ -211,8 +218,46 @@ struct RootTabView: View {
             } message: {
                 Text(storageFallbackMessage)
             }
+            .fullScreenCover(isPresented: $isShowingDebugDayPresetEditor) {
+                if let appStores {
+                    DayPresetEditSheet(preset: nil)
+                        .environment(appStores.chapterStore)
+                        .environment(appStores.planPresetStore)
+                }
+            }
         }
     }
+
+    #if DEBUG
+    private func seedDebugPlanPresetsIfNeeded(using presetStore: PlanPresetStore) {
+        guard presetStore.planPresetsIfAvailable()?.isEmpty == true else { return }
+        let categories = (try? modelContext.fetch(FetchDescriptor<Category>(
+            sortBy: [SortDescriptor(\.sortOrder)]
+        ))) ?? []
+        let samples: [(String, Int, Int, PlanPresetPlacementMode, Category?)] = [
+            ("通勤", 8 * 60, 9 * 60, .fixedTime, categories.first),
+            ("仕事", 9 * 60, 12 * 60, .fixedTime, categories.dropFirst().first),
+            ("ジム", 18 * 60, 19 * 60 + 30, .duration, categories.dropFirst(2).first),
+            ("読書", 20 * 60, 21 * 60, .duration, categories.dropFirst(3).first)
+        ]
+        for sample in samples {
+            _ = presetStore.createPlanPreset(
+                name: sample.0,
+                snapshot: PlanTemplateSnapshot(
+                    title: sample.0,
+                    categoryID: sample.4?.id,
+                    startMinute: sample.1,
+                    endMinute: sample.2,
+                    isAllDay: false,
+                    isImportant: false,
+                    note: nil,
+                    isPublic: true
+                ),
+                placementMode: sample.3
+            )
+        }
+    }
+    #endif
 
     /// 保存先がフォールバックしている（iCloud同期や永続化が縮退している）ことを起動時に告知する。
     private var storageFallbackTitle: String {

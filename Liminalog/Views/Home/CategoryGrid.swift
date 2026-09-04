@@ -105,7 +105,7 @@ struct CategoryGrid: View {
                     Text(currentSetName)
                         .lineLimit(1)
 
-                    Image(systemName: "chevron.down")
+                    Image(systemName: "arrow.left.arrow.right")
                         .font(.caption2.weight(.bold))
                 }
                 .font(.caption.weight(.semibold))
@@ -115,7 +115,7 @@ struct CategoryGrid: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("ボードを切り替え")
+            .accessibilityLabel("カテゴリテーブルを切り替え")
             .accessibilityValue(currentSetName)
             .accessibilityIdentifier("category-set-switcher")
 

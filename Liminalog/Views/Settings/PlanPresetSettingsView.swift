@@ -10,10 +10,14 @@ struct PlanPresetSettingsView: View {
     @Query(sort: \Category.sortOrder) private var categories: [Category]
 
     @State private var showingCreateSheet = false
+    @State private var isEditingPresets = false
+    @State private var editingPreset: PlanPreset?
+    @State private var searchText = ""
+    @State private var selectedCategoryID: UUID?
     @State private var operationError: String?
 
     var body: some View {
-        List {
+        Group {
             if presets.isEmpty {
                 ContentUnavailableView {
                     Label("予定プリセットはまだありません", systemImage: "bookmark")
@@ -25,43 +29,82 @@ struct PlanPresetSettingsView: View {
                     }
                 }
             } else {
-                Section {
-                    ForEach(presets) { preset in
-                        NavigationLink {
-                            PlanPresetEditSheet(preset: preset)
-                        } label: {
-                            PlanPresetRow(
-                                preset: preset,
-                                category: category(for: preset)
-                            )
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        presetSectionHeader(
+                            title: "よく使う",
+                            systemImage: "clock.arrow.circlepath"
+                        )
+
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                ForEach(quickPresets) { preset in
+                                    quickPresetButton(preset)
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 1)
                         }
+                        .allowsHitTesting(!isEditingPresets)
+                        .opacity(isEditingPresets ? 0.55 : 1)
+
+                        presetSectionHeader(
+                            title: "すべてのプリセット",
+                            systemImage: "square.grid.3x3.fill"
+                        )
+
+                        settingsFilterControls
+                            .padding(.horizontal, 16)
+                            .allowsHitTesting(!isEditingPresets)
+                            .opacity(isEditingPresets ? 0.5 : 1)
+
+                        Group {
+                            if displayedPresets.isEmpty {
+                                VStack(spacing: 8) {
+                                    Image(systemName: "magnifyingglass")
+                                        .font(.title2)
+                                    Text("一致するプリセットがありません")
+                                        .font(.subheadline.weight(.semibold))
+                                }
+                                .foregroundStyle(LiminalTheme.secondaryText)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 28)
+                            } else {
+                                PlanPresetEditableGrid(
+                                    presets: displayedPresets,
+                                    isEditing: isEditingPresets,
+                                    categoryForPreset: category(for:),
+                                    onEdit: { editingPreset = $0 },
+                                    onDelete: deletePreset,
+                                    onMove: movePresets(from:to:)
+                                )
+                            }
+                        }
+                        .padding(.horizontal, 16)
+
                     }
-                    .onDelete(perform: deletePresets)
-                    .onMove(perform: movePresets)
-                } footer: {
-                    Text("予定作成画面でタップすると、名前・カテゴリ・長さなどをすぐに呼び出せます。")
+                    .padding(.vertical, 16)
                 }
             }
         }
+        .background(LiminalTheme.plainSheetBackground.ignoresSafeArea())
         .navigationTitle("予定プリセット")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if !presets.isEmpty {
                 ToolbarItem(placement: .topBarLeading) {
-                    EditButton()
+                    editToolbarButton
                 }
             }
             ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    showingCreateSheet = true
-                } label: {
-                    Image(systemName: "plus")
-                }
-                .accessibilityLabel("予定プリセットを追加")
+                addToolbarButton
             }
         }
         .sheet(isPresented: $showingCreateSheet) {
             PlanPresetEditSheet(preset: nil)
+        }
+        .sheet(item: $editingPreset) { preset in
+            PlanPresetEditSheet(preset: preset)
         }
         .alert("変更を保存できませんでした", isPresented: operationErrorPresented) {
             Button("OK", role: .cancel) { operationError = nil }
@@ -75,22 +118,122 @@ struct PlanPresetSettingsView: View {
         return categories.first { $0.id == categoryID }
     }
 
-    private func deletePresets(at offsets: IndexSet) {
-        for index in offsets.sorted(by: >) {
-            guard presets.indices.contains(index),
-                  presetStore.deletePlanPreset(presets[index])
-            else {
-                operationError = "時間をおいてもう一度試してください。"
-                return
+    private var quickPresets: [PlanPreset] {
+        Array(presets.sorted {
+            if $0.useCount == $1.useCount { return $0.sortOrder < $1.sortOrder }
+            return $0.useCount > $1.useCount
+        }.prefix(6))
+    }
+
+    private var displayedPresets: [PlanPreset] {
+        guard !isEditingPresets else { return presets }
+        let normalizedSearch = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        return presets.filter { preset in
+            if let selectedCategoryID, preset.categoryID != selectedCategoryID {
+                return false
             }
+            guard !normalizedSearch.isEmpty else { return true }
+            let categoryName = category(for: preset)?.name ?? ""
+            return preset.displayName.localizedStandardContains(normalizedSearch)
+                || categoryName.localizedStandardContains(normalizedSearch)
+                || (preset.note?.localizedStandardContains(normalizedSearch) ?? false)
         }
     }
 
-    private func movePresets(from source: IndexSet, to destination: Int) {
-        guard presetStore.movePlanPresets(from: source, to: destination) else {
+    private var filterCategories: [Category] {
+        let usedIDs = Set(presets.compactMap(\.categoryID))
+        return categories.filter { usedIDs.contains($0.id) }
+    }
+
+    private var settingsFilterControls: some View {
+        PlanPresetFilterControls(
+            searchText: $searchText,
+            selectedCategoryID: $selectedCategoryID,
+            categories: filterCategories,
+            searchPrompt: "名前・カテゴリ・メモを検索"
+        )
+    }
+
+    @ViewBuilder
+    private var editToolbarButton: some View {
+        Button {
+            if !isEditingPresets {
+                searchText = ""
+                selectedCategoryID = nil
+            }
+            withAnimation(.snappy(duration: 0.2)) {
+                isEditingPresets.toggle()
+            }
+            LiminalHaptics.selection()
+        } label: {
+            if isEditingPresets {
+                Text("完了")
+                    .fontWeight(.semibold)
+            } else {
+                Image(systemName: "pencil")
+            }
+        }
+        .accessibilityLabel(isEditingPresets ? "編集を完了" : "予定プリセットを編集")
+    }
+
+    private var addToolbarButton: some View {
+        Button {
+            showingCreateSheet = true
+        } label: {
+            Image(systemName: "plus")
+        }
+        .accessibilityLabel("予定プリセットを追加")
+    }
+
+    private func presetSectionHeader(title: String, systemImage: String) -> some View {
+        Label(title, systemImage: systemImage)
+            .font(.headline)
+            .foregroundStyle(LiminalTheme.text)
+            .padding(.horizontal, 16)
+    }
+
+    private func quickPresetButton(_ preset: PlanPreset) -> some View {
+        Button {
+            editingPreset = preset
+        } label: {
+            PlanPresetLibraryCard(
+                preset: preset,
+                category: category(for: preset),
+                style: .quick,
+                trailingSymbol: nil
+            )
+        }
+        .buttonStyle(.plain)
+        .contextMenu {
+            Button {
+                editingPreset = preset
+            } label: {
+                Label("編集", systemImage: "pencil")
+            }
+            Button(role: .destructive) {
+                deletePreset(preset)
+            } label: {
+                Label("削除", systemImage: "trash")
+            }
+        }
+        .accessibilityLabel("\(preset.displayName)を編集")
+    }
+
+    private func deletePreset(_ preset: PlanPreset) {
+        guard presetStore.deletePlanPreset(preset) else {
             operationError = "時間をおいてもう一度試してください。"
             return
         }
+        LiminalHaptics.commit()
+    }
+
+    @discardableResult
+    private func movePresets(from source: IndexSet, to destination: Int) -> Bool {
+        guard presetStore.movePlanPresets(from: source, to: destination) else {
+            operationError = "時間をおいてもう一度試してください。"
+            return false
+        }
+        return true
     }
 
     private var operationErrorPresented: Binding<Bool> {
@@ -102,46 +245,247 @@ struct PlanPresetSettingsView: View {
     }
 }
 
-private struct PlanPresetRow: View {
-    let preset: PlanPreset
-    let category: Category?
+private struct PlanPresetEditableGrid: View {
+    let presets: [PlanPreset]
+    let isEditing: Bool
+    let categoryForPreset: (PlanPreset) -> Category?
+    let onEdit: (PlanPreset) -> Void
+    let onDelete: (PlanPreset) -> Void
+    let onMove: (IndexSet, Int) -> Bool
+
+    @State private var orderedPresetIDs: [UUID]
+    @State private var dragStartPresetIDs: [UUID] = []
+    @State private var draggedPresetID: UUID?
+    @State private var cardFrames: [UUID: CGRect] = [:]
+    @State private var dragLocation: CGPoint = .zero
+    @State private var dragGrabOffset: CGSize = .zero
+
+    init(
+        presets: [PlanPreset],
+        isEditing: Bool,
+        categoryForPreset: @escaping (PlanPreset) -> Category?,
+        onEdit: @escaping (PlanPreset) -> Void,
+        onDelete: @escaping (PlanPreset) -> Void,
+        onMove: @escaping (IndexSet, Int) -> Bool
+    ) {
+        self.presets = presets
+        self.isEditing = isEditing
+        self.categoryForPreset = categoryForPreset
+        self.onEdit = onEdit
+        self.onDelete = onDelete
+        self.onMove = onMove
+        _orderedPresetIDs = State(initialValue: presets.map(\.id))
+    }
 
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: category?.icon ?? "bookmark.fill")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(tint)
-                .frame(width: 34, height: 34)
-                .background(tint.opacity(0.14), in: Circle())
+        ZStack(alignment: .topLeading) {
+            LazyVGrid(
+                columns: Array(
+                    repeating: GridItem(.flexible(), spacing: 6),
+                    count: 3
+                ),
+                spacing: 6
+            ) {
+                ForEach(orderedPresets) { preset in
+                    editableCard(preset)
+                        .opacity(draggedPresetID == preset.id ? 0 : 1)
+                        .background {
+                            GeometryReader { proxy in
+                                Color.clear.preference(
+                                    key: PlanPresetGridFramePreferenceKey.self,
+                                    value: [
+                                        preset.id: proxy.frame(in: .named(Self.coordinateSpaceName))
+                                    ]
+                                )
+                            }
+                        }
+                }
+            }
 
-            VStack(alignment: .leading, spacing: 3) {
-                Text(preset.name)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(LiminalTheme.text)
-                Text(summary)
-                    .font(.caption)
-                    .foregroundStyle(LiminalTheme.secondaryText)
-                    .lineLimit(1)
+            if let draggedPreset {
+                PlanPresetLibraryCard(
+                    preset: draggedPreset,
+                    category: categoryForPreset(draggedPreset),
+                    style: .library,
+                    trailingSymbol: nil
+                )
+                .frame(width: cardFrames[draggedPreset.id]?.width)
+                .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+                .shadow(color: Color.black.opacity(0.2), radius: 10, y: 5)
+                .scaleEffect(1.04)
+                .position(
+                    x: dragLocation.x - dragGrabOffset.width,
+                    y: dragLocation.y - dragGrabOffset.height
+                )
+                .allowsHitTesting(false)
+                .zIndex(10)
             }
         }
-    }
-
-    private var tint: Color {
-        category?.displayColor ?? LiminalTheme.secondaryText
-    }
-
-    private var summary: String {
-        let categoryName = category?.name ?? "カテゴリなし"
-        if preset.isAllDay {
-            return "\(categoryName) / 終日"
+        .coordinateSpace(name: Self.coordinateSpaceName)
+        .onPreferenceChange(PlanPresetGridFramePreferenceKey.self) { cardFrames = $0 }
+        .animation(.snappy(duration: 0.18), value: orderedPresetIDs)
+        .onChange(of: presets.map(\.id)) { _, presetIDs in
+            guard draggedPresetID == nil else { return }
+            orderedPresetIDs = presetIDs
         }
-        return "\(categoryName) / \(Self.timeText(preset.startMinute))–\(Self.timeText(preset.endMinute))"
+        .onChange(of: isEditing) { _, editing in
+            if !editing { cancelDrag() }
+        }
     }
 
-    private static func timeText(_ minute: Int) -> String {
-        let normalized = minute % 1440
-        let suffix = minute >= 1440 ? " 翌日" : ""
-        return String(format: "%02d:%02d%@", normalized / 60, normalized % 60, suffix)
+    @ViewBuilder
+    private func editableCard(_ preset: PlanPreset) -> some View {
+        let card = PlanPresetLibraryCard(
+            preset: preset,
+            category: categoryForPreset(preset),
+            style: .library,
+            trailingSymbol: nil
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+
+        if isEditing {
+            card
+                .highPriorityGesture(reorderGesture(for: preset))
+                .overlay(alignment: .topTrailing) {
+                    Button {
+                        withAnimation(.snappy(duration: 0.18)) {
+                            onDelete(preset)
+                        }
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 18, weight: .bold))
+                            .symbolRenderingMode(.palette)
+                            .foregroundStyle(Color.white, Color.red)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(3)
+                    .accessibilityLabel("\(preset.displayName)を削除")
+                }
+        } else {
+            card
+                .onTapGesture { onEdit(preset) }
+                .contextMenu {
+                    Button {
+                        onEdit(preset)
+                    } label: {
+                        Label("編集", systemImage: "pencil")
+                    }
+                    Button(role: .destructive) {
+                        onDelete(preset)
+                    } label: {
+                        Label("削除", systemImage: "trash")
+                    }
+                }
+                .accessibilityLabel("\(preset.displayName)を編集")
+        }
+    }
+
+    private var orderedPresets: [PlanPreset] {
+        let presetByID = Dictionary(uniqueKeysWithValues: presets.map { ($0.id, $0) })
+        return orderedPresetIDs.compactMap { presetByID[$0] }
+    }
+
+    private var draggedPreset: PlanPreset? {
+        guard let draggedPresetID else { return nil }
+        return presets.first { $0.id == draggedPresetID }
+    }
+
+    private func reorderGesture(
+        for preset: PlanPreset
+    ) -> some Gesture {
+        DragGesture(
+            minimumDistance: 2,
+            coordinateSpace: .named(Self.coordinateSpaceName)
+        )
+            .onChanged { drag in updateDrag(presetID: preset.id, drag: drag) }
+            .onEnded { _ in finishDrag() }
+    }
+
+    private func updateDrag(presetID: UUID, drag: DragGesture.Value) {
+        if draggedPresetID == nil {
+            guard let frame = cardFrames[presetID] else { return }
+            dragStartPresetIDs = orderedPresetIDs
+            draggedPresetID = presetID
+            dragGrabOffset = CGSize(
+                width: drag.startLocation.x - frame.midX,
+                height: drag.startLocation.y - frame.midY
+            )
+            LiminalHaptics.selection()
+        }
+
+        guard draggedPresetID == presetID else { return }
+        dragLocation = drag.location
+        movePlaceholder(toward: drag.location)
+    }
+
+    private func movePlaceholder(toward location: CGPoint) {
+        guard let draggedPresetID,
+              let source = orderedPresetIDs.firstIndex(of: draggedPresetID),
+              let gridBounds = cardFrames.values.reduce(nil as CGRect?, { partial, frame in
+                  partial?.union(frame) ?? frame
+              }),
+              gridBounds.insetBy(dx: -18, dy: -18).contains(location),
+              let destinationID = orderedPresetIDs.compactMap({ id -> (UUID, CGFloat)? in
+                  guard let frame = cardFrames[id] else { return nil }
+                  let distance = hypot(location.x - frame.midX, location.y - frame.midY)
+                  return (id, distance)
+              }).min(by: { $0.1 < $1.1 })?.0,
+              destinationID != draggedPresetID,
+              let destination = orderedPresetIDs.firstIndex(of: destinationID)
+        else { return }
+
+        withAnimation(.snappy(duration: 0.18)) {
+            orderedPresetIDs.move(
+                fromOffsets: IndexSet(integer: source),
+                toOffset: destination > source ? destination + 1 : destination
+            )
+        }
+        LiminalHaptics.selection()
+    }
+
+    private func finishDrag() {
+        defer {
+            draggedPresetID = nil
+            dragStartPresetIDs = []
+            dragLocation = .zero
+            dragGrabOffset = .zero
+        }
+
+        guard let draggedPresetID,
+              let source = dragStartPresetIDs.firstIndex(of: draggedPresetID),
+              let destinationIndex = orderedPresetIDs.firstIndex(of: draggedPresetID),
+              source != destinationIndex
+        else { return }
+
+        let destination = source < destinationIndex
+            ? destinationIndex + 1
+            : destinationIndex
+        if onMove(IndexSet(integer: source), destination) {
+            LiminalHaptics.commit()
+        } else {
+            orderedPresetIDs = dragStartPresetIDs
+        }
+    }
+
+    private func cancelDrag() {
+        if !dragStartPresetIDs.isEmpty {
+            orderedPresetIDs = dragStartPresetIDs
+        }
+        draggedPresetID = nil
+        dragStartPresetIDs = []
+        dragLocation = .zero
+        dragGrabOffset = .zero
+    }
+
+    private static let coordinateSpaceName = "plan-preset-edit-grid"
+}
+
+private struct PlanPresetGridFramePreferenceKey: PreferenceKey {
+    static var defaultValue: [UUID: CGRect] = [:]
+
+    static func reduce(value: inout [UUID: CGRect], nextValue: () -> [UUID: CGRect]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
     }
 }
 
@@ -153,17 +497,18 @@ struct PlanPresetEditSheet: View {
 
     private let preset: PlanPreset?
 
-    @State private var name: String
     @State private var title: String
     @State private var selectedCategory: Category?
     @State private var startTime: Date
-    @State private var endTime: Date
-    @State private var endsNextDay: Bool
+    @State private var endMinute: Int
+    @State private var durationMinutes: Int
     @State private var isAllDay: Bool
     @State private var isImportant: Bool
     @State private var note: String
     @State private var isPublic: Bool
+    @State private var placementMode: PlanPresetPlacementMode
     @State private var showingCategoryPicker = false
+    @State private var activeTimeEditor: PlanPresetTimeEditor?
     @State private var saveError: String?
 
     init(preset: PlanPreset?) {
@@ -179,75 +524,36 @@ struct PlanPresetEditSheet: View {
             isPublic: true
         )
         let referenceDay = Calendar.current.startOfDay(for: Date(timeIntervalSinceReferenceDate: 0))
-        _name = State(initialValue: preset?.name ?? "")
-        _title = State(initialValue: snapshot.title)
+        _title = State(initialValue: preset?.displayName ?? snapshot.title)
         _selectedCategory = State(initialValue: nil)
         _startTime = State(initialValue: Self.date(minute: snapshot.startMinute, from: referenceDay))
-        _endTime = State(initialValue: Self.date(minute: snapshot.endMinute, from: referenceDay))
-        _endsNextDay = State(initialValue: snapshot.endMinute >= 1440)
+        _endMinute = State(initialValue: snapshot.endMinute)
+        _durationMinutes = State(initialValue: snapshot.durationMinutes)
         _isAllDay = State(initialValue: snapshot.isAllDay)
         _isImportant = State(initialValue: snapshot.isImportant)
         _note = State(initialValue: snapshot.note ?? "")
         _isPublic = State(initialValue: snapshot.isPublic)
+        _placementMode = State(initialValue: preset?.placementMode ?? .duration)
     }
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("名前") {
-                    TextField("プリセット名", text: $name)
-                    TextField("予定名", text: $title)
-                }
-
-                Section("カテゴリ") {
-                    Button {
-                        showingCategoryPicker = true
-                    } label: {
-                        HStack {
-                            CategoryPreviewIcon(category: selectedCategory, size: 34)
-                            Text(selectedCategory?.name ?? "カテゴリなし")
-                                .foregroundStyle(LiminalTheme.text)
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(LiminalTheme.tertiaryText)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                }
-
-                Section("時間") {
-                    Toggle("終日", isOn: $isAllDay)
-                    if !isAllDay {
-                        DatePicker("開始", selection: $startTime, displayedComponents: .hourAndMinute)
-                        DatePicker("終了", selection: $endTime, displayedComponents: .hourAndMinute)
-                        Toggle("終了は翌日", isOn: $endsNextDay)
-                    }
-                    Toggle("重要な予定", isOn: $isImportant)
-                }
-
-                Section("メモ") {
-                    TextField("メモを追加…", text: $note, axis: .vertical)
-                        .lineLimit(3...6)
-                    if note.count > 200 {
-                        Text("メモは200文字以内にしてください。")
-                            .font(.caption)
-                            .foregroundStyle(.red)
+            ScrollView {
+                VStack(spacing: 14) {
+                    presetPreviewCard
+                    identityCard
+                    categoryCard
+                    timeCard
+                    noteCard
+                    visibilityCard
+                    if preset != nil {
+                        deleteCard
                     }
                 }
-
-                Section("公開") {
-                    Toggle("友達に見せる", isOn: $isPublic)
-                }
-
-                if preset != nil {
-                    Section {
-                        Button("プリセットを削除", role: .destructive) {
-                            deletePreset()
-                        }
-                    }
-                }
+                .padding(16)
+                .padding(.bottom, 30)
             }
+            .background(LiminalTheme.canvasGradient)
             .navigationTitle(preset == nil ? "プリセットを追加" : "プリセットを編集")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -261,16 +567,25 @@ struct PlanPresetEditSheet: View {
                 }
             }
             .onAppear {
-                guard selectedCategory == nil,
-                      let categoryID = preset?.categoryID
-                else { return }
-                selectedCategory = categories.first { $0.id == categoryID }
+                guard selectedCategory == nil else { return }
+                if let categoryID = preset?.categoryID {
+                    selectedCategory = categories.first { $0.id == categoryID }
+                } else if preset == nil {
+                    selectedCategory = categories.first
+                }
             }
             .sheet(isPresented: $showingCategoryPicker) {
                 PlanCategoryPickerSheet(
                     categorySets: categorySets,
                     categories: categories,
                     selectedCategory: $selectedCategory
+                )
+            }
+            .sheet(item: $activeTimeEditor) { editor in
+                PlanPresetWheelTimePickerSheet(
+                    editor: editor,
+                    initialMinute: minuteValue(for: editor),
+                    onCommit: { updateMinute($0, for: editor) }
                 )
             }
             .alert("保存できませんでした", isPresented: saveErrorPresented) {
@@ -281,9 +596,296 @@ struct PlanPresetEditSheet: View {
         }
     }
 
+    private var presetPreviewCard: some View {
+        let tint = selectedTint
+        return VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top, spacing: 12) {
+                CategoryPreviewIcon(category: selectedCategory, size: 52)
+
+                VStack(alignment: .leading, spacing: 7) {
+                    Text(previewName)
+                        .font(.title3.weight(.bold))
+                        .foregroundStyle(LiminalTheme.text)
+                        .lineLimit(2)
+
+                    Text(previewSummary)
+                        .font(.subheadline.monospacedDigit().weight(.semibold))
+                        .foregroundStyle(LiminalTheme.text)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.78)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                Image(systemName: isImportant ? "star.fill" : "bookmark.fill")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(tint)
+                    .frame(width: 26, height: 26)
+                    .liminalGlassFill(in: Circle())
+            }
+
+            HStack(spacing: 8) {
+                PlanPreviewBadge(
+                    text: isAllDay ? "終日" : placementMode.title,
+                    systemImage: isAllDay
+                        ? "sun.max.fill"
+                        : placementMode == .fixedTime ? "clock.fill" : "timer",
+                    tint: tint
+                )
+                PlanPreviewBadge(
+                    text: isPublic ? "共有" : "非公開",
+                    systemImage: isPublic ? "eye.fill" : "eye.slash.fill",
+                    tint: isPublic ? LiminalTheme.accent : LiminalTheme.secondaryText
+                )
+                if isImportant {
+                    PlanPreviewBadge(text: "重要", systemImage: "star.fill", tint: LiminalTheme.reward)
+                }
+            }
+        }
+        .padding(18)
+        .background {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(LiminalTheme.surface)
+                .overlay(alignment: .bottom) {
+                    DecorativeAccentStrip(color: tint)
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                }
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .strokeBorder(tint.opacity(0.24), lineWidth: 1)
+        }
+    }
+
+    private var identityCard: some View {
+        PlanEditorCard(tint: selectedTint) {
+            VStack(alignment: .leading, spacing: 12) {
+                PlanEditorSectionHeader(
+                    title: "予定名",
+                    systemImage: "text.cursor",
+                    tint: selectedTint
+                )
+
+                TextField("予定名", text: $title)
+                    .font(.headline)
+                    .padding(.horizontal, 12)
+                    .frame(minHeight: 46)
+                    .background(
+                        selectedTint.opacity(0.08),
+                        in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    )
+            }
+        }
+    }
+
+    private var categoryCard: some View {
+        PlanEditorCard(tint: selectedTint) {
+            VStack(alignment: .leading, spacing: 10) {
+                PlanEditorSectionHeader(
+                    title: "カテゴリ",
+                    systemImage: "square.grid.2x2.fill",
+                    tint: selectedTint
+                )
+
+                Button {
+                    LiminalHaptics.openSheet()
+                    showingCategoryPicker = true
+                } label: {
+                    HStack(spacing: 12) {
+                        CategoryPreviewIcon(category: selectedCategory, size: 42)
+
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(selectedCategory?.name ?? "カテゴリを選択")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(LiminalTheme.text)
+                            Text(selectedCategorySetName)
+                                .font(.caption)
+                                .foregroundStyle(LiminalTheme.secondaryText)
+                        }
+
+                        Spacer()
+
+                        Image(systemName: "chevron.right")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(LiminalTheme.tertiaryText)
+                    }
+                    .padding(12)
+                    .background(
+                        selectedTint.opacity(0.08),
+                        in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private var timeCard: some View {
+        PlanEditorCard(tint: selectedTint) {
+            VStack(alignment: .leading, spacing: 12) {
+                PlanEditorSectionHeader(
+                    title: "時間と呼び出し方",
+                    systemImage: "clock.fill",
+                    tint: selectedTint
+                )
+
+                Toggle(isOn: $isImportant) {
+                    Label("重要な予定", systemImage: "star.fill")
+                }
+                .tint(selectedTint)
+
+                Toggle(isOn: $isAllDay) {
+                    Label("終日", systemImage: "sun.max.fill")
+                }
+                .tint(selectedTint)
+
+                if !isAllDay {
+                    Picker("呼び出し方", selection: $placementMode) {
+                        ForEach(PlanPresetPlacementMode.allCases, id: \.self) { mode in
+                            Text(mode.title).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+
+                    VStack(spacing: 0) {
+                        if placementMode == .duration {
+                            timeEditorRow(
+                                title: "長さ",
+                                value: Self.durationText(durationMinutes),
+                                systemImage: "timer"
+                            ) {
+                                activeTimeEditor = .duration
+                            }
+                        } else {
+                            timeEditorRow(
+                                title: "開始",
+                                value: Self.timeText(computedStartMinute),
+                                systemImage: "play.fill"
+                            ) {
+                                activeTimeEditor = .start
+                            }
+
+                            Divider()
+
+                            timeEditorRow(
+                                title: "終了",
+                                value: Self.timeText(computedEndMinute),
+                                systemImage: "stop.fill"
+                            ) {
+                                activeTimeEditor = .end
+                            }
+                        }
+                    }
+                    .padding(12)
+                    .background(
+                        LiminalTheme.elevated,
+                        in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    )
+
+                    if let timeValidationMessage {
+                        PlanEditorStatusLabel(
+                            text: timeValidationMessage,
+                            systemImage: "exclamationmark.triangle.fill",
+                            tint: .red
+                        )
+                    }
+
+                    PlanEditorStatusLabel(
+                        text: placementMode == .fixedTime
+                            ? "タップすると、この時刻に追加します。"
+                            : "長押しして、置く時刻を決めます。",
+                        systemImage: placementMode == .fixedTime ? "hand.tap.fill" : "hand.draw.fill",
+                        tint: selectedTint
+                    )
+                }
+            }
+        }
+    }
+
+    private var noteCard: some View {
+        PlanEditorCard(tint: selectedTint) {
+            VStack(alignment: .leading, spacing: 10) {
+                PlanEditorSectionHeader(
+                    title: "メモ",
+                    systemImage: "note.text",
+                    tint: selectedTint
+                )
+                TextField("メモを追加…", text: $note, axis: .vertical)
+                    .lineLimit(3...6)
+                    .padding(12)
+                    .background(
+                        LiminalTheme.elevated,
+                        in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    )
+
+                if note.count > 200 {
+                    PlanEditorStatusLabel(
+                        text: "メモは200文字以内にしてください。",
+                        systemImage: "exclamationmark.triangle.fill",
+                        tint: .red
+                    )
+                }
+            }
+        }
+    }
+
+    private var visibilityCard: some View {
+        PlanEditorCard(tint: isPublic ? selectedTint : LiminalTheme.secondaryText) {
+            Toggle(isOn: $isPublic) {
+                PlanEditorSectionHeader(
+                    title: isPublic ? "友達に見せる" : "自分だけ",
+                    systemImage: isPublic ? "eye.fill" : "eye.slash.fill",
+                    tint: isPublic ? selectedTint : LiminalTheme.secondaryText
+                )
+            }
+            .tint(selectedTint)
+        }
+    }
+
+    private var deleteCard: some View {
+        PlanEditorCard(tint: .red) {
+            Button(role: .destructive) {
+                deletePreset()
+            } label: {
+                Label("プリセットを削除", systemImage: "trash.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+    }
+
+    private var selectedTint: Color {
+        selectedCategory?.displayColor ?? LiminalTheme.accent
+    }
+
+    private var selectedCategorySetName: String {
+        guard let selectedCategory else { return "未選択" }
+        if let categorySet = categorySets.first(where: {
+            $0.assignedIDs.contains(selectedCategory.id)
+        }) {
+            return "\(categorySet.name) セット"
+        }
+        return "すべてのカテゴリ"
+    }
+
+    private var previewName: String {
+        let normalizedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        return normalizedTitle.isEmpty ? "新しい予定" : normalizedTitle
+    }
+
+    private var previewSummary: String {
+        if isAllDay { return "終日" }
+        if placementMode == .fixedTime {
+            return "\(Self.timeText(computedStartMinute))–\(Self.timeText(computedEndMinute))"
+        }
+        return Self.durationText(durationMinutes)
+    }
+
     private var canSave: Bool {
         guard note.count <= 200 else { return false }
         if isAllDay { return true }
+        if placementMode == .duration {
+            return (1...1440).contains(durationMinutes)
+        }
         return computedEndMinute > computedStartMinute
             && computedEndMinute <= computedStartMinute + 1440
     }
@@ -293,15 +895,88 @@ struct PlanPresetEditSheet: View {
     }
 
     private var computedEndMinute: Int {
-        Self.minuteOfDay(endTime) + (endsNextDay ? 1440 : 0)
+        endMinute
+    }
+
+    private var timeValidationMessage: String? {
+        guard !isAllDay else { return nil }
+        if placementMode == .duration {
+            if durationMinutes <= 0 { return "長さは1分以上にしてください。" }
+            if durationMinutes > 1440 { return "長さは24時間以内にしてください。" }
+            return nil
+        }
+        if computedEndMinute <= computedStartMinute {
+            return "終了は開始より後の時刻にしてください。日をまたぐ場合は24時以降を選んでください。"
+        }
+        if computedEndMinute > computedStartMinute + 1440 {
+            return "開始から終了までは24時間以内にしてください。"
+        }
+        return nil
+    }
+
+    private func timeEditorRow(
+        title: String,
+        value: String,
+        systemImage: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                Label(title, systemImage: systemImage)
+                    .foregroundStyle(LiminalTheme.text)
+                Spacer()
+                Text(value)
+                    .font(.body.monospacedDigit().weight(.semibold))
+                    .foregroundStyle(selectedTint)
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(LiminalTheme.tertiaryText)
+            }
+            .frame(minHeight: 44)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(title)、\(value)")
+    }
+
+    private func minuteValue(for editor: PlanPresetTimeEditor) -> Int {
+        switch editor {
+        case .start: computedStartMinute
+        case .end: computedEndMinute
+        case .duration: durationMinutes
+        }
+    }
+
+    private func updateMinute(_ minute: Int, for editor: PlanPresetTimeEditor) {
+        switch editor {
+        case .start:
+            let dayStart = Calendar.current.startOfDay(for: startTime)
+            startTime = Self.date(minute: max(0, min(1439, minute)), from: dayStart)
+        case .end:
+            endMinute = max(0, min(2879, minute))
+        case .duration:
+            durationMinutes = max(1, min(1440, minute))
+        }
     }
 
     private var snapshot: PlanTemplateSnapshot {
-        PlanTemplateSnapshot(
+        let start: Int
+        let end: Int
+        if isAllDay {
+            start = 0
+            end = 1440
+        } else if placementMode == .duration {
+            start = 0
+            end = durationMinutes
+        } else {
+            start = computedStartMinute
+            end = computedEndMinute
+        }
+
+        return PlanTemplateSnapshot(
             title: title.trimmingCharacters(in: .whitespacesAndNewlines),
             categoryID: selectedCategory?.id,
-            startMinute: isAllDay ? 0 : computedStartMinute,
-            endMinute: isAllDay ? 1440 : computedEndMinute,
+            startMinute: start,
+            endMinute: end,
             isAllDay: isAllDay,
             isImportant: isImportant,
             note: note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : note,
@@ -312,9 +987,18 @@ struct PlanPresetEditSheet: View {
     private func save() {
         let didSave: Bool
         if let preset {
-            didSave = presetStore.updatePlanPreset(preset, name: name, snapshot: snapshot)
+            didSave = presetStore.updatePlanPreset(
+                preset,
+                name: title,
+                snapshot: snapshot,
+                placementMode: placementMode
+            )
         } else {
-            didSave = presetStore.createPlanPreset(name: name, snapshot: snapshot) != nil
+            didSave = presetStore.createPlanPreset(
+                name: title,
+                snapshot: snapshot,
+                placementMode: placementMode
+            ) != nil
         }
         guard didSave else {
             saveError = "時間をおいてもう一度試してください。"
@@ -346,8 +1030,154 @@ struct PlanPresetEditSheet: View {
         return (components.hour ?? 0) * 60 + (components.minute ?? 0)
     }
 
+    private static func timeText(_ minute: Int) -> String {
+        let normalized = max(0, minute)
+        return String(format: "%02d:%02d", normalized / 60, normalized % 60)
+    }
+
+    private static func durationText(_ minutes: Int) -> String {
+        let safeMinutes = max(0, minutes)
+        if safeMinutes < 60 { return "\(safeMinutes)分" }
+        let hours = safeMinutes / 60
+        let remainder = safeMinutes % 60
+        return remainder == 0 ? "\(hours)時間" : "\(hours)時間\(remainder)分"
+    }
+
     private static func date(minute: Int, from dayStart: Date) -> Date {
         Calendar.current.date(byAdding: .minute, value: minute, to: dayStart)
             ?? dayStart.addingTimeInterval(TimeInterval(minute * 60))
+    }
+}
+
+enum PlanPresetTimeEditor: String, Identifiable {
+    case start
+    case end
+    case duration
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .start: "開始時刻"
+        case .end: "終了時刻"
+        case .duration: "予定の長さ"
+        }
+    }
+
+    var hourRange: Range<Int> {
+        switch self {
+        case .start: 0..<24
+        case .end: 0..<48
+        case .duration: 0..<25
+        }
+    }
+
+    var hourUnit: String {
+        self == .duration ? "時間" : "時"
+    }
+
+    func valueText(_ minute: Int) -> String {
+        if self == .duration {
+            let hours = minute / 60
+            let remainder = minute % 60
+            if hours == 0 { return "\(remainder)分" }
+            return remainder == 0 ? "\(hours)時間" : "\(hours)時間\(remainder)分"
+        }
+        return String(format: "%02d:%02d", minute / 60, minute % 60)
+    }
+}
+
+struct PlanPresetWheelTimePickerSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
+    let editor: PlanPresetTimeEditor
+    let onCommit: (Int) -> Void
+
+    @State private var hour: Int
+    @State private var minute: Int
+
+    init(
+        editor: PlanPresetTimeEditor,
+        initialMinute: Int,
+        onCommit: @escaping (Int) -> Void
+    ) {
+        self.editor = editor
+        self.onCommit = onCommit
+        let maximumHour = max(editor.hourRange.lowerBound, editor.hourRange.upperBound - 1)
+        _hour = State(initialValue: min(maximumHour, max(0, initialMinute / 60)))
+        _minute = State(initialValue: max(0, initialMinute % 60))
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 8) {
+                Text(editor.valueText(selectedMinute))
+                    .font(.title2.monospacedDigit().weight(.bold))
+                    .foregroundStyle(LiminalTheme.text)
+
+                HStack(spacing: 0) {
+                    Picker(editor.hourUnit, selection: $hour) {
+                        ForEach(editor.hourRange, id: \.self) { value in
+                            Text("\(value)").tag(value)
+                        }
+                    }
+                    .pickerStyle(.wheel)
+                    .frame(maxWidth: .infinity)
+                    .clipped()
+
+                    Text(editor.hourUnit)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(LiminalTheme.secondaryText)
+
+                    Picker("分", selection: $minute) {
+                        ForEach(0..<60, id: \.self) { value in
+                            Text(String(format: "%02d", value)).tag(value)
+                        }
+                    }
+                    .pickerStyle(.wheel)
+                    .frame(maxWidth: .infinity)
+                    .clipped()
+
+                    Text("分")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(LiminalTheme.secondaryText)
+                }
+                .frame(height: 176)
+
+                if editor == .duration && !isValidDuration {
+                    Label("長さは1分以上24時間以内にしてください。", systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
+            }
+            .padding(.horizontal, 20)
+            .background(LiminalTheme.plainSheetBackground.ignoresSafeArea())
+            .navigationTitle(editor.title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("キャンセル") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("完了") {
+                        onCommit(selectedMinute)
+                        dismiss()
+                    }
+                    .fontWeight(.semibold)
+                    .disabled(editor == .duration && !isValidDuration)
+                }
+            }
+        }
+        .presentationDetents([.height(310)])
+        .presentationDragIndicator(.visible)
+        .presentationBackground(LiminalTheme.plainSheetBackground)
+    }
+
+    private var selectedMinute: Int {
+        hour * 60 + minute
+    }
+
+    private var isValidDuration: Bool {
+        (1...1440).contains(selectedMinute)
     }
 }

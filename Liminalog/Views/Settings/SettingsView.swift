@@ -72,19 +72,7 @@ struct SettingsView: View {
                 NavigationLink {
                     CalendarSettingsContent()
                 } label: {
-                    Label("カレンダー表示", systemImage: "calendar")
-                }
-
-                NavigationLink {
-                    PlanPresetSettingsView()
-                } label: {
-                    Label("予定プリセット", systemImage: "bookmark")
-                }
-
-                NavigationLink {
-                    DayPresetSettingsView()
-                } label: {
-                    Label("一日プリセット", systemImage: "calendar.badge.clock")
+                    Label("カレンダー", systemImage: "calendar")
                 }
 
                 NavigationLink {
@@ -93,9 +81,10 @@ struct SettingsView: View {
                     Label("ウィジェット", systemImage: "rectangle.grid.2x2")
                 }
             } header: {
-                Text("記録")
-            } footer: {
-                Text("1日の範囲はスコアの公平性のため 0:00–24:00 に固定しています。")
+                SettingsSectionHeader(
+                    title: "記録",
+                    explanation: "カテゴリやカレンダーの表示、ウィジェットを設定できます。1日の範囲はスコアの公平性のため 0:00–24:00 に固定しています。"
+                )
             }
 
             Section {
@@ -117,9 +106,10 @@ struct SettingsView: View {
                     Label("ブロックリスト", systemImage: "nosign")
                 }
             } header: {
-                Text("プライバシー")
-            } footer: {
-                Text("友達セットはカテゴリごとの公開相手に使えます。友達ごとの見え方は友達詳細から、ブロックはブロックリストから変更できます。")
+                SettingsSectionHeader(
+                    title: "プライバシー",
+                    explanation: "友達セットはカテゴリごとの公開相手に使えます。友達ごとの見え方は友達詳細から、ブロックはブロックリストから変更できます。"
+                )
             }
 
             Section("外観") {

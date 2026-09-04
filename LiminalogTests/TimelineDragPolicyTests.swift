@@ -4,6 +4,103 @@ import Testing
 
 @Suite("Timeline drag policy")
 struct TimelineDragPolicyTests {
+    @Test("日間・週間の時刻ガターは省幅の整数ラベルを共有する")
+    func timelineHourAxisUsesCompactWholeHourLabels() {
+        #expect(TimelineHourAxisMetrics.columnWidth == 32)
+        #expect(TimelineHourAxisMetrics.label(for: 0) == "0")
+        #expect(TimelineHourAxisMetrics.label(for: 9) == "9")
+        #expect(TimelineHourAxisMetrics.label(for: 23) == "23")
+    }
+
+    @MainActor
+    @Test("プリセットのUIWindow座標は日間・週間共通で表示中タイムライン座標へ変換する")
+    func presetDrawerMapsToActiveTimelineCoordinates() throws {
+        let frame = CGRect(x: 24, y: 180, width: 360, height: 620)
+        let location = try #require(TimelinePlanPresetInteractionCoordinator.localLocation(
+            CGPoint(x: 204, y: 490),
+            in: frame
+        ))
+        let rightLocation = try #require(TimelinePlanPresetInteractionCoordinator.localLocation(
+            CGPoint(x: 374, y: 490),
+            in: frame
+        ))
+
+        #expect(location == CGPoint(x: 180, y: 310))
+        #expect(rightLocation == CGPoint(x: 350, y: 310))
+        #expect(TimelinePlanPresetInteractionCoordinator.localLocation(nil, in: frame) == nil)
+        #expect(TimelinePlanPresetInteractionCoordinator.localLocation(
+            CGPoint(x: 204, y: 490),
+            in: nil
+        ) == nil)
+    }
+
+    @Test("プリセット配置は各zoomの実表示content位置から同じ指位置を時刻へ戻す")
+    func presetPlacementUsesLiveContentFrameAtEveryZoomTier() {
+        let viewportMinY: CGFloat = 180
+        let timelineTopInset: CGFloat = 30
+        let targetMinute = 10 * 60 + 15
+
+        for scale in DayTimelineZoomPolicy.supportedScales {
+            let axisMap = TimelineAxisMap(
+                hourHeight: DayTimelineZoomPolicy.hourHeight(for: scale),
+                intervals: [TimelineAxisInterval(startMinute: 600, endMinute: 610)],
+                minimumIntervalHeight: 18
+            )
+            let scrollY = max(0, axisMap.y(forMinute: targetMinute) - 220)
+            let contentFrameMinY = viewportMinY - scrollY
+            let windowFingerY = contentFrameMinY
+                + timelineTopInset
+                + axisMap.y(forMinute: targetMinute)
+            let contentY = TimelinePlanPresetPlacementGeometry.axisY(
+                windowFingerY: windowFingerY,
+                contentFrameMinY: contentFrameMinY,
+                timelineTopInset: timelineTopInset
+            )
+
+            #expect(abs(axisMap.minute(atY: contentY) - CGFloat(targetMinute)) < 0.001)
+        }
+    }
+
+    @Test("同じsnap区間でもプレビューカードは指と同じpoint量だけ連続移動する")
+    func presetPreviewMovesContinuouslyInsideOneSnapStep() {
+        let first = TimelinePlanPresetPlacementGeometry.previewTopY(
+            fingerY: 300,
+            cardHeight: 120,
+            viewportHeight: 800
+        )
+        let second = TimelinePlanPresetPlacementGeometry.previewTopY(
+            fingerY: 301,
+            cardHeight: 120,
+            viewportHeight: 800
+        )
+
+        #expect(second - first == 1)
+    }
+
+    @Test("プリセットカードは下端付近を指で掴む")
+    func presetPreviewUsesBottomEdgeGrip() {
+        let top = TimelinePlanPresetPlacementGeometry.previewTopY(
+            fingerY: 300,
+            cardHeight: 120,
+            viewportHeight: 800
+        )
+
+        #expect(top == 172)
+        #expect(top + 120 == 292)
+    }
+
+    @Test("プレビューカード全体を24時側の表示領域内に保つ")
+    func presetPreviewNeverExtendsBelowViewport() {
+        let top = TimelinePlanPresetPlacementGeometry.previewTopY(
+            fingerY: 900,
+            cardHeight: 180,
+            viewportHeight: 800
+        )
+
+        #expect(top == 620)
+        #expect(top + 180 == 800)
+    }
+
     @Test("precisionは15分を標準に5分と1分を選べる")
     func supportedPrecisions() {
         #expect(TimelineSnapPrecision.allCases.map(\.minutes) == [15, 5, 1])

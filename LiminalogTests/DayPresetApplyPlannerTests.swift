@@ -6,6 +6,20 @@ import Testing
 struct DayPresetApplyPlannerTests {
     private let calendar = Calendar.liminalogTest
 
+    @Test("一日プリセットは全件追加可能なときだけ丸ごと適用できる")
+    func wholeDayApplicationRequiresEveryItem() {
+        #expect(!DayPresetApplyPlanner.canApplyWholePreset([]))
+        #expect(DayPresetApplyPlanner.canApplyWholePreset([.insertable, .insertable]))
+        #expect(!DayPresetApplyPlanner.canApplyWholePreset([.insertable, .lockedDay]))
+        #expect(!DayPresetApplyPlanner.canApplyWholePreset([.insertable, .invalidTime]))
+        #expect(!DayPresetApplyPlanner.canApplyWholePreset([
+            .insertable, .conflictsWithExisting([UUID()])
+        ]))
+        #expect(!DayPresetApplyPlanner.canApplyWholePreset([
+            .insertable, .conflictsWithinPreset([0])
+        ]))
+    }
+
     @Test("未来日の空き時間は追加可能")
     func insertableOnFutureDay() throws {
         let now = try date(2026, 9, 2, 12, 0)

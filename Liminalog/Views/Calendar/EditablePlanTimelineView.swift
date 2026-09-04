@@ -37,9 +37,24 @@ private struct EditableTimelineRenderCache {
     let editablePlans: [PlanBlock]
     let editablePlansByID: [UUID: PlanBlock]
     let displayIntervals: [PlanTimelineInterval]
+    let axisProfile: TimelineAxisProfile
     let renderItems: [EditablePlanTimelineRenderItem]
     let collisionIntervals: [PlanTimelineInterval]
     let visiblePlanIDs: Set<UUID>
+}
+
+private struct TimelinePresetPlacementDraft {
+    let preset: PlanPreset
+    let snapshot: PlanTemplateSnapshot
+    let visualStartY: CGFloat
+
+    var interval: PlanTimelineInterval {
+        PlanTimelineInterval(
+            id: preset.id,
+            startMinute: snapshot.startMinute,
+            endMinute: snapshot.endMinute
+        )
+    }
 }
 
 /// Gesture and viewport bookkeeping that does not affect rendered output.
@@ -49,6 +64,8 @@ private struct EditableTimelineRenderCache {
 /// state still changes at every real snap/zoom/selection step.
 private final class EditableTimelineInteractionScratch {
     var latestScrollMinY: CGFloat = 0
+    var pendingVisibleHour: Int?
+    var timelineScrollIsActive = false
     var moveDragSession: TimelineAxisDragSession?
     var resizeDragSession: TimelineAxisDragSession?
     var axisCacheKey: EditableTimelineAxisCacheKey?
@@ -56,6 +73,7 @@ private final class EditableTimelineInteractionScratch {
     var didWarnDuringScheduleGesture = false
     var lastMoveFeedbackMinute: Int?
     var lastResizeFeedbackMinute: Int?
+    var lastPresetFeedbackMinute: Int?
 
     func cachedAxisMap(
         for key: EditableTimelineAxisCacheKey,
@@ -76,27 +94,32 @@ private final class EditableTimelineInteractionScratch {
         didWarnDuringScheduleGesture = false
         lastMoveFeedbackMinute = nil
         lastResizeFeedbackMinute = nil
+        lastPresetFeedbackMinute = nil
     }
 }
 
-enum EditablePlanTimelineColorStyle {
+enum EditablePlanTimelineColorStyle: Equatable {
     case standalone
     case calendarGrid
 }
 
 struct EditablePlanTimelineView: View {
     @Environment(ChapterStore.self) private var store
+    @Environment(PlanPresetStore.self) private var planPresetStore
     @Environment(\.colorScheme) private var colorScheme
 
     let date: Date
     let plans: [PlanBlock]
     let categories: [Category]
+    let planPresets: [PlanPreset]
     let visibleCategoryIDs: Set<UUID>?
     let isEditingEnabled: Bool
     let planTitleFontSize: Double
     let planTitleBold: Bool
     let isInteractionEnabled: Bool
     let isPageSwipeActive: Bool
+    let presetInteractionCoordinator: TimelinePlanPresetInteractionCoordinator?
+    let presetExternalCoordinateSpaceName: String?
     let showsChrome: Bool
     let colorStyle: EditablePlanTimelineColorStyle
     @Binding var visibleHour: Int
@@ -116,6 +139,7 @@ struct EditablePlanTimelineView: View {
     @State private var creationDraft: PlanCreationDraft?
     @State private var creationGestureIsActive = false
     @State private var operationError: String?
+    @State private var presetApplyRequest: PlanTemplateApplyRequest?
     @State private var planPendingDeletion: PlanBlock?
     @State private var renderCache: EditableTimelineRenderCache?
     @State private var interactionScratch = EditableTimelineInteractionScratch()
@@ -129,9 +153,12 @@ struct EditablePlanTimelineView: View {
     @State private var touchActionsWereCancelledByZoom = false
     @GestureState private var scheduleDragIsActive = false
     @State private var timelineScrollPosition = ScrollPosition()
+    @State private var presetDragIsActive = false
+    @State private var presetPlacementDraft: TimelinePresetPlacementDraft?
+    @State private var presetWindowFrame: CGRect?
+    @State private var presetTimelineContentFrameSource = TimelineWindowFrameSource()
     private let calendar = Calendar.japanese
-    private let hourColumnWidth: CGFloat = 50
-    private let hourLabelHeight: CGFloat = 14
+    private let hourColumnWidth = TimelineHourAxisMetrics.columnWidth
     private let timelineTopInset: CGFloat = 30
     private let sideInset: CGFloat = 4
     private let bottomScrollPadding: CGFloat = 24
@@ -153,12 +180,15 @@ struct EditablePlanTimelineView: View {
         date: Date,
         plans: [PlanBlock],
         categories: [Category],
+        planPresets: [PlanPreset],
         visibleCategoryIDs: Set<UUID>?,
         isEditingEnabled: Bool,
         planTitleFontSize: Double,
         planTitleBold: Bool,
         isInteractionEnabled: Bool,
         isPageSwipeActive: Bool,
+        presetInteractionCoordinator: TimelinePlanPresetInteractionCoordinator? = nil,
+        presetExternalCoordinateSpaceName: String? = nil,
         showsChrome: Bool,
         colorStyle: EditablePlanTimelineColorStyle,
         visibleHour: Binding<Int>,
@@ -170,12 +200,15 @@ struct EditablePlanTimelineView: View {
         self.date = date
         self.plans = plans
         self.categories = categories
+        self.planPresets = planPresets
         self.visibleCategoryIDs = visibleCategoryIDs
         self.isEditingEnabled = isEditingEnabled
         self.planTitleFontSize = planTitleFontSize
         self.planTitleBold = planTitleBold
         self.isInteractionEnabled = isInteractionEnabled
         self.isPageSwipeActive = isPageSwipeActive
+        self.presetInteractionCoordinator = presetInteractionCoordinator
+        self.presetExternalCoordinateSpaceName = presetExternalCoordinateSpaceName
         self.showsChrome = showsChrome
         self.colorStyle = colorStyle
         self._visibleHour = visibleHour
@@ -235,6 +268,15 @@ struct EditablePlanTimelineView: View {
             }
         let editablePlans = timelinePlans.filter(isPlanVisible(_:))
         let displayIntervals = intervals(for: editablePlans)
+        let axisProfile = TimelineAxisProfile(
+            intervals: displayIntervals.map {
+                TimelineAxisInterval(
+                    startMinute: $0.startMinute,
+                    endMinute: $0.endMinute
+                )
+            },
+            minimumIntervalHeight: EditablePlanBlockMetrics.minimumReadableHeight
+        )
         let slots = PlanTimelineLayoutSlot.makeSlots(for: displayIntervals)
         let editablePlansByID = Dictionary(uniqueKeysWithValues: editablePlans.map { ($0.id, $0) })
         let renderItems: [EditablePlanTimelineRenderItem] = displayIntervals.compactMap { interval in
@@ -256,6 +298,7 @@ struct EditablePlanTimelineView: View {
             editablePlans: editablePlans,
             editablePlansByID: editablePlansByID,
             displayIntervals: displayIntervals,
+            axisProfile: axisProfile,
             renderItems: renderItems,
             collisionIntervals: collisionIntervals,
             visiblePlanIDs: Set(editablePlans.map(\.id))
@@ -306,13 +349,7 @@ struct EditablePlanTimelineView: View {
     ) -> TimelineAxisMap {
         TimelineAxisMap(
             hourHeight: hourHeight,
-            intervals: cache.displayIntervals.map {
-                TimelineAxisInterval(
-                    startMinute: $0.startMinute,
-                    endMinute: $0.endMinute
-                )
-            },
-            minimumIntervalHeight: EditablePlanBlockMetrics.minimumReadableHeight
+            profile: cache.axisProfile
         )
     }
 
@@ -372,6 +409,20 @@ struct EditablePlanTimelineView: View {
         .onAppear {
             refreshRenderCache()
         }
+        .alert(
+            "予定を削除しますか？",
+            isPresented: deleteConfirmationPresented,
+            presenting: planPendingDeletion
+        ) { plan in
+            Button("削除", role: .destructive) {
+                deletePlan(plan)
+            }
+            Button("キャンセル", role: .cancel) {
+                planPendingDeletion = nil
+            }
+        } message: { plan in
+            Text("「\(plan.title.isEmpty ? (plan.category?.name ?? "予定") : plan.title)」は元に戻せません。")
+        }
         .alert("予定を調整できませんでした", isPresented: operationErrorPresented) {
             Button("OK", role: .cancel) {
                 operationError = nil
@@ -379,14 +430,16 @@ struct EditablePlanTimelineView: View {
         } message: {
             Text(operationError ?? "")
         }
+        .background(PlanTemplateApplyConfirmationPresenter(request: $presetApplyRequest, store: store).frame(width: 0, height: 0))
     }
 
     private var timeline: some View {
         GeometryReader { proxy in
             let cache = currentRenderCache
             let renderItemsSnapshot = renderItems(using: cache)
-            ScrollViewReader { scrollProxy in
-                ScrollView(.vertical) {
+            ZStack(alignment: .bottom) {
+                ScrollViewReader { scrollProxy in
+                    ScrollView(.vertical) {
                     VStack(spacing: 0) {
                         ZStack(alignment: .topLeading) {
                             timelineCanvasLayer(width: proxy.size.width, renderItems: renderItemsSnapshot)
@@ -417,10 +470,14 @@ struct EditablePlanTimelineView: View {
                                     currentTimeLine(width: proxy.size.width)
                                 }
 
-                                deleteConfirmationBubble(width: proxy.size.width, renderItems: renderItemsSnapshot)
                             }
                         }
                         .frame(height: timelineHeight)
+                        .background {
+                            TimelineWindowFrameReader(
+                                frameSource: presetTimelineContentFrameSource
+                            )
+                        }
                         .contentShape(Rectangle())
 
                         Color.clear
@@ -460,6 +517,9 @@ struct EditablePlanTimelineView: View {
                     interactionScratch.latestScrollMinY = minY
                     updateVisibleHour(fromScrollMinY: minY)
                 }
+                .onScrollPhaseChange { _, newPhase in
+                    handleTimelineScrollPhaseChange(newPhase)
+                }
                 .onChange(of: date) { _, _ in
                     cancelZoomGesture()
                     resetInteractionState()
@@ -483,11 +543,98 @@ struct EditablePlanTimelineView: View {
                 )
                 .simultaneousGesture(dayTimelineZoomGesture(viewportHeight: proxy.size.height))
                 .accessibilityIdentifier("day-timeline")
-                .accessibilityValue(zoomAccessibilityValue)
+                    .accessibilityValue(zoomAccessibilityValue)
+                }
+
+                if isInteractionEnabled, let presetPlacementDraft {
+                    ZStack(alignment: .topLeading) {
+                        presetPlacementDraftView(
+                            draft: presetPlacementDraft,
+                            width: proxy.size.width
+                        )
+                    }
+                    .frame(
+                        width: proxy.size.width,
+                        height: proxy.size.height,
+                        alignment: .topLeading
+                    )
+                    .allowsHitTesting(false)
+                    .zIndex(90)
+                }
+
+                if isInteractionEnabled,
+                   presetInteractionCoordinator == nil,
+                   !planPresets.isEmpty {
+                    TimelinePlanPresetLibrary(
+                        presets: planPresets,
+                        categories: categories,
+                        onFixedTimeTap: addFixedTimePreset,
+                        onDurationDragChanged: { preset, location in
+                            updateDurationPresetPreview(
+                                preset,
+                                at: localPresetLocation(location),
+                                viewportSize: proxy.size
+                            )
+                        },
+                        onDurationDrop: { preset, location in
+                            finishDurationPresetDrop(
+                                preset,
+                                at: localPresetLocation(location),
+                                viewportSize: proxy.size
+                            )
+                        },
+                        onDraggingChanged: { active in
+                            presetDragIsActive = active
+                            isScheduleInteractionActive = active
+                            if !active, presetPlacementDraft != nil {
+                                presetPlacementDraft = nil
+                                interactionScratch.lastPresetFeedbackMinute = nil
+                            }
+                        }
+                    )
+                    .frame(
+                        width: proxy.size.width,
+                        height: proxy.size.height,
+                        alignment: .bottomTrailing
+                    )
+                }
+            }
+            .background {
+                TimelineWindowFrameReader { frame in
+                    if presetWindowFrame != frame {
+                        presetWindowFrame = frame
+                    }
+                }
+            }
+            .coordinateSpace(name: presetCoordinateSpaceName)
+            .onAppear {
+                updatePresetInteractionTarget(
+                    frame: presetExternalFrame(in: proxy),
+                    viewportSize: proxy.size
+                )
+            }
+            .onChange(of: isInteractionEnabled) { _, _ in
+                updatePresetInteractionTarget(
+                    frame: presetExternalFrame(in: proxy),
+                    viewportSize: proxy.size
+                )
+            }
+            .onChange(of: proxy.size) { _, _ in
+                updatePresetInteractionTarget(
+                    frame: presetExternalFrame(in: proxy),
+                    viewportSize: proxy.size
+                )
+            }
+            .onChange(of: presetWindowFrame) { _, frame in
+                updatePresetInteractionTarget(
+                    frame: frame,
+                    viewportSize: proxy.size
+                )
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onDisappear {
+            presetInteractionCoordinator?.deactivate(targetID: presetInteractionTargetID)
             cancelZoomGesture()
             if hasActiveScheduleGesture || scheduleGestureWasCancelledByZoom {
                 scheduleGestureWasCancelledByZoom = false
@@ -529,6 +676,23 @@ struct EditablePlanTimelineView: View {
     private func updateVisibleHour(scrollY: CGFloat, axisMap: TimelineAxisMap) {
         let minute = axisMap.minute(atY: max(0, scrollY - timelineTopInset))
         let hour = min(23, max(0, Int((minute / 60).rounded())))
+        if interactionScratch.timelineScrollIsActive {
+            interactionScratch.pendingVisibleHour = hour
+            return
+        }
+        commitVisibleHour(hour)
+    }
+
+    private func handleTimelineScrollPhaseChange(_ phase: ScrollPhase) {
+        interactionScratch.timelineScrollIsActive = phase != .idle
+        guard phase == .idle,
+              let pendingVisibleHour = interactionScratch.pendingVisibleHour
+        else { return }
+        interactionScratch.pendingVisibleHour = nil
+        commitVisibleHour(pendingVisibleHour)
+    }
+
+    private func commitVisibleHour(_ hour: Int) {
         if visibleHour != hour {
             visibleHour = hour
         }
@@ -672,52 +836,13 @@ struct EditablePlanTimelineView: View {
     }
 
     private func timelineCanvas(width: CGFloat) -> some View {
-        ZStack(alignment: .topLeading) {
-            Rectangle()
-                .fill(timelineBackground)
-                .frame(width: width, height: timelineHeight)
-
-            Rectangle()
-                .fill(timelineHourColumnBackground)
-                .frame(width: hourColumnWidth, height: timelineHeight)
-
-            Rectangle()
-                .fill(timelinePrimaryLine)
-                .frame(width: 1, height: timelineHeight)
-                .offset(x: hourColumnWidth)
-
-            ForEach(0...24, id: \.self) { hour in
-                let tickY = hourTickCenterY(hour)
-                Rectangle()
-                    .fill(timelinePrimaryLine)
-                    .frame(width: max(0, width - hourColumnWidth), height: 1)
-                    .position(
-                        x: hourColumnWidth + max(0, width - hourColumnWidth) / 2,
-                        y: tickY
-                    )
-
-                if hour < 24 {
-                    Rectangle()
-                        .fill(timelineSecondaryLine)
-                        .frame(width: max(0, width - hourColumnWidth), height: 1)
-                        .position(
-                            x: hourColumnWidth + max(0, width - hourColumnWidth) / 2,
-                            y: yOffset(for: hour * 60 + 30)
-                        )
-                }
-
-                if hour < 24 {
-                    Text(hourLabel(hour))
-                        .font(.caption2.monospacedDigit().weight(.semibold))
-                        .foregroundStyle(timelineTimeText)
-                        .frame(width: hourColumnWidth - 9, height: hourLabelHeight, alignment: .trailing)
-                        .position(
-                            x: (hourColumnWidth - 9) / 2,
-                            y: hourLabelCenterY(forTickY: tickY)
-                        )
-                }
-            }
-        }
+        DayTimelineGrid(
+            axisMap: timelineAxisMap,
+            topInset: timelineTopInset,
+            contentHeight: timelineHeight,
+            colorStyle: colorStyle
+        )
+        .frame(width: width, height: timelineHeight)
     }
 
     @ViewBuilder
@@ -781,7 +906,7 @@ struct EditablePlanTimelineView: View {
         let isSelected = selectedPlanID == plan.id
         let color = plan.category?.displayColor ?? LiminalTheme.accent
         let block = EditablePlanBlock(
-            plan: plan,
+            title: plan.title.isEmpty ? (plan.category?.name ?? "予定") : plan.title,
             interval: interval,
             color: color,
             isSelected: isSelected,
@@ -872,6 +997,46 @@ struct EditablePlanTimelineView: View {
         )
         .offset(x: hourColumnWidth + sideInset, y: yOffset(for: draft.startMinute))
         .allowsHitTesting(false)
+    }
+
+    private func presetPlacementDraftView(
+        draft: TimelinePresetPlacementDraft,
+        width: CGFloat
+    ) -> some View {
+        let color = categories.first { $0.id == draft.snapshot.categoryID }?.displayColor
+            ?? LiminalTheme.accent
+        let blockHeight = height(for: draft.interval)
+
+        return VStack(alignment: .leading, spacing: 3) {
+            Text(timeText(draft.snapshot.startMinute))
+                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                .lineLimit(1)
+            if blockHeight >= 28 {
+                Text(draft.snapshot.title)
+                    .font(.system(size: 12, weight: .semibold))
+                    .lineLimit(1)
+            }
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 8)
+        .padding(.vertical, blockHeight < 24 ? 2 : 5)
+        .frame(
+            width: availableBlockWidth(width),
+            height: blockHeight,
+            alignment: .topLeading
+        )
+        .background(color.opacity(0.84), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .strokeBorder(.white.opacity(0.92), lineWidth: 2)
+        }
+        .shadow(color: color.opacity(0.22), radius: 5, y: 2)
+        .offset(
+            x: hourColumnWidth + sideInset,
+            y: draft.visualStartY
+        )
+        .allowsHitTesting(false)
+        .zIndex(90)
     }
 
     private func creationTimeGuide(draft: PlanCreationDraft, width: CGFloat) -> some View {
@@ -1024,32 +1189,13 @@ struct EditablePlanTimelineView: View {
         currentMinute: Int,
         intervals: [PlanTimelineInterval]
     ) -> (start: Int, end: Int)? {
-        guard !intervals.contains(where: { $0.startMinute < anchorMinute && anchorMinute < $0.endMinute }) else {
-            return nil
-        }
-
-        if currentMinute >= anchorMinute {
-            let desiredEnd = min(
-                PlanTimelineRescheduler.dayEndMinute,
-                max(currentMinute, anchorMinute + minimumDurationMinutes)
-            )
-            let nextBlockedStart = intervals
-                .filter { $0.startMinute >= anchorMinute }
-                .map(\.startMinute)
-                .min() ?? PlanTimelineRescheduler.dayEndMinute
-            let end = min(desiredEnd, nextBlockedStart)
-            guard end - anchorMinute >= minimumDurationMinutes else { return nil }
-            return (anchorMinute, end)
-        } else {
-            let desiredStart = max(0, min(currentMinute, anchorMinute - minimumDurationMinutes))
-            let previousBlockedEnd = intervals
-                .filter { $0.endMinute <= anchorMinute }
-                .map(\.endMinute)
-                .max() ?? 0
-            let start = max(desiredStart, previousBlockedEnd)
-            guard anchorMinute - start >= minimumDurationMinutes else { return nil }
-            return (start, anchorMinute)
-        }
+        guard let range = PlanTimelineCreationPolicy.range(
+            anchorMinute: anchorMinute,
+            currentMinute: currentMinute,
+            minimumDuration: minimumDurationMinutes,
+            intervals: intervals
+        ) else { return nil }
+        return (range.start, range.end)
     }
 
     private func commitCreationDraft() {
@@ -1084,15 +1230,157 @@ struct EditablePlanTimelineView: View {
         onScheduleChanged()
     }
 
+    private func addFixedTimePreset(_ preset: PlanPreset) {
+        guard let interval = preset.snapshot.interval(on: date, calendar: calendar) else {
+            operationError = "プリセットの時刻を読み取れませんでした。"
+            return
+        }
+        if let error = createPlan(from: preset, interval: interval) {
+            operationError = error
+            LiminalHaptics.warning()
+        }
+    }
+
+    private func updateDurationPresetPreview(
+        _ preset: PlanPreset,
+        at location: CGPoint?,
+        viewportSize: CGSize
+    ) {
+        guard let location,
+              location.x >= 0,
+              location.x <= viewportSize.width,
+              location.y >= 0,
+              location.y <= viewportSize.height
+        else {
+            return
+        }
+
+        guard let viewportFrame = presetWindowFrame,
+              let contentFrame = presetTimelineContentFrameSource.currentFrame
+        else {
+            return
+        }
+        let estimatedBlockHeight = max(
+            EditablePlanBlockMetrics.minimumReadableHeight,
+            CGFloat(preset.snapshot.durationMinutes) / 60 * hourHeight
+        )
+        let proposedVisualStartY = TimelinePlanPresetPlacementGeometry.previewTopY(
+            fingerY: location.y,
+            cardHeight: estimatedBlockHeight,
+            viewportHeight: viewportSize.height
+        )
+        let contentY = TimelinePlanPresetPlacementGeometry.axisY(
+            windowFingerY: viewportFrame.minY + proposedVisualStartY,
+            contentFrameMinY: contentFrame.minY,
+            timelineTopInset: timelineTopInset
+        )
+        let rawMinute = Int(timelineAxisMap.minute(atY: contentY).rounded())
+        let step = snapPrecision.minutes
+        let snappedMinute = Int((Double(rawMinute) / Double(step)).rounded()) * step
+        let maximumStartMinute = max(
+            0,
+            TimelineAxisMap.minutesPerDay - preset.snapshot.durationMinutes
+        )
+        guard let snapshot = preset.snapshot.placed(
+            at: min(maximumStartMinute, max(0, snappedMinute))
+        ) else {
+            return
+        }
+
+        let previewInterval = PlanTimelineInterval(
+            id: preset.id,
+            startMinute: snapshot.startMinute,
+            endMinute: snapshot.endMinute
+        )
+        let visualStartY = TimelinePlanPresetPlacementGeometry.previewTopY(
+            fingerY: location.y,
+            cardHeight: height(for: previewInterval),
+            viewportHeight: viewportSize.height
+        )
+
+        if interactionScratch.lastPresetFeedbackMinute != snapshot.startMinute {
+            interactionScratch.lastPresetFeedbackMinute = snapshot.startMinute
+            LiminalHaptics.selection()
+        }
+        if presetPlacementDraft?.snapshot.startMinute != snapshot.startMinute
+            || presetPlacementDraft?.preset.id != preset.id
+            || abs((presetPlacementDraft?.visualStartY ?? -.infinity) - visualStartY) > 0.25 {
+            presetPlacementDraft = TimelinePresetPlacementDraft(
+                preset: preset,
+                snapshot: snapshot,
+                visualStartY: visualStartY
+            )
+        }
+    }
+
+    private func finishDurationPresetDrop(
+        _ preset: PlanPreset,
+        at location: CGPoint?,
+        viewportSize: CGSize
+    ) -> String? {
+        updateDurationPresetPreview(preset, at: location, viewportSize: viewportSize)
+        defer {
+            presetPlacementDraft = nil
+            interactionScratch.lastPresetFeedbackMinute = nil
+        }
+        guard let draft = presetPlacementDraft,
+              draft.preset.id == preset.id,
+              let interval = draft.snapshot.interval(on: date, calendar: calendar)
+        else {
+            return "タイムライン上へ移動してから指を離してください。"
+        }
+        return createPlan(from: preset, snapshot: draft.snapshot, interval: interval)
+    }
+
+    private func createPlan(
+        from preset: PlanPreset,
+        snapshot: PlanTemplateSnapshot? = nil,
+        interval: DateInterval
+    ) -> String? {
+        let source = snapshot ?? preset.snapshot
+        guard isEditingEnabled,
+              store.canCreatePlan(startTime: interval.start, isAllDay: source.isAllDay)
+        else {
+            return "この日には予定を追加できません。"
+        }
+        let category = categories.first { $0.id == source.categoryID }
+        if !source.isAllDay && store.hasTimedPlanOverlap(startTime: interval.start, endTime: interval.end) {
+            presetApplyRequest = PlanTemplateApplyRequest(
+                applications: [.init(snapshot: source, resolvedCategory: category)], targetDate: date,
+                onApplied: {
+                    _ = planPresetStore.markUsed(preset)
+                    onScheduleChanged()
+                })
+            return nil
+        }
+        guard let plan = store.createPlanBlock(
+            category: category,
+            title: source.title,
+            startTime: interval.start,
+            endTime: interval.end,
+            isAllDay: source.isAllDay,
+            isImportant: source.isImportant,
+            note: source.note,
+            isPublic: source.isPublic
+        ) else {
+            return "予定を追加できませんでした。"
+        }
+        selectedPlanID = plan.id
+        _ = planPresetStore.markUsed(preset)
+        LiminalHaptics.commit()
+        onScheduleChanged()
+        return nil
+    }
+
     private func requestDeletePlan(_ plan: PlanBlock) {
         guard !zoomGestureIsActive,
               !scheduleGestureWasCancelledByZoom,
               !touchActionsWereCancelledByZoom,
-              selectedPlanID == plan.id,
               !store.isPlanScheduleLocked(plan),
               gestureBaseline == nil,
               activeResizeEdge == nil
         else { return }
+        selectedPlanID = plan.id
         planPendingDeletion = plan
         LiminalHaptics.selection()
     }
@@ -1187,66 +1475,6 @@ struct EditablePlanTimelineView: View {
             .onEnded { value in
                 clearSelectionIfNeeded(at: value.location, width: width, renderItems: renderItems)
             }
-    }
-
-    @ViewBuilder
-    private func deleteConfirmationBubble(width: CGFloat, renderItems: [EditablePlanTimelineRenderItem]) -> some View {
-        if let plan = planPendingDeletion,
-           let item = renderItems.first(where: { $0.plan.id == plan.id }) {
-            let blockWidth = blockWidth(for: width, slot: item.slot)
-            let blockHeight = height(for: item.interval)
-            let blockX = blockXOffset(for: width, slot: item.slot)
-            let blockY = yOffset(for: item.interval.startMinute)
-            let bubbleSize = deleteConfirmationBubbleSize(containerWidth: width)
-            TimelineDeleteConfirmationBubble(
-                onCancel: {
-                    planPendingDeletion = nil
-                },
-                onDelete: {
-                    deletePlan(plan)
-                }
-            )
-            .frame(width: bubbleSize.width, height: bubbleSize.height)
-            .position(
-                deleteConfirmationBubbleCenter(
-                    anchorX: blockX + blockWidth / 2,
-                    blockY: blockY,
-                    blockHeight: blockHeight,
-                    containerWidth: width,
-                    bubbleSize: bubbleSize
-                )
-            )
-            .transition(.scale(scale: 0.96).combined(with: .opacity))
-            .zIndex(240)
-        }
-    }
-
-    private func deleteConfirmationBubbleSize(containerWidth: CGFloat) -> CGSize {
-        CGSize(
-            width: min(max(180, containerWidth - 24), TimelineDeleteConfirmationBubble.preferredWidth),
-            height: TimelineDeleteConfirmationBubble.preferredHeight
-        )
-    }
-
-    private func deleteConfirmationBubbleCenter(
-        anchorX: CGFloat,
-        blockY: CGFloat,
-        blockHeight: CGFloat,
-        containerWidth: CGFloat,
-        bubbleSize: CGSize
-    ) -> CGPoint {
-        let horizontalInset: CGFloat = 10
-        let verticalInset: CGFloat = 6
-        let gap: CGFloat = 8
-        let minX = bubbleSize.width / 2 + horizontalInset
-        let maxX = max(minX, containerWidth - bubbleSize.width / 2 - horizontalInset)
-        let x = min(max(anchorX, minX), maxX)
-        let minY = bubbleSize.height / 2 + verticalInset
-        let maxY = max(minY, timelineHeight - bubbleSize.height / 2 - verticalInset)
-        let aboveY = blockY - gap - bubbleSize.height / 2
-        let belowY = blockY + blockHeight + gap + bubbleSize.height / 2
-        let preferredY = aboveY >= minY ? aboveY : belowY
-        return CGPoint(x: x, y: min(max(preferredY, minY), maxY))
     }
 
     private func moveGesture(for plan: PlanBlock) -> some Gesture {
@@ -1810,6 +2038,60 @@ struct EditablePlanTimelineView: View {
         timelineTopInset + timelineAxisMap.contentHeight
     }
 
+    private var presetCoordinateSpaceName: String {
+        "day-plan-preset-\(date.timeIntervalSinceReferenceDate)"
+    }
+
+    private var presetInteractionTargetID: String {
+        "day-target-\(date.timeIntervalSinceReferenceDate)"
+    }
+
+    private func localPresetLocation(_ location: CGPoint?) -> CGPoint? {
+        guard let location, let frame = presetWindowFrame else { return nil }
+        return CGPoint(x: location.x - frame.minX, y: location.y - frame.minY)
+    }
+
+    private func presetExternalFrame(in proxy: GeometryProxy) -> CGRect? {
+        guard presetInteractionCoordinator != nil else { return nil }
+        return presetWindowFrame
+    }
+
+    private func updatePresetInteractionTarget(frame: CGRect?, viewportSize: CGSize) {
+        guard let coordinator = presetInteractionCoordinator else { return }
+        guard isInteractionEnabled, let frame else {
+            coordinator.deactivate(targetID: presetInteractionTargetID)
+            return
+        }
+
+        coordinator.activate(
+            targetID: presetInteractionTargetID,
+            targetFrame: frame,
+            onFixedTimeTap: addFixedTimePreset,
+            onDurationDragChanged: { preset, location in
+                updateDurationPresetPreview(
+                    preset,
+                    at: location,
+                    viewportSize: viewportSize
+                )
+            },
+            onDurationDrop: { preset, location in
+                finishDurationPresetDrop(
+                    preset,
+                    at: location,
+                    viewportSize: viewportSize
+                )
+            },
+            onDraggingChanged: { active in
+                presetDragIsActive = active
+                isScheduleInteractionActive = active
+                if !active, presetPlacementDraft != nil {
+                    presetPlacementDraft = nil
+                    interactionScratch.lastPresetFeedbackMinute = nil
+                }
+            }
+        )
+    }
+
     private var hasActiveScheduleGesture: Bool {
         scheduleDragIsActive ||
             creationGestureIsActive ||
@@ -1821,7 +2103,10 @@ struct EditablePlanTimelineView: View {
     }
 
     private var shouldDisableTimelineScroll: Bool {
-        zoomGestureIsActive || scheduleGestureWasCancelledByZoom || hasActiveScheduleGesture
+        zoomGestureIsActive
+            || scheduleGestureWasCancelledByZoom
+            || hasActiveScheduleGesture
+            || presetDragIsActive
     }
 
     private var timelineTouchEditingIsBlocked: Bool {
@@ -1831,29 +2116,7 @@ struct EditablePlanTimelineView: View {
     }
 
     private var timelineBackground: Color {
-        switch colorStyle {
-        case .standalone:
-            colorScheme == .dark
-                ? Color(red: 0.125, green: 0.129, blue: 0.145)
-                : Color(red: 0.985, green: 0.985, blue: 0.98)
-        case .calendarGrid:
-            colorScheme == .dark
-                ? Color(red: 0.035, green: 0.037, blue: 0.043)
-                : Color(red: 0.985, green: 0.985, blue: 0.98)
-        }
-    }
-
-    private var timelineHourColumnBackground: Color {
-        switch colorStyle {
-        case .standalone:
-            colorScheme == .dark
-                ? Color(red: 0.105, green: 0.109, blue: 0.125)
-                : Color(red: 0.955, green: 0.955, blue: 0.945)
-        case .calendarGrid:
-            colorScheme == .dark
-                ? Color(red: 0.05, green: 0.052, blue: 0.06)
-                : Color(red: 0.955, green: 0.955, blue: 0.945)
-        }
+        DayTimelineGridPalette(colorScheme: colorScheme, style: colorStyle).background
     }
 
     private var timelineOuterStroke: Color {
@@ -1862,23 +2125,7 @@ struct EditablePlanTimelineView: View {
             : Color.black.opacity(0.12)
     }
 
-    private var timelinePrimaryLine: Color {
-        colorScheme == .dark
-            ? Color.white.opacity(0.20)
-            : Color.black.opacity(0.16)
-    }
 
-    private var timelineSecondaryLine: Color {
-        colorScheme == .dark
-            ? Color.white.opacity(0.10)
-            : Color.black.opacity(0.07)
-    }
-
-    private var timelineTimeText: Color {
-        colorScheme == .dark
-            ? Color.white.opacity(0.62)
-            : Color.black.opacity(0.52)
-    }
 
     private var currentMinuteForDisplayedDay: Int? {
         guard calendar.isDateInToday(date) else { return nil }
@@ -1931,19 +2178,6 @@ struct EditablePlanTimelineView: View {
         date(forMinute: minute).shortTime
     }
 
-    private func hourLabel(_ hour: Int) -> String {
-        String(format: "%02d:00", hour)
-    }
-
-    private func hourTickCenterY(_ hour: Int) -> CGFloat {
-        let rawY = yOffset(for: hour * 60)
-        return min(max(0.5, rawY), max(0.5, timelineHeight - 0.5))
-    }
-
-    private func hourLabelCenterY(forTickY tickY: CGFloat) -> CGFloat {
-        min(max(hourLabelHeight / 2, tickY), max(hourLabelHeight / 2, timelineHeight - hourLabelHeight / 2))
-    }
-
     private var operationErrorPresented: Binding<Bool> {
         Binding {
             operationError != nil
@@ -1954,67 +2188,16 @@ struct EditablePlanTimelineView: View {
         }
     }
 
-}
-
-struct TimelineDeleteConfirmationBubble: View {
-    static let preferredWidth: CGFloat = 220
-    static let preferredHeight: CGFloat = 110
-
-    let onCancel: () -> Void
-    let onDelete: () -> Void
-
-    var body: some View {
-        VStack(spacing: 9) {
-            VStack(spacing: 2) {
-                Text("予定を削除しますか？")
-                    .font(.system(size: 13.5, weight: .semibold))
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.86)
-
-                Text("この予定は元に戻せません。")
-                    .font(.system(size: 10.5, weight: .medium))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.82)
-            }
-
-            HStack(spacing: 8) {
-                Button(action: onCancel) {
-                    Text("キャンセル")
-                        .font(.system(size: 12, weight: .semibold))
-                        .frame(maxWidth: .infinity, minHeight: 32)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.primary.opacity(0.72))
-                .background(
-                    Capsule(style: .continuous)
-                        .fill(Color.primary.opacity(0.07))
-                )
-
-                Button(role: .destructive, action: onDelete) {
-                    Text("削除")
-                        .font(.system(size: 12, weight: .bold))
-                        .frame(maxWidth: .infinity, minHeight: 32)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.red)
-                .background(
-                    Capsule(style: .continuous)
-                        .fill(Color.red.opacity(0.12))
-                )
+    private var deleteConfirmationPresented: Binding<Bool> {
+        Binding {
+            planPendingDeletion != nil
+        } set: { isPresented in
+            if !isPresented {
+                planPendingDeletion = nil
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color.primary.opacity(0.08), lineWidth: 1)
-        }
-        .shadow(color: .black.opacity(0.14), radius: 18, y: 10)
-        .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
+
 }
 
 private struct TimelineTouchSequenceObserver: UIGestureRecognizerRepresentable {
@@ -2287,7 +2470,7 @@ private struct PlanTimelineLayoutSlot {
     }
 }
 
-private enum EditablePlanBlockMetrics {
+enum EditablePlanBlockMetrics {
     static let minimumReadableHeight: CGFloat = 18
     static let verticalOverflow: CGFloat = 34
     static let resizeHandleHeight: CGFloat = 40
@@ -2303,7 +2486,7 @@ private enum EditablePlanBlockMetrics {
     static let deleteLongPressMaximumDistance: CGFloat = 8
 }
 
-private enum EditablePlanResizeEdge: Equatable {
+enum EditablePlanResizeEdge: Equatable {
     case start
     case end
 
@@ -2317,8 +2500,8 @@ private enum EditablePlanResizeEdge: Equatable {
     }
 }
 
-private struct EditablePlanBlock<MoveGesture: Gesture>: View {
-    let plan: PlanBlock
+struct EditablePlanBlock<MoveGesture: Gesture>: View {
+    let title: String
     let interval: PlanTimelineInterval
     let color: Color
     let isSelected: Bool
@@ -2333,7 +2516,6 @@ private struct EditablePlanBlock<MoveGesture: Gesture>: View {
 
     var body: some View {
         let overflow = EditablePlanBlockMetrics.verticalOverflow
-        let title = displayTitle
 
         return ZStack(alignment: .topTrailing) {
             selectableBlockCard(height: blockHeight)
@@ -2366,7 +2548,6 @@ private struct EditablePlanBlock<MoveGesture: Gesture>: View {
     }
 
     private func blockCard(height: CGFloat) -> some View {
-        let title = displayTitle
         return HStack(alignment: .top, spacing: 4) {
             Text(timeText(interval.startMinute))
                 .font(.system(size: 10.2, weight: .bold, design: .monospaced))
@@ -2412,10 +2593,6 @@ private struct EditablePlanBlock<MoveGesture: Gesture>: View {
         .accessibilityHidden(true)
     }
 
-    private var displayTitle: String {
-        plan.title.isEmpty ? (plan.category?.name ?? "予定") : plan.title
-    }
-
     private func selectableBlockCard(height: CGFloat) -> some View {
         movableBlockCard(height: height)
             .onTapGesture {
@@ -2431,6 +2608,7 @@ private struct EditablePlanBlock<MoveGesture: Gesture>: View {
                 .simultaneousGesture(deleteLongPressGesture)
         } else {
             blockCard(height: height)
+                .simultaneousGesture(deleteLongPressGesture)
         }
     }
 

@@ -21,6 +21,17 @@ struct PlanTemplateSnapshot: Codable, Equatable, Sendable {
             && endMinute <= startMinute + Self.minutesPerDay
     }
 
+    func placed(at startMinute: Int) -> Self? {
+        guard !isAllDay,
+              (0..<Self.minutesPerDay).contains(startMinute),
+              startMinute + durationMinutes <= startMinute + Self.minutesPerDay
+        else { return nil }
+        var copy = self
+        copy.startMinute = startMinute
+        copy.endMinute = startMinute + durationMinutes
+        return copy.hasValidTime ? copy : nil
+    }
+
     func interval(
         on targetDate: Date,
         calendar: Calendar = .current

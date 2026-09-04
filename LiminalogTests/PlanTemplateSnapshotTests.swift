@@ -111,6 +111,18 @@ struct PlanTemplateSnapshotTests {
         #expect(interval.duration == 23 * 60 * 60)
     }
 
+    @Test("長さ型プリセットは所要時間を保って指定位置へ移せる")
+    func durationPresetPlacement() throws {
+        let snapshot = makeSnapshot(startMinute: 9 * 60, endMinute: 10 * 60 + 30)
+
+        let placed = try #require(snapshot.placed(at: 18 * 60))
+
+        #expect(placed.startMinute == 18 * 60)
+        #expect(placed.endMinute == 19 * 60 + 30)
+        #expect(placed.durationMinutes == 90)
+        #expect(makeSnapshot(isAllDay: true).placed(at: 12 * 60) == nil)
+    }
+
     private func makeSnapshot(
         title: String = "予定",
         categoryID: UUID? = nil,

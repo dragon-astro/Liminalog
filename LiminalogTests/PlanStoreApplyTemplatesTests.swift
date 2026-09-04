@@ -145,6 +145,80 @@ struct PlanStoreApplyTemplatesTests {
         #expect(plan.hasAudienceSnapshot)
     }
 
+    @Test("部分置換は前後を残しメモと公開相手を引き継ぐ")
+    func partialReplacementPreservesMetadata() throws {
+        let container = try TestModelContainer.make()
+        let context = container.mainContext
+        let target = try date(2026, 9, 3, 12, 0)
+        let existing = PlanBlock(category: nil, title: "元の予定", startTime: try date(2026, 9, 3, 9, 0),
+                                 endTime: try date(2026, 9, 3, 12, 0), isImportant: true, note: "残すメモ", isPublic: false)
+        existing.audienceFriendIDs = [UUID()]
+        existing.hasAudienceSnapshot = true
+        let audience = existing.audienceFriendIDs
+        context.insert(existing)
+        try context.save()
+        var refreshes = 0
+        var changedIDs: Set<UUID> = []
+        let store = PlanStore(modelContext: context, clock: MutableTestClock(now: try date(2026, 9, 2, 12, 0)),
+                              requestRefresh: { _, ids, _ in refreshes += 1; changedIDs = ids })
+        let apps: [PlanStore.TemplateApplication] = [.init(snapshot: snapshot(title: "新規", start: 600, end: 660), resolvedCategory: nil)]
+        let preview = try #require(store.templateReplacementPreview(apps, to: target, mode: .keepRemainders, calendar: calendar))
+        #expect(store.allPlannedBlocks().count == 1) // preview does not mutate
+        #expect(store.applyTemplates(apps, to: target, calendar: calendar, approvedReplacement: preview))
+        let plans = store.allPlannedBlocks().sorted { $0.startTime < $1.startTime }
+        #expect(plans.count == 3)
+        #expect(plans[0].id == existing.id)
+        #expect(plans[0].endTime == (try date(2026, 9, 3, 10, 0)))
+        #expect(plans[2].startTime == (try date(2026, 9, 3, 11, 0)))
+        for plan in [plans[0], plans[2]] {
+            #expect(plan.title == "元の予定" && plan.note == "残すメモ")
+            #expect(plan.isImportant && !plan.isPublic && plan.hasAudienceSnapshot)
+            #expect(plan.audienceFriendIDs == audience)
+        }
+        #expect(refreshes == 1 && changedIDs == Set(plans.map(\.id)))
+    }
+
+    @Test("確認後に既存予定が変われば何も置換せず再確認を要求")
+    func rejectsStaleApproval() throws {
+        let container = try TestModelContainer.make()
+        let context = container.mainContext
+        let target = try date(2026, 9, 3, 12, 0)
+        let existing = PlanBlock(category: nil, title: "既存", startTime: try date(2026, 9, 3, 9, 0), endTime: try date(2026, 9, 3, 12, 0))
+        context.insert(existing)
+        try context.save()
+        let store = PlanStore(modelContext: context, clock: MutableTestClock(now: try date(2026, 9, 2, 12, 0)), requestRefresh: { _, _, _ in })
+        let apps: [PlanStore.TemplateApplication] = [.init(snapshot: snapshot(title: "新規", start: 600, end: 660), resolvedCategory: nil)]
+        let preview = try #require(store.templateReplacementPreview(apps, to: target, mode: .replaceWholePlans, calendar: calendar))
+        existing.endTime = try date(2026, 9, 3, 13, 0)
+        try context.save()
+        #expect(!store.applyTemplates(apps, to: target, calendar: calendar, approvedReplacement: preview))
+        #expect(store.allPlannedBlocks().count == 1)
+        let fresh = try #require(store.templateReplacementPreview(apps, to: target, mode: .replaceWholePlans, calendar: calendar))
+        #expect(store.applyTemplates(apps, to: target, calendar: calendar, approvedReplacement: fresh))
+        #expect(store.allPlannedBlocks().map(\.title) == ["新規"])
+    }
+
+    @Test("今日から続く予定と外部予定は置換不可、終日は保持")
+    func protectsLockedExternalAndAllDay() throws {
+        let container = try TestModelContainer.make()
+        let context = container.mainContext
+        let target = try date(2026, 9, 3, 12, 0)
+        let existing = PlanBlock(category: nil, title: "今日から", startTime: try date(2026, 9, 2, 23, 0), endTime: try date(2026, 9, 3, 12, 0))
+        context.insert(existing)
+        try context.save()
+        let store = PlanStore(modelContext: context, clock: MutableTestClock(now: try date(2026, 9, 2, 12, 0)), requestRefresh: { _, _, _ in })
+        let apps: [PlanStore.TemplateApplication] = [.init(snapshot: snapshot(title: "新規", start: 600, end: 660), resolvedCategory: nil)]
+        #expect(store.templateReplacementPreview(apps, to: target, mode: .keepRemainders, calendar: calendar) == nil)
+        existing.startTime = try date(2026, 9, 3, 9, 0)
+        existing.sourceEventID = "external"
+        try context.save()
+        #expect(store.templateReplacementPreview(apps, to: target, mode: .replaceWholePlans, calendar: calendar) == nil)
+        existing.isAllDay = true
+        try context.save()
+        #expect(store.applyTemplates(apps, to: target, calendar: calendar))
+        #expect(store.allPlannedBlocks().count == 2)
+    }
+
     private func snapshot(
         title: String,
         start: Int,

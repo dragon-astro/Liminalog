@@ -69,6 +69,60 @@ struct TimelineAxisMapTests {
     }
 
     @Test
+    func reusableProfileProducesTheSameAxisAtEveryZoomHeight() {
+        let intervals: [TimelineAxisInterval] = [
+            .init(startMinute: 0, endMinute: 3),
+            .init(startMinute: 120, endMinute: 125),
+            .init(startMinute: 123, endMinute: 140),
+            .init(startMinute: 600, endMinute: 660),
+            .init(startMinute: 1435, endMinute: 1440)
+        ]
+        let profile = TimelineAxisProfile(
+            intervals: intervals,
+            minimumIntervalHeight: 18
+        )
+
+        for hourHeight: CGFloat in [28.5, 38, 57, 76] {
+            var legacySlopes = Array(
+                repeating: hourHeight / 60,
+                count: TimelineAxisMap.minutesPerDay
+            )
+            for interval in intervals {
+                let requiredSlope = max(
+                    hourHeight / 60,
+                    18 / CGFloat(interval.endMinute - interval.startMinute)
+                )
+                for minute in interval.startMinute..<interval.endMinute where requiredSlope > legacySlopes[minute] {
+                    legacySlopes[minute] = requiredSlope
+                }
+            }
+            var legacyPositions = Array(
+                repeating: CGFloat.zero,
+                count: TimelineAxisMap.minutesPerDay + 1
+            )
+            for minute in 0..<TimelineAxisMap.minutesPerDay {
+                legacyPositions[minute + 1] = legacyPositions[minute] + legacySlopes[minute]
+            }
+
+            let direct = TimelineAxisMap(
+                hourHeight: hourHeight,
+                intervals: intervals,
+                minimumIntervalHeight: 18
+            )
+            let reused = TimelineAxisMap(
+                hourHeight: hourHeight,
+                profile: profile
+            )
+
+            for minute in 0...TimelineAxisMap.minutesPerDay {
+                #expect(abs(direct.y(forMinute: minute) - legacyPositions[minute]) < 0.0001)
+                #expect(abs(reused.y(forMinute: minute) - legacyPositions[minute]) < 0.0001)
+            }
+            #expect(abs(direct.contentHeight - reused.contentHeight) < 0.0001)
+        }
+    }
+
+    @Test
     func mappedDragUsesTheLocalAxisSlopeAndCanReverseAfterSaturation() {
         let axis = TimelineAxisMap(
             hourHeight: 60,

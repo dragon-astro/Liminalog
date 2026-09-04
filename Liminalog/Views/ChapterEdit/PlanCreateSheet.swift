@@ -12,6 +12,13 @@ struct PlanCreateSheet: View {
     @Query(sort: \PlanPreset.sortOrder) private var planPresets: [PlanPreset]
 
     private let editingPlan: PlanBlock?
+    private let snapshotEditor: SnapshotEditor?
+
+    private struct SnapshotEditor {
+        let initial: PlanTemplateSnapshot
+        let onSave: (PlanTemplateSnapshot) -> String?
+        let onDelete: (() -> Void)?
+    }
 
     @State private var title = ""
     @State private var startTime = Date()
@@ -29,12 +36,13 @@ struct PlanCreateSheet: View {
     @State private var didInitializeAudience = false
     @State private var saveError: String?
     @State private var errorTitle = "保存できませんでした"
-    @State private var showingPresetNamePrompt = false
-    @State private var presetName = ""
     @State private var editingPreset: PlanPreset?
+    @State private var templateStartMinute = 0
+    @State private var templateEndMinute = 60
 
     init(initialDate: Date = Date(), startsAsAllDay: Bool = false) {
         editingPlan = nil
+        snapshotEditor = nil
         let calendar = Calendar.current
         let start = startsAsAllDay ? calendar.startOfDay(for: initialDate) : initialDate
         _startTime = State(initialValue: start)
@@ -46,6 +54,7 @@ struct PlanCreateSheet: View {
 
     init(plan: PlanBlock) {
         editingPlan = plan
+        snapshotEditor = nil
         let inclusiveEndDate = plan.isAllDay
             ? plan.endTime.addingTimeInterval(-1)
             : plan.endTime
@@ -63,6 +72,23 @@ struct PlanCreateSheet: View {
         _didInitializeAudience = State(initialValue: plan.hasAudienceSnapshot)
     }
 
+    /// Edits a value inside a day preset, never a dated PlanBlock.
+    init(
+        snapshot: PlanTemplateSnapshot,
+        onSaveSnapshot: @escaping (PlanTemplateSnapshot) -> String?,
+        onDeleteSnapshot: (() -> Void)? = nil
+    ) {
+        editingPlan = nil
+        snapshotEditor = SnapshotEditor(initial: snapshot, onSave: onSaveSnapshot, onDelete: onDeleteSnapshot)
+        _title = State(initialValue: snapshot.title)
+        _templateStartMinute = State(initialValue: snapshot.startMinute)
+        _templateEndMinute = State(initialValue: snapshot.endMinute)
+        _isAllDay = State(initialValue: snapshot.isAllDay)
+        _isImportant = State(initialValue: snapshot.isImportant)
+        _note = State(initialValue: snapshot.note ?? "")
+        _isPublic = State(initialValue: snapshot.isPublic)
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -76,7 +102,7 @@ struct PlanCreateSheet: View {
                     timeCard
                     noteCard
                     visibilityCard
-                    if editingPlan != nil {
+                    if editingPlan != nil || snapshotEditor?.onDelete != nil {
                         deleteCard
                     }
                 }
@@ -84,7 +110,7 @@ struct PlanCreateSheet: View {
                 .padding(.bottom, 30)
             }
             .background(LiminalTheme.canvasGradient)
-            .navigationTitle(editingPlan == nil ? "予定を追加" : "予定を編集")
+            .navigationTitle(editingPlan != nil || snapshotEditor?.onDelete != nil ? "予定を編集" : "予定を追加")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -99,28 +125,27 @@ struct PlanCreateSheet: View {
                         .disabled(!canSave)
                 }
                 ToolbarItem(placement: .secondaryAction) {
-                    Menu {
-                        Button {
-                            presetName = resolvedPlanTitle
-                            showingPresetNamePrompt = true
-                        } label: {
-                            Label("プリセットとして保存", systemImage: "bookmark")
-                        }
-                        .disabled(!canSave)
+                    // secondaryAction 自体が標準の三点メニューに入るので、Menuを重ねない。
+                    Button {
+                        saveAsPreset()
                     } label: {
-                        Image(systemName: "ellipsis.circle")
+                        Label("プリセットとして保存", systemImage: "bookmark")
                     }
-                    .accessibilityLabel("その他の操作")
+                    .disabled(!canSave)
                 }
             }
             .onAppear {
                 if selectedCategory == nil {
-                    selectedCategory = categories.first
+                    if let snapshotEditor {
+                        selectedCategory = categories.first { $0.id == snapshotEditor.initial.categoryID }
+                    } else if editingPlan == nil {
+                        selectedCategory = categories.first
+                    }
                 }
-                if editingPlan == nil, selectedCategory == nil {
+                if snapshotEditor == nil, editingPlan == nil, selectedCategory == nil {
                     isPublic = false
                 }
-                if !didInitializeAudience {
+                if snapshotEditor == nil, !didInitializeAudience {
                     resetAudienceToCategoryDefault()
                     didInitializeAudience = true
                 }
@@ -158,13 +183,6 @@ struct PlanCreateSheet: View {
             .sheet(item: $editingPreset) { preset in
                 PlanPresetEditSheet(preset: preset)
             }
-            .alert("プリセット名", isPresented: $showingPresetNamePrompt) {
-                TextField("名前", text: $presetName)
-                Button("保存") { saveAsPreset() }
-                Button("キャンセル", role: .cancel) {}
-            } message: {
-                Text("このフォームの内容を予定プリセットに保存します。")
-            }
             .alert(errorTitle, isPresented: saveErrorPresented) {
                 Button("OK") {
                     saveError = nil
@@ -188,9 +206,12 @@ struct PlanCreateSheet: View {
                     HStack(spacing: 8) {
                         ForEach(planPresets) { preset in
                             Button {
-                                applyPreset(preset, usesPresetStartTime: false)
+                                applyPreset(
+                                    preset,
+                                    usesPresetStartTime: preset.placementMode == .fixedTime
+                                )
                             } label: {
-                                Text(preset.name)
+                                Text(preset.displayName)
                                     .font(.subheadline.weight(.semibold))
                                     .foregroundStyle(LiminalTheme.text)
                                     .padding(.horizontal, 12)
@@ -212,9 +233,19 @@ struct PlanCreateSheet: View {
                             .buttonStyle(.plain)
                             .contextMenu {
                                 Button {
-                                    applyPreset(preset, usesPresetStartTime: true)
+                                    applyPreset(
+                                        preset,
+                                        usesPresetStartTime: preset.placementMode != .fixedTime
+                                    )
                                 } label: {
-                                    Label("開始時刻もプリセットに合わせる", systemImage: "clock.arrow.circlepath")
+                                    Label(
+                                        preset.placementMode == .fixedTime
+                                            ? "長さだけを使う"
+                                            : "開始時刻もプリセットに合わせる",
+                                        systemImage: preset.placementMode == .fixedTime
+                                            ? "timer"
+                                            : "clock.arrow.circlepath"
+                                    )
                                 }
                                 Button {
                                     editingPreset = preset
@@ -317,7 +348,7 @@ struct PlanCreateSheet: View {
                         CategoryPreviewIcon(category: selectedCategory, size: 42)
 
                         VStack(alignment: .leading, spacing: 3) {
-                            Text(selectedCategory?.name ?? "カテゴリを選択")
+                            Text(selectedCategory?.name ?? "カテゴリ未設定")
                                 .font(.subheadline.weight(.semibold))
                                 .foregroundStyle(LiminalTheme.text)
                             Text(selectedCategorySetName)
@@ -356,29 +387,33 @@ struct PlanCreateSheet: View {
                 .tint(selectedTint)
                 .disabled(isScheduleLocked)
 
-                VStack(spacing: 10) {
-                    if !isAllDay {
-                        DatePicker("開始", selection: $startTime, displayedComponents: [.date, .hourAndMinute])
-                            .foregroundStyle(LiminalTheme.text)
-                            .tint(LiminalTheme.text)
-                            .allowsHitTesting(!isScheduleLocked)
-                        DatePicker("終了", selection: $endTime, in: startTime..., displayedComponents: [.date, .hourAndMinute])
-                            .foregroundStyle(LiminalTheme.text)
-                            .tint(LiminalTheme.text)
-                            .allowsHitTesting(!isScheduleLocked)
-                    } else {
-                        DatePicker("開始日", selection: $startTime, displayedComponents: [.date])
-                            .foregroundStyle(LiminalTheme.text)
-                            .tint(LiminalTheme.text)
-                            .allowsHitTesting(!isScheduleLocked)
-                        DatePicker("終了日", selection: $allDayEndDate, displayedComponents: [.date])
-                            .foregroundStyle(LiminalTheme.text)
-                            .tint(LiminalTheme.text)
-                            .allowsHitTesting(!isScheduleLocked)
+                if snapshotEditor == nil || !isAllDay {
+                    VStack(spacing: 10) {
+                        if snapshotEditor != nil {
+                            PlanTemplateTimeFields(startMinute: $templateStartMinute, endMinute: $templateEndMinute)
+                        } else if !isAllDay {
+                            DatePicker("開始", selection: $startTime, displayedComponents: [.date, .hourAndMinute])
+                                .foregroundStyle(LiminalTheme.text)
+                                .tint(LiminalTheme.text)
+                                .allowsHitTesting(!isScheduleLocked)
+                            DatePicker("終了", selection: $endTime, in: startTime..., displayedComponents: [.date, .hourAndMinute])
+                                .foregroundStyle(LiminalTheme.text)
+                                .tint(LiminalTheme.text)
+                                .allowsHitTesting(!isScheduleLocked)
+                        } else {
+                            DatePicker("開始日", selection: $startTime, displayedComponents: [.date])
+                                .foregroundStyle(LiminalTheme.text)
+                                .tint(LiminalTheme.text)
+                                .allowsHitTesting(!isScheduleLocked)
+                            DatePicker("終了日", selection: $allDayEndDate, displayedComponents: [.date])
+                                .foregroundStyle(LiminalTheme.text)
+                                .tint(LiminalTheme.text)
+                                .allowsHitTesting(!isScheduleLocked)
+                        }
                     }
+                    .padding(12)
+                    .background(LiminalTheme.elevated, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                 }
-                .padding(12)
-                .background(LiminalTheme.elevated, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
 
                 validationStatus
             }
@@ -405,7 +440,13 @@ struct PlanCreateSheet: View {
                 }
                 .tint(selectedTint)
 
-                if isPublic {
+                if isPublic, snapshotEditor != nil {
+                    PlanEditorStatusLabel(
+                        text: "適用時のカテゴリの公開相手を使います。",
+                        systemImage: "person.2.fill",
+                        tint: LiminalTheme.secondaryText
+                    )
+                } else if isPublic {
                     Button {
                         LiminalHaptics.openSheet()
                         showingAudiencePicker = true
@@ -504,6 +545,9 @@ struct PlanCreateSheet: View {
     }
 
     private var previewTimeText: String {
+        if snapshotEditor != nil {
+            return isAllDay ? "終日" : "\(PlanPresetTimeEditor.start.valueText(templateStartMinute))–\(PlanPresetTimeEditor.end.valueText(templateEndMinute))"
+        }
         let calendar = Calendar.current
         if isAllDay {
             let start = calendar.startOfDay(for: startTime)
@@ -521,6 +565,7 @@ struct PlanCreateSheet: View {
     }
 
     private var canSave: Bool {
+        if snapshotEditor != nil { return draftSnapshot.hasValidTime }
         if isScheduleLocked {
             return true
         }
@@ -549,6 +594,16 @@ struct PlanCreateSheet: View {
     }
 
     private var timeValidationMessage: String? {
+        if snapshotEditor != nil {
+            guard !isAllDay else { return nil }
+            if templateEndMinute <= templateStartMinute {
+                return "終了時刻は開始時刻より後にしてください。"
+            }
+            if !draftSnapshot.hasValidTime {
+                return "開始は0〜23時、予定の長さは24時間以内にしてください。"
+            }
+            return nil
+        }
         if isAllDay {
             let calendar = Calendar.current
             if calendar.startOfDay(for: allDayEndDate) < calendar.startOfDay(for: startTime) {
@@ -567,7 +622,8 @@ struct PlanCreateSheet: View {
     }
 
     private var canPlaceSchedule: Bool {
-        store.canCreatePlan(
+        if snapshotEditor != nil { return draftSnapshot.hasValidTime }
+        return store.canCreatePlan(
             startTime: startTime,
             endTime: resolvedEndTime,
             isAllDay: isAllDay,
@@ -612,6 +668,19 @@ struct PlanCreateSheet: View {
         isImportant = snapshot.isImportant
         isPublic = snapshot.isPublic
 
+        if snapshotEditor != nil {
+            if snapshot.isAllDay {
+                templateStartMinute = 0
+                templateEndMinute = 1440
+            } else {
+                if usesPresetStartTime { templateStartMinute = snapshot.startMinute }
+                templateEndMinute = templateStartMinute + snapshot.durationMinutes
+            }
+            _ = planPresetStore.markUsed(preset)
+            LiminalHaptics.selection()
+            return
+        }
+
         if snapshot.isAllDay {
             startTime = targetDay
             allDayEndDate = targetDay
@@ -642,7 +711,7 @@ struct PlanCreateSheet: View {
             saveError = "現在の時刻設定ではプリセットを作成できません。"
             return
         }
-        guard planPresetStore.createPlanPreset(name: presetName, snapshot: snapshot) != nil else {
+        guard planPresetStore.createPlanPreset(name: resolvedPlanTitle, snapshot: snapshot) != nil else {
             errorTitle = "保存できませんでした"
             saveError = "プリセットを保存できませんでした。時間をおいてもう一度試してください。"
             return
@@ -651,6 +720,7 @@ struct PlanCreateSheet: View {
     }
 
     private var currentPresetSnapshot: PlanTemplateSnapshot? {
+        if snapshotEditor != nil { return draftSnapshot.hasValidTime ? draftSnapshot : nil }
         let calendar = Calendar.current
         let startMinute: Int
         let endMinute: Int
@@ -704,6 +774,20 @@ struct PlanCreateSheet: View {
 
     private func save() {
         errorTitle = "保存できませんでした"
+        if let snapshotEditor {
+            guard draftSnapshot.hasValidTime else {
+                saveError = timeValidationMessage ?? "時刻を確認してください。"
+                return
+            }
+            if let error = snapshotEditor.onSave(draftSnapshot) {
+                saveError = error
+                LiminalHaptics.failure()
+                return
+            }
+            LiminalHaptics.commit()
+            dismiss()
+            return
+        }
         let planTitle = resolvedPlanTitle
         let calendar = Calendar.current
         let resolvedStart: Date
@@ -758,6 +842,12 @@ struct PlanCreateSheet: View {
     }
 
     private func deletePlan() {
+        if let onDelete = snapshotEditor?.onDelete {
+            onDelete()
+            LiminalHaptics.commit()
+            dismiss()
+            return
+        }
         guard let editingPlan else { return }
         errorTitle = "削除できませんでした"
         guard store.deletePlanBlock(editingPlan) else {
@@ -774,6 +864,19 @@ struct PlanCreateSheet: View {
             isPublic: isPublic,
             audienceSource: audienceSource,
             audienceFriendIDs: audienceFriendIDs
+        )
+    }
+
+    private var draftSnapshot: PlanTemplateSnapshot {
+        PlanTemplateSnapshot(
+            title: resolvedPlanTitle,
+            categoryID: selectedCategory?.id,
+            startMinute: isAllDay ? 0 : templateStartMinute,
+            endMinute: isAllDay ? 1440 : templateEndMinute,
+            isAllDay: isAllDay,
+            isImportant: isImportant,
+            note: note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : note,
+            isPublic: isPublic
         )
     }
 
@@ -873,11 +976,7 @@ struct PlanCategoryPickerSheet: View {
         self.categories = categories
         self._selectedCategory = selectedCategory
 
-        let selected = selectedCategory.wrappedValue
-        let initialSet = selected.flatMap { category in
-            categorySets.first { $0.assignedIDs.contains(category.id) }
-        } ?? categorySets.first
-        _selectedSetID = State(initialValue: initialSet?.id)
+        _selectedSetID = State(initialValue: nil)
     }
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 4)
@@ -891,52 +990,25 @@ struct PlanCategoryPickerSheet: View {
                     }
 
                     LazyVGrid(columns: columns, spacing: 12) {
-                        ForEach(displayedSlots.indices, id: \.self) { index in
-                            let category = displayedSlots[index]
+                        ForEach(displayedCategories) { category in
                             Button {
-                                if let category {
-                                    LiminalHaptics.selection()
-                                    selectedCategory = category
-                                    dismiss()
-                                }
+                                LiminalHaptics.selection()
+                                selectedCategory = category
+                                dismiss()
                             } label: {
                                 CategoryGridPickCell(
-                                    index: index,
+                                    index: nil,
                                     category: category,
-                                    isSelected: category?.id == selectedCategory?.id
+                                    isSelected: category.id == selectedCategory?.id
                                 )
                             }
                             .buttonStyle(.plain)
-                            .disabled(category == nil)
-                        }
-                    }
-
-                    let uncategorized = categoriesNotInDisplayedSet
-                    if !uncategorized.isEmpty {
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("その他")
-                                .font(.headline)
-                            LazyVGrid(columns: columns, spacing: 12) {
-                                ForEach(uncategorized) { category in
-                                    Button {
-                                        selectedCategory = category
-                                        dismiss()
-                                    } label: {
-                                        CategoryGridPickCell(
-                                            index: nil,
-                                            category: category,
-                                            isSelected: category.id == selectedCategory?.id
-                                        )
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-                            }
                         }
                     }
                 }
                 .padding(16)
             }
-            .background(LiminalTheme.canvasGradient)
+            .background(LiminalTheme.plainSheetBackground.ignoresSafeArea())
             .navigationTitle("カテゴリを選択")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -945,11 +1017,27 @@ struct PlanCategoryPickerSheet: View {
                 }
             }
         }
+        .presentationBackground(LiminalTheme.plainSheetBackground)
     }
 
     private var setSelector: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
+                Button {
+                    selectedSetID = nil
+                } label: {
+                    Text("すべて")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(selectedSetID == nil ? .white : .primary)
+                        .padding(.horizontal, 12)
+                        .frame(height: 34)
+                        .background(
+                            Capsule()
+                                .fill(selectedSetID == nil ? LiminalTheme.accent : Color(uiColor: .secondarySystemBackground))
+                        )
+                }
+                .buttonStyle(.plain)
+
                 ForEach(categorySets) { set in
                     Button {
                         selectedSetID = set.id
@@ -961,7 +1049,7 @@ struct PlanCategoryPickerSheet: View {
                             .frame(height: 34)
                             .background(
                                 Capsule()
-                                    .fill(selectedSetID == set.id ? LiminalTheme.accent : LiminalTheme.surface)
+                                    .fill(selectedSetID == set.id ? LiminalTheme.accent : Color(uiColor: .secondarySystemBackground))
                             )
                     }
                     .buttonStyle(.plain)
@@ -970,12 +1058,12 @@ struct PlanCategoryPickerSheet: View {
         }
     }
 
-    private var displayedSlots: [Category?] {
+    private var displayedCategories: [Category] {
         guard let set = selectedSet else {
-            return categories.map { Optional($0) }
+            return categories
         }
         let categoryByID = Dictionary(uniqueKeysWithValues: categories.map { ($0.id, $0) })
-        return CategorySet.normalize(set.slots).map { id in id.flatMap { categoryByID[$0] } }
+        return set.assignedIDs.compactMap { categoryByID[$0] }
     }
 
     private var selectedSet: CategorySet? {
@@ -983,11 +1071,6 @@ struct PlanCategoryPickerSheet: View {
         return categorySets.first { $0.id == selectedSetID }
     }
 
-    private var categoriesNotInDisplayedSet: [Category] {
-        guard let selectedSet else { return [] }
-        let displayedIDs = Set(selectedSet.assignedIDs)
-        return categories.filter { !displayedIDs.contains($0.id) }
-    }
 }
 
 struct CategoryPreviewIcon: View {

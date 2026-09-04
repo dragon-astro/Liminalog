@@ -46,7 +46,8 @@ final class PlanPresetStore {
     @discardableResult
     func createPlanPreset(
         name: String,
-        snapshot: PlanTemplateSnapshot
+        snapshot: PlanTemplateSnapshot,
+        placementMode: PlanPresetPlacementMode = .duration
     ) -> PlanPreset? {
         guard isValid(snapshot),
               let presets = planPresetsIfAvailable()
@@ -61,6 +62,7 @@ final class PlanPresetStore {
             isImportant: snapshot.isImportant,
             note: normalizedNote(snapshot.note),
             isPublic: snapshot.isPublic,
+            placementMode: snapshot.isAllDay ? .fixedTime : placementMode,
             sortOrder: (presets.map(\.sortOrder).max() ?? -1) + 1,
             now: clock.now
         )
@@ -72,7 +74,8 @@ final class PlanPresetStore {
     func updatePlanPreset(
         _ preset: PlanPreset,
         name: String,
-        snapshot: PlanTemplateSnapshot
+        snapshot: PlanTemplateSnapshot,
+        placementMode: PlanPresetPlacementMode = .duration
     ) -> Bool {
         guard isValid(snapshot) else { return false }
         preset.name = normalizedPlanPresetName(name, title: snapshot.title)
@@ -84,6 +87,7 @@ final class PlanPresetStore {
         preset.isImportant = snapshot.isImportant
         preset.note = normalizedNote(snapshot.note)
         preset.isPublic = snapshot.isPublic
+        preset.placementMode = snapshot.isAllDay ? .fixedTime : placementMode
         preset.updatedAt = clock.now
         return saveChanges("plan preset update")
     }
@@ -131,7 +135,9 @@ final class PlanPresetStore {
     @discardableResult
     func createDayPreset(
         name: String,
-        items: [PlanTemplateSnapshot]
+        items: [PlanTemplateSnapshot],
+        colorHex: String = "#2F80ED",
+        icon: String = "calendar"
     ) -> DayPreset? {
         guard isValidDayPresetItems(items),
               let presets = dayPresetsIfAvailable(),
@@ -142,6 +148,8 @@ final class PlanPresetStore {
             name: normalizedDayPresetName(name, fallbackIndex: nextOrder + 1),
             itemsData: data,
             itemCount: items.count,
+            colorHex: colorHex,
+            icon: icon,
             sortOrder: nextOrder,
             now: clock.now
         )
@@ -153,7 +161,9 @@ final class PlanPresetStore {
     func updateDayPreset(
         _ preset: DayPreset,
         name: String,
-        items: [PlanTemplateSnapshot]
+        items: [PlanTemplateSnapshot],
+        colorHex: String? = nil,
+        icon: String? = nil
     ) -> Bool {
         guard isValidDayPresetItems(items),
               let data = try? DayPresetItemsCodec.encode(items)
@@ -161,6 +171,8 @@ final class PlanPresetStore {
         preset.name = normalizedDayPresetName(name, fallbackIndex: preset.sortOrder + 1)
         preset.itemsData = data
         preset.itemCount = items.count
+        if let colorHex { preset.colorHex = colorHex }
+        if let icon { preset.icon = icon }
         preset.updatedAt = clock.now
         return saveChanges("day preset update")
     }

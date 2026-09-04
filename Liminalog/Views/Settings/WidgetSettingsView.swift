@@ -22,17 +22,6 @@ struct WidgetSettingsView: View {
     var body: some View {
         List {
             Section {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("小さいウィジェット")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(LiminalTheme.text)
-                    Text("4枠を指定します。未設定の枠は現在のテーブル順で補完されます。")
-                        .font(.caption)
-                        .foregroundStyle(LiminalTheme.secondaryText)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .padding(.vertical, 2)
-
                 ForEach(0..<4, id: \.self) { index in
                     Picker("枠\(index + 1)", selection: smallWidgetCategoryBinding(for: index)) {
                         Text("自動").tag("")
@@ -42,21 +31,13 @@ struct WidgetSettingsView: View {
                     }
                 }
             } header: {
-                Text("小さいウィジェット")
+                SettingsSectionHeader(
+                    title: "小さいウィジェット",
+                    explanation: "4枠に表示するカテゴリを指定します。「自動」の枠は現在のテーブル順で補完されます。カテゴリ自体の追加・編集はカテゴリ管理から行えます。"
+                )
             }
 
             Section {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("大きいウィジェット")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(LiminalTheme.text)
-                    Text("8枠の表示元を選びます。")
-                        .font(.caption)
-                        .foregroundStyle(LiminalTheme.secondaryText)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .padding(.vertical, 2)
-
                 Picker("表示元", selection: mediumWidgetModeBinding) {
                     Text("現在のテーブル").tag("current")
                     Text("固定テーブル").tag("fixed")
@@ -71,9 +52,10 @@ struct WidgetSettingsView: View {
                     }
                 }
             } header: {
-                Text("大きいウィジェット")
-            } footer: {
-                Text("カテゴリやテーブル自体の追加・編集はカテゴリ管理から行えます。")
+                SettingsSectionHeader(
+                    title: "大きいウィジェット",
+                    explanation: "8枠の表示元を選びます。「現在のテーブル」はアプリで使用中のテーブルに連動し、「固定テーブル」は指定したテーブルを表示します。カテゴリやテーブル自体の追加・編集はカテゴリ管理から行えます。"
+                )
             }
         }
         .navigationTitle("ウィジェット")

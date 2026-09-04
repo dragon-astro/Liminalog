@@ -16,6 +16,12 @@ enum DayPresetApplyPlanner {
         case invalidTime
     }
 
+    /// A day preset is one complete schedule, not a selection of independent
+    /// rows. A single blocked item prevents the whole application.
+    static func canApplyWholePreset(_ verdicts: [ItemVerdict]) -> Bool {
+        !verdicts.isEmpty && verdicts.allSatisfy { $0 == .insertable }
+    }
+
     static func plan(
         items: [PlanTemplateSnapshot],
         targetDate: Date,

@@ -615,11 +615,19 @@ final class ChapterStore {
     @discardableResult
     func applyPlanTemplates(
         _ applications: [PlanStore.TemplateApplication],
-        to targetDate: Date
+        to targetDate: Date,
+        approvedReplacement: PlanTemplateReplacement? = nil
     ) -> Bool {
-        guard planStore.applyTemplates(applications, to: targetDate) else { return false }
+        guard planStore.applyTemplates(applications, to: targetDate, approvedReplacement: approvedReplacement) else { return false }
         markChanged(requestCloudFriendShareRefresh: false)
         return true
+    }
+
+    func templateReplacementPreview(
+        _ applications: [PlanStore.TemplateApplication], to targetDate: Date,
+        mode: PlanTemplateReplacementMode
+    ) -> PlanTemplateReplacement? {
+        planStore.templateReplacementPreview(applications, to: targetDate, mode: mode)
     }
 
     func plannedBlocks(from start: Date, to end: Date) -> [PlanBlock] {

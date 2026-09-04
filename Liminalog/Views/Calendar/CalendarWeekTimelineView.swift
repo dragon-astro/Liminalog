@@ -11,14 +11,6 @@ private struct WeekTimelineRenderSnapshot {
     }
 }
 
-private struct WeekTimelineScrollOffsetPreferenceKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
-    }
-}
-
 private struct WeekTimelinePlanSignature: Hashable {
     let id: UUID
     let startTime: Date
@@ -40,41 +32,98 @@ private struct WeekTimelineRenderCache {
     let displayPlans: [PlanBlock]
     let plansByID: [UUID: PlanBlock]
     let timedSegmentsByPlanID: [UUID: [WeekTimedPlanSegment]]
+    let axisProfile: TimelineAxisProfile
     let snapshot: WeekTimelineRenderSnapshot
+}
+
+private struct WeekTimelineAxisCacheKey: Hashable {
+    let renderCacheKey: WeekTimelineRenderCacheKey
+    let hourHeight: CGFloat
+}
+
+private struct WeekPresetPlacementDraft {
+    let preset: PlanPreset
+    let snapshot: PlanTemplateSnapshot
+    let dayIndex: Int
+    let visualStartY: CGFloat
+}
+
+private struct WeekTimelineDayScheduleBaseline {
+    let originalIntervalsByID: [UUID: PlanTimelineInterval]
+    let intervals: [PlanTimelineInterval]
+}
+
+private struct WeekMoveRequest: Equatable {
+    let dayIndex: Int
+    let proposedStartMinute: Int
+    let proposedEndMinute: Int
+    let direction: PlanTimelinePushDirection
 }
 
 /// Gesture bookkeeping that does not directly affect rendered output.
 /// Keeping it outside SwiftUI observation prevents non-render bookkeeping from
 /// invalidating the full week while preserving all haptic and clamping behavior.
 private final class WeekTimelineInteractionScratch {
+    var renderCache: WeekTimelineRenderCache?
     var latestScrollMinY: CGFloat = 0
+    var pendingVisibleHour: Int?
+    var timelineScrollIsActive = false
     var resizeDragStartGlobalY: CGFloat?
     var didWarnDuringScheduleGesture = false
     var lastMoveFeedbackStep: WeekMoveFeedbackStep?
+    var lastMoveRequest: WeekMoveRequest?
     var lastResizeFeedbackMinute: Int?
     var lastResizeRequest: WeekResizeRequest?
+    var lastPresetFeedbackDayIndex: Int?
+    var lastPresetFeedbackMinute: Int?
+    private var axisCacheKey: WeekTimelineAxisCacheKey?
+    private var axisCache: TimelineAxisMap?
+    var dayScheduleBaselines: [Int: WeekTimelineDayScheduleBaseline] = [:]
+
+    func cachedAxisMap(
+        for key: WeekTimelineAxisCacheKey,
+        make: () -> TimelineAxisMap
+    ) -> TimelineAxisMap {
+        if axisCacheKey == key, let axisCache {
+            return axisCache
+        }
+        let map = make()
+        axisCacheKey = key
+        axisCache = map
+        return map
+    }
 
     func resetScheduleGesture() {
         resizeDragStartGlobalY = nil
         didWarnDuringScheduleGesture = false
         lastMoveFeedbackStep = nil
+        lastMoveRequest = nil
         lastResizeFeedbackMinute = nil
         lastResizeRequest = nil
+        lastPresetFeedbackDayIndex = nil
+        lastPresetFeedbackMinute = nil
+        dayScheduleBaselines = [:]
     }
 }
 
 struct CalendarWeekTimelineView: View {
     @Environment(ChapterStore.self) private var store
+    @Environment(PlanPresetStore.self) private var planPresetStore
     @Environment(\.colorScheme) private var colorScheme
 
     let anchorDate: Date
     let categories: [Category]
+    let planPresets: [PlanPreset]
     let visibleCategoryIDs: Set<UUID>?
     let plans: [PlanBlock]
     let planTitleFontSize: Double
     let planTitleBold: Bool
     let isInteractionEnabled: Bool
     let isPageSwipeActive: Bool
+    let presetInteractionCoordinator: TimelinePlanPresetInteractionCoordinator?
+    let presetExternalCoordinateSpaceName: String?
+    private let presetDrawerPresentation: Binding<Bool>?
+    private let onPresetDrawerDismiss: () -> Void
     @Binding var visibleHour: Int
     @Binding var selectedCategoryID: UUID?
     @Binding var isScheduleInteractionActive: Bool
@@ -93,8 +142,8 @@ struct CalendarWeekTimelineView: View {
     @State private var resizeBaseline: WeekResizeBaseline?
     @State private var activeResizeEdge: WeekResizeEdge?
     @State private var operationError: String?
+    @State private var presetApplyRequest: PlanTemplateApplyRequest?
     @State private var planPendingDeletion: PlanBlock?
-    @State private var renderCache: WeekTimelineRenderCache?
     @State private var interactionScratch = WeekTimelineInteractionScratch()
     @AppStorage(TimelineZoomPolicy.weekUserDefaultsKey)
     private var storedHourScale = Double(TimelineZoomPolicy.defaultScale)
@@ -103,15 +152,18 @@ struct CalendarWeekTimelineView: View {
     @State private var zoomAnchorMinute: CGFloat?
     @State private var zoomGestureIsActive = false
     @State private var timelineScrollPosition = ScrollPosition()
+    @State private var presetDragIsActive = false
+    @State private var presetPlacementDraft: WeekPresetPlacementDraft?
+    @State private var presetWindowFrame: CGRect?
+    @State private var presetTimelineContentFrameSource = TimelineWindowFrameSource()
 
     private let calendar = Calendar.japanese
-    private let hourColumnWidth: CGFloat = 50
+    private let hourColumnWidth = TimelineHourAxisMetrics.columnWidth
     private let hourLabelHeight: CGFloat = 14
     private let timelineTopInset: CGFloat = 15
     private let daySpacing: CGFloat = 1
     private let blockInset: CGFloat = 1.5
     private let bottomScrollPadding: CGFloat = 24
-    private let bottomChromeInset: CGFloat = 8
     private let creationLongPressDuration = 0.28
     private let creationLongPressMaximumDistance: CGFloat = 28
     private let creationHorizontalCancelDistance: CGFloat = 22
@@ -136,15 +188,41 @@ struct CalendarWeekTimelineView: View {
         )
     }
 
+    private func makeAxisMap(
+        cache: WeekTimelineRenderCache,
+        hourHeight: CGFloat
+    ) -> TimelineAxisMap {
+        TimelineAxisMap(
+            hourHeight: hourHeight,
+            profile: cache.axisProfile
+        )
+    }
+
+    private var timelineAxisMap: TimelineAxisMap {
+        let cache = currentRenderCache
+        let key = WeekTimelineAxisCacheKey(
+            renderCacheKey: cache.key,
+            hourHeight: hourHeight
+        )
+        return interactionScratch.cachedAxisMap(for: key) {
+            makeAxisMap(cache: cache, hourHeight: hourHeight)
+        }
+    }
+
     init(
         anchorDate: Date,
         categories: [Category],
+        planPresets: [PlanPreset],
         visibleCategoryIDs: Set<UUID>?,
         plans: [PlanBlock],
         planTitleFontSize: Double,
         planTitleBold: Bool,
         isInteractionEnabled: Bool,
         isPageSwipeActive: Bool,
+        presetInteractionCoordinator: TimelinePlanPresetInteractionCoordinator? = nil,
+        presetExternalCoordinateSpaceName: String? = nil,
+        presetDrawerPresentation: Binding<Bool>? = nil,
+        onPresetDrawerDismiss: @escaping () -> Void = {},
         visibleHour: Binding<Int>,
         selectedCategoryID: Binding<UUID?>,
         isScheduleInteractionActive: Binding<Bool>,
@@ -155,12 +233,17 @@ struct CalendarWeekTimelineView: View {
         let normalizedAnchorDate = Calendar.japanese.startOfDay(for: anchorDate)
         self.anchorDate = normalizedAnchorDate
         self.categories = categories
+        self.planPresets = planPresets
         self.visibleCategoryIDs = visibleCategoryIDs
         self.plans = plans
         self.planTitleFontSize = planTitleFontSize
         self.planTitleBold = planTitleBold
         self.isInteractionEnabled = isInteractionEnabled
         self.isPageSwipeActive = isPageSwipeActive
+        self.presetInteractionCoordinator = presetInteractionCoordinator
+        self.presetExternalCoordinateSpaceName = presetExternalCoordinateSpaceName
+        self.presetDrawerPresentation = presetDrawerPresentation
+        self.onPresetDrawerDismiss = onPresetDrawerDismiss
         self._visibleHour = visibleHour
         self._selectedCategoryID = selectedCategoryID
         self._isScheduleInteractionActive = isScheduleInteractionActive
@@ -191,14 +274,13 @@ struct CalendarWeekTimelineView: View {
             let dayWidth = max(1, (totalWidth - hourColumnWidth - daySpacing * 6) / 7)
             let timelineViewportHeight = max(1, proxy.size.height - 46 - snapshot.allDayLaneHeight)
 
-            VStack(spacing: 0) {
-                weekHeader(dayWidth: dayWidth, totalWidth: totalWidth, snapshot: snapshot)
+            ZStack(alignment: .bottom) {
+                VStack(spacing: 0) {
+                    weekHeader(dayWidth: dayWidth, totalWidth: totalWidth, snapshot: snapshot)
 
-                ScrollViewReader { scrollProxy in
-                    ScrollView(.vertical) {
+                    ScrollViewReader { scrollProxy in
+                        ScrollView(.vertical) {
                         VStack(spacing: 0) {
-                            scrollOffsetReader
-
                             ZStack(alignment: .topLeading) {
                                 timelineGridLayer(dayWidth: dayWidth, totalWidth: totalWidth, snapshot: snapshot)
                                 hourScrollTargets
@@ -221,21 +303,20 @@ struct CalendarWeekTimelineView: View {
 
                                     currentTimeLine(dayWidth: dayWidth, totalWidth: totalWidth)
 
-                                    deleteConfirmationBubble(
-                                        dayWidth: dayWidth,
-                                        totalWidth: totalWidth,
-                                        timedSegments: snapshot.timedSegments
-                                    )
                                 }
                             }
                             .frame(width: totalWidth, height: timelineHeight, alignment: .topLeading)
+                            .background {
+                                TimelineWindowFrameReader(
+                                    frameSource: presetTimelineContentFrameSource
+                                )
+                            }
                             .contentShape(Rectangle())
 
                             Color.clear
                                 .frame(height: bottomScrollPadding)
                         }
                     }
-                    .coordinateSpace(name: scrollCoordinateSpaceName)
                     .scrollPosition($timelineScrollPosition)
                     .frame(width: totalWidth, height: timelineViewportHeight)
                     .scrollDisabled(shouldDisableTimelineScroll || isPageSwipeActive)
@@ -249,8 +330,13 @@ struct CalendarWeekTimelineView: View {
                         guard !isInteractionEnabled else { return }
                         scrollToVisibleHour(with: scrollProxy)
                     }
-                    .onPreferenceChange(WeekTimelineScrollOffsetPreferenceKey.self) { minY in
+                    .onScrollGeometryChange(for: CGFloat.self) { geometry in
+                        -max(0, geometry.contentOffset.y + geometry.contentInsets.top)
+                    } action: { _, minY in
                         updateVisibleHour(fromScrollMinY: minY)
+                    }
+                    .onScrollPhaseChange { _, newPhase in
+                        handleTimelineScrollPhaseChange(newPhase)
                     }
                     .onChange(of: anchorDate) { _, _ in
                         cancelZoomGesture()
@@ -263,31 +349,167 @@ struct CalendarWeekTimelineView: View {
                     .simultaneousGesture(
                         weekTimelineZoomGesture(viewportHeight: timelineViewportHeight)
                     )
-                    .accessibilityValue(zoomAccessibilityValue)
+                        .accessibilityValue(zoomAccessibilityValue)
+                    }
+                }
+                .frame(width: totalWidth, height: proxy.size.height, alignment: .top)
+                .background(timelineBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(timelineStroke, lineWidth: 1)
+                )
+
+                if isInteractionEnabled, let presetPlacementDraft {
+                    ZStack(alignment: .topLeading) {
+                        presetPlacementDraftView(
+                            draft: presetPlacementDraft,
+                            dayWidth: dayWidth
+                        )
+                    }
+                    .frame(
+                        width: totalWidth,
+                        height: proxy.size.height,
+                        alignment: .topLeading
+                    )
+                    .allowsHitTesting(false)
+                    .zIndex(90)
+                }
+
+                if isInteractionEnabled, !planPresets.isEmpty {
+                    TimelinePlanPresetLibrary(
+                        presets: planPresets,
+                        categories: categories,
+                        onFixedTimeTap: { preset in
+                            if let presetInteractionCoordinator {
+                                presetInteractionCoordinator.addFixedTimePreset(preset)
+                            } else {
+                                addFixedTimePreset(preset)
+                            }
+                        },
+                        onDurationDragChanged: { preset, location in
+                            if let presetInteractionCoordinator {
+                                presetInteractionCoordinator.updateDurationPreset(preset, at: location)
+                            } else {
+                                updateDurationPresetPreview(
+                                    preset,
+                                    at: localPresetLocation(location),
+                                    dayWidth: dayWidth,
+                                    totalWidth: totalWidth,
+                                    allDayLaneHeight: snapshot.allDayLaneHeight,
+                                    viewportSize: proxy.size
+                                )
+                            }
+                        },
+                        onDurationDrop: { preset, location in
+                            if let presetInteractionCoordinator {
+                                return presetInteractionCoordinator.finishDurationPreset(preset, at: location)
+                            }
+                            return finishDurationPresetDrop(
+                                preset,
+                                at: localPresetLocation(location),
+                                dayWidth: dayWidth,
+                                totalWidth: totalWidth,
+                                allDayLaneHeight: snapshot.allDayLaneHeight,
+                                viewportSize: proxy.size
+                            )
+                        },
+                        onDraggingChanged: { active in
+                            if let presetInteractionCoordinator {
+                                presetInteractionCoordinator.setDragging(active)
+                            } else {
+                                presetDragIsActive = active
+                                isScheduleInteractionActive = active
+                                if !active, presetPlacementDraft != nil {
+                                    presetPlacementDraft = nil
+                                    interactionScratch.lastPresetFeedbackDayIndex = nil
+                                    interactionScratch.lastPresetFeedbackMinute = nil
+                                }
+                            }
+                        },
+                        launcherPlacement: .externalControl,
+                        isPresented: presetDrawerPresentation,
+                        onDismiss: onPresetDrawerDismiss
+                    )
+                    .frame(
+                        width: proxy.size.width,
+                        height: proxy.size.height,
+                        alignment: .topLeading
+                    )
                 }
             }
-            .frame(width: totalWidth, height: proxy.size.height, alignment: .top)
-            .background(timelineBackground)
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .stroke(timelineStroke, lineWidth: 1)
-            )
+            .background {
+                TimelineWindowFrameReader { frame in
+                    if presetWindowFrame != frame {
+                        presetWindowFrame = frame
+                    }
+                }
+            }
+            .coordinateSpace(name: presetCoordinateSpaceName)
+            .onAppear {
+                updatePresetInteractionTarget(
+                    frame: presetExternalFrame(in: proxy),
+                    viewportSize: proxy.size,
+                    dayWidth: dayWidth,
+                    totalWidth: totalWidth,
+                    allDayLaneHeight: snapshot.allDayLaneHeight
+                )
+            }
+            .onChange(of: isInteractionEnabled) { _, _ in
+                updatePresetInteractionTarget(
+                    frame: presetExternalFrame(in: proxy),
+                    viewportSize: proxy.size,
+                    dayWidth: dayWidth,
+                    totalWidth: totalWidth,
+                    allDayLaneHeight: snapshot.allDayLaneHeight
+                )
+            }
+            .onChange(of: proxy.size) { _, _ in
+                updatePresetInteractionTarget(
+                    frame: presetExternalFrame(in: proxy),
+                    viewportSize: proxy.size,
+                    dayWidth: dayWidth,
+                    totalWidth: totalWidth,
+                    allDayLaneHeight: snapshot.allDayLaneHeight
+                )
+            }
+            .onChange(of: presetWindowFrame) { _, frame in
+                updatePresetInteractionTarget(
+                    frame: frame,
+                    viewportSize: proxy.size,
+                    dayWidth: dayWidth,
+                    totalWidth: totalWidth,
+                    allDayLaneHeight: snapshot.allDayLaneHeight
+                )
+            }
         }
-        .padding(.horizontal, 12)
-        .padding(.top, 6)
-        .padding(.bottom, bottomChromeInset)
+        .padding(.horizontal, CalendarTimelineCardMetrics.horizontalPadding)
+        .padding(.top, CalendarTimelineCardMetrics.topPadding)
+        .padding(.bottom, CalendarTimelineCardMetrics.bottomPadding)
         .onAppear {
             if selectedCategoryID == nil {
                 selectedCategoryID = categories.first?.id
             }
-            refreshRenderCache()
         }
         .onChange(of: categories.map(\.id)) { _, newIDs in
             if let selectedCategoryID, newIDs.contains(selectedCategoryID) {
                 return
             }
             selectedCategoryID = categories.first?.id
+        }
+        .alert(
+            "予定を削除しますか？",
+            isPresented: deleteConfirmationPresented,
+            presenting: planPendingDeletion
+        ) { plan in
+            Button("削除", role: .destructive) {
+                deletePlan(plan)
+            }
+            Button("キャンセル", role: .cancel) {
+                planPendingDeletion = nil
+            }
+        } message: { plan in
+            Text("「\(displayTitle(for: plan))」は元に戻せません。")
         }
         .alert("予定を調整できませんでした", isPresented: operationErrorPresented) {
             Button("OK", role: .cancel) {
@@ -299,26 +521,78 @@ struct CalendarWeekTimelineView: View {
         .onChange(of: renderCacheKey) { _, _ in
             refreshRenderCache()
         }
+        .background(PlanTemplateApplyConfirmationPresenter(request: $presetApplyRequest, store: store).frame(width: 0, height: 0))
         .onDisappear {
+            presetInteractionCoordinator?.deactivate(targetID: presetInteractionTargetID)
             cancelZoomGesture()
         }
     }
 
-    private var scrollCoordinateSpaceName: String {
-        "WeekTimelineScroll-\(weekStart.timeIntervalSinceReferenceDate)"
+    private var presetCoordinateSpaceName: String {
+        "week-plan-preset-\(weekStart.timeIntervalSinceReferenceDate)"
     }
 
-    private var scrollOffsetReader: some View {
-        Color.clear
-            .frame(height: 0)
-            .background(
-                GeometryReader { proxy in
-                    Color.clear.preference(
-                        key: WeekTimelineScrollOffsetPreferenceKey.self,
-                        value: proxy.frame(in: .named(scrollCoordinateSpaceName)).minY
-                    )
+    private var presetInteractionTargetID: String {
+        "week-target-\(weekStart.timeIntervalSinceReferenceDate)"
+    }
+
+    private func localPresetLocation(_ location: CGPoint?) -> CGPoint? {
+        guard let location, let frame = presetWindowFrame else { return nil }
+        return CGPoint(x: location.x - frame.minX, y: location.y - frame.minY)
+    }
+
+    private func presetExternalFrame(in proxy: GeometryProxy) -> CGRect? {
+        guard presetInteractionCoordinator != nil else { return nil }
+        return presetWindowFrame
+    }
+
+    private func updatePresetInteractionTarget(
+        frame: CGRect?,
+        viewportSize: CGSize,
+        dayWidth: CGFloat,
+        totalWidth: CGFloat,
+        allDayLaneHeight: CGFloat
+    ) {
+        guard let coordinator = presetInteractionCoordinator else { return }
+        guard isInteractionEnabled, let frame else {
+            coordinator.deactivate(targetID: presetInteractionTargetID)
+            return
+        }
+
+        coordinator.activate(
+            targetID: presetInteractionTargetID,
+            targetFrame: frame,
+            onFixedTimeTap: addFixedTimePreset,
+            onDurationDragChanged: { preset, location in
+                updateDurationPresetPreview(
+                    preset,
+                    at: location,
+                    dayWidth: dayWidth,
+                    totalWidth: totalWidth,
+                    allDayLaneHeight: allDayLaneHeight,
+                    viewportSize: viewportSize
+                )
+            },
+            onDurationDrop: { preset, location in
+                finishDurationPresetDrop(
+                    preset,
+                    at: location,
+                    dayWidth: dayWidth,
+                    totalWidth: totalWidth,
+                    allDayLaneHeight: allDayLaneHeight,
+                    viewportSize: viewportSize
+                )
+            },
+            onDraggingChanged: { active in
+                presetDragIsActive = active
+                isScheduleInteractionActive = active
+                if !active, presetPlacementDraft != nil {
+                    presetPlacementDraft = nil
+                    interactionScratch.lastPresetFeedbackDayIndex = nil
+                    interactionScratch.lastPresetFeedbackMinute = nil
                 }
-            )
+            }
+        )
     }
 
     private var hourScrollTargets: some View {
@@ -348,7 +622,25 @@ struct CalendarWeekTimelineView: View {
         else { return }
 
         let scrollOffset = max(0, -minY - timelineTopInset)
-        let hour = min(23, max(0, Int((scrollOffset / hourHeight).rounded())))
+        let minute = timelineAxisMap.minute(atY: scrollOffset)
+        let hour = min(23, max(0, Int((minute / 60).rounded())))
+        if interactionScratch.timelineScrollIsActive {
+            interactionScratch.pendingVisibleHour = hour
+        } else {
+            commitVisibleHour(hour)
+        }
+    }
+
+    private func handleTimelineScrollPhaseChange(_ phase: ScrollPhase) {
+        interactionScratch.timelineScrollIsActive = phase != .idle
+        guard phase == .idle,
+              let pendingVisibleHour = interactionScratch.pendingVisibleHour
+        else { return }
+        interactionScratch.pendingVisibleHour = nil
+        commitVisibleHour(pendingVisibleHour)
+    }
+
+    private func commitVisibleHour(_ hour: Int) {
         if visibleHour != hour {
             visibleHour = hour
         }
@@ -385,14 +677,16 @@ struct CalendarWeekTimelineView: View {
 
         let baseScale = TimelineZoomPolicy.normalizedScale(storedHourScale)
         zoomGestureBaseScale = baseScale
-        zoomAnchorMinute = TimelineZoomPolicy.centerMinute(
-            visibleMinY: interactionScratch.latestScrollMinY,
-            viewportHeight: viewportHeight,
+        let baseAxis = makeAxisMap(
+            cache: currentRenderCache,
             hourHeight: TimelineZoomPolicy.hourHeight(
                 for: baseScale,
                 base: TimelineZoomPolicy.weekBaseHourHeight
-            ),
-            timelineTopInset: timelineTopInset
+            )
+        )
+        let scrollY = max(0, -interactionScratch.latestScrollMinY)
+        zoomAnchorMinute = baseAxis.minute(
+            atY: scrollY + viewportHeight / 2 - timelineTopInset
         )
         zoomGestureIsActive = true
         isScheduleInteractionActive = true
@@ -407,13 +701,15 @@ struct CalendarWeekTimelineView: View {
             for: scale,
             base: TimelineZoomPolicy.weekBaseHourHeight
         )
-        let newContentHeight = timelineTopInset + newHourHeight * 24 + bottomScrollPadding
-        let targetY = TimelineZoomPolicy.scrollY(
-            preservingCenterMinute: zoomAnchorMinute,
-            viewportHeight: viewportHeight,
-            hourHeight: newHourHeight,
-            contentHeight: newContentHeight,
-            timelineTopInset: timelineTopInset
+        let newAxis = makeAxisMap(cache: currentRenderCache, hourHeight: newHourHeight)
+        let newContentHeight = timelineTopInset + newAxis.contentHeight + bottomScrollPadding
+        let maximumScrollY = max(0, newContentHeight - viewportHeight)
+        let targetY = min(
+            maximumScrollY,
+            max(
+                0,
+                timelineTopInset + newAxis.y(forMinute: zoomAnchorMinute) - viewportHeight / 2
+            )
         )
         var transaction = Transaction()
         transaction.disablesAnimations = true
@@ -436,6 +732,10 @@ struct CalendarWeekTimelineView: View {
             for: snappedScale,
             base: TimelineZoomPolicy.weekBaseHourHeight
         )
+        let snappedAxis = makeAxisMap(
+            cache: currentRenderCache,
+            hourHeight: snappedHourHeight
+        )
 
         var transaction = Transaction()
         transaction.disablesAnimations = true
@@ -448,8 +748,8 @@ struct CalendarWeekTimelineView: View {
         }
         isScheduleInteractionActive = false
         if let targetY {
-            let hourAxisOffset = max(0, targetY - timelineTopInset)
-            visibleHour = min(23, max(0, Int((hourAxisOffset / snappedHourHeight).rounded())))
+            let minute = snappedAxis.minute(atY: max(0, targetY - timelineTopInset))
+            visibleHour = min(23, max(0, Int((minute / 60).rounded())))
         }
         LiminalHaptics.selection()
     }
@@ -569,61 +869,67 @@ struct CalendarWeekTimelineView: View {
     }
 
     private func timelineGrid(dayWidth: CGFloat, totalWidth: CGFloat, days: [Date]) -> some View {
-        ZStack(alignment: .topLeading) {
-            Rectangle()
-                .fill(timelineBackground)
-                .frame(width: totalWidth, height: timelineHeight)
+        Canvas(opaque: true, rendersAsynchronously: false) { context, _ in
+            context.fill(
+                Path(CGRect(x: 0, y: 0, width: totalWidth, height: timelineHeight)),
+                with: .color(timelineBackground)
+            )
+            context.fill(
+                Path(CGRect(x: 0, y: 0, width: hourColumnWidth, height: timelineHeight)),
+                with: .color(hourColumnBackground)
+            )
 
-            Rectangle()
-                .fill(hourColumnBackground)
-                .frame(width: hourColumnWidth, height: timelineHeight)
-
-            ForEach(Array(days.enumerated()), id: \.offset) { index, day in
-                Rectangle()
-                    .fill(dayColumnBackground(day))
-                    .frame(width: dayWidth, height: timelineHeight)
-                    .offset(x: dayX(index, dayWidth: dayWidth))
-            }
-
-            ForEach(0...7, id: \.self) { index in
-                Rectangle()
-                    .fill(gridLine)
-                    .frame(width: 1, height: timelineHeight)
-                    .offset(x: hourColumnWidth + CGFloat(index) * (dayWidth + daySpacing) - daySpacing)
-            }
-
-            ForEach(0...24, id: \.self) { hour in
-                let tickY = hourTickCenterY(hour)
-                Rectangle()
-                    .fill(primaryLine)
-                    .frame(width: max(0, totalWidth - hourColumnWidth), height: 1)
-                    .position(
-                        x: hourColumnWidth + max(0, totalWidth - hourColumnWidth) / 2,
-                        y: tickY
-                    )
-
-                if hour < 24 {
-                    Rectangle()
-                        .fill(secondaryLine)
-                        .frame(width: max(0, totalWidth - hourColumnWidth), height: 1)
-                        .position(
-                            x: hourColumnWidth + max(0, totalWidth - hourColumnWidth) / 2,
-                            y: yOffset(for: hour * 60 + 30)
+            for (index, day) in days.enumerated() {
+                context.fill(
+                    Path(
+                        CGRect(
+                            x: dayX(index, dayWidth: dayWidth),
+                            y: 0,
+                            width: dayWidth,
+                            height: timelineHeight
                         )
-                }
+                    ),
+                    with: .color(dayColumnBackground(day))
+                )
+            }
 
-                if hour < 24 {
+            for index in 0...7 {
+                let x = hourColumnWidth + CGFloat(index) * (dayWidth + daySpacing) - daySpacing
+                context.fill(
+                    Path(CGRect(x: x, y: 0, width: 1, height: timelineHeight)),
+                    with: .color(gridLine)
+                )
+            }
+
+            let gridWidth = max(0, totalWidth - hourColumnWidth)
+            for hour in 0...24 {
+                let tickY = hourTickCenterY(hour)
+                context.fill(
+                    Path(CGRect(x: hourColumnWidth, y: tickY - 0.5, width: gridWidth, height: 1)),
+                    with: .color(primaryLine)
+                )
+
+                guard hour < 24 else { continue }
+
+                let secondaryY = yOffset(for: hour * 60 + 30)
+                context.fill(
+                    Path(CGRect(x: hourColumnWidth, y: secondaryY - 0.5, width: gridWidth, height: 1)),
+                    with: .color(secondaryLine)
+                )
+
+                context.draw(
                     Text(hourLabel(hour))
                         .font(.caption2.monospacedDigit().weight(.semibold))
-                        .foregroundStyle(timeText)
-                        .frame(width: hourColumnWidth - 9, height: hourLabelHeight, alignment: .trailing)
-                        .position(
-                            x: (hourColumnWidth - 9) / 2,
-                            y: hourLabelCenterY(forTickY: tickY)
-                        )
-                }
+                        .foregroundStyle(timeText),
+                    at: CGPoint(
+                        x: hourColumnWidth - 9,
+                        y: hourLabelCenterY(forTickY: tickY)
+                    ),
+                    anchor: .trailing
+                )
             }
         }
+        .frame(width: totalWidth, height: timelineHeight)
     }
 
     @ViewBuilder
@@ -666,7 +972,7 @@ struct CalendarWeekTimelineView: View {
     @ViewBuilder
     private func timedPlanBlock(segment: WeekTimedPlanSegment, dayWidth: CGFloat) -> some View {
         let color = planColor(segment.plan)
-        let blockHeight = segment.height(hourHeight: hourHeight)
+        let blockHeight = height(startMinute: segment.startMinute, endMinute: segment.endMinute)
         let isSelected = selectedPlanID == segment.plan.id
         let isLocked = store.isPlanScheduleLocked(segment.plan)
         let overflow = WeekTimedPlanBlockMetrics.verticalOverflow
@@ -919,6 +1225,52 @@ struct CalendarWeekTimelineView: View {
         .allowsHitTesting(false)
     }
 
+    private func presetPlacementDraftView(
+        draft: WeekPresetPlacementDraft,
+        dayWidth: CGFloat
+    ) -> some View {
+        let color = categories.first { $0.id == draft.snapshot.categoryID }?.displayColor
+            ?? LiminalTheme.accent
+        let blockHeight = height(
+            startMinute: draft.snapshot.startMinute,
+            endMinute: draft.snapshot.endMinute
+        )
+        let showsTitle = blockHeight >= 24
+
+        return VStack(alignment: .leading, spacing: 1) {
+            Text(timeText(draft.snapshot.startMinute))
+                .font(.system(size: 8, weight: .bold, design: .monospaced))
+                .lineLimit(1)
+                .minimumScaleFactor(0.68)
+            if showsTitle {
+                Text(draft.snapshot.title)
+                    .font(.system(size: 7.8, weight: .semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+            }
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 2.5)
+        .padding(.vertical, blockHeight < 20 ? 1.5 : 3)
+        .frame(
+            width: max(1, dayWidth - blockInset * 2),
+            height: blockHeight,
+            alignment: .topLeading
+        )
+        .background(color.opacity(0.84), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 5, style: .continuous)
+                .strokeBorder(.white.opacity(0.94), lineWidth: 1.6)
+        }
+        .shadow(color: color.opacity(0.24), radius: 4, y: 2)
+        .offset(
+            x: dayX(draft.dayIndex, dayWidth: dayWidth) + blockInset,
+            y: draft.visualStartY
+        )
+        .allowsHitTesting(false)
+        .zIndex(90)
+    }
+
     private func creationTimeGuide(draft: WeekPlanCreationDraft, dayWidth: CGFloat, totalWidth: CGFloat) -> some View {
         let color = selectedCategory?.displayColor ?? LiminalTheme.accent
         return ZStack(alignment: .topLeading) {
@@ -1162,13 +1514,179 @@ struct CalendarWeekTimelineView: View {
         onScheduleChanged()
     }
 
+    private func addFixedTimePreset(_ preset: PlanPreset) {
+        // 週表示でタップ配置する日は、ページの基準日（現在週なら今日）に固定する。
+        // 任意の曜日へ置く長さ指定プリセットは、カードをその列へドラッグする。
+        let targetDay = days.first { calendar.isDate($0, inSameDayAs: anchorDate) } ?? days[0]
+        guard let interval = preset.snapshot.interval(on: targetDay, calendar: calendar) else {
+            operationError = "プリセットの時刻を読み取れませんでした。"
+            return
+        }
+        if let error = createPlan(from: preset, interval: interval) {
+            operationError = error
+            LiminalHaptics.warning()
+        }
+    }
+
+    private func updateDurationPresetPreview(
+        _ preset: PlanPreset,
+        at location: CGPoint?,
+        dayWidth: CGFloat,
+        totalWidth: CGFloat,
+        allDayLaneHeight: CGFloat,
+        viewportSize: CGSize
+    ) {
+        guard let location,
+              location.x >= 0,
+              location.x <= min(totalWidth, viewportSize.width),
+              location.y >= 0,
+              location.y <= viewportSize.height,
+              let dayIndex = dayIndex(forX: location.x, dayWidth: dayWidth)
+        else {
+            return
+        }
+
+        guard let viewportFrame = presetWindowFrame,
+              let contentFrame = presetTimelineContentFrameSource.currentFrame
+        else {
+            return
+        }
+        let estimatedBlockHeight = height(
+            startMinute: 0,
+            endMinute: preset.snapshot.durationMinutes
+        )
+        let proposedVisualStartY = TimelinePlanPresetPlacementGeometry.previewTopY(
+            fingerY: location.y,
+            cardHeight: estimatedBlockHeight,
+            viewportHeight: viewportSize.height,
+            minimumY: 46 + allDayLaneHeight
+        )
+        let contentY = TimelinePlanPresetPlacementGeometry.axisY(
+            windowFingerY: viewportFrame.minY + proposedVisualStartY,
+            contentFrameMinY: contentFrame.minY,
+            timelineTopInset: timelineTopInset
+        )
+        let rawMinute = Int(timelineAxisMap.minute(atY: contentY).rounded())
+        let step = snapPrecision.minutes
+        let minute = min(24 * 60, max(0, (rawMinute / step) * step))
+        let maximumStartMinute = max(
+            0,
+            TimelineAxisMap.minutesPerDay - preset.snapshot.durationMinutes
+        )
+        guard let snapshot = preset.snapshot.placed(
+            at: min(maximumStartMinute, max(0, minute))
+        ) else {
+            return
+        }
+        let blockHeight = height(
+            startMinute: snapshot.startMinute,
+            endMinute: snapshot.endMinute
+        )
+        let visualStartY = TimelinePlanPresetPlacementGeometry.previewTopY(
+            fingerY: location.y,
+            cardHeight: blockHeight,
+            viewportHeight: viewportSize.height,
+            minimumY: 46 + allDayLaneHeight
+        )
+
+        if interactionScratch.lastPresetFeedbackDayIndex != dayIndex
+            || interactionScratch.lastPresetFeedbackMinute != snapshot.startMinute {
+            interactionScratch.lastPresetFeedbackDayIndex = dayIndex
+            interactionScratch.lastPresetFeedbackMinute = snapshot.startMinute
+            LiminalHaptics.selection()
+        }
+        if presetPlacementDraft?.snapshot.startMinute != snapshot.startMinute
+            || presetPlacementDraft?.dayIndex != dayIndex
+            || presetPlacementDraft?.preset.id != preset.id
+            || abs((presetPlacementDraft?.visualStartY ?? -.infinity) - visualStartY) > 0.25 {
+            presetPlacementDraft = WeekPresetPlacementDraft(
+                preset: preset,
+                snapshot: snapshot,
+                dayIndex: dayIndex,
+                visualStartY: visualStartY
+            )
+        }
+    }
+
+    private func finishDurationPresetDrop(
+        _ preset: PlanPreset,
+        at location: CGPoint?,
+        dayWidth: CGFloat,
+        totalWidth: CGFloat,
+        allDayLaneHeight: CGFloat,
+        viewportSize: CGSize
+    ) -> String? {
+        updateDurationPresetPreview(
+            preset,
+            at: location,
+            dayWidth: dayWidth,
+            totalWidth: totalWidth,
+            allDayLaneHeight: allDayLaneHeight,
+            viewportSize: viewportSize
+        )
+        defer {
+            presetPlacementDraft = nil
+            interactionScratch.lastPresetFeedbackDayIndex = nil
+            interactionScratch.lastPresetFeedbackMinute = nil
+        }
+        guard let draft = presetPlacementDraft,
+              draft.preset.id == preset.id,
+              days.indices.contains(draft.dayIndex),
+              let interval = draft.snapshot.interval(
+                on: days[draft.dayIndex],
+                calendar: calendar
+              )
+        else {
+            return "タイムライン上へ移動してから指を離してください。"
+        }
+        return createPlan(from: preset, snapshot: draft.snapshot, interval: interval)
+    }
+
+    private func createPlan(
+        from preset: PlanPreset,
+        snapshot: PlanTemplateSnapshot? = nil,
+        interval: DateInterval
+    ) -> String? {
+        let source = snapshot ?? preset.snapshot
+        guard store.canCreatePlan(startTime: interval.start, isAllDay: source.isAllDay) else {
+            return "この日には予定を追加できません。"
+        }
+        let category = categories.first { $0.id == source.categoryID }
+        if !source.isAllDay && store.hasTimedPlanOverlap(startTime: interval.start, endTime: interval.end) {
+            presetApplyRequest = PlanTemplateApplyRequest(
+                applications: [.init(snapshot: source, resolvedCategory: category)], targetDate: interval.start,
+                onApplied: {
+                    _ = planPresetStore.markUsed(preset)
+                    onScheduleChanged()
+                })
+            return nil
+        }
+        guard let plan = store.createPlanBlock(
+            category: category,
+            title: source.title,
+            startTime: interval.start,
+            endTime: interval.end,
+            isAllDay: source.isAllDay,
+            isImportant: source.isImportant,
+            note: source.note,
+            isPublic: source.isPublic
+        ) else {
+            return "予定を追加できませんでした。"
+        }
+        selectedPlanID = plan.id
+        _ = planPresetStore.markUsed(preset)
+        LiminalHaptics.commit()
+        onScheduleChanged()
+        return nil
+    }
+
     private func requestDeletePlan(_ plan: PlanBlock) {
-        guard selectedPlanID == plan.id,
-              !store.isPlanScheduleLocked(plan),
+        guard !store.isPlanScheduleLocked(plan),
               movingDrafts.isEmpty,
               resizeBaseline == nil,
               activeResizeEdge == nil
         else { return }
+        selectedPlanID = plan.id
         planPendingDeletion = plan
         LiminalHaptics.selection()
     }
@@ -1191,7 +1709,7 @@ struct CalendarWeekTimelineView: View {
             let x = dayX(segment.dayIndex, dayWidth: dayWidth) + blockInset
             let y = yOffset(for: segment.startMinute)
             let width = max(1, dayWidth - blockInset * 2)
-            let height = segment.height(hourHeight: hourHeight)
+            let height = height(startMinute: segment.startMinute, endMinute: segment.endMinute)
             let slop = WeekTimedPlanBlockMetrics.creationHitSlop
             return point.x >= x - slop &&
                 point.x <= x + width + slop &&
@@ -1250,70 +1768,6 @@ struct CalendarWeekTimelineView: View {
             }
     }
 
-    @ViewBuilder
-    private func deleteConfirmationBubble(
-        dayWidth: CGFloat,
-        totalWidth: CGFloat,
-        timedSegments: [WeekTimedPlanSegment]
-    ) -> some View {
-        if let plan = planPendingDeletion,
-           let segment = timedSegments.first(where: { $0.plan.id == plan.id }) {
-            let cardWidth = max(1, dayWidth - blockInset * 2)
-            let blockX = dayX(segment.dayIndex, dayWidth: dayWidth) + blockInset
-            let blockY = yOffset(for: segment.startMinute)
-            let blockHeight = height(startMinute: segment.startMinute, endMinute: segment.endMinute)
-            let bubbleSize = deleteConfirmationBubbleSize(containerWidth: totalWidth)
-            TimelineDeleteConfirmationBubble(
-                onCancel: {
-                    planPendingDeletion = nil
-                },
-                onDelete: {
-                    deletePlan(plan)
-                }
-            )
-            .frame(width: bubbleSize.width, height: bubbleSize.height)
-            .position(
-                deleteConfirmationBubbleCenter(
-                    anchorX: blockX + cardWidth / 2,
-                    blockY: blockY,
-                    blockHeight: blockHeight,
-                    containerWidth: totalWidth,
-                    bubbleSize: bubbleSize
-                )
-            )
-            .transition(.scale(scale: 0.96).combined(with: .opacity))
-            .zIndex(240)
-        }
-    }
-
-    private func deleteConfirmationBubbleSize(containerWidth: CGFloat) -> CGSize {
-        CGSize(
-            width: min(max(180, containerWidth - 24), TimelineDeleteConfirmationBubble.preferredWidth),
-            height: TimelineDeleteConfirmationBubble.preferredHeight
-        )
-    }
-
-    private func deleteConfirmationBubbleCenter(
-        anchorX: CGFloat,
-        blockY: CGFloat,
-        blockHeight: CGFloat,
-        containerWidth: CGFloat,
-        bubbleSize: CGSize
-    ) -> CGPoint {
-        let horizontalInset: CGFloat = 10
-        let verticalInset: CGFloat = 6
-        let gap: CGFloat = 8
-        let minX = bubbleSize.width / 2 + horizontalInset
-        let maxX = max(minX, containerWidth - bubbleSize.width / 2 - horizontalInset)
-        let x = min(max(anchorX, minX), maxX)
-        let minY = bubbleSize.height / 2 + verticalInset
-        let maxY = max(minY, timelineHeight - bubbleSize.height / 2 - verticalInset)
-        let aboveY = blockY - gap - bubbleSize.height / 2
-        let belowY = blockY + blockHeight + gap + bubbleSize.height / 2
-        let preferredY = aboveY >= minY ? aboveY : belowY
-        return CGPoint(x: x, y: min(max(preferredY, minY), maxY))
-    }
-
     private func moveGesture(for segment: WeekTimedPlanSegment, dayWidth: CGFloat) -> some Gesture {
         DragGesture(minimumDistance: 2)
             .onChanged { value in
@@ -1328,10 +1782,6 @@ struct CalendarWeekTimelineView: View {
                     movingSegmentIdentityDayByPlanID[segment.plan.id] = segment.dayIndex
                 }
                 resizeBaseline = nil
-                if let step = moveFeedbackStep(for: segment, translation: dragTranslation(value), dayWidth: dayWidth),
-                   interactionScratch.lastMoveFeedbackStep == step {
-                    return
-                }
                 if let drafts = moveDrafts(for: segment, translation: dragTranslation(value), dayWidth: dayWidth) {
                     updateMovingDrafts(drafts)
                     notifyMoveStepIfNeeded(from: drafts, planID: segment.plan.id, fallbackDayIndex: segment.dayIndex)
@@ -1639,15 +2089,18 @@ struct CalendarWeekTimelineView: View {
     }
 
     private var currentRenderCache: WeekTimelineRenderCache {
-        if let renderCache, renderCache.key == renderCacheKey {
+        if let renderCache = interactionScratch.renderCache,
+           renderCache.key == renderCacheKey {
             return renderCache
         }
-        return makeRenderCache(for: renderCacheKey)
+        let cache = makeRenderCache(for: renderCacheKey)
+        interactionScratch.renderCache = cache
+        return cache
     }
 
     private func refreshRenderCache() {
         let cache = makeRenderCache(for: renderCacheKey)
-        renderCache = cache
+        interactionScratch.renderCache = cache
         resetSelectionIfHidden(visiblePlanIDs: cache.snapshot.visibleTimedPlanIDs)
     }
 
@@ -1669,6 +2122,15 @@ struct CalendarWeekTimelineView: View {
             displayPlans = sortedPlans
         }
         let timedSegments = timedSegments(from: displayPlans, days: days, drafts: [:], identityDays: [:])
+        let axisProfile = TimelineAxisProfile(
+            intervals: timedSegments.map {
+                TimelineAxisInterval(
+                    startMinute: $0.startMinute,
+                    endMinute: $0.endMinute
+                )
+            },
+            minimumIntervalHeight: WeekTimedPlanBlockMetrics.minimumReadableHeight
+        )
         let allDayPlansByDay = allDayPlansByDay(from: displayPlans, days: days)
         let snapshot = WeekTimelineRenderSnapshot(
             days: days,
@@ -1682,6 +2144,7 @@ struct CalendarWeekTimelineView: View {
             displayPlans: displayPlans,
             plansByID: Dictionary(uniqueKeysWithValues: sortedPlans.map { ($0.id, $0) }),
             timedSegmentsByPlanID: Dictionary(grouping: timedSegments) { $0.plan.id },
+            axisProfile: axisProfile,
             snapshot: snapshot
         )
     }
@@ -1786,11 +2249,12 @@ struct CalendarWeekTimelineView: View {
     }
 
     private var timelineHeight: CGFloat {
-        timelineTopInset + hourHeight * 24
+        timelineTopInset + timelineAxisMap.contentHeight
     }
 
     private var shouldDisableTimelineScroll: Bool {
         zoomGestureIsActive ||
+            presetDragIsActive ||
             creationGestureIsActive ||
             creationDraft != nil ||
             !movingDrafts.isEmpty ||
@@ -1817,6 +2281,16 @@ struct CalendarWeekTimelineView: View {
         } set: { isPresented in
             if !isPresented {
                 operationError = nil
+            }
+        }
+    }
+
+    private var deleteConfirmationPresented: Binding<Bool> {
+        Binding {
+            planPendingDeletion != nil
+        } set: { isPresented in
+            if !isPresented {
+                planPendingDeletion = nil
             }
         }
     }
@@ -1858,11 +2332,14 @@ struct CalendarWeekTimelineView: View {
     }
 
     private func yOffset(for minute: Int) -> CGFloat {
-        timelineTopInset + CGFloat(minute) / 60 * hourHeight
+        timelineTopInset + timelineAxisMap.y(forMinute: minute)
     }
 
     private func height(startMinute: Int, endMinute: Int) -> CGFloat {
-        max(14, CGFloat(max(15, endMinute - startMinute)) / 60 * hourHeight - 1)
+        timelineAxisMap.height(
+            startMinute: startMinute,
+            endMinute: endMinute
+        )
     }
 
     private func weekResizeHandleWidth(dayWidth: CGFloat, timelineWidth: CGFloat) -> CGFloat {
@@ -1876,14 +2353,15 @@ struct CalendarWeekTimelineView: View {
     }
 
     private func snappedMinute(fromY y: CGFloat) -> Int {
-        let timelineY = max(0, min(hourHeight * 24, y - timelineTopInset))
-        let raw = Int((timelineY / hourHeight * 60).rounded())
+        let raw = Int(timelineAxisMap.minute(atY: y - timelineTopInset).rounded())
         let step = snapPrecision.minutes
         return min(24 * 60, max(0, (raw / step) * step))
     }
 
-    private func snappedMinuteDelta(_ y: CGFloat) -> Int {
-        let raw = Int((y / hourHeight * 60).rounded())
+    private func snappedMinuteDelta(_ y: CGFloat, from originalMinute: Int) -> Int {
+        let originalY = timelineAxisMap.y(forMinute: originalMinute)
+        let targetMinute = timelineAxisMap.minute(atY: originalY + y)
+        let raw = Int((targetMinute - CGFloat(originalMinute)).rounded())
         let step = snapPrecision.minutes
         return Int((Double(raw) / Double(step)).rounded()) * step
     }
@@ -1917,7 +2395,7 @@ struct CalendarWeekTimelineView: View {
         let targetDayIndex = max(0, min(days.count - 1, originalDayIndex + dayDelta))
         let originalMinute = segment.startMinute
         let durationMinutes = max(1, Int((duration / 60).rounded()))
-        let relativeDelta = snappedMinuteDelta(translation.height)
+        let relativeDelta = snappedMinuteDelta(translation.height, from: originalMinute)
         let proposedMinute = TimelineSnapPolicy.alignedMinute(
             originalMinute: originalMinute,
             relativeDelta: relativeDelta,
@@ -1925,30 +2403,24 @@ struct CalendarWeekTimelineView: View {
         )
         let clampedMinute = max(0, min(24 * 60 - durationMinutes, proposedMinute))
         let direction: PlanTimelinePushDirection = proposedMinute >= originalMinute ? .later : .earlier
-        return resolvedDrafts(
-            for: segment.plan,
+        let request = WeekMoveRequest(
             dayIndex: targetDayIndex,
             proposedStartMinute: clampedMinute,
             proposedEndMinute: clampedMinute + durationMinutes,
-            direction: direction,
+            direction: direction
+        )
+        guard interactionScratch.lastMoveRequest != request else {
+            return movingDrafts
+        }
+        interactionScratch.lastMoveRequest = request
+        return resolvedDrafts(
+            for: segment.plan,
+            dayIndex: request.dayIndex,
+            proposedStartMinute: request.proposedStartMinute,
+            proposedEndMinute: request.proposedEndMinute,
+            direction: request.direction,
             adjustment: .move
         )
-    }
-
-    private func moveFeedbackStep(for segment: WeekTimedPlanSegment, translation: CGSize, dayWidth: CGFloat) -> WeekMoveFeedbackStep? {
-        guard days.indices.contains(segment.dayIndex) else { return nil }
-        let duration = max(60.0, segment.plan.endTime.timeIntervalSince(segment.plan.startTime))
-        let dayDelta = Int((translation.width / max(1, dayWidth + daySpacing)).rounded())
-        let targetDayIndex = max(0, min(days.count - 1, segment.dayIndex + dayDelta))
-        let durationMinutes = max(1, Int((duration / 60).rounded()))
-        let relativeDelta = snappedMinuteDelta(translation.height)
-        let proposedMinute = TimelineSnapPolicy.alignedMinute(
-            originalMinute: segment.startMinute,
-            relativeDelta: relativeDelta,
-            precision: snapPrecision
-        )
-        let clampedMinute = max(0, min(24 * 60 - durationMinutes, proposedMinute))
-        return WeekMoveFeedbackStep(dayIndex: targetDayIndex, minute: clampedMinute)
     }
 
     private func applyAccessibilityMove(
@@ -1960,7 +2432,8 @@ struct CalendarWeekTimelineView: View {
         guard selectedPlanID == segment.plan.id, !store.isPlanScheduleLocked(segment.plan) else { return }
         let translation = CGSize(
             width: CGFloat(dayDelta) * (dayWidth + daySpacing),
-            height: CGFloat(minuteDelta) / 60 * hourHeight
+            height: timelineAxisMap.y(forMinute: segment.startMinute + minuteDelta)
+                - timelineAxisMap.y(forMinute: segment.startMinute)
         )
         guard let drafts = moveDrafts(for: segment, translation: translation, dayWidth: dayWidth) else {
             operationError = "予定を移動できませんでした。今日以前や収まりきらない玉突き移動は変更できません。"
@@ -1973,7 +2446,9 @@ struct CalendarWeekTimelineView: View {
     private func applyAccessibilityResize(segment: WeekTimedPlanSegment, edge: WeekResizeEdge, minuteDelta: Int) {
         guard selectedPlanID == segment.plan.id, !store.isPlanScheduleLocked(segment.plan) else { return }
         let baseline = WeekResizeBaseline(segment: segment)
-        let translationY = CGFloat(minuteDelta) / 60 * hourHeight
+        let originalMinute = edge == .start ? baseline.startMinute : baseline.endMinute
+        let translationY = timelineAxisMap.y(forMinute: originalMinute + minuteDelta)
+            - timelineAxisMap.y(forMinute: originalMinute)
         guard let drafts = resizeDrafts(
             for: segment.plan,
             baseline: baseline,
@@ -1994,8 +2469,8 @@ struct CalendarWeekTimelineView: View {
         translationY: CGFloat
     ) -> [UUID: WeekPlanMoveDraft]? {
         guard days.indices.contains(baseline.dayIndex) else { return nil }
-        let relativeDelta = snappedMinuteDelta(translationY)
         let originalMinute = edge == .start ? baseline.startMinute : baseline.endMinute
+        let relativeDelta = snappedMinuteDelta(translationY, from: originalMinute)
         let delta = TimelineSnapPolicy.alignedDelta(
             originalMinute: originalMinute,
             relativeDelta: relativeDelta,
@@ -2063,50 +2538,21 @@ struct CalendarWeekTimelineView: View {
         direction: PlanTimelinePushDirection,
         adjustment: PlanTimelineAdjustment
     ) -> [UUID: WeekPlanMoveDraft]? {
-        guard days.indices.contains(dayIndex) else { return nil }
+        guard let baseline = dayScheduleBaseline(for: dayIndex) else { return nil }
         let day = days[dayIndex]
-        let dayStart = calendar.startOfDay(for: day)
-        guard let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) else { return nil }
 
-        // Keep the actual persisted positions separate from the proposed
-        // editing interval. Draft filtering must compare the resolver result
-        // with these values; comparing against the proposal drops the editing
-        // plan itself and can leave only pushed neighbours to be saved.
-        let originalIntervalsByID = Dictionary(
-            uniqueKeysWithValues: sortedPlans
-                .filter { !$0.isAllDay }
-                .compactMap { plan -> (UUID, PlanTimelineInterval)? in
-                    guard plan.startTime < dayEnd, plan.endTime > dayStart else { return nil }
-                    let clippedStart = max(plan.startTime, dayStart)
-                    let clippedEnd = min(plan.endTime, dayEnd)
-                    guard clippedEnd > clippedStart else { return nil }
-                    return (
-                        plan.id,
-                        PlanTimelineInterval(
-                            id: plan.id,
-                            startMinute: minute(from: clippedStart, dayStart: dayStart),
-                            endMinute: minute(from: clippedEnd, dayStart: dayStart)
-                        )
-                    )
-                }
+        // The persisted day layout is stable for the duration of one gesture.
+        // Reuse it and replace only the actively edited interval instead of
+        // rebuilding both arrays from every plan at each snap step.
+        var intervals = baseline.intervals.filter { $0.id != editingPlan.id }
+        intervals.append(
+            PlanTimelineInterval(
+                id: editingPlan.id,
+                startMinute: proposedStartMinute,
+                endMinute: proposedEndMinute,
+                isLocked: store.isPlanScheduleLocked(editingPlan) || !isPlanVisible(editingPlan)
+            )
         )
-
-        let intervals = sortedPlans
-            .filter { !$0.isAllDay }
-            .compactMap { plan -> PlanTimelineInterval? in
-                let startTime = plan.id == editingPlan.id ? date(on: day, minute: proposedStartMinute) : plan.startTime
-                let endTime = plan.id == editingPlan.id ? date(on: day, minute: proposedEndMinute) : plan.endTime
-                guard startTime < dayEnd, endTime > dayStart else { return nil }
-                let clippedStart = max(startTime, dayStart)
-                let clippedEnd = min(endTime, dayEnd)
-                guard clippedEnd > clippedStart else { return nil }
-                return PlanTimelineInterval(
-                    id: plan.id,
-                    startMinute: minute(from: clippedStart, dayStart: dayStart),
-                    endMinute: minute(from: clippedEnd, dayStart: dayStart),
-                    isLocked: store.isPlanScheduleLocked(plan) || !isPlanVisible(plan)
-                )
-            }
 
         let effectiveMinimumDuration = adjustment == .move
             ? max(1, proposedEndMinute - proposedStartMinute)
@@ -2125,7 +2571,7 @@ struct CalendarWeekTimelineView: View {
 
         let changedIntervals = PlanTimelineRescheduler.changedIntervals(
             in: resolved,
-            comparedTo: originalIntervalsByID
+            comparedTo: baseline.originalIntervalsByID
         )
         return Dictionary(
             uniqueKeysWithValues: changedIntervals.map { interval -> (UUID, WeekPlanMoveDraft) in
@@ -2139,6 +2585,47 @@ struct CalendarWeekTimelineView: View {
                 )
             }
         )
+    }
+
+    private func dayScheduleBaseline(for dayIndex: Int) -> WeekTimelineDayScheduleBaseline? {
+        if let cached = interactionScratch.dayScheduleBaselines[dayIndex] {
+            return cached
+        }
+        guard days.indices.contains(dayIndex) else { return nil }
+        let dayStart = calendar.startOfDay(for: days[dayIndex])
+        guard let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) else { return nil }
+
+        var originalsByID: [UUID: PlanTimelineInterval] = [:]
+        var collisionIntervals: [PlanTimelineInterval] = []
+        collisionIntervals.reserveCapacity(sortedPlans.count)
+
+        for plan in sortedPlans where !plan.isAllDay {
+            guard plan.startTime < dayEnd, plan.endTime > dayStart else { continue }
+            let clippedStart = max(plan.startTime, dayStart)
+            let clippedEnd = min(plan.endTime, dayEnd)
+            guard clippedEnd > clippedStart else { continue }
+            let original = PlanTimelineInterval(
+                id: plan.id,
+                startMinute: minute(from: clippedStart, dayStart: dayStart),
+                endMinute: minute(from: clippedEnd, dayStart: dayStart)
+            )
+            originalsByID[plan.id] = original
+            collisionIntervals.append(
+                PlanTimelineInterval(
+                    id: original.id,
+                    startMinute: original.startMinute,
+                    endMinute: original.endMinute,
+                    isLocked: store.isPlanScheduleLocked(plan) || !isPlanVisible(plan)
+                )
+            )
+        }
+
+        let baseline = WeekTimelineDayScheduleBaseline(
+            originalIntervalsByID: originalsByID,
+            intervals: collisionIntervals
+        )
+        interactionScratch.dayScheduleBaselines[dayIndex] = baseline
+        return baseline
     }
 
     private func finishScheduleDrafts(_ drafts: [UUID: WeekPlanMoveDraft], failureMessage: String) {
@@ -2230,11 +2717,11 @@ struct CalendarWeekTimelineView: View {
     }
 
     private func hourLabel(_ hour: Int) -> String {
-        String(format: "%02d:00", hour)
+        TimelineHourAxisMetrics.label(for: hour)
     }
 
     private func hourTickCenterY(_ hour: Int) -> CGFloat {
-        let rawY = timelineTopInset + CGFloat(hour) * hourHeight
+        let rawY = yOffset(for: hour * 60)
         return min(max(0.5, rawY), max(0.5, timelineHeight - 0.5))
     }
 
@@ -2332,10 +2819,6 @@ private struct WeekTimedPlanSegment: Identifiable {
         // Keep identity stable while dragging; changing this mid-gesture cancels the drag.
         "\(plan.id.uuidString)-\(identityDayIndex)"
     }
-
-    func height(hourHeight: CGFloat) -> CGFloat {
-        max(14, CGFloat(max(15, endMinute - startMinute)) / 60 * hourHeight - 1)
-    }
 }
 
 private struct WeekPlanCreationDraft {
@@ -2391,6 +2874,7 @@ private struct WeekMoveFeedbackStep: Equatable {
 }
 
 private enum WeekTimedPlanBlockMetrics {
+    static let minimumReadableHeight: CGFloat = 18
     static let verticalOverflow: CGFloat = 34
     static let resizeHandleHeight: CGFloat = 40
     static let resizeHitHandleHeight: CGFloat = 38
@@ -2410,6 +2894,7 @@ private enum WeekTimedPlanBlockMetrics {
     CalendarWeekTimelineView(
         anchorDate: Date(),
         categories: [],
+        planPresets: [],
         visibleCategoryIDs: nil,
         plans: [],
         planTitleFontSize: 6,

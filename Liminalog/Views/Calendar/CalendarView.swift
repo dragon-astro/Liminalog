@@ -47,6 +47,7 @@ struct CalendarView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: [SortDescriptor(\Category.sortOrder), SortDescriptor(\Category.createdAt)]) private var categories: [Category]
     @Query(sort: [SortDescriptor(\Friend.displayName), SortDescriptor(\Friend.createdAt)]) private var friends: [Friend]
+    @Query(sort: [SortDescriptor(\PlanPreset.sortOrder), SortDescriptor(\PlanPreset.createdAt)]) private var planPresets: [PlanPreset]
 
     @AppStorage("calendar.filter.usesCustomCategories") private var usesCustomCategoryFilter = false
     @AppStorage("calendar.filter.categoryIDs") private var storedCategoryFilterIDs = ""
@@ -72,7 +73,7 @@ struct CalendarView: View {
     @State private var selectedDay: CalendarDayPresentation?
     @State private var editingPlan: PlanBlock?
     @State private var pendingPlanCreation: CalendarPlanCreationRequest?
-    @State private var displayMode = CalendarDisplayMode.month
+    @State private var displayMode = Self.initialDisplayMode()
     @State private var timelineAnchorDate = Calendar.japanese.startOfDay(for: Date())
     @State private var selectedTimelineCategoryID: UUID?
     @State private var clock = TickClock(interval: 60)
@@ -82,15 +83,51 @@ struct CalendarView: View {
     @State private var timelinePlanDataByPage: [CalendarTimelinePlanPageKey: [PlanBlock]] = [:]
     @State private var showingTimelineCategoryEditor = false
     @State private var pendingCreatedTimelineCategoryID: UUID?
+    @State private var timelineDayPresetRequest: CalendarTimelineDayPresetRequest?
+    @State private var timelinePresetInteractionCoordinator = TimelinePlanPresetInteractionCoordinator()
+    @State private var timelinePresetDrawerPresented = Self.initialPresetDrawerPresentation()
+    @State private var opensCalendarSettingsAfterPresetDrawerDismiss = false
 
     private let calendar = Calendar.japanese
     private let weekdays = Calendar.japaneseShortWeekdaySymbols
     private let monthPageOffsets = Array(-480...480)
-    private let timelinePageOffsets = Array(-240...240)
+    private let timelinePageOffsets = Array(-60...60)
+    private let timelinePresetOverlayCoordinateSpaceName = "calendar-timeline-preset-overlay"
 
     private static var currentMonthStart: Date {
         let cal = Calendar.japanese
         return cal.date(from: cal.dateComponents([.year, .month], from: Date())) ?? Date()
+    }
+
+    private static func initialDisplayMode() -> CalendarDisplayMode {
+        #if DEBUG
+        if let environmentValue = ProcessInfo.processInfo.environment["LiminalogInitialCalendarMode"] {
+            switch environmentValue.lowercased() {
+            case "day": return .day
+            case "week": return .week
+            default: break
+            }
+        }
+
+        let arguments = ProcessInfo.processInfo.arguments
+        if let flagIndex = arguments.firstIndex(of: "-LiminalogInitialCalendarMode"),
+           arguments.indices.contains(arguments.index(after: flagIndex)) {
+            switch arguments[arguments.index(after: flagIndex)].lowercased() {
+            case "day": return .day
+            case "week": return .week
+            default: break
+            }
+        }
+        #endif
+        return .month
+    }
+
+    private static func initialPresetDrawerPresentation() -> Bool {
+        #if DEBUG
+        ProcessInfo.processInfo.arguments.contains("-LiminalogDebugOpenPlanPresetDrawer")
+        #else
+        false
+        #endif
     }
 
     var body: some View {
@@ -146,6 +183,14 @@ struct CalendarView: View {
                 CategoryEditSheet(category: nil) { category in
                     handleCreatedTimelineCategory(category)
                 }
+            }
+            .sheet(item: $timelineDayPresetRequest, onDismiss: reloadTimelinePlanData) { request in
+                DayPresetApplySheet(
+                    targetDate: request.date,
+                    existingPlans: request.existingPlans
+                )
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
             }
             .sheet(item: $selectedDay, onDismiss: reloadVisibleData) { target in
                 NavigationStack {
@@ -266,7 +311,12 @@ struct CalendarView: View {
     private var calendarSettingsButton: some View {
         Button {
             LiminalHaptics.openSheet()
-            showingCalendarSettings = true
+            if timelinePresetDrawerPresented {
+                opensCalendarSettingsAfterPresetDrawerDismiss = true
+                timelinePresetDrawerPresented = false
+            } else {
+                showingCalendarSettings = true
+            }
         } label: {
             Image(systemName: "gearshape")
                 .font(.title3.weight(.semibold))
@@ -297,6 +347,14 @@ struct CalendarView: View {
         .buttonStyle(.plain)
         .foregroundStyle(calendarSideButtonTint)
         .accessibilityLabel("カレンダー表示を切り替え")
+    }
+
+    private func openCalendarSettingsAfterPresetDrawerIfNeeded() {
+        guard opensCalendarSettingsAfterPresetDrawerDismiss else { return }
+        opensCalendarSettingsAfterPresetDrawerDismiss = false
+        DispatchQueue.main.async {
+            showingCalendarSettings = true
+        }
     }
 
     private var calendarUtilityButtons: some View {
@@ -377,12 +435,17 @@ struct CalendarView: View {
                     CalendarWeekTimelineView(
                         anchorDate: timelineDate(offset: offset),
                         categories: timelineSelectableCategories,
+                        planPresets: planPresets,
                         visibleCategoryIDs: usesCustomCategoryFilter ? selectedCategoryIDs : nil,
                         plans: cachedTimelinePlans(for: offset),
                         planTitleFontSize: normalizedTimelinePlanTitleFontSize,
                         planTitleBold: planTitleBold,
                         isInteractionEnabled: isInteractionEnabled,
                         isPageSwipeActive: !isInteractionEnabled,
+                        presetInteractionCoordinator: timelinePresetInteractionCoordinator,
+                        presetExternalCoordinateSpaceName: nil,
+                        presetDrawerPresentation: $timelinePresetDrawerPresented,
+                        onPresetDrawerDismiss: openCalendarSettingsAfterPresetDrawerIfNeeded,
                         visibleHour: $timelineVisibleHour,
                         selectedCategoryID: $selectedTimelineCategoryID,
                         isScheduleInteractionActive: $timelineScheduleInteractionActive,
@@ -406,15 +469,22 @@ struct CalendarView: View {
                     CalendarDayTimelineContainer(
                         date: timelineDate(offset: offset),
                         categories: timelineSelectableCategories,
+                        planPresets: planPresets,
                         visibleCategoryIDs: usesCustomCategoryFilter ? selectedCategoryIDs : nil,
                         plans: cachedTimelinePlans(for: offset),
                         planTitleFontSize: normalizedTimelinePlanTitleFontSize,
                         planTitleBold: planTitleBold,
                         isInteractionEnabled: isInteractionEnabled,
                         isPageSwipeActive: !isInteractionEnabled,
+                        presetInteractionCoordinator: timelinePresetInteractionCoordinator,
+                        presetExternalCoordinateSpaceName: nil,
                         visibleHour: $timelineVisibleHour,
                         selectedCategoryID: $selectedTimelineCategoryID,
                         isScheduleInteractionActive: $timelineScheduleInteractionActive,
+                        onOpenDay: { date in
+                            LiminalHaptics.openSheet()
+                            selectedDay = CalendarDayPresentation(date: date, planID: nil)
+                        },
                         onEditPlan: { plan in
                             LiminalHaptics.openSheet()
                             editingPlan = plan
@@ -429,10 +499,28 @@ struct CalendarView: View {
     }
 
     private func timelineModeContent<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            timelineCategoryPalette
-            content()
+        ZStack(alignment: .bottomTrailing) {
+            VStack(alignment: .leading, spacing: 0) {
+                timelineCategoryPalette
+                content()
+            }
+
+            if displayMode != .week, !planPresets.isEmpty {
+                TimelinePlanPresetLibrary(
+                    presets: planPresets,
+                    categories: timelineSelectableCategories,
+                    onFixedTimeTap: timelinePresetInteractionCoordinator.addFixedTimePreset,
+                    onDurationDragChanged: timelinePresetInteractionCoordinator.updateDurationPreset,
+                    onDurationDrop: timelinePresetInteractionCoordinator.finishDurationPreset,
+                    onDraggingChanged: timelinePresetInteractionCoordinator.setDragging,
+                    launcherPlacement: .externalControl,
+                    isPresented: $timelinePresetDrawerPresented,
+                    onDismiss: openCalendarSettingsAfterPresetDrawerIfNeeded
+                )
+                .zIndex(100)
+            }
         }
+        .coordinateSpace(name: timelinePresetOverlayCoordinateSpaceName)
         .onAppear {
             normalizeSelectedTimelineCategory()
         }
@@ -445,6 +533,37 @@ struct CalendarView: View {
     private var timelineCategoryPalette: some View {
         ScrollView(.horizontal) {
             HStack(spacing: 8) {
+                if displayMode != .month, !planPresets.isEmpty {
+                    Button {
+                        LiminalHaptics.openSheet()
+                        timelinePresetDrawerPresented = true
+                    } label: {
+                        TimelineCategoryStatusChip(
+                            title: "予定プリセット",
+                            systemImage: "bookmark.fill",
+                            accessibilityLabel: "予定プリセットを開く"
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                if displayMode == .day {
+                    Button {
+                        LiminalHaptics.openSheet()
+                        timelineDayPresetRequest = CalendarTimelineDayPresetRequest(
+                            date: visibleTimelineDate,
+                            existingPlans: cachedTimelinePlans(for: currentTimelineOffset)
+                        )
+                    } label: {
+                        TimelineCategoryStatusChip(
+                            title: "一日プリセット",
+                            systemImage: "calendar.badge.clock",
+                            accessibilityLabel: "一日プリセットを適用"
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+
                 if timelineSelectableCategories.isEmpty {
                     Button {
                         LiminalHaptics.openSheet()
@@ -479,6 +598,7 @@ struct CalendarView: View {
                     TimelineCreateCategoryChip()
                 }
                 .buttonStyle(.plain)
+
             }
             .padding(.vertical, 2)
             .padding(.horizontal, 12)
@@ -666,12 +786,16 @@ struct CalendarView: View {
               let fetchEnd = intervalsByOffset.values.map(\.end).max()
         else { return }
 
-        let fetchedPlans = fetchTimelinePlans(for: DateInterval(start: fetchStart, end: fetchEnd))
-        performWithoutAnimation {
-            for offset in missingOffsets {
-                guard let interval = intervalsByOffset[offset] else { continue }
-                timelinePlanDataByPage[timelinePlanPageKey(forOffset: offset)] = fetchedPlans.filter {
-                    $0.startTime < interval.end && $0.endTime > interval.start
+        let fetchedPlans = TabPerformanceDiagnostics.measure("Calendar timeline fetch") {
+            fetchTimelinePlans(for: DateInterval(start: fetchStart, end: fetchEnd))
+        }
+        TabPerformanceDiagnostics.measure("Calendar timeline page cache") {
+            performWithoutAnimation {
+                for offset in missingOffsets {
+                    guard let interval = intervalsByOffset[offset] else { continue }
+                    timelinePlanDataByPage[timelinePlanPageKey(forOffset: offset)] = fetchedPlans.filter {
+                        $0.startTime < interval.end && $0.endTime > interval.start
+                    }
                 }
             }
         }
@@ -681,7 +805,9 @@ struct CalendarView: View {
         guard displayMode != .month else { return }
         let retainedKeys = Set((-1...1).map { timelinePlanPageKey(forOffset: offset + $0) })
         performWithoutAnimation {
-            timelinePlanDataByPage = timelinePlanDataByPage.filter { retainedKeys.contains($0.key) }
+            timelinePlanDataByPage = timelinePlanDataByPage.filter { key, _ in
+                key.mode != displayMode || retainedKeys.contains(key)
+            }
         }
     }
 
@@ -752,12 +878,9 @@ struct CalendarView: View {
         performWithoutAnimation {
             displayMode = mode
         }
-        if mode == .month {
-            performWithoutAnimation {
-                timelinePlanDataByPage.removeAll()
-            }
-        } else {
-            reloadTimelinePlanData()
+        if mode != .month {
+            ensureTimelinePlanPagesAroundCurrentOffset()
+            pruneTimelinePlanData(around: currentTimelineOffset)
         }
     }
 
@@ -1001,10 +1124,11 @@ struct CalendarView: View {
             let monthOffset = currentMonthOffset
             performWithoutAnimation {
                 pageDataByMonth.removeAll()
+                timelinePlanDataByPage.removeAll()
             }
             ensureData(around: monthOffset)
             if displayMode != .month {
-                reloadTimelinePlanData()
+                ensureTimelinePlanPagesAroundCurrentOffset()
             }
             loadedContentRevision = store.contentRevision
             loadedExternalRefreshRevision = externalRefreshRevision
@@ -1045,8 +1169,11 @@ struct CalendarView: View {
         }
 
         pruneMonthPageData(around: visibleOffset)
+        performWithoutAnimation {
+            timelinePlanDataByPage.removeAll()
+        }
         if displayMode != .month {
-            reloadTimelinePlanData()
+            ensureTimelinePlanPagesAroundCurrentOffset()
         }
         loadedContentRevision = targetContentRevision
     }
@@ -1403,62 +1530,87 @@ private struct CalendarTimelinePlanPageKey: Hashable {
     let start: Date
 }
 
-private struct CalendarDayTimelineContainer: View {
+private struct CalendarTimelineDayPresetRequest: Identifiable {
+    let id = UUID()
+    let date: Date
+    let existingPlans: [PlanBlock]
+}
+
+enum CalendarTimelineCardMetrics {
+    static let horizontalPadding: CGFloat = 12
+    static let topPadding: CGFloat = 6
+    static let bottomPadding: CGFloat = 8
+}
+
+struct CalendarDayTimelineContainer: View {
     @Environment(ChapterStore.self) private var store
     @Environment(\.colorScheme) private var colorScheme
 
     let date: Date
     let categories: [Category]
+    let planPresets: [PlanPreset]
     let visibleCategoryIDs: Set<UUID>?
     let plans: [PlanBlock]
     let planTitleFontSize: Double
     let planTitleBold: Bool
     let isInteractionEnabled: Bool
     let isPageSwipeActive: Bool
+    let presetInteractionCoordinator: TimelinePlanPresetInteractionCoordinator?
+    let presetExternalCoordinateSpaceName: String?
     @Binding var visibleHour: Int
     @Binding var selectedCategoryID: UUID?
     @Binding var isScheduleInteractionActive: Bool
+    let onOpenDay: ((Date) -> Void)?
     let onEditPlan: (PlanBlock) -> Void
     let onScheduleChanged: () -> Void
-    private let bottomChromeInset: CGFloat = 14
-    private let timelineHorizontalPadding: CGFloat = 16
-    private let timelineTopPadding: CGFloat = 6
-
     init(
         date: Date,
         categories: [Category],
+        planPresets: [PlanPreset],
         visibleCategoryIDs: Set<UUID>?,
         plans: [PlanBlock],
         planTitleFontSize: Double,
         planTitleBold: Bool,
         isInteractionEnabled: Bool,
         isPageSwipeActive: Bool,
+        presetInteractionCoordinator: TimelinePlanPresetInteractionCoordinator? = nil,
+        presetExternalCoordinateSpaceName: String? = nil,
         visibleHour: Binding<Int>,
         selectedCategoryID: Binding<UUID?>,
         isScheduleInteractionActive: Binding<Bool>,
+        onOpenDay: ((Date) -> Void)? = nil,
         onEditPlan: @escaping (PlanBlock) -> Void,
         onScheduleChanged: @escaping () -> Void
     ) {
         let dayStart = DayBoundary.dayStart(for: date, calendar: .japanese)
         self.date = dayStart
         self.categories = categories
+        self.planPresets = planPresets
         self.visibleCategoryIDs = visibleCategoryIDs
         self.plans = plans
         self.planTitleFontSize = planTitleFontSize
         self.planTitleBold = planTitleBold
         self.isInteractionEnabled = isInteractionEnabled
         self.isPageSwipeActive = isPageSwipeActive
+        self.presetInteractionCoordinator = presetInteractionCoordinator
+        self.presetExternalCoordinateSpaceName = presetExternalCoordinateSpaceName
         self._visibleHour = visibleHour
         self._selectedCategoryID = selectedCategoryID
         self._isScheduleInteractionActive = isScheduleInteractionActive
+        self.onOpenDay = onOpenDay
         self.onEditPlan = onEditPlan
         self.onScheduleChanged = onScheduleChanged
     }
 
     var body: some View {
         GeometryReader { proxy in
-            let timelineWidth = max(1, proxy.size.width - timelineHorizontalPadding * 2)
-            let cardHeight = max(1, proxy.size.height - timelineTopPadding - bottomChromeInset)
+            let timelineWidth = max(1, proxy.size.width - CalendarTimelineCardMetrics.horizontalPadding * 2)
+            let cardHeight = max(
+                1,
+                proxy.size.height
+                    - CalendarTimelineCardMetrics.topPadding
+                    - CalendarTimelineCardMetrics.bottomPadding
+            )
             let allDayHeaderHeight = CalendarDayTimelineAllDayHeader.height(
                 forPlanCount: allDayPlans.count,
                 planTitleFontSize: planTitleFontSize
@@ -1468,6 +1620,7 @@ private struct CalendarDayTimelineContainer: View {
                     date: date,
                     plans: allDayPlans,
                     planTitleFontSize: planTitleFontSize,
+                    onOpenDay: onOpenDay,
                     onOpenPlan: onEditPlan
                 )
                 .frame(width: timelineWidth, height: allDayHeaderHeight)
@@ -1476,12 +1629,15 @@ private struct CalendarDayTimelineContainer: View {
                     date: date,
                     plans: plans,
                     categories: categories,
+                    planPresets: planPresets,
                     visibleCategoryIDs: visibleCategoryIDs,
                     isEditingEnabled: store.canCreatePlan(startTime: date, isAllDay: false),
                     planTitleFontSize: planTitleFontSize,
                     planTitleBold: planTitleBold,
                     isInteractionEnabled: isInteractionEnabled,
                     isPageSwipeActive: isPageSwipeActive,
+                    presetInteractionCoordinator: presetInteractionCoordinator,
+                    presetExternalCoordinateSpaceName: presetExternalCoordinateSpaceName,
                     showsChrome: false,
                     colorStyle: .calendarGrid,
                     visibleHour: $visibleHour,
@@ -1503,8 +1659,8 @@ private struct CalendarDayTimelineContainer: View {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .stroke(dayTimelineStroke, lineWidth: 1)
             )
-            .padding(.horizontal, timelineHorizontalPadding)
-            .padding(.top, timelineTopPadding)
+            .padding(.horizontal, CalendarTimelineCardMetrics.horizontalPadding)
+            .padding(.top, CalendarTimelineCardMetrics.topPadding)
         }
     }
 
@@ -1543,6 +1699,7 @@ private struct CalendarDayTimelineAllDayHeader: View {
     let date: Date
     let plans: [PlanBlock]
     let planTitleFontSize: Double
+    let onOpenDay: ((Date) -> Void)?
     let onOpenPlan: (PlanBlock) -> Void
     private let calendar = Calendar.japanese
 
@@ -1564,7 +1721,7 @@ private struct CalendarDayTimelineAllDayHeader: View {
 
     private static let visibleRowLimit = 2
     private static let dayHeaderHeight: CGFloat = 46
-    private static let hourColumnWidth: CGFloat = 50
+    private static let hourColumnWidth = TimelineHourAxisMetrics.columnWidth
     private static let daySpacing: CGFloat = 1
     private static let itemSpacing: CGFloat = 1.5
     private static let laneVerticalPadding: CGFloat = 2
@@ -1591,25 +1748,10 @@ private struct CalendarDayTimelineAllDayHeader: View {
                     .fill(hourColumnBackground)
                     .frame(width: Self.hourColumnWidth, height: Self.dayHeaderHeight)
 
-                VStack(spacing: 2) {
-                    Text(dayNumberText)
-                        .font(.system(size: 14, weight: isToday ? .bold : .semibold, design: .monospaced))
-                        .foregroundStyle(dayNumberColor)
-                        .frame(width: 27, height: 27)
-                        .background {
-                            if isToday {
-                                Circle()
-                                    .fill(LiminalTheme.accent.opacity(0.82))
-                            }
-                        }
-
-                    Text(weekdayText)
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(weekdayColor)
-                }
-                .frame(maxWidth: .infinity)
-                .frame(height: Self.dayHeaderHeight)
-                .background(dayHeaderBackground)
+                dateHeader
+                    .frame(maxWidth: .infinity)
+                    .frame(height: Self.dayHeaderHeight)
+                    .background(dayHeaderBackground)
             }
             .frame(height: Self.dayHeaderHeight)
             .background(gridLine)
@@ -1627,7 +1769,8 @@ private struct CalendarDayTimelineAllDayHeader: View {
                             onOpenPlan(plan)
                         } label: {
                             CalendarDayTimelineAllDayRow(
-                                plan: plan,
+                                title: plan.title.isEmpty ? (plan.category?.name ?? "予定") : plan.title,
+                                tint: plan.category?.displayColor ?? LiminalTheme.accent,
                                 titleFontSize: planTitleFontSize
                             )
                         }
@@ -1655,6 +1798,42 @@ private struct CalendarDayTimelineAllDayHeader: View {
                 .fill(gridLine)
                 .frame(height: 1)
         }
+    }
+
+    @ViewBuilder
+    private var dateHeader: some View {
+        if let onOpenDay {
+            Button {
+                onOpenDay(date)
+            } label: {
+                dateHeaderLabel
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("\(date.japaneseMonthDayShortWeekday)を開く")
+        } else {
+            dateHeaderLabel
+        }
+    }
+
+    private var dateHeaderLabel: some View {
+        VStack(spacing: 2) {
+            Text(dayNumberText)
+                .font(.system(size: 14, weight: isToday ? .bold : .semibold, design: .monospaced))
+                .foregroundStyle(dayNumberColor)
+                .frame(width: 27, height: 27)
+                .background {
+                    if isToday {
+                        Circle()
+                            .fill(LiminalTheme.accent.opacity(0.82))
+                    }
+                }
+
+            Text(weekdayText)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(weekdayColor)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .contentShape(Rectangle())
     }
 
     private var dayNumberText: String {
@@ -1706,8 +1885,9 @@ private struct CalendarDayTimelineAllDayHeader: View {
     }
 }
 
-private struct CalendarDayTimelineAllDayRow: View {
-    let plan: PlanBlock
+struct CalendarDayTimelineAllDayRow: View {
+    let title: String
+    let tint: Color
     let titleFontSize: Double
 
     static func height(forTitleFontSize titleFontSize: Double) -> CGFloat {
@@ -1718,12 +1898,8 @@ private struct CalendarDayTimelineAllDayRow: View {
         CalendarPlanTitleMetrics.timelineBlockTitleSize(titleFontSize)
     }
 
-    private var tint: Color {
-        plan.category?.displayColor ?? LiminalTheme.accent
-    }
-
     var body: some View {
-        Text(plan.title.isEmpty ? (plan.category?.name ?? "予定") : plan.title)
+        Text(title)
             .font(.system(size: displayTitleFontSize, weight: .bold))
             .lineLimit(1)
             .minimumScaleFactor(0.72)
@@ -2234,7 +2410,26 @@ struct CalendarSettingsContent: View {
 
     var body: some View {
         Form {
-            Section("予定") {
+            Section {
+                NavigationLink {
+                    PlanPresetSettingsView()
+                } label: {
+                    Label("予定プリセット", systemImage: "bookmark")
+                }
+
+                NavigationLink {
+                    DayPresetSettingsView()
+                } label: {
+                    Label("一日プリセット", systemImage: "calendar.badge.clock")
+                }
+            } header: {
+                SettingsSectionHeader(
+                    title: "プリセット",
+                    explanation: "予定プリセットは、よく使う予定を保存してタイムラインに追加できます。一日プリセットは、一日分の予定をまとめて作成・適用できます。"
+                )
+            }
+
+            Section {
                 CalendarLabelStyleSettingRow(
                     title: "時刻指定",
                     selectionRaw: $timedPlanLabelStyleRaw,
@@ -2258,32 +2453,44 @@ struct CalendarSettingsContent: View {
                     isBold: planTitleBold,
                     sampleTime: nil
                 )
+            } header: {
+                SettingsSectionHeader(
+                    title: "予定",
+                    explanation: "月間カレンダーの予定の見た目を変更します。時刻指定・終日・複数日の予定ごとに、背景や下線などの表示形式を選べます。"
+                )
             }
 
-            Section("フォント") {
+            Section {
                 CalendarFontSizeSlider(value: normalizedPlanTitleFontSizeBinding)
                 Toggle("太字", isOn: $planTitleBold)
+            } header: {
+                SettingsSectionHeader(
+                    title: "フォント",
+                    explanation: "カレンダーに表示する予定名の文字サイズと太さを変更します。タイムラインの予定名にも反映されます。"
+                )
             }
 
             Section {
                 TimelineSnapPrecisionSelector(precision: snapPrecisionBinding)
                     .padding(.vertical, 4)
             } header: {
-                Text("タイムライン操作")
-            } footer: {
-                Text("日間・週間タイムラインで、予定を移動したり長さを変えたりするときの刻み幅です。")
+                SettingsSectionHeader(
+                    title: "タイムライン操作",
+                    explanation: "日間・週間タイムラインで、予定を移動したり長さを変えたりするときの刻み幅です。小さい値ほど細かく調整できます。"
+                )
             }
 
             Section {
                 Toggle("過去の予定を薄くする", isOn: $dimPastPlans)
                 Toggle("打ち消し線を入れる", isOn: $strikePastPlans)
             } header: {
-                Text("過去の予定")
-            } footer: {
-                Text("薄くしない場合も、打ち消し線は個別に選べます。")
+                SettingsSectionHeader(
+                    title: "過去の予定",
+                    explanation: "過去の予定を薄く表示するか、打ち消し線を入れるかを変更します。それぞれ独立して選べるため、薄くせず打ち消し線だけを入れることもできます。"
+                )
             }
         }
-        .navigationTitle("表示形式")
+        .navigationTitle("カレンダー")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             normalizePlanTitleFontSize()
@@ -2360,7 +2567,7 @@ struct CalendarSettingsContent: View {
     }
 }
 
-private enum CalendarPlanTitleMetrics {
+enum CalendarPlanTitleMetrics {
     static let defaultSize = 6.0
     static let minSize = 5.0
     static let maxSize = 9.0
@@ -3493,8 +3700,11 @@ private struct CalendarMonthWeekRow: View {
         let columnWidth = (size.width - spacing * 6) / 7
         let columnCount = placement.endIndex - placement.startIndex
         guard columnCount > 0 else { return nil }
-        let x = CGFloat(placement.startIndex) * (columnWidth + spacing) + 3
-        let width = CGFloat(columnCount) * columnWidth + CGFloat(columnCount - 1) * spacing - 6
+        let edgeInset: CGFloat = 1
+        let x = CGFloat(placement.startIndex) * (columnWidth + spacing) + edgeInset
+        let width = CGFloat(columnCount) * columnWidth
+            + CGFloat(columnCount - 1) * spacing
+            - edgeInset * 2
         let y = planListTop + CGFloat(placement.lane) * rowStride
         return CGRect(x: x, y: y, width: max(width, 2), height: labelHeight)
     }
@@ -3643,6 +3853,7 @@ private struct CalendarMonthDayCell: View {
 
                 CalendarScoreBadge(summary: scoreSummary)
             }
+            .padding(.horizontal, 3)
 
             VStack(alignment: .leading, spacing: 2) {
                 if reservedPlanRows > 0 {
@@ -3663,12 +3874,12 @@ private struct CalendarMonthDayCell: View {
                         .font(.system(size: 6, weight: .regular))
                         .foregroundStyle(LiminalTheme.secondaryText)
                         .lineLimit(1)
+                        .padding(.horizontal, 1)
                 }
             }
 
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 3)
         .padding(.vertical, 4)
         .frame(maxWidth: .infinity, minHeight: cellHeight, alignment: .topLeading)
         .background(
@@ -3677,8 +3888,7 @@ private struct CalendarMonthDayCell: View {
         )
         .overlay(
             Rectangle()
-                .inset(by: isToday ? 0.75 : 0)
-                .strokeBorder(isToday ? LiminalTheme.accent : Color.clear, lineWidth: isToday ? 2.25 : 0)
+                .strokeBorder(isToday ? LiminalTheme.accent : Color.clear, lineWidth: isToday ? 2 : 0)
         )
         .opacity(isInVisibleMonth ? 1 : 0.48)
     }
@@ -3784,7 +3994,7 @@ private struct CalendarImportantPlanLabel: View {
     let configuration: CalendarMonthPlanLabelConfiguration
 
     var body: some View {
-        HStack(spacing: 3) {
+        HStack(spacing: 1) {
             if let timePrefix {
                 Text(timePrefix)
                     .font(.system(size: timeFontSize, weight: .medium, design: .rounded))
@@ -3793,19 +4003,19 @@ private struct CalendarImportantPlanLabel: View {
                     .lineLimit(1)
                     .fixedSize(horizontal: true, vertical: false)
                     .strikethrough(shouldStrikePastPlan, color: timeColor)
-                    .shadow(color: textShadowColor, radius: 0.5, x: 0, y: 0.5)
             }
 
             clippedTitle
         }
+            .padding(.horizontal, labelContentPadding)
             .offset(y: textVerticalOffset)
             .frame(maxWidth: .infinity, alignment: .leading)
             .frame(height: labelHeight)
-            .padding(.horizontal, 3)
             .background(backgroundShape)
             .overlay(borderShape)
-            .padding(.leading, continuesFromPreviousDay ? -3 : 0)
-            .padding(.trailing, continuesToNextDay ? -3 : 0)
+            .padding(.horizontal, labelOuterInset)
+            .padding(.leading, continuesFromPreviousDay ? -labelOuterInset : 0)
+            .padding(.trailing, continuesToNextDay ? -labelOuterInset : 0)
             .opacity(labelOpacity)
             .accessibilityLabel("\(plan.title) 重要な予定")
     }
@@ -3819,7 +4029,6 @@ private struct CalendarImportantPlanLabel: View {
                     .lineLimit(1)
                     .fixedSize(horizontal: true, vertical: false)
                     .strikethrough(shouldStrikePastPlan, color: titleColor)
-                    .shadow(color: textShadowColor, radius: 0.5, x: 0, y: 0.5)
             }
             .clipped()
     }
@@ -3869,7 +4078,7 @@ private struct CalendarImportantPlanLabel: View {
 
     private var timeColor: Color {
         if labelStyle == .background {
-            return .white.opacity(0.76)
+            return .white
         }
         return color
     }
@@ -3907,10 +4116,6 @@ private struct CalendarImportantPlanLabel: View {
         )
     }
 
-    private var textShadowColor: Color {
-        labelStyle == .background ? .black.opacity(usesLightPastDimStyle ? 0.28 : (colorScheme == .dark ? 0.24 : 0.18)) : .clear
-    }
-
     private var labelOpacity: Double {
         usesLightPastDimStyle ? 1 : (isPastDimmed ? 0.38 : 1)
     }
@@ -3925,6 +4130,21 @@ private struct CalendarImportantPlanLabel: View {
 
     private var timeFontSize: Double {
         max(4, displayTitleFontSize - 1)
+    }
+
+    private var labelContentPadding: CGFloat {
+        labelStyle == .background ? 1.5 : 0.5
+    }
+
+    private var labelOuterInset: CGFloat {
+        if labelStyle == .background {
+            return 1.5
+        }
+        return isToday ? 2.5 : 0
+    }
+
+    private var isToday: Bool {
+        Calendar.japanese.isDateInToday(date)
     }
 
     private var labelHeight: CGFloat {
@@ -4001,12 +4221,11 @@ private struct CalendarMultiDayPlanBar: View {
                     .lineLimit(1)
                     .fixedSize(horizontal: true, vertical: false)
                     .strikethrough(isPastPlan && strikePastPlans, color: titleColor)
-                    .shadow(color: textShadowColor, radius: 0.5, x: 0, y: 0.5)
                     .offset(y: textVerticalOffset)
             }
+            .clipped()
             .background(backgroundShape)
             .overlay(decorationOverlay)
-            .clipped()
             .opacity(labelOpacity)
             .accessibilityLabel("\(plan.title) 複数日に跨る重要な予定")
     }
@@ -4036,6 +4255,7 @@ private struct CalendarMultiDayPlanBar: View {
                 .frame(height: markerHeight)
                 .frame(maxHeight: .infinity, alignment: .bottom)
                 .padding(.bottom, markerBottomPadding)
+                .offset(y: 0.5)
         }
     }
 
@@ -4087,10 +4307,6 @@ private struct CalendarMultiDayPlanBar: View {
         )
     }
 
-    private var textShadowColor: Color {
-        labelStyle == .background ? .black.opacity(usesLightPastDimStyle ? 0.28 : (colorScheme == .dark ? 0.24 : 0.18)) : .clear
-    }
-
     private var labelOpacity: Double {
         usesLightPastDimStyle ? 1 : (isPastDimmed ? 0.38 : 1)
     }
@@ -4108,7 +4324,7 @@ private struct CalendarMultiDayPlanBar: View {
     }
 
     private var markerBottomPadding: CGFloat {
-        max(0.5, CGFloat(displayTitleFontSize) * 0.05)
+        0
     }
 
     private var textVerticalOffset: CGFloat {

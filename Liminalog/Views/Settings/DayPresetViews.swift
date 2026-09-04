@@ -9,6 +9,20 @@ struct DayPresetSettingsView: View {
     ]) private var presets: [DayPreset]
 
     @State private var operationError: String?
+    @State private var editingPreset: DayPreset?
+    @State private var showingCreateSheet = false
+    @State private var searchText = ""
+    @State private var deletionTarget: DeletionTarget?
+
+    private struct DeletionTarget {
+        let id: UUID
+        let name: String
+    }
+
+    private var visiblePresets: [DayPreset] {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        return query.isEmpty ? presets : presets.filter { $0.name.localizedStandardContains(query) }
+    }
 
     var body: some View {
         List {
@@ -16,21 +30,42 @@ struct DayPresetSettingsView: View {
                 ContentUnavailableView {
                     Label("一日プリセットはまだありません", systemImage: "calendar.badge.plus")
                 } description: {
-                    Text("カレンダーの日別画面で、登録済みの予定を一日プリセットとして保存できます。")
+                    Text("ここで予定プリセットを組み合わせて、一日の型を作成できます。")
+                } actions: {
+                    Button("新しく作る") {
+                        showingCreateSheet = true
+                    }
                 }
             } else {
                 Section {
-                    ForEach(presets) { preset in
-                        DayPresetRow(preset: preset, decodeResult: presetStore.items(for: preset))
+                    ForEach(visiblePresets) { preset in
+                        Button {
+                            editingPreset = preset
+                        } label: {
+                            DayPresetRow(preset: preset, decodeResult: presetStore.items(for: preset))
+                        }
+                        .buttonStyle(.plain)
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
+                        .moveDisabled(!searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            // destructive role は確認前に行が消えるアニメーションを起こすため付けない。
+                            Button {
+                                deletionTarget = DeletionTarget(id: preset.id, name: preset.name)
+                            } label: {
+                                Label("削除", systemImage: "trash")
+                            }
+                            .tint(.red)
+                        }
                     }
-                    .onDelete(perform: deletePresets)
                     .onMove(perform: movePresets)
-                } footer: {
-                    Text("一日プリセットの作成と適用は、カレンダーの日別画面から行えます。")
                 }
             }
         }
         .navigationTitle("一日プリセット")
+        .searchable(text: $searchText, prompt: "プリセットを検索")
+        .scrollContentBackground(.hidden)
+        .background(LiminalTheme.plainSheetBackground)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if !presets.isEmpty {
@@ -38,6 +73,26 @@ struct DayPresetSettingsView: View {
                     EditButton()
                 }
             }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    showingCreateSheet = true
+                } label: {
+                    Image(systemName: "plus")
+                }
+                .accessibilityLabel("一日プリセットを追加")
+            }
+        }
+        .fullScreenCover(isPresented: $showingCreateSheet) {
+            DayPresetEditSheet(preset: nil)
+        }
+        .fullScreenCover(item: $editingPreset) { preset in
+            DayPresetEditSheet(preset: preset)
+        }
+        .alert("一日プリセットを削除しますか？", isPresented: deletionPresented, presenting: deletionTarget) { target in
+            Button("キャンセル", role: .cancel) { deletionTarget = nil }
+            Button("削除", role: .destructive) { deletePreset(id: target.id) }
+        } message: { target in
+            Text("「\(target.name)」を削除します。この操作は取り消せません。適用済みの予定は残ります。")
         }
         .alert("変更を保存できませんでした", isPresented: operationErrorPresented) {
             Button("OK", role: .cancel) { operationError = nil }
@@ -46,18 +101,25 @@ struct DayPresetSettingsView: View {
         }
     }
 
-    private func deletePresets(at offsets: IndexSet) {
-        for index in offsets.sorted(by: >) {
-            guard presets.indices.contains(index),
-                  presetStore.deleteDayPreset(presets[index])
-            else {
-                operationError = "時間をおいてもう一度試してください。"
-                return
-            }
+    private func deletePreset(id: UUID) {
+        deletionTarget = nil
+        guard let preset = presets.first(where: { $0.id == id }) else { return }
+        guard presetStore.deleteDayPreset(preset) else {
+            operationError = "時間をおいてもう一度試してください。"
+            return
+        }
+    }
+
+    private var deletionPresented: Binding<Bool> {
+        Binding {
+            deletionTarget != nil
+        } set: { isPresented in
+            if !isPresented { deletionTarget = nil }
         }
     }
 
     private func movePresets(from source: IndexSet, to destination: Int) {
+        guard searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         guard presetStore.moveDayPresets(from: source, to: destination) else {
             operationError = "時間をおいてもう一度試してください。"
             return
@@ -76,16 +138,17 @@ struct DayPresetSettingsView: View {
 private struct DayPresetRow: View {
     let preset: DayPreset
     let decodeResult: Result<[PlanTemplateSnapshot], DayPresetItemsCodec.CodecError>
+    private var tint: Color { Color(hex: preset.colorHex).liminalReadableDataColor() }
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: isReadable ? "calendar.badge.clock" : "exclamationmark.triangle.fill")
+            Image(systemName: isReadable ? CategoryIconCatalog.displaySymbol(for: preset.icon) : "exclamationmark.triangle.fill")
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(isReadable ? LiminalTheme.accent : Color.orange)
-                .frame(width: 34, height: 34)
+                .foregroundStyle(isReadable ? tint : Color.orange)
+                .frame(width: 42, height: 42)
                 .background(
-                    (isReadable ? LiminalTheme.accent : Color.orange).opacity(0.14),
-                    in: Circle()
+                    (isReadable ? tint : Color.orange).opacity(0.14),
+                    in: RoundedRectangle(cornerRadius: 12)
                 )
 
             VStack(alignment: .leading, spacing: 3) {
@@ -96,6 +159,12 @@ private struct DayPresetRow: View {
                     .font(.caption)
                     .foregroundStyle(isReadable ? LiminalTheme.secondaryText : Color.orange)
             }
+            Spacer(minLength: 0)
+        }
+        .padding(12)
+        .background(tint.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
+        .overlay {
+            RoundedRectangle(cornerRadius: 12).strokeBorder(tint.opacity(0.28), lineWidth: 1)
         }
     }
 
@@ -119,8 +188,8 @@ struct DayPresetApplySheet: View {
     let existingPlans: [PlanBlock]
 
     @State private var selectedPresetID: UUID?
-    @State private var selectedIndices: Set<Int> = []
     @State private var operationError: String?
+    @State private var replacementRequest: PlanTemplateApplyRequest?
 
     var body: some View {
         NavigationStack {
@@ -129,13 +198,15 @@ struct DayPresetApplySheet: View {
                     ContentUnavailableView(
                         "一日プリセットはありません",
                         systemImage: "calendar.badge.plus",
-                        description: Text("この日の予定を保存すると、別の日にまとめて呼び出せます。")
+                        description: Text("設定 ＞ カレンダー ＞ 一日プリセットで作成できます。")
                     )
                 } else {
                     Section("プリセット") {
                         Picker("一日プリセット", selection: selectedPresetBinding) {
                             ForEach(presets) { preset in
-                                Text(preset.name).tag(preset.id)
+                                Label(preset.name, systemImage: CategoryIconCatalog.displaySymbol(for: preset.icon))
+                                    .foregroundStyle(Color(hex: preset.colorHex).liminalReadableDataColor())
+                                    .tag(preset.id)
                             }
                         }
                     }
@@ -152,16 +223,13 @@ struct DayPresetApplySheet: View {
                                     item: items[index],
                                     category: category(for: items[index]),
                                     verdict: verdicts[index],
-                                    isSelected: selectedIndices.contains(index),
                                     conflictingPlanNames: conflictingPlanNames(for: verdicts[index])
-                                ) {
-                                    toggle(index)
-                                }
+                                )
                             }
                         } header: {
-                            Text("追加する予定")
+                            Text("この一日を丸ごと追加")
                         } footer: {
-                            Text("重なる予定は自動で外しています。確定時にももう一度確認し、途中まで追加されることはありません。")
+                            Text(applyFooterText)
                         }
                     }
                 }
@@ -173,19 +241,20 @@ struct DayPresetApplySheet: View {
                     Button("キャンセル") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("\(selectedIndices.count)件を追加") { apply() }
+                    Button("丸ごと追加") { apply() }
                         .fontWeight(.semibold)
-                        .disabled(selectedIndices.isEmpty)
+                        .disabled(!canApplyWholePreset)
                 }
             }
             .onAppear {
                 if selectedPresetID == nil {
                     selectedPresetID = presets.first?.id
                 }
-                resetSelection()
             }
-            .onChange(of: selectedPresetID) { _, _ in
-                resetSelection()
+            .sheet(item: $replacementRequest) { request in
+                PlanTemplateApplyConfirmationSheet(request: request, store: store, close: {
+                    replacementRequest = nil
+                })
             }
             .alert("追加できませんでした", isPresented: operationErrorPresented) {
                 Button("OK", role: .cancel) { operationError = nil }
@@ -257,27 +326,36 @@ struct DayPresetApplySheet: View {
         return names.isEmpty ? nil : names.joined(separator: "、")
     }
 
-    private func toggle(_ index: Int) {
-        guard verdicts.indices.contains(index), verdicts[index] == .insertable else { return }
-        if selectedIndices.contains(index) {
-            selectedIndices.remove(index)
-        } else {
-            selectedIndices.insert(index)
+    private var canApplyWholePreset: Bool {
+        !verdicts.isEmpty && verdicts.allSatisfy { verdict in
+            if verdict == .insertable { return true }
+            if case .conflictsWithExisting = verdict { return true }
+            return false
         }
-        LiminalHaptics.selection()
     }
 
-    private func resetSelection() {
-        selectedIndices = Set(verdicts.indices.filter { verdicts[$0] == .insertable })
+    private var applyFooterText: String {
+        if canApplyWholePreset {
+            return "一日分をまとめて追加します。既存の予定と重なる場合は、置き換え方と変更内容を確認してから適用します。"
+        }
+        return "重なる予定などがあるため、この一日はまだ追加できません。対象日の予定を調整してからもう一度お試しください。"
     }
 
     private func apply() {
-        guard let selectedPreset else { return }
-        let applications = selectedIndices.sorted().map { index in
+        guard let selectedPreset, canApplyWholePreset else { return }
+        let applications = items.map { item in
             PlanStore.TemplateApplication(
-                snapshot: items[index],
-                resolvedCategory: category(for: items[index])
+                snapshot: item,
+                resolvedCategory: category(for: item)
             )
+        }
+        if verdicts.contains(where: { if case .conflictsWithExisting = $0 { return true }; return false }) {
+            replacementRequest = PlanTemplateApplyRequest(applications: applications, targetDate: targetDate,
+                onApplied: {
+                    _ = presetStore.markUsed(selectedPreset)
+                    dismiss()
+                })
+            return
         }
         guard store.applyPlanTemplates(applications, to: targetDate) else {
             operationError = "予定の重なりや日付が変わった可能性があります。内容を確認してもう一度お試しください。"
@@ -301,43 +379,34 @@ private struct DayPresetApplyRow: View {
     let item: PlanTemplateSnapshot
     let category: Category?
     let verdict: DayPresetApplyPlanner.ItemVerdict
-    let isSelected: Bool
     let conflictingPlanNames: String?
-    let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            HStack(alignment: .top, spacing: 11) {
-                Image(systemName: isSelected ? "checkmark.circle.fill" : selectionIcon)
-                    .font(.title3)
-                    .foregroundStyle(isSelected ? LiminalTheme.accent : statusTint)
+        HStack(alignment: .top, spacing: 11) {
+            Image(systemName: verdict == .insertable ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                .font(.title3)
+                .foregroundStyle(verdict == .insertable ? LiminalTheme.accent : statusTint)
 
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Circle()
-                            .fill(category?.displayColor ?? LiminalTheme.secondaryText)
-                            .frame(width: 8, height: 8)
-                        Text(item.title.isEmpty ? (category?.name ?? "予定") : item.title)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(LiminalTheme.text)
-                    }
-                    Text(timeText)
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(LiminalTheme.secondaryText)
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Circle()
+                        .fill(category?.displayColor ?? LiminalTheme.secondaryText)
+                        .frame(width: 8, height: 8)
+                    Text(item.title.isEmpty ? (category?.name ?? "予定") : item.title)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(LiminalTheme.text)
+                }
+                Text(timeText)
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(LiminalTheme.secondaryText)
+                if verdict != .insertable {
                     Text(statusText)
                         .font(.caption)
                         .foregroundStyle(statusTint)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
-            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
-        .disabled(verdict != .insertable)
-    }
-
-    private var selectionIcon: String {
-        verdict == .insertable ? "circle" : "minus.circle.fill"
     }
 
     private var statusTint: Color {
@@ -347,12 +416,12 @@ private struct DayPresetApplyRow: View {
     private var statusText: String {
         switch verdict {
         case .insertable:
-            return isSelected ? "追加" : "追加しない"
+            return "まとめて追加されます"
         case .conflictsWithExisting:
             if let conflictingPlanNames {
-                return "「\(conflictingPlanNames)」と重なるためスキップ"
+                return "「\(conflictingPlanNames)」と重なっています"
             }
-            return "既存の予定と重なるためスキップ"
+            return "既存の予定と重なっています"
         case .conflictsWithinPreset:
             return "プリセット内で時刻が重なっています"
         case .lockedDay:
@@ -368,8 +437,6 @@ private struct DayPresetApplyRow: View {
     }
 
     private static func time(_ minute: Int) -> String {
-        let value = minute % 1440
-        let suffix = minute >= 1440 ? " 翌日" : ""
-        return String(format: "%02d:%02d%@", value / 60, value % 60, suffix)
+        String(format: "%02d:%02d", minute / 60, minute % 60)
     }
 }

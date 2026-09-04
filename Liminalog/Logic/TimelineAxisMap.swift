@@ -1,9 +1,51 @@
 import CoreGraphics
 import Foundation
 
+enum TimelineHourAxisMetrics {
+    static let columnWidth: CGFloat = 32
+
+    static func label(for hour: Int) -> String {
+        String(min(23, max(0, hour)))
+    }
+}
+
 struct TimelineAxisInterval: Equatable {
     let startMinute: Int
     let endMinute: Int
+}
+
+/// The interval-dependent portion of a timeline axis.
+///
+/// A render snapshot can reuse this profile while pinch zoom changes only the
+/// base hour height. This keeps the resulting axis identical without scanning
+/// every interval range for every magnification event.
+struct TimelineAxisProfile: Equatable {
+    fileprivate let minimumPixelsPerMinute: [CGFloat]
+
+    init(
+        intervals: [TimelineAxisInterval],
+        minimumIntervalHeight: CGFloat
+    ) {
+        let safeMinimumHeight = minimumIntervalHeight.isFinite
+            ? max(0, minimumIntervalHeight)
+            : 0
+        var minimumSlopes = Array(
+            repeating: CGFloat.zero,
+            count: TimelineAxisMap.minutesPerDay
+        )
+
+        for interval in intervals {
+            let start = min(TimelineAxisMap.minutesPerDay, max(0, interval.startMinute))
+            let end = min(TimelineAxisMap.minutesPerDay, max(start + 1, interval.endMinute))
+            guard start < end else { continue }
+            let requiredSlope = safeMinimumHeight / CGFloat(end - start)
+            for minute in start..<end where requiredSlope > minimumSlopes[minute] {
+                minimumSlopes[minute] = requiredSlope
+            }
+        }
+
+        minimumPixelsPerMinute = minimumSlopes
+    }
 }
 
 /// A monotonic, reversible minute-to-pixel map for a 24-hour timeline.
@@ -21,29 +63,25 @@ struct TimelineAxisMap: Equatable {
         intervals: [TimelineAxisInterval],
         minimumIntervalHeight: CGFloat
     ) {
+        self.init(
+            hourHeight: hourHeight,
+            profile: TimelineAxisProfile(
+                intervals: intervals,
+                minimumIntervalHeight: minimumIntervalHeight
+            )
+        )
+    }
+
+    init(hourHeight: CGFloat, profile: TimelineAxisProfile) {
         let safeHourHeight = hourHeight.isFinite && hourHeight > 0 ? hourHeight : 1
         let basePixelsPerMinute = safeHourHeight / 60
-        let safeMinimumHeight = minimumIntervalHeight.isFinite
-            ? max(0, minimumIntervalHeight)
-            : 0
-        var slopes = Array(repeating: basePixelsPerMinute, count: Self.minutesPerDay)
-
-        for interval in intervals {
-            let start = min(Self.minutesPerDay, max(0, interval.startMinute))
-            let end = min(Self.minutesPerDay, max(start + 1, interval.endMinute))
-            guard start < end else { continue }
-            let requiredSlope = max(
-                basePixelsPerMinute,
-                safeMinimumHeight / CGFloat(end - start)
-            )
-            for minute in start..<end where requiredSlope > slopes[minute] {
-                slopes[minute] = requiredSlope
-            }
-        }
-
         var positions = Array(repeating: CGFloat.zero, count: Self.minutesPerDay + 1)
         for minute in 0..<Self.minutesPerDay {
-            positions[minute + 1] = positions[minute] + slopes[minute]
+            let localPixelsPerMinute = max(
+                basePixelsPerMinute,
+                profile.minimumPixelsPerMinute[minute]
+            )
+            positions[minute + 1] = positions[minute] + localPixelsPerMinute
         }
         minutePositions = positions
     }

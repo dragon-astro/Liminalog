@@ -138,7 +138,8 @@ final class PlanStore {
     func applyTemplates(
         _ applications: [TemplateApplication],
         to targetDate: Date,
-        calendar: Calendar = .current
+        calendar: Calendar = .current,
+        approvedReplacement: PlanTemplateReplacement? = nil
     ) -> Bool {
         guard !applications.isEmpty else { return false }
         let snapshots = applications.map(\.snapshot)
@@ -168,13 +169,54 @@ final class PlanStore {
             now: clock.now,
             calendar: calendar
         )
-        guard verdicts.allSatisfy({ $0 == .insertable }) else { return false }
+        guard verdicts.allSatisfy({ verdict in
+            if verdict == .insertable { return true }
+            if case .conflictsWithExisting = verdict { return approvedReplacement != nil }
+            return false
+        }) else { return false }
+
+        var replacement: PlanTemplateReplacement?
+        if let approvedReplacement {
+            guard let current = replacementPreview(applications, to: targetDate, calendar: calendar,
+                                                   mode: approvedReplacement.mode, existingPlans: existingPlans),
+                  current == approvedReplacement else { return false }
+            replacement = current
+        }
 
         let audienceContext = fetchAudienceContext()
         guard audienceContext.didFetch else { return false }
 
         var insertedPlans: [PlanBlock] = []
         var changedScoreDayStarts: Set<Date> = []
+        var replacedIDs: Set<UUID> = []
+        for change in replacement?.changes ?? [] {
+            guard let original = existingPlans.first(where: { $0.id == change.id }) else { return false }
+            replacedIDs.insert(original.id)
+            changedScoreDayStarts.formUnion(affectedScoreDayStarts(start: original.startTime, end: original.endTime))
+            // Keep the first remainder's identity. Extra pieces retain all user metadata.
+            for part in change.remaining.dropFirst() {
+                let copy = PlanBlock(category: original.category, title: original.title,
+                                     startTime: part.start, endTime: part.end,
+                                     isAllDay: original.isAllDay, isImportant: original.isImportant,
+                                     note: original.note, isPublic: original.isPublic)
+                copy.visibilityScope = original.visibilityScope
+                copy.audienceFriendIDs = original.audienceFriendIDs
+                copy.audienceSourceRawValue = original.audienceSourceRawValue
+                copy.hasAudienceSnapshot = original.hasAudienceSnapshot
+                copy.sourceEventID = original.sourceEventID
+                copy.createdAt = original.createdAt
+                copy.updatedAt = clock.now
+                modelContext.insert(copy)
+                replacedIDs.insert(copy.id)
+            }
+            if let first = change.remaining.first {
+                original.startTime = first.start
+                original.endTime = first.end
+                original.updatedAt = clock.now
+            } else {
+                modelContext.delete(original)
+            }
+        }
         for application in applications {
             guard let interval = application.snapshot.interval(
                 on: targetDate,
@@ -217,9 +259,52 @@ final class PlanStore {
 
         return saveChanges(
             "plan template batch add",
-            changedPlanSourceIDs: Set(insertedPlans.map(\.id)),
+            changedPlanSourceIDs: Set(insertedPlans.map(\.id)).union(replacedIDs),
             changedScoreDayStarts: changedScoreDayStarts
         )
+    }
+
+    func templateReplacementPreview(
+        _ applications: [TemplateApplication], to targetDate: Date,
+        mode: PlanTemplateReplacementMode, calendar: Calendar = .current
+    ) -> PlanTemplateReplacement? {
+        let start = DayBoundary.dayStart(for: targetDate, calendar: calendar)
+        guard let end = calendar.date(byAdding: .day, value: 2, to: start),
+              let plans = plannedBlocksIfAvailable(from: start, to: end) else { return nil }
+        return replacementPreview(applications, to: targetDate, calendar: calendar, mode: mode, existingPlans: plans)
+    }
+
+    private func replacementPreview(
+        _ applications: [TemplateApplication], to targetDate: Date, calendar: Calendar,
+        mode: PlanTemplateReplacementMode, existingPlans: [PlanBlock]
+    ) -> PlanTemplateReplacement? {
+        guard !applications.isEmpty else { return nil }
+        let snapshots = applications.map(\.snapshot)
+        let verdicts = DayPresetApplyPlanner.plan(items: snapshots, targetDate: targetDate,
+            existing: existingPlans.map { .init(id: $0.id, start: $0.startTime, end: $0.endTime, isAllDay: $0.isAllDay) },
+            now: clock.now, calendar: calendar)
+        guard verdicts.allSatisfy({ verdict in
+            if verdict == .insertable { return true }
+            if case .conflictsWithExisting = verdict { return true }
+            return false
+        }) else { return nil }
+        let incoming = snapshots.filter { !$0.isAllDay }.compactMap { $0.interval(on: targetDate, calendar: calendar) }
+        var changes: [PlanTemplateReplacement.Change] = []
+        for plan in existingPlans where !plan.isAllDay {
+            let original = DateInterval(start: plan.startTime, end: max(plan.startTime, plan.endTime))
+            let parts = PlanTemplateReplacement.remainingParts(of: original, excluding: incoming)
+            guard parts != [original] else { continue }
+            // Do not mutate historical plans or externally owned calendar events.
+            guard DayBoundary.dayStart(for: plan.startTime, calendar: calendar)
+                    > DayBoundary.dayStart(for: clock.now, calendar: calendar),
+                  plan.sourceEventID == nil else { return nil }
+            changes.append(.init(id: plan.id, title: plan.title, updatedAt: plan.updatedAt, original: original,
+                                 remaining: mode == .keepRemainders ? parts : []))
+        }
+        return PlanTemplateReplacement(mode: mode, changes: changes.sorted {
+            if $0.original.start != $1.original.start { return $0.original.start < $1.original.start }
+            return $0.id.uuidString < $1.id.uuidString
+        })
     }
 
     @discardableResult

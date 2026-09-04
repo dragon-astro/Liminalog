@@ -32,12 +32,24 @@ enum LiminalTheme {
     static var elevated: Color { token(\.elevated) }
     static var divider: Color { token(\.divider) }
 
+    /// 操作のため一時表示するシート・管理面の無彩色背景。
+    /// ライトは白、ダークは黒として、背面のテーマ色を透過させない。
+    static var plainSheetBackground: Color { Color(uiColor: .systemBackground) }
+
     static var text: Color { token(\.text) }
     static var secondaryText: Color { token(\.secondaryText) }
     static var tertiaryText: Color { token(\.tertiaryText) }
 
     static var primary: Color { token(\.primary) }
     static var accent: Color { token(\.accent) }
+    /// アクセント色で塗りつぶした操作面の文字色。淡い下地には使わない。
+    static var accentFilledText: Color {
+        Color(UIColor { traits in
+            let definition = LiminalThemeCatalog.resolvedDefinition(for: traits)
+            if definition.id == LiminalThemeCatalog.aurora.id { return .white }
+            return UIColor(Color(definition.palette.accent).liminalContrastingTextColor)
+        })
+    }
     static var reward: Color { token(\.reward) }
     static var dawn: Color { token(\.dawn) }
     static var dusk: Color { token(\.dusk) }

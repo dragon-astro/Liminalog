@@ -102,11 +102,11 @@ struct PeriodRangeSelectionSheet: View {
 
         if #available(iOS 26.0, *) {
             button
-                .foregroundStyle(LiminalTheme.text)
+                .foregroundStyle(LiminalTheme.accentFilledText)
                 .buttonStyle(.glassProminent)
         } else {
             button
-                .foregroundStyle(Color.black.opacity(0.78))
+                .foregroundStyle(LiminalTheme.accentFilledText)
                 .buttonStyle(.plain)
                 .background(Capsule(style: .continuous).fill(LiminalTheme.accent))
         }

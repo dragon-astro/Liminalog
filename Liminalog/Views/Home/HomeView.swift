@@ -84,6 +84,7 @@ struct HomeView: View {
     @Environment(ChapterStore.self) private var store
     @Environment(\.modelContext) private var modelContext
     @Query(sort: [SortDescriptor(\Category.sortOrder), SortDescriptor(\Category.createdAt)]) private var categories: [Category]
+    @Query(sort: [SortDescriptor(\PlanPreset.sortOrder), SortDescriptor(\PlanPreset.createdAt)]) private var planPresets: [PlanPreset]
     @AppStorage("home.tomorrowPlanMode") private var tomorrowPlanModeRawValue = TomorrowPlanMode.timeline.rawValue
     @AppStorage("calendarPlanTitleFontSize") private var planTitleFontSize = 6.0
     @AppStorage("calendarPlanTitleBold") private var planTitleBold = false
@@ -246,6 +247,7 @@ struct HomeView: View {
                 date: tomorrowDate,
                 mode: selectedTomorrowPlanMode,
                 categories: categories,
+                planPresets: planPresets,
                 planTitleFontSize: planTitleFontSize,
                 planTitleBold: planTitleBold,
                 reloadToken: tomorrowPlanReloadToken,
@@ -466,9 +468,11 @@ private struct TodayRecordPage: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 14) {
-                CurrentChapterCard()
-                // CategoryGrid 内のチェブロンで折りたたみを行う。
-                CategoryGrid()
+                VStack(spacing: 6) {
+                    CurrentChapterCard()
+                    // CategoryGrid 内のチェブロンで折りたたみを行う。
+                    CategoryGrid()
+                }
                 TimelineView(
                     date: date,
                     title: "",
@@ -491,6 +495,7 @@ private struct TomorrowPlanPage: View {
     let date: Date
     let mode: TomorrowPlanMode
     let categories: [Category]
+    let planPresets: [PlanPreset]
     let planTitleFontSize: Double
     let planTitleBold: Bool
     let reloadToken: Int
@@ -506,6 +511,7 @@ private struct TomorrowPlanPage: View {
     @State private var loadedExternalRefreshRevision = 0
     @State private var clock = TickClock(interval: 60)
     @State private var showingCategoryEditor = false
+    @State private var showingDayPresetApply = false
 
     var body: some View {
         Group {
@@ -551,6 +557,17 @@ private struct TomorrowPlanPage: View {
                 selectedCategoryID = category.id
             }
         }
+        .sheet(isPresented: $showingDayPresetApply, onDismiss: {
+            reloadTimelinePlans()
+            onScheduleChanged()
+        }) {
+            DayPresetApplySheet(
+                targetDate: date,
+                existingPlans: timelinePlans
+            )
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+        }
     }
 
     private var timelineMode: some View {
@@ -566,42 +583,35 @@ private struct TomorrowPlanPage: View {
             HomeTomorrowTimelineCategoryPalette(
                 categories: categories,
                 selectedCategoryID: $selectedCategoryID,
+                onApplyDayPreset: {
+                    LiminalHaptics.openSheet()
+                    showingDayPresetApply = true
+                },
                 onCreateCategory: {
                     LiminalHaptics.openSheet()
                     showingCategoryEditor = true
                 }
             )
 
-            GeometryReader { proxy in
-                EditablePlanTimelineView(
-                    date: date,
-                    plans: timelinePlans,
-                    categories: categories,
-                    visibleCategoryIDs: nil,
-                    isEditingEnabled: store.canCreatePlan(startTime: date, isAllDay: false),
-                    planTitleFontSize: planTitleFontSize,
-                    planTitleBold: planTitleBold,
-                    isInteractionEnabled: true,
-                    isPageSwipeActive: false,
-                    showsChrome: true,
-                    colorStyle: .standalone,
-                    visibleHour: $visibleHour,
-                    selectedCategoryID: $selectedCategoryID,
-                    isScheduleInteractionActive: $isScheduleInteractionActive,
-                    onEditPlan: onEditPlan,
-                    onScheduleChanged: {
-                        reloadTimelinePlans()
-                        onScheduleChanged()
-                    }
-                )
-                .frame(
-                    width: max(1, proxy.size.width - 32),
-                    height: max(1, proxy.size.height - 6),
-                    alignment: .top
-                )
-                .padding(.horizontal, 16)
-                .padding(.top, 6)
-            }
+            CalendarDayTimelineContainer(
+                date: date,
+                categories: categories,
+                planPresets: planPresets,
+                visibleCategoryIDs: nil,
+                plans: timelinePlans,
+                planTitleFontSize: planTitleFontSize,
+                planTitleBold: planTitleBold,
+                isInteractionEnabled: true,
+                isPageSwipeActive: false,
+                visibleHour: $visibleHour,
+                selectedCategoryID: $selectedCategoryID,
+                isScheduleInteractionActive: $isScheduleInteractionActive,
+                onEditPlan: onEditPlan,
+                onScheduleChanged: {
+                    reloadTimelinePlans()
+                    onScheduleChanged()
+                }
+            )
         }
         .background(LiminalTheme.canvasGradient)
     }
@@ -722,11 +732,21 @@ private struct HomeTomorrowPlanningStatusIndicator: View {
 private struct HomeTomorrowTimelineCategoryPalette: View {
     let categories: [Category]
     @Binding var selectedCategoryID: UUID?
+    let onApplyDayPreset: () -> Void
     let onCreateCategory: () -> Void
 
     var body: some View {
         ScrollView(.horizontal) {
             HStack(spacing: 8) {
+                Button(action: onApplyDayPreset) {
+                    TimelineCategoryStatusChip(
+                        title: "一日プリセット",
+                        systemImage: "calendar.badge.clock",
+                        accessibilityLabel: "一日プリセットを適用"
+                    )
+                }
+                .buttonStyle(.plain)
+
                 if categories.isEmpty {
                     TimelineCategoryStatusChip(
                         title: "カテゴリなし",

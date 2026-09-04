@@ -3,7 +3,6 @@ import SwiftData
 
 struct CalendarDayView: View {
     @Environment(ChapterStore.self) private var store
-    @Environment(PlanPresetStore.self) private var presetStore
     @Environment(\.dismiss) private var dismiss
     @Query private var queriedPlans: [PlanBlock]
     @Query private var queriedChapters: [Chapter]
@@ -21,9 +20,6 @@ struct CalendarDayView: View {
     @State private var clock = TickClock(interval: 60)
     @State private var operationError: String?
     @State private var showingDayPresetApplySheet = false
-    @State private var showingDayPresetNamePrompt = false
-    @State private var dayPresetName = ""
-    @State private var pendingDayPresetDraft: DayPresetDraft?
     @State private var dayPresetExistingPlans: [PlanBlock] = []
 
     private let highlightedPlanID: UUID?
@@ -93,7 +89,7 @@ struct CalendarDayView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 14) {
                         dayVisibilityMenu
-                        if canCreatePlansForDay || !dayPresets.isEmpty || !plannedBlocks(on: date).isEmpty {
+                        if canCreatePlansForDay || !dayPresets.isEmpty {
                             Menu {
                                 if canCreatePlansForDay {
                                     Button {
@@ -107,13 +103,6 @@ struct CalendarDayView: View {
                                         prepareDayPresetApply()
                                     } label: {
                                         Label("一日プリセットを適用", systemImage: "calendar.badge.plus")
-                                    }
-                                }
-                                if !plannedBlocks(on: date).isEmpty {
-                                    Button {
-                                        prepareDayPresetSave()
-                                    } label: {
-                                        Label("この日の予定をプリセットに保存", systemImage: "bookmark")
                                     }
                                 }
                             } label: {
@@ -143,6 +132,8 @@ struct CalendarDayView: View {
                 targetDate: date,
                 existingPlans: dayPresetExistingPlans
             )
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
         }
         .onAppear {
             clock.start()
@@ -156,19 +147,6 @@ struct CalendarDayView: View {
             }
         } message: {
             Text(operationError ?? "")
-        }
-        .alert("一日プリセットとして保存", isPresented: $showingDayPresetNamePrompt) {
-            TextField("名前", text: $dayPresetName)
-            Button("保存") { saveDayPreset() }
-            Button("キャンセル", role: .cancel) {
-                pendingDayPresetDraft = nil
-            }
-        } message: {
-            if let draft = pendingDayPresetDraft, draft.excludedItemCount > 0 {
-                Text("含められる予定は\(draft.items.count)件です。\(draft.excludedItemCount)件は日付範囲のため除外されます。")
-            } else {
-                Text("この日の予定をまとめて保存します。")
-            }
         }
     }
 
@@ -519,21 +497,6 @@ struct CalendarDayView: View {
         showingPlanSheet = true
     }
 
-    private func prepareDayPresetSave() {
-        let draft = presetStore.makeDayPresetDraft(
-            from: date,
-            plans: plannedBlocks(on: date),
-            calendar: .japanese
-        )
-        guard !draft.items.isEmpty else {
-            operationError = "この日にはプリセットに含められる予定がありません。"
-            return
-        }
-        pendingDayPresetDraft = draft
-        dayPresetName = "\(date.japaneseMonthDayShortWeekday)の予定"
-        showingDayPresetNamePrompt = true
-    }
-
     private func prepareDayPresetApply() {
         let boundary = DayBoundary(date: date, calendar: .japanese)
         let fetchEnd = Calendar.japanese.date(
@@ -543,17 +506,6 @@ struct CalendarDayView: View {
         ) ?? boundary.dayEnd
         dayPresetExistingPlans = store.plannedBlocks(from: boundary.dayStart, to: fetchEnd)
         showingDayPresetApplySheet = true
-    }
-
-    private func saveDayPreset() {
-        guard let draft = pendingDayPresetDraft,
-              presetStore.createDayPreset(name: dayPresetName, items: draft.items) != nil
-        else {
-            operationError = "一日プリセットを保存できませんでした。時間をおいてもう一度試してください。"
-            return
-        }
-        pendingDayPresetDraft = nil
-        LiminalHaptics.commit()
     }
 
     private func chapters(on date: Date) -> [Chapter] {

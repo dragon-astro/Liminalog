@@ -18,20 +18,31 @@ struct PlanPresetStoreTests {
         let categoryID = UUID()
         let original = snapshot(title: "ジム", categoryID: categoryID)
 
-        let preset = try #require(store.createPlanPreset(name: "", snapshot: original))
+        let preset = try #require(store.createPlanPreset(
+            name: "",
+            snapshot: original,
+            placementMode: .fixedTime
+        ))
         #expect(preset.name == "ジム")
         #expect(preset.categoryID == categoryID)
         #expect(preset.snapshot == original)
+        #expect(preset.placementMode == .fixedTime)
 
         let secondNow = try date(2026, 9, 2, 13, 0)
         clock.now = secondNow
         var updated = original
         updated.title = "筋トレ"
         updated.note = "脚の日"
-        #expect(store.updatePlanPreset(preset, name: "運動", snapshot: updated))
+        #expect(store.updatePlanPreset(
+            preset,
+            name: "運動",
+            snapshot: updated,
+            placementMode: .duration
+        ))
         #expect(preset.name == "運動")
         #expect(preset.title == "筋トレ")
         #expect(preset.updatedAt == secondNow)
+        #expect(preset.placementMode == .duration)
 
         #expect(store.markUsed(preset))
         #expect(preset.useCount == 1)
@@ -47,15 +58,20 @@ struct PlanPresetStoreTests {
             snapshot(title: "運動", start: 19 * 60, end: 20 * 60)
         ]
 
-        let preset = try #require(store.createDayPreset(name: "平日", items: items))
+        let preset = try #require(store.createDayPreset(name: "平日", items: items, colorHex: "#27AE60", icon: "leaf.fill"))
 
         #expect(preset.itemCount == 2)
+        #expect(preset.colorHex == "#27AE60" && preset.icon == "leaf.fill")
         #expect(try store.items(for: preset).get() == items)
 
         let updated = [snapshot(title: "休み", start: 10 * 60, end: 11 * 60)]
         #expect(store.updateDayPreset(preset, name: "休日", items: updated))
         #expect(preset.name == "休日")
         #expect(preset.itemCount == 1)
+        #expect(preset.colorHex == "#27AE60" && preset.icon == "leaf.fill")
+        #expect(store.updateDayPreset(preset, name: "休日", items: updated, colorHex: "#7C5CFF", icon: "moon.fill"))
+        let loaded = try #require(ModelContext(container).fetch(FetchDescriptor<DayPreset>()).first)
+        #expect(loaded.colorHex == "#7C5CFF" && loaded.icon == "moon.fill")
         #expect(try store.items(for: preset).get() == updated)
     }
 
