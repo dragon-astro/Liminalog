@@ -470,6 +470,74 @@ final class PlanStore {
         )
     }
 
+    /// Validate the complete batch before changing any model, then save once.
+    func transferPlan(id: UUID, to dates: Set<Date>, mode: CalendarPlanTransferMode,
+                      calendar: Calendar = .current) -> Result<Int, CalendarPlanTransferError> {
+        let source: PlanBlock
+        do {
+            let descriptor = FetchDescriptor<PlanBlock>(predicate: #Predicate { $0.id == id })
+            guard let plan = try modelContext.fetch(descriptor).first else { return .failure(.missingPlan) }
+            source = plan
+        } catch { return .failure(.persistence) }
+        if mode == .move {
+            guard !isScheduleLocked(source) else { return .failure(.locked) }
+            guard source.sourceEventID == nil else { return .failure(.externalPlan) }
+        }
+        let days = Set(dates.map { calendar.startOfDay(for: $0) }).sorted()
+        guard !days.isEmpty, mode == .copy || days.count == 1 else { return .failure(.noDates) }
+        var intervals: [DateInterval] = []
+        for day in days {
+            guard let interval = CalendarPlanTransfer.interval(start: source.startTime, end: source.endTime,
+                                                               to: day, calendar: calendar) else {
+                return .failure(.invalidTime)
+            }
+            guard canCreate(startTime: interval.start, isAllDay: source.isAllDay) else {
+                return .failure(.unavailableDay)
+            }
+            if !source.isAllDay {
+                guard let overlap = timedPlanOverlapIfAvailable(startTime: interval.start, endTime: interval.end,
+                                                                 excluding: mode == .move ? source.id : nil) else {
+                    return .failure(.persistence)
+                }
+                guard !overlap, !intervals.contains(where: { $0.start < interval.end && $0.end > interval.start }) else {
+                    return .failure(.overlap)
+                }
+            }
+            intervals.append(interval)
+        }
+        if mode == .move, let interval = intervals.first,
+           interval.start == source.startTime, interval.end == source.endTime { return .success(0) }
+        var changedIDs: Set<UUID> = []
+        var changedDays: Set<Date> = []
+        for interval in intervals {
+            let target: PlanBlock
+            if mode == .move {
+                target = source
+                changedDays.formUnion(affectedScoreDayStarts(start: source.startTime, end: source.endTime))
+            } else {
+                target = PlanBlock(category: source.category, title: source.title,
+                                   startTime: interval.start, endTime: interval.end,
+                                   isAllDay: source.isAllDay, isImportant: source.isImportant,
+                                   note: source.note, isPublic: source.isPublic)
+                target.visibilityScope = source.visibilityScope
+                target.audienceFriendIDs = source.audienceFriendIDs
+                target.audienceSourceRawValue = source.audienceSourceRawValue
+                target.hasAudienceSnapshot = source.hasAudienceSnapshot
+                target.createdAt = clock.now
+                // A copy is a new local event, not a second reference to an external event.
+                modelContext.insert(target)
+            }
+            target.startTime = interval.start
+            target.endTime = interval.end
+            target.updatedAt = clock.now
+            changedIDs.insert(target.id)
+            changedDays.formUnion(affectedScoreDayStarts(start: interval.start, end: interval.end))
+        }
+        guard saveChanges("plan \(mode.rawValue)", changedPlanSourceIDs: changedIDs,
+                          changedScoreDayStarts: changedDays) else { return .failure(.persistence) }
+        return .success(intervals.count)
+    }
+
     private func normalizedTitle(_ title: String, category: Category?) -> String {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? (category?.name ?? "予定") : trimmed

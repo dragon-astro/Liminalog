@@ -10,6 +10,8 @@ enum CalendarMonthDayDrawerNavigation {
 /// 月間を操作可能なまま残す当日一覧。日付ごとの狭いQueryだけを持つ。
 struct CalendarMonthDayDrawer: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.monthPlanTransfer) private var transfer
+    @Environment(ChapterStore.self) private var store
     @Query private var queriedPlans: [PlanBlock]
     let date: Date
     let highlightedPlanID: UUID?
@@ -18,11 +20,13 @@ struct CalendarMonthDayDrawer: View {
     let onExpand: () -> Void
     let onCreate: () -> Void
     let onEdit: (PlanBlock) -> Void
+    let onConfirmTransfer: () -> Void
     @State private var selectedPlanID: UUID?
 
     init(date: Date, highlightedPlanID: UUID?, visibleCategoryIDs: Set<UUID>?,
          onClose: @escaping () -> Void, onExpand: @escaping () -> Void,
-         onCreate: @escaping () -> Void, onEdit: @escaping (PlanBlock) -> Void) {
+         onCreate: @escaping () -> Void, onEdit: @escaping (PlanBlock) -> Void,
+         onConfirmTransfer: @escaping () -> Void) {
         self.date = date
         self.highlightedPlanID = highlightedPlanID
         self.visibleCategoryIDs = visibleCategoryIDs
@@ -30,6 +34,7 @@ struct CalendarMonthDayDrawer: View {
         self.onExpand = onExpand
         self.onCreate = onCreate
         self.onEdit = onEdit
+        self.onConfirmTransfer = onConfirmTransfer
         _selectedPlanID = State(initialValue: highlightedPlanID)
         let start = Calendar.current.startOfDay(for: date)
         let end = Calendar.current.date(byAdding: .day, value: 1, to: start) ?? start
@@ -48,7 +53,7 @@ struct CalendarMonthDayDrawer: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
-                if selectedPlanID != nil {
+                if selectedPlanID != nil && transfer?.request == nil {
                     Button(action: returnToList) {
                         Image(systemName: "chevron.left").frame(width: 40, height: 44)
                     }
@@ -60,6 +65,7 @@ struct CalendarMonthDayDrawer: View {
                     .accessibilityAddTraits(.isHeader)
                     .padding(.leading, 6)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                if transfer?.request == nil {
                 Button(action: onCreate) {
                     Image(systemName: "plus").frame(width: 44, height: 44)
                 }
@@ -69,12 +75,16 @@ struct CalendarMonthDayDrawer: View {
                     Image(systemName: "arrow.up.left.and.arrow.down.right").frame(width: 44, height: 44)
                 }
                 .accessibilityLabel("日間タイムラインを開く")
-                Button(action: onClose) {
+                }
+                Button {
+                    if transfer?.request != nil { transfer?.cancel() }
+                    else { onClose() }
+                } label: {
                     Image(systemName: "xmark.circle.fill")
                         .font(.title3)
                         .foregroundStyle(LiminalTheme.secondaryText)
                 }
-                .accessibilityLabel("当日の予定を閉じる")
+                .accessibilityLabel(transfer?.request == nil ? "当日の予定を閉じる" : "日付選択をキャンセル")
             }
             .buttonStyle(.plain)
             .foregroundStyle(LiminalTheme.accent)
@@ -83,7 +93,9 @@ struct CalendarMonthDayDrawer: View {
             Divider()
             ScrollView {
                 ZStack(alignment: .topLeading) {
-                    if let plan = plans.first(where: { $0.id == selectedPlanID }) {
+                    if let transfer, let request = transfer.request {
+                        transferControls(transfer, request: request)
+                    } else if let plan = plans.first(where: { $0.id == selectedPlanID }) {
                         detail(plan)
                             .accessibilityAction(named: "当日の予定一覧に戻る", returnToList)
                             .transition(contentTransition(from: .trailing))
@@ -97,10 +109,7 @@ struct CalendarMonthDayDrawer: View {
                     } else {
                         LazyVStack(spacing: 0) {
                             ForEach(plans) { plan in
-                                Button { selectedPlanID = plan.id } label: {
-                                    row(plan).padding(.horizontal, 14).padding(.vertical, 10)
-                                }
-                                .buttonStyle(.plain)
+                                planButton(plan)
                                 Divider().padding(.leading, 50)
                             }
                         }
@@ -112,7 +121,7 @@ struct CalendarMonthDayDrawer: View {
             .clipped()
             .contentShape(Rectangle())
             .simultaneousGesture(DragGesture(minimumDistance: 24).onEnded { value in
-                guard selectedPlanID != nil else { return }
+                guard selectedPlanID != nil, transfer?.request == nil else { return }
                 if CalendarMonthDayDrawerNavigation.shouldReturnToList(
                     horizontal: value.translation.width, vertical: value.translation.height
                 ) { returnToList() }
@@ -123,6 +132,63 @@ struct CalendarMonthDayDrawer: View {
             if let selectedPlanID, !ids.contains(selectedPlanID) { self.selectedPlanID = nil }
         }
         .accessibilityIdentifier("calendar-month-day-drawer")
+        .interactiveDismissDisabled(transfer?.request != nil)
+        .alert("予定を変更できません", isPresented: Binding(
+            get: { transfer?.error != nil }, set: { if !$0 { transfer?.error = nil } }
+        )) {
+            Button("閉じる", role: .cancel) { transfer?.error = nil }
+        } message: { Text(transfer?.error ?? "") }
+    }
+
+    @ViewBuilder
+    private func planButton(_ plan: PlanBlock) -> some View {
+        let button = Button { selectedPlanID = plan.id } label: {
+            row(plan).padding(.horizontal, 14).padding(.vertical, 10)
+        }
+        .buttonStyle(.plain)
+        .accessibilityAction(named: "複製") { transfer?.begin(plan, mode: .copy) }
+        if let transfer, !store.isPlanScheduleLocked(plan), plan.sourceEventID == nil {
+            button
+                .onDrag { transfer.dragProvider(for: plan) } preview: {
+                    row(plan).padding(12).frame(width: 220)
+                        .background(CalendarDrawerStyle.background, in: RoundedRectangle(cornerRadius: 12))
+                }
+                .accessibilityAction(named: "別の日へ移動") { transfer.begin(plan, mode: .move) }
+        } else { button }
+    }
+
+    private func transferControls(_ transfer: CalendarMonthTransferInteraction,
+                                  request: CalendarMonthTransferInteraction.Request) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Label(request.title, systemImage: request.mode.symbol)
+                .font(.headline).lineLimit(1)
+            Text("カレンダーで\(request.mode.title)先の日付を選択")
+                .font(.subheadline).foregroundStyle(LiminalTheme.secondaryText)
+            ScrollView(.horizontal) {
+                HStack(spacing: 8) {
+                    ForEach(transfer.selectedDates.sorted(), id: \.self) { day in
+                        Button { transfer.select(day) } label: {
+                            Text(day.japaneseMonthDayShortWeekday).font(.caption)
+                                .padding(.horizontal, 10).padding(.vertical, 6)
+                                .background(LiminalTheme.accent.opacity(0.12), in: Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            .scrollIndicators(.hidden)
+            .frame(minHeight: 28)
+            HStack {
+                Button("キャンセル") { transfer.cancel() }
+                Spacer()
+                Button(request.mode == .copy ? "\(transfer.selectedDates.count)日に複製" : "移動", action: onConfirmTransfer)
+                    .buttonStyle(.borderedProminent)
+                    .foregroundStyle(.white)
+                    .disabled(transfer.selectedDates.isEmpty)
+            }
+        }
+        .foregroundStyle(LiminalTheme.text).tint(LiminalTheme.accent)
+        .padding(16)
     }
 
     private func row(_ plan: PlanBlock) -> some View {
@@ -165,6 +231,16 @@ struct CalendarMonthDayDrawer: View {
                     .background(LiminalTheme.accent.opacity(0.1), in: Capsule())
             }
             .buttonStyle(.plain).foregroundStyle(LiminalTheme.accent)
+            HStack(spacing: 12) {
+                Button { transfer?.begin(plan, mode: .copy) } label: {
+                    Label("複製", systemImage: "doc.on.doc").frame(maxWidth: .infinity, minHeight: 36)
+                }
+                Button { transfer?.begin(plan, mode: .move) } label: {
+                    Label("移動", systemImage: "arrow.up.right").frame(maxWidth: .infinity, minHeight: 36)
+                }
+                .disabled(store.isPlanScheduleLocked(plan) || plan.sourceEventID != nil)
+            }
+            .buttonStyle(.bordered).tint(LiminalTheme.accent)
         }
         .padding(16)
     }

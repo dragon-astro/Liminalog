@@ -1029,6 +1029,9 @@ refactor: split plan store
 
 ## 8.16 UXフィードバック v3（docs/28・選択状態/操作性能）
 
+- [x] 2026-09-04 [Codex・実装]: 月間当日ドロワーから別日への標準ドラッグ移動、カレンダーの日付を複数選ぶ一括複製、タップ式移動を実装。白地の影をopacity 0.16/radius 14/y -2に調整。復元点 `837f6f5`。重複・ロック・保存失敗は元予定を維持し理由を表示、一括複製は事前全件検証と一度の保存。Debug/Release build・14 tests成功。シミュレーターで9/15→9/16・17へ複製、9/16→17は重複拒否→18へ移動、移動元が空・再起動後の保存を確認。テストデータはQAシミュレーター内のみ。
+- [ ] 上記の長押しドラッグ実機検証: iPhone 16へRelease導入済み。自動操作では標準ドラッグの長押しを成立させられず、sheetをまたぐドラッグ開始/日付hover/着地は未確認。短い予定・複数日予定・最下段・月送りで確認する。タップ式移動と複製の確認済み範囲とは区別する。
+
 - [x] 2026-09-04 [Codex]: 灰色のドロワーがくすんで見えるとのフィードバックを受け、共通背景をplainSheetBackgroundに戻した。標準sheetの影は維持し、操作・前回のアイコン/遷移/日付選択表示は変更しない。シミュレーターで白地を確認、Debug/Release build成功。iPhone 16へRelease導入済み。背景色のみの変更のため単体テスト再実行は省略。
 
 - [x] 2026-09-04 [Codex]: 当日ドロワーの日付を6pt右へ、終日calendar/重要star.fillを追加。共通ドロワーを無彩色secondarySystemBackgroundにし、一覧/詳細だけ横移動＋フェード（Reduce Motionはフェードのみ）。選択日は薄い塗り、今日は従来の実線枠で区別。復元点 `1fd1ab0`。シミュレーターで表示・詳細選択・右スワイプ戻り・アイコンの収まりを確認。Debug/Release build・方向判定3 tests成功。iPhone 16 Release導入済み。実機でのアニメーション体感は未確認。
@@ -1127,6 +1130,7 @@ refactor: split plan store
 
 | 日付 | 担当 | 内容 |
 |---|---|---|
+| 2026-09-04 | Codex | 月間ドロワーに複製/移動を追加。標準ドラッグのアプリ内専用データ型と週全体のドロップ受信、列位置から日付を算出。複製はカレンダーで複数日を選択し件数付き確定、移動は1日選択の代替操作も提供。PlanStoreで全件事前検証→一度のsave、移動は同ID・複製は新IDでカテゴリ/時間/重要/メモ/公開対象を維持し外部連携IDは複製しない。重複/今日以前の時間指定/外部連携移動は理由付き拒否。新規11＋戻り3 tests成功（初回はテストのModelContainer寿命不備で停止、保持修正後に再検証）。Debug/Release build成功。シミュレーターで2日複製・重複拒否・移動・再起動保持を確認。長押し標準ドラッグの開始/着地は自動操作で未確認。影は白地を保ち少し強調。ログ `/private/tmp/liminalog-calendar-transfer-tests-final.log`。 |
 | 2026-09-04 | Codex | ドロワーのくすみ対策として共通背景をsecondarySystemBackgroundからplainSheetBackgroundへ戻した。標準の影と前回の操作改善を維持。シミュレーター表示、Debug/Release build、diff check成功。iPhone 16 Release導入済み。 |
 | 2026-09-04 | Codex | 当日ドロワーの日付左余白を6pt追加、終日/重要の独立カードにcalendar/star.fillを追加。共通sheet背景をsecondarySystemBackgroundへ変えカレンダーと分離。内容だけ0.24秒横移動＋フェードで一覧/詳細を切替、Reduce Motionは0.15秒フェード。選択日はアクセント12%塗り、今日は2pt実線を維持。シミュレーターで表示・詳細/一覧遷移・スワイプ戻り確認、3 testsとDebug/Release build成功。iPhone 16 Release導入済み、実機の体感評価は未実施。復元点 `1fd1ab0`。 |
 | 2026-09-04 | Codex | 予定フォームの終日/重要を独立カードへ分離。日時は開始/終了のGridで日付・時刻の列幅を共有し、9時/10時でも左端を整列。1日プリセットの終日時は空の日時カードを表示しない。当日詳細は右スワイプで一覧へ戻る（短い/左向き/縦主体の操作は無視）、日付見出しをheadline/boldへ強調。シミュレーターでカード分離・9:00/10:00の整列・右スワイプ戻りを確認。新規方向判定3 testsとDebug/Release build、diff check成功。iPhone 16 Release導入/起動成功。ログ `/private/tmp/liminalog-drawer-navigation-tests.log`。 |

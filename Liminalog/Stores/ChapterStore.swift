@@ -612,6 +612,14 @@ final class ChapterStore {
         return true
     }
 
+    func transferPlan(id: UUID, to dates: Set<Date>, mode: CalendarPlanTransferMode) -> Result<Int, CalendarPlanTransferError> {
+        let result = planStore.transferPlan(id: id, to: dates, mode: mode)
+        if case .success(let count) = result, count > 0 {
+            markChanged(requestCloudFriendShareRefresh: false)
+        }
+        return result
+    }
+
     @discardableResult
     func applyPlanTemplates(
         _ applications: [PlanStore.TemplateApplication],

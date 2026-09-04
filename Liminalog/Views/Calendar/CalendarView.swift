@@ -79,6 +79,7 @@ struct CalendarView: View {
     @State private var monthDrawerEditingPlan: PlanBlock?
     @State private var monthDrawerCreation: CalendarPlanCreationRequest?
     @State private var monthDrawerTimeline: CalendarDayPresentation?
+    @State private var monthTransfer = CalendarMonthTransferInteraction()
     @State private var editingPlan: PlanBlock?
     @State private var pendingPlanCreation: CalendarPlanCreationRequest?
     @State private var displayMode = Self.initialDisplayMode()
@@ -707,9 +708,19 @@ struct CalendarView: View {
         )
         .padding(.top, 6)
         .frame(maxHeight: .infinity, alignment: .top)
+        .environment(\.monthPlanTransfer, monthTransfer)
+        .onChange(of: monthTransfer.pendingDrop) { _, drop in
+            guard let drop else { return }
+            monthTransfer.pendingDrop = nil
+            completeMonthTransfer(id: drop.planID, dates: [drop.date], mode: .move)
+        }
     }
 
     private func openMonthDrawer(date: Date, planID: UUID?) {
+        if monthTransfer.request != nil {
+            monthTransfer.select(date)
+            return
+        }
         if !monthDrawerPresented {
             monthDrawerDetent = CalendarDrawerStyle.compact
             monthDrawerHeight = 264
@@ -729,6 +740,7 @@ struct CalendarView: View {
     }
 
     private func didDismissMonthDrawer() {
+        monthTransfer.cancel()
         monthDrawerDay = nil
         let nextAction = monthDrawerNextAction
         monthDrawerNextAction = nil
@@ -744,8 +756,10 @@ struct CalendarView: View {
                 onClose: closeMonthDrawer,
                 onExpand: { monthDrawerTimeline = target },
                 onCreate: { preparePlanCreation(for: target.date) },
-                onEdit: { monthDrawerEditingPlan = $0 }
+                onEdit: { monthDrawerEditingPlan = $0 },
+                onConfirmTransfer: confirmMonthTransfer
             )
+            .environment(\.monthPlanTransfer, monthTransfer)
             .id(target.date)
             .calendarDrawerStyle(selection: $monthDrawerDetent)
             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { monthDrawerHeight = $0 }
@@ -761,6 +775,23 @@ struct CalendarView: View {
                 }
                 .presentationDetents([.large])
             }
+        }
+    }
+
+    private func confirmMonthTransfer() {
+        guard let request = monthTransfer.request else { return }
+        completeMonthTransfer(id: request.planID, dates: monthTransfer.selectedDates, mode: request.mode)
+    }
+
+    private func completeMonthTransfer(id: UUID, dates: Set<Date>, mode: CalendarPlanTransferMode) {
+        switch store.transferPlan(id: id, to: dates, mode: mode) {
+        case .success:
+            monthTransfer.cancel()
+            reloadVisibleData()
+            LiminalHaptics.selection()
+            if mode == .move, let date = dates.first { openMonthDrawer(date: date, planID: id) }
+        case .failure(let error):
+            monthTransfer.error = error.localizedDescription
         }
     }
 
@@ -3531,6 +3562,7 @@ struct CalendarMonthGrid: View {
 }
 
 private struct CalendarMonthWeekRow: View {
+    @Environment(\.monthPlanTransfer) private var transfer
     let dates: [Date]
     let visibleMonth: Date
     let importantPlansByDay: [Date: [CalendarDisplayPlan]]
@@ -3578,12 +3610,14 @@ private struct CalendarMonthWeekRow: View {
                         .accessibilityLabel("\(placement.plan.title) 複数日に跨る重要な予定")
                         .frame(width: frame.width, height: labelHeight)
                         .position(x: frame.midX, y: frame.midY)
+                        .allowsHitTesting(transfer?.request == nil)
                     }
                 }
             }
             .frame(height: cellHeight)
         }
         .frame(height: cellHeight)
+        .modifier(CalendarPlanWeekDropTarget(dates: dates))
     }
 
     @ViewBuilder
@@ -3626,6 +3660,7 @@ private struct CalendarMonthWeekRow: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(model.accessibilityText)
+        .modifier(CalendarPlanDropTarget(date: model.date))
         .overlay {
             if let selectedDate, calendar.isDate(selectedDate, inSameDayAs: model.date) {
                 Rectangle().fill(LiminalTheme.accent.opacity(0.12))
