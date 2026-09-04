@@ -270,7 +270,7 @@ final class PlanStore {
             // Do not mutate historical plans or externally owned calendar events.
             guard DayBoundary.dayStart(for: plan.startTime, calendar: calendar)
                     > DayBoundary.dayStart(for: clock.now, calendar: calendar),
-                  plan.sourceEventID == nil else { return nil }
+                  !plan.hasExternalCalendarSource else { return nil }
             changes.append(.init(id: plan.id, title: plan.title, updatedAt: plan.updatedAt, original: original,
                                  remaining: mode == .keepRemainders ? parts : []))
         }
@@ -525,7 +525,7 @@ final class PlanStore {
                                      existing: [PlanBlock], calendar: Calendar) -> Result<CalendarPlanTransferPreview, CalendarPlanTransferError> {
         if mode == .move {
             guard !isScheduleLocked(source) else { return .failure(.locked) }
-            guard source.sourceEventID == nil else { return .failure(.externalPlan) }
+            guard !source.hasExternalCalendarSource else { return .failure(.externalPlan) }
         }
         let days = Set(dates.map { calendar.startOfDay(for: $0) }).sorted()
         guard !days.isEmpty, mode == .copy || days.count == 1 else { return .failure(.noDates) }
@@ -552,7 +552,7 @@ final class PlanStore {
             let remaining = PlanTemplateReplacement.remainingParts(of: original, excluding: intervals)
             guard remaining != [original] else { continue }
             guard plan.id != source.id else { return .failure(.sourceOverlap) }
-            guard !isScheduleLocked(plan), plan.sourceEventID == nil else { return .failure(.protectedOverlap) }
+            guard !isScheduleLocked(plan), !plan.hasExternalCalendarSource else { return .failure(.protectedOverlap) }
             changes.append(.init(id: plan.id, title: plan.title, updatedAt: plan.updatedAt, original: original, remaining: remaining))
         }
         changes.sort { $0.id.uuidString < $1.id.uuidString }

@@ -117,10 +117,10 @@ struct RootTabView: View {
                 let initializedStore = await initializedStores.bootstrapWithStoreReadinessRetry()
                 #if DEBUG
                 let seedRequest = PreviewSupport.runtimeSeedRequest()
-                if seedRequest.shouldSeedPreviewPlans {
+                if !LiminalogRuntime.isRunningUITests, seedRequest.shouldSeedPreviewPlans {
                     initializedStore.seedPreviewPlansIfNeeded()
                 }
-                if seedRequest.shouldSeedDevData {
+                if !LiminalogRuntime.isRunningUITests, seedRequest.shouldSeedDevData {
                     initializedStore.seedDevSampleChaptersIfNeeded()
                 }
                 #endif

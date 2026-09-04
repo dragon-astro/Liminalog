@@ -170,14 +170,17 @@ struct CalendarMonthDayDrawer: View {
                     pendingDeletion = DeletionRequest(id: plan.id, title: plan.title,
                         spansDays: !Calendar.current.isDate(plan.startTime, inSameDayAs: plan.endTime.addingTimeInterval(-0.001)))
                 } label: {
-                    Label("削除", systemImage: "trash")
-                        .font(.subheadline.weight(.semibold))
-                        .frame(width: 76, height: 52)
+                    Image(systemName: "trash")
+                        .font(.system(size: 19, weight: .semibold))
+                        .frame(width: 44, height: 44)
                         .foregroundStyle(.white)
-                        .background(Color.red)
+                        .background(Color.red, in: Circle())
+                        .contentShape(Circle())
                 }
                 .buttonStyle(.plain).tint(.red)
+                .accessibilityLabel("削除")
                 .accessibilityIdentifier("calendar-drawer-delete-\(plan.id)")
+                .padding(.trailing, 14)
             }
             planSurface(plan, onTap: {
                 if revealed { revealedDeletionID = nil }
@@ -201,7 +204,7 @@ struct CalendarMonthDayDrawer: View {
                 .accessibilityAction(.default) { onTap() }
                 .accessibilityActions {
                     Button("複製") { transfer.begin(plan, mode: .copy) }
-                    if !store.isPlanScheduleLocked(plan), plan.sourceEventID == nil {
+                    if !store.isPlanScheduleLocked(plan), !plan.hasExternalCalendarSource {
                         Button("別の日へ移動") { transfer.begin(plan, mode: .move) }
                     }
                 }
@@ -224,15 +227,18 @@ struct CalendarMonthDayDrawer: View {
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(.isButton)
             .accessibilityIdentifier("calendar-drawer-plan-\(plan.id)")
+            #if DEBUG
+            .accessibilityValue(LiminalogRuntime.isRunningUITests ? "recognizedHolds:\(transfer.recognizedHoldCount)" : "")
+            #endif
     }
 
     private func dragSurface(_ plan: PlanBlock, transfer: CalendarMonthTransferInteraction,
                              onTap: @escaping () -> Void, onSwipeLeft: (() -> Void)?,
                              onSwipeRight: (() -> Void)?) -> some View {
         return TimelinePlanPresetLongPressDragSurface(
-            minimumDuration: 0.28, maximumDistance: 12,
+            minimumDuration: 0.14, maximumDistance: 24,
             onTap: onTap, onSwipeRight: onSwipeRight, onSwipeLeft: onSwipeLeft,
-            dragEnabled: !store.isPlanScheduleLocked(plan) && plan.sourceEventID == nil
+            dragEnabled: !store.isPlanScheduleLocked(plan) && !plan.hasExternalCalendarSource
         ) { event in
             switch event {
             case .began(let point):
@@ -332,7 +338,7 @@ struct CalendarMonthDayDrawer: View {
             Button { transfer?.begin(plan, mode: .move) } label: {
                 Label("移動", systemImage: "arrow.up.right").frame(maxWidth: .infinity, minHeight: 36)
             }
-            .disabled(store.isPlanScheduleLocked(plan) || plan.sourceEventID != nil)
+            .disabled(store.isPlanScheduleLocked(plan) || plan.hasExternalCalendarSource)
             .accessibilityIdentifier("calendar-drawer-move")
         }
         .buttonStyle(.bordered).tint(LiminalTheme.accent)

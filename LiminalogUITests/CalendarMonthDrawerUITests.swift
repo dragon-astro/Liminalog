@@ -15,12 +15,13 @@ final class CalendarMonthDrawerUITests: XCTestCase {
     private func element(_ app: XCUIApplication, _ id: String) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: id).firstMatch
     }
-    private func launch(longNote: Bool = false) -> XCUIApplication {
+    private func launch(longNote: Bool = false, previewSource: Bool = false) -> XCUIApplication {
         continueAfterFailure = false
         let app = XCUIApplication()
         app.launchArguments = ["-LiminalogMonthDrawerUITests", "-LiminalogInitialRootTab", "calendar",
                                "-LiminalogInitialCalendarMode", "month", "-calendar.filter.usesCustomCategories", "NO"]
         if longNote { app.launchArguments.append("-LiminalogUITestLongNote") }
+        if previewSource { app.launchArguments.append("-LiminalogUITestPreviewSource") }
         app.launch()
         let day = element(app, "calendar-month-day-\(dayID(fixtureDay))")
         XCTAssertTrue(day.waitForExistence(timeout: 30), app.debugDescription)
@@ -44,7 +45,7 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         let destination = Calendar.current.date(byAdding: .day, value: 1, to: fixtureDay)!
         let source = element(app, "calendar-drawer-plan-\(sourceID)")
         let target = element(app, "calendar-month-day-\(dayID(destination))")
-        // Production threshold is 0.28 seconds; no immediate-drag debug flag is used.
+        // Use the production threshold, without an immediate-drag debug flag.
         source.press(forDuration: 0.7, thenDragTo: target, withVelocity: .slow, thenHoldForDuration: 0.3)
         assertMoved(app, to: destination)
     }
@@ -60,6 +61,15 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         assertMoved(app, to: destination)
     }
 
+    func testPreviewSourcePlanCanBeGrabbed() {
+        let app = launch(previewSource: true)
+        let destination = Calendar.current.date(byAdding: .day, value: 1, to: fixtureDay)!
+        element(app, "calendar-drawer-plan-\(sourceID)").press(forDuration: 0.3,
+            thenDragTo: element(app, "calendar-month-day-\(dayID(destination))"),
+            withVelocity: .slow, thenHoldForDuration: 0.2)
+        assertMoved(app, to: destination)
+    }
+
     func testDetailKeepsDrawerHeight() {
         let app = launch()
         let header = app.staticTexts.matching(NSPredicate(format: "value == %@", dayID(fixtureDay))).firstMatch
@@ -69,6 +79,32 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         XCTAssertEqual(header.frame.minY, originalY, accuracy: 2)
         app.buttons["当日の予定一覧に戻る"].tap()
         XCTAssertEqual(header.frame.minY, originalY, accuracy: 2)
+    }
+
+    func testHoldSurvivesMovementBeforeRecognition() {
+        let app = launch()
+        let row = element(app, "calendar-drawer-plan-\(sourceID)")
+        let start = row.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        // Move 18pt before the recognition deadline, then keep holding there.
+        // This is deliberately not the previous perfectly stationary 0.7s hold.
+        start.press(forDuration: 0.01, thenDragTo: start.withOffset(CGVector(dx: 18, dy: 0)),
+                    withVelocity: XCUIGestureVelocity(rawValue: 200), thenHoldForDuration: 0.4)
+        XCTAssertTrue(row.waitForExistence(timeout: 5))
+        XCTAssertEqual(row.value as? String, "recognizedHolds:1")
+    }
+
+    func testImmediateVerticalSwipeDoesNotGrabPlan() {
+        let app = launch()
+        let row = element(app, "calendar-drawer-plan-\(sourceID)")
+        let originalY = row.frame.minY
+        let start = row.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        start.press(forDuration: 0.01, thenDragTo: start.withOffset(CGVector(dx: 0, dy: -160)),
+                    withVelocity: XCUIGestureVelocity(rawValue: 800), thenHoldForDuration: 0)
+        let anotherRow = app.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier BEGINSWITH %@", "calendar-drawer-plan-")).firstMatch
+        XCTAssertEqual(anotherRow.value as? String, "recognizedHolds:0")
+        XCTAssertFalse(element(app, "calendar-drawer-edit").exists)
+        XCTAssertTrue(!row.isHittable || abs(row.frame.minY - originalY) > 20)
     }
 
     func testLongPressOnListIconMovesToAnotherDay() {

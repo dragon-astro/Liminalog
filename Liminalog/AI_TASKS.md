@@ -1029,8 +1029,10 @@ refactor: split plan store
 
 ## 8.16 UXフィードバック v3（docs/28・選択状態/操作性能）
 
+- [x] 2026-09-05 [Codex]: 月間ドロワーの長押しを0.28秒/12pt→0.14秒/24ptへ緩和。旧設定では0.01秒押下→18pt移動→0.4秒保持で実機の認識回数0、新設定では1となることを確認（完全静止0.7秒だけの検証を補完）。即時縦スワイプの非ドラッグ、内部サンプルの移動も実機検証。`debug.preview.*` 生成識別子を外部イベントと誤認し長押しを無効化していたため、PlanBlockの所有元判定を共通化してUI/保存時の移動/部分置換へ適用。本物の外部連携と履歴ロックは維持。削除は44pt赤円＋白trash、共通sheet影0.05→0.035。UI12件＋単体38件成功、Release build成功。復元点 `6f1b3c2`。
+
 - [x] 2026-09-05 [Codex]: 詳細選択時の264→320pt自動持ち上げを撤去し、戻る時もユーザーが選んだ高さを維持。不要な選択通知と詳細専用detentを削除。一覧の上下10pt/左右14ptの余白を長押し入力領域に含める。iPhone 16のXCTestで高さ維持と一覧中央/文字/アイコン/下余白・詳細上部から別日移動を確認。復元点 `d8c7d23`。
-- [ ] 2026-09-05 [Codex・原因未特定]: ユーザーはドロワー予定行で今日/過去・明日以降とも長押し無反応、外部取込ではなくLiminalog内作成と回答。テスト予定では実機の長押しが成立するため、成功だけをもってこの報告を解決済みにしない。実際に反応しない予定/操作条件を特定して追加調査する。日付ロック/外部由来ガードは変更していない。
+- [ ] 2026-09-05 [Codex・ユーザー操作再確認]: ドロワー予定行で今日/過去・明日以降とも長押し無反応、外部取込ではなくLiminalog内作成との報告。成立前の移動許容量と内部サンプルの外部由来誤判定を修正し実機自動テストで改善を確認したが、ユーザーの指での解消確認はまだ。今日以前の時間指定予定のロック・本物の外部予定の移動禁止は維持。
 - [x] 同日・検証補強: 実機スクリーンショットで `isHittable` のみだとボタンが一部見えるだけでも成功することを確認。スクロール検証を3ボタンのframe全体が可視領域内にある条件へ強化し、iPhone 16で再実行成功。ログ `/private/tmp/liminalog-drawer-device-full-buttons.log`、確認画像 `/private/tmp/liminalog-drawer-device-full-buttons-evidence/7CE63F14-6214-47E5-B453-A18AD1D3C11D.png`。
 
 - [x] 2026-09-05 [Codex]: 下部固定操作欄を撤去し編集/複製/移動を単一ScrollViewへ戻し、下部safe areaの遮蔽/スクロール端効果を除去。一覧もScrollView＋LazyVStackへ変更。プリセットと共有のUIKit認識器で長押しと祖先スクロールの優先関係を制御し、認識後の移動を保持。削除ボタンはスワイプ露出時だけ生成し赤で固定。ユーザー許可のXCTest UIテスト4件（一覧/詳細の通常長押し→別日移動・復帰、スワイプ削除確認の取消、長いメモ後の全操作ボタン表示）と関連単体37件成功。待ち時間0のDebugフラグは撤去。UIテストは専用メモリ内データで実行し既存データから隔離。スクリーンショット確認、Release build、iPhone 16導入/起動成功。復元点 `f1a0823`。
@@ -1142,6 +1144,7 @@ refactor: split plan store
 
 | 日付 | 担当 | 内容 |
 |---|---|---|
+| 2026-09-05 | Codex | 長押しの成立前移動を含む実機検証を追加。旧0.28秒/12ptは18pt動いてから保持すると認識回数0（`/private/tmp/liminalog-drawer-drift-before-retry.log`）、新0.14秒/24ptは認識成功。内部サンプルID `debug.preview.*` を外部予定と誤判定して入力無効/保存拒否していた条件も修正。削除は44ptの赤円＋白trash、共通sheet影0.035。UI12件・単体38件成功（`/private/tmp/liminalog-drawer-forgiving-hold-tests.log`）、即時縦スワイプで表示が動く追加チェックも成功（`/private/tmp/liminalog-drawer-scroll-regression.log`）。画像 `/private/tmp/liminalog-round-delete-evidence/7278D783-C4BA-41CD-9DF0-D72964000B1F.png` で円形/余白確認。Release build・iPhone 16導入/起動成功。ユーザーの指での解消確認は残す。復元点 `6f1b3c2`。 |
 | 2026-09-05 | Codex | 詳細選択時の自動持ち上げと320pt専用detentを撤去し、一覧/詳細往復で高さを維持。一覧の入力surfaceへ上下10pt/左右14ptの余白を含める。iPhone 16・iOS 26.6のXCTestで9件成功（高さ維持、長いメモ後の全操作、一覧中央/文字/アイコン/上下余白/詳細上部から別日移動、スワイプ削除確認取消）。最初の長文スクロール検証はホームインジケータ近傍を始点にして失敗し、画面収録と入力座標を確認して可視内容内へ始点を修正後に成功。Release build・iPhone 16への通常版導入/起動成功。ログ `/private/tmp/liminalog-drawer-device-hold-final.log`、結果 `/private/tmp/liminalog-drawer-device-tests/Logs/Test/Test-Liminalog-2026.09.05_00-32-11-+0900.xcresult`。ユーザー実操作の長押し無反応は再現できておらず未解決として残す（内部作成・明日以降・ドロワー内行でも発生との回答）。復元点 `d8c7d23`。 |
 | 2026-09-05 | Codex | 月間ドロワーの下部固定操作欄を撤去。編集/複製/移動を単一ScrollViewに配置し下端の遮蔽を除去。一覧をScrollView＋LazyVStackへ変更し、削除は左スワイプでのみ赤いボタンを生成。プリセット共通のUIKit長押し認識器で祖先のスクロール/タップとの優先関係と認識後の所有権を制御、再描画時の不要な再設定を抑制。ユーザー許可に基づきUIテストターゲットと隔離メモリ内fixtureを追加。通常0.28秒閾値・0.7秒押下で一覧/詳細の別日移動を検証、削除確認取消・長いメモ後の全操作表示を含むUI4件＋単体37件成功。スクリーンショットでも赤い削除/全操作の表示確認。Release build・iPhone 16導入/起動成功。実機指操作は未確認。ログ `/private/tmp/liminalog-drawer-verified-ui-and-unit-tests.log`、画像 `/private/tmp/liminalog-drawer-ui-evidence/`。復元点 `f1a0823`。 |
 | 2026-09-04 | Codex | 月間詳細の見切れ対策（停止高320pt・下部固定複製/移動）、共通影0.05、標準Listのスワイプ削除に変更。詳細の長押し入力を接続し、一覧はボタンとUIKit入力の二重構成を解消。戻りスワイプ/移動/タップの領域を整理。Debug/Release build・34 tests成功。Debug専用認識待ち時間0で一覧/詳細から別日へのドラッグと復帰を確認。通常長押し・横スワイプは自動操作では確認できず実機検証待ち。iPhone 16 Release導入。テストログ `/private/tmp/liminalog-month-drawer-gestures-tests.log`。 |

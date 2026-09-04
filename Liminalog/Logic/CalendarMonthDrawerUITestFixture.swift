@@ -19,7 +19,12 @@ enum CalendarMonthDrawerUITestFixture {
                 startTime: start, endTime: start.addingTimeInterval(1800),
                 note: index == 0 && longNote ? String(repeating: "長いメモのスクロール検証\n", count: 25) : nil,
                 isPublic: false)
-            if index == 0 { plan.id = sourceID }
+            if index == 0 {
+                plan.id = sourceID
+                if ProcessInfo.processInfo.arguments.contains("-LiminalogUITestPreviewSource") {
+                    plan.sourceEventID = "debug.preview.plan.ui-test"
+                }
+            }
             context.insert(plan)
         }
         try! context.save()

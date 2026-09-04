@@ -24,6 +24,12 @@ final class PlanBlock {
         max(endTime.timeIntervalSince(startTime), 0)
     }
 
+    /// Showcase plans use the source field as a seed marker, not an EventKit ID.
+    var hasExternalCalendarSource: Bool {
+        guard let sourceEventID else { return false }
+        return !sourceEventID.hasPrefix("debug.preview.")
+    }
+
     init() {}
 
     init(category: Category?, title: String, startTime: Date, endTime: Date, isAllDay: Bool = false, isImportant: Bool = false, note: String? = nil, isPublic: Bool = true) {

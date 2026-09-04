@@ -159,6 +159,7 @@ public final class PlanBlock {
 
 **変更点**
 - `sourceEventID` 追加: EventKit から取り込んだ予定の元 ID を保持し、再同期時に重複防止
+- アプリ内サンプルは `debug.preview.*` を同フィールドの生成識別子に使用するが、外部連携ではない。移動/置換の所有元判定は `PlanBlock.hasExternalCalendarSource` を通し、この予約プレフィックスと本物のEventKit IDを区別する（既存値の一括書換えなし）。
 - `updatedAt` 追加
 
 **現行の重要予定ルール (2026-05-26)**

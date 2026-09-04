@@ -166,6 +166,23 @@ struct CalendarPlanTransferTests {
         #expect(interaction.request == nil && interaction.selectedDates.isEmpty)
     }
 
+    @Test("アプリ内サンプルの識別子は外部連携と区別して移動できる")
+    func previewSourceIsNotExternal() throws {
+        let container = try TestModelContainer.make()
+        let context = container.mainContext
+        let source = plan(10)
+        source.sourceEventID = "debug.preview.plan.sample"
+        context.insert(source)
+        try context.save()
+        #expect(!source.hasExternalCalendarSource)
+        #expect(try store(context).transferPlan(id: source.id, to: [day(20)], mode: .move, calendar: calendar).get() == 1)
+        #expect(source.startTime == day(20))
+        source.sourceEventID = "real-event-id"
+        #expect(source.hasExternalCalendarSource)
+        source.sourceEventID = "debug.preview.important.1"
+        #expect(!source.hasExternalCalendarSource)
+    }
+
     @Test("ドロップ先は左右の列で判定し、枠外は受け取らない")
     func dropColumns() {
         let dates = (10...16).map { day($0) }

@@ -19,6 +19,10 @@ final class CalendarMonthTransferInteraction {
     var dragLocation: CGPoint?
     var action: Action?
     var error: String?
+    #if DEBUG
+    // Test observation only: incremented by the real hold callback, never simulated.
+    var recognizedHoldCount = 0
+    #endif
     var dayStatuses: [Date: CalendarPlanTransferDayStatus] = [:]
     @ObservationIgnored let rootFrame = TimelineWindowFrameSource()
     @ObservationIgnored let viewportFrame = TimelineWindowFrameSource()
@@ -30,6 +34,9 @@ final class CalendarMonthTransferInteraction {
     }
 
     func begin(_ plan: PlanBlock, mode: CalendarPlanTransferMode, dragging: Bool = false) {
+        #if DEBUG
+        if dragging { recognizedHoldCount += 1 }
+        #endif
         isDragging = dragging
         selectedDates = []
         hoveredDate = nil
