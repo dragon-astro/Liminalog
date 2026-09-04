@@ -101,7 +101,17 @@ struct PlanCreateSheet: View {
                         categoryCard
                         visibilityCard
                     }
-                    timeCard
+                    compactColumns {
+                        PlanEditorCard(tint: selectedTint) {
+                            Toggle("終日", isOn: $isAllDay).disabled(isScheduleLocked)
+                        }
+                        PlanEditorCard(tint: selectedTint) {
+                            Toggle("重要", isOn: $isImportant)
+                        }
+                    }
+                    .font(.subheadline)
+                    .tint(selectedTint)
+                    if snapshotEditor == nil || !isAllDay { timeCard }
                     noteCard
                 }
                 .padding(16)
@@ -379,18 +389,12 @@ struct PlanCreateSheet: View {
     private var timeCard: some View {
         PlanEditorCard(tint: selectedTint) {
             VStack(alignment: .leading, spacing: 12) {
-                compactColumns {
-                    Toggle("終日", isOn: $isAllDay).disabled(isScheduleLocked)
-                    Toggle("重要", isOn: $isImportant)
-                }
-                .font(.subheadline)
-                .tint(selectedTint)
                 if snapshotEditor != nil {
                     if !isAllDay {
                         PlanTemplateTimeFields(startMinute: $templateStartMinute, endMinute: $templateEndMinute)
                     }
                 } else {
-                    VStack(spacing: 12) {
+                    Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 12) {
                         dateRow(title: "開始", date: $startTime)
                         dateRow(title: "終了", date: isAllDay ? $allDayEndDate : $endTime)
                     }
@@ -402,10 +406,23 @@ struct PlanCreateSheet: View {
     }
 
     private func dateRow(title: String, date: Binding<Date>) -> some View {
-        DatePicker(title, selection: date, displayedComponents: isAllDay ? [.date] : [.date, .hourAndMinute])
-            .font(.subheadline)
-            .datePickerStyle(.compact)
-            .tint(LiminalTheme.text)
+        GridRow {
+            Text(title)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            DatePicker(title + "日", selection: date, displayedComponents: .date)
+                .labelsHidden()
+                .fixedSize()
+                .accessibilityLabel(title + "日")
+            if !isAllDay {
+                DatePicker(title + "時刻", selection: date, displayedComponents: .hourAndMinute)
+                    .labelsHidden()
+                    .fixedSize()
+                    .accessibilityLabel(title + "時刻")
+            }
+        }
+        .font(.subheadline)
+        .datePickerStyle(.compact)
+        .tint(LiminalTheme.text)
     }
 
     private var noteCard: some View {

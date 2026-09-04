@@ -1,6 +1,12 @@
 import SwiftUI
 import SwiftData
 
+enum CalendarMonthDayDrawerNavigation {
+    static func shouldReturnToList(horizontal: CGFloat, vertical: CGFloat) -> Bool {
+        horizontal > 70 && horizontal > abs(vertical) * 1.5
+    }
+}
+
 /// 月間を操作可能なまま残す当日一覧。日付ごとの狭いQueryだけを持つ。
 struct CalendarMonthDayDrawer: View {
     @Query private var queriedPlans: [PlanBlock]
@@ -42,14 +48,15 @@ struct CalendarMonthDayDrawer: View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
                 if selectedPlanID != nil {
-                    Button { selectedPlanID = nil } label: {
+                    Button(action: returnToList) {
                         Image(systemName: "chevron.left").frame(width: 40, height: 44)
                     }
                     .accessibilityLabel("当日の予定一覧に戻る")
                 }
                 Text(date.japaneseMonthDayShortWeekday)
-                    .font(.subheadline.weight(.semibold))
+                    .font(.headline.weight(.bold))
                     .foregroundStyle(LiminalTheme.text)
+                    .accessibilityAddTraits(.isHeader)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 Button(action: onCreate) {
                     Image(systemName: "plus").frame(width: 44, height: 44)
@@ -75,6 +82,7 @@ struct CalendarMonthDayDrawer: View {
             ScrollView {
                 if let plan = plans.first(where: { $0.id == selectedPlanID }) {
                     detail(plan)
+                        .accessibilityAction(named: "当日の予定一覧に戻る", returnToList)
                 } else if plans.isEmpty {
                     VStack(spacing: 10) {
                         Text("予定はありません").foregroundStyle(LiminalTheme.secondaryText)
@@ -94,6 +102,13 @@ struct CalendarMonthDayDrawer: View {
                     }
                 }
             }
+            .contentShape(Rectangle())
+            .simultaneousGesture(DragGesture(minimumDistance: 24).onEnded { value in
+                guard selectedPlanID != nil else { return }
+                if CalendarMonthDayDrawerNavigation.shouldReturnToList(
+                    horizontal: value.translation.width, vertical: value.translation.height
+                ) { returnToList() }
+            })
         }
         .onChange(of: highlightedPlanID) { _, id in selectedPlanID = id }
         .onChange(of: plans.map(\.id)) { _, ids in
@@ -115,6 +130,11 @@ struct CalendarMonthDayDrawer: View {
         }
         .frame(minHeight: 32)
         .contentShape(Rectangle())
+    }
+
+    private func returnToList() {
+        LiminalHaptics.selection()
+        selectedPlanID = nil
     }
 
     private func detail(_ plan: PlanBlock) -> some View {
