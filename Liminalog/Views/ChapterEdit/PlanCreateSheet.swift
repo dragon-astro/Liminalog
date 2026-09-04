@@ -103,10 +103,15 @@ struct PlanCreateSheet: View {
                     }
                     compactColumns {
                         PlanEditorCard(tint: selectedTint) {
-                            Toggle("終日", isOn: $isAllDay).disabled(isScheduleLocked)
+                            Toggle(isOn: $isAllDay) {
+                                Label("終日", systemImage: "calendar")
+                            }
+                            .disabled(isScheduleLocked)
                         }
                         PlanEditorCard(tint: selectedTint) {
-                            Toggle("重要", isOn: $isImportant)
+                            Toggle(isOn: $isImportant) {
+                                Label("重要", systemImage: "star.fill")
+                            }
                         }
                     }
                     .font(.subheadline)

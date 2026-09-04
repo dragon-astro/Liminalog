@@ -3628,7 +3628,7 @@ private struct CalendarMonthWeekRow: View {
         .accessibilityLabel(model.accessibilityText)
         .overlay {
             if let selectedDate, calendar.isDate(selectedDate, inSameDayAs: model.date) {
-                Rectangle().strokeBorder(LiminalTheme.accent, lineWidth: 2)
+                Rectangle().fill(LiminalTheme.accent.opacity(0.12))
                     .allowsHitTesting(false)
             }
         }

@@ -6,6 +6,7 @@ enum CalendarDrawerStyle {
     static let expanded: PresentationDetent = .medium
     static let headerHeight: CGFloat = 48
     static let horizontalInset: CGFloat = 14
+    static let background = Color(uiColor: .secondarySystemBackground)
 }
 
 private struct CalendarDrawerStyleModifier: ViewModifier {
@@ -15,10 +16,10 @@ private struct CalendarDrawerStyleModifier: ViewModifier {
         content
             .padding(.top, 6)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .background(LiminalTheme.plainSheetBackground)
+            .background(CalendarDrawerStyle.background)
             .presentationDetents([CalendarDrawerStyle.compact, CalendarDrawerStyle.expanded], selection: $selection)
             .presentationDragIndicator(.visible)
-            .presentationBackground(LiminalTheme.plainSheetBackground)
+            .presentationBackground(CalendarDrawerStyle.background)
             .presentationBackgroundInteraction(.enabled)
     }
 }

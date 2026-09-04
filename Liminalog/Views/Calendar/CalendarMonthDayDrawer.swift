@@ -9,6 +9,7 @@ enum CalendarMonthDayDrawerNavigation {
 
 /// 月間を操作可能なまま残す当日一覧。日付ごとの狭いQueryだけを持つ。
 struct CalendarMonthDayDrawer: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Query private var queriedPlans: [PlanBlock]
     let date: Date
     let highlightedPlanID: UUID?
@@ -57,6 +58,7 @@ struct CalendarMonthDayDrawer: View {
                     .font(.headline.weight(.bold))
                     .foregroundStyle(LiminalTheme.text)
                     .accessibilityAddTraits(.isHeader)
+                    .padding(.leading, 6)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 Button(action: onCreate) {
                     Image(systemName: "plus").frame(width: 44, height: 44)
@@ -80,28 +82,34 @@ struct CalendarMonthDayDrawer: View {
             .padding(.horizontal, CalendarDrawerStyle.horizontalInset)
             Divider()
             ScrollView {
-                if let plan = plans.first(where: { $0.id == selectedPlanID }) {
-                    detail(plan)
-                        .accessibilityAction(named: "当日の予定一覧に戻る", returnToList)
-                } else if plans.isEmpty {
-                    VStack(spacing: 10) {
-                        Text("予定はありません").foregroundStyle(LiminalTheme.secondaryText)
-                        Button("予定を追加", systemImage: "plus", action: onCreate)
-                            .disabled(!CalendarPlanCreationPreset.allowsCreation(for: date))
-                    }
-                    .frame(maxWidth: .infinity).padding(24)
-                } else {
-                    LazyVStack(spacing: 0) {
-                        ForEach(plans) { plan in
-                            Button { selectedPlanID = plan.id } label: {
-                                row(plan).padding(.horizontal, 14).padding(.vertical, 10)
-                            }
-                            .buttonStyle(.plain)
-                            Divider().padding(.leading, 50)
+                ZStack(alignment: .topLeading) {
+                    if let plan = plans.first(where: { $0.id == selectedPlanID }) {
+                        detail(plan)
+                            .accessibilityAction(named: "当日の予定一覧に戻る", returnToList)
+                            .transition(contentTransition(from: .trailing))
+                    } else if plans.isEmpty {
+                        VStack(spacing: 10) {
+                            Text("予定はありません").foregroundStyle(LiminalTheme.secondaryText)
+                            Button("予定を追加", systemImage: "plus", action: onCreate)
+                                .disabled(!CalendarPlanCreationPreset.allowsCreation(for: date))
                         }
+                        .frame(maxWidth: .infinity).padding(24)
+                    } else {
+                        LazyVStack(spacing: 0) {
+                            ForEach(plans) { plan in
+                                Button { selectedPlanID = plan.id } label: {
+                                    row(plan).padding(.horizontal, 14).padding(.vertical, 10)
+                                }
+                                .buttonStyle(.plain)
+                                Divider().padding(.leading, 50)
+                            }
+                        }
+                        .transition(contentTransition(from: .leading))
                     }
                 }
+                .animation(.easeInOut(duration: reduceMotion ? 0.15 : 0.24), value: selectedPlanID)
             }
+            .clipped()
             .contentShape(Rectangle())
             .simultaneousGesture(DragGesture(minimumDistance: 24).onEnded { value in
                 guard selectedPlanID != nil else { return }
@@ -135,6 +143,10 @@ struct CalendarMonthDayDrawer: View {
     private func returnToList() {
         LiminalHaptics.selection()
         selectedPlanID = nil
+    }
+
+    private func contentTransition(from edge: Edge) -> AnyTransition {
+        reduceMotion ? .opacity : .move(edge: edge).combined(with: .opacity)
     }
 
     private func detail(_ plan: PlanBlock) -> some View {

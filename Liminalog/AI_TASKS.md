@@ -1029,6 +1029,8 @@ refactor: split plan store
 
 ## 8.16 UXフィードバック v3（docs/28・選択状態/操作性能）
 
+- [x] 2026-09-04 [Codex]: 当日ドロワーの日付を6pt右へ、終日calendar/重要star.fillを追加。共通ドロワーを無彩色secondarySystemBackgroundにし、一覧/詳細だけ横移動＋フェード（Reduce Motionはフェードのみ）。選択日は薄い塗り、今日は従来の実線枠で区別。復元点 `1fd1ab0`。シミュレーターで表示・詳細選択・右スワイプ戻り・アイコンの収まりを確認。Debug/Release build・方向判定3 tests成功。iPhone 16 Release導入済み。実機でのアニメーション体感は未確認。
+
 - [x] 2026-09-04 [Codex]: 終日/重要を別カードへ分離、開始/終了の日時列をGridで整列。当日詳細の右スワイプ戻りと日付見出しheadline/boldを追加。復元点 `fa3f421`。シミュレーターで9:00/10:00の列揃え、カード分離、詳細→右スワイプ→一覧、日付強調を確認。方向判定3 tests・Debug/Release build成功。iPhone 16 Release導入/起動成功（実機の指操作確認は未実施）。
 
 - [x] 2026-09-04 [Codex]: 当日一覧を予定プリセットと同じ標準sheetへ統一。`calendarDrawerStyle` で高さ264pt/medium、上余白6pt、ヘッダー48pt、左右14pt、標準の影・角丸・グラバーを共通化。独自コンテナ/移動アニメーション/バーとその専用テストを撤去（復元点 `1a85caa`）。シミュレーターで両ドロワーの同じ高さ/余白/輪郭、当日→予定追加、上部設定への直接遷移を確認。Debug/Release build・既存12 tests成功。iPhone 16 Release導入/起動成功。実機での移動中の日付の追従・アニメーション体感は未確認。
@@ -1123,6 +1125,7 @@ refactor: split plan store
 
 | 日付 | 担当 | 内容 |
 |---|---|---|
+| 2026-09-04 | Codex | 当日ドロワーの日付左余白を6pt追加、終日/重要の独立カードにcalendar/star.fillを追加。共通sheet背景をsecondarySystemBackgroundへ変えカレンダーと分離。内容だけ0.24秒横移動＋フェードで一覧/詳細を切替、Reduce Motionは0.15秒フェード。選択日はアクセント12%塗り、今日は2pt実線を維持。シミュレーターで表示・詳細/一覧遷移・スワイプ戻り確認、3 testsとDebug/Release build成功。iPhone 16 Release導入済み、実機の体感評価は未実施。復元点 `1fd1ab0`。 |
 | 2026-09-04 | Codex | 予定フォームの終日/重要を独立カードへ分離。日時は開始/終了のGridで日付・時刻の列幅を共有し、9時/10時でも左端を整列。1日プリセットの終日時は空の日時カードを表示しない。当日詳細は右スワイプで一覧へ戻る（短い/左向き/縦主体の操作は無視）、日付見出しをheadline/boldへ強調。シミュレーターでカード分離・9:00/10:00の整列・右スワイプ戻りを確認。新規方向判定3 testsとDebug/Release build、diff check成功。iPhone 16 Release導入/起動成功。ログ `/private/tmp/liminalog-drawer-navigation-tests.log`。 |
 | 2026-09-04 | Codex | 当日一覧と予定プリセットの外枠を `CalendarDrawerStyle` に共通化し、両方iOS標準sheetへ統一。264pt/medium・top6・header48・horizontal14、OSの角丸/影/グラバー/開閉を使用。前回の独自コンテナとGestureState/明示移動アニメーション、その専用テストは削除（`1a85caa` から復元可）。当日のデータはdismiss完了まで保持し、日付だけ先に消さない。追加/編集/日間詳細は当日sheet上に表示、上部設定/検索/絞り込み/表示切替はdismiss完了後へ引き継ぐ。シミュレーターで両ドロワーの外枠一致、当日→予定追加と重複警告、直接設定遷移を確認。Debug/Release build・既存12 tests成功。iPhone 16 Release導入/起動成功。日付追従の実機体感は未確認。 |
 | 2026-09-04 | Codex | 月間当日ドロワーの操作改善。固定高さ＋離した時だけ閉じるジェスチャーから、局所GestureStateによる連続追従と通常/拡大の2段階へ変更。バー48×5pt、操作領域44pt。スライド＋spring、明示zIndex、退出完了後のタブバー復帰で開閉を改善。`CalendarMonthDrawerMotionTests` 4件成功、Debug Simulator/Release iOS build成功。シミュレーターで上ドラッグ拡大、バータップで縮小、下ドラッグ終了、タブバー復帰を確認。iPhone 16 Release導入・起動成功。実機での指操作・アニメーション体感は未確認。ログ `/private/tmp/liminalog-month-drawer-motion-tests.log`。 |
