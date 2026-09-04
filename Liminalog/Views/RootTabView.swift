@@ -137,7 +137,7 @@ struct RootTabView: View {
                         await initializedStores.purchaseStore.start()
                     }
                 }
-                if SharedModelContainer.storageMode != .cloudSync {
+                if !LiminalogRuntime.isRunningUITests, SharedModelContainer.storageMode != .cloudSync {
                     isShowingStorageFallbackNotice = true
                 }
                 await initializedStores.streakNotificationStore.refreshStreakBreakWarning()

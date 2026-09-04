@@ -16,6 +16,14 @@ struct LiminalogApp: App {
     private static let currentOutgoingPublishStateRepairVersion = 1
 
     private let modelContainer: ModelContainer = {
+        #if DEBUG
+        if LiminalogRuntime.isRunningUITests {
+            // Never fall back to the user's persistent store when running UI fixtures.
+            let container = try! SharedModelContainer.inMemory()
+            CalendarMonthDrawerUITestFixture.seed(in: container.mainContext)
+            return container
+        }
+        #endif
         if LiminalogRuntime.isRunningUnitTests {
             return (try? SharedModelContainer.inMemory()) ?? SharedModelContainer.shared
         }
@@ -28,6 +36,7 @@ struct LiminalogApp: App {
                 await refreshIncomingFriendSharesWhenReady(reason: reason)
             }
                 .task {
+                    guard !LiminalogRuntime.isRunningUITests else { return }
                     guard cloudFriendShareRefreshCoordinator == nil else { return }
                     await waitForModelStoreReadiness(reason: "app launch")
                     let coordinator = CloudFriendShareRefreshCoordinator(modelContainer: modelContainer)

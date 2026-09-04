@@ -489,22 +489,27 @@ struct TimelinePlanPresetLongPressDragSurface: UIViewRepresentable {
     let maximumDistance: CGFloat
     var onTap: (() -> Void)? = nil
     var onSwipeRight: (() -> Void)? = nil
+    var onSwipeLeft: (() -> Void)? = nil
+    var dragEnabled = true
     let onEvent: (TimelinePlanPresetLongPressDragEvent) -> Void
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(onEvent: onEvent, onTap: onTap, onSwipeRight: onSwipeRight)
+        Coordinator(onEvent: onEvent, onTap: onTap, onSwipeRight: onSwipeRight, onSwipeLeft: onSwipeLeft)
     }
 
     func makeUIView(context: Context) -> UIView {
         let view = UIView(frame: .zero)
         view.backgroundColor = .clear
-        let recognizer = UILongPressGestureRecognizer(
+        let recognizer = TimelinePresetLongPressRecognizer(
             target: context.coordinator,
             action: #selector(Coordinator.handle(_:))
         )
         recognizer.minimumPressDuration = minimumDuration
+        recognizer.name = "PresetHold"
         recognizer.allowableMovement = maximumDistance
         recognizer.cancelsTouchesInView = true
+        recognizer.delegate = context.coordinator
+        recognizer.isEnabled = dragEnabled
         view.addGestureRecognizer(recognizer)
         if onSwipeRight != nil {
             let swipe = UISwipeGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleSwipeRight))
@@ -513,10 +518,19 @@ struct TimelinePlanPresetLongPressDragSurface: UIViewRepresentable {
             view.addGestureRecognizer(swipe)
             context.coordinator.swipeRecognizer = swipe
         }
+        if onSwipeLeft != nil {
+            let swipe = UISwipeGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleSwipeLeft))
+            swipe.direction = .left
+            swipe.require(toFail: recognizer)
+            view.addGestureRecognizer(swipe)
+            context.coordinator.leftSwipeRecognizer = swipe
+        }
         if onTap != nil {
             let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleTap))
+            tap.name = "PresetTap"
             tap.require(toFail: recognizer)
             if let swipe = context.coordinator.swipeRecognizer { tap.require(toFail: swipe) }
+            if let swipe = context.coordinator.leftSwipeRecognizer { tap.require(toFail: swipe) }
             tap.cancelsTouchesInView = false
             tap.delegate = context.coordinator
             view.addGestureRecognizer(tap)
@@ -530,25 +544,39 @@ struct TimelinePlanPresetLongPressDragSurface: UIViewRepresentable {
         context.coordinator.onEvent = onEvent
         context.coordinator.onTap = onTap
         context.coordinator.onSwipeRight = onSwipeRight
-        context.coordinator.swipeRecognizer?.isEnabled = onSwipeRight != nil
-        context.coordinator.recognizer?.minimumPressDuration = minimumDuration
-        context.coordinator.recognizer?.allowableMovement = maximumDistance
+        context.coordinator.onSwipeLeft = onSwipeLeft
+        if let swipe = context.coordinator.swipeRecognizer, swipe.isEnabled != (onSwipeRight != nil) {
+            swipe.isEnabled = onSwipeRight != nil
+        }
+        if let swipe = context.coordinator.leftSwipeRecognizer, swipe.isEnabled != (onSwipeLeft != nil) {
+            swipe.isEnabled = onSwipeLeft != nil
+        }
+        // SwiftUI can update while a finger is held. Do not reconfigure/reset the
+        // recognizer on every render, especially as the sheet starts retreating.
+        if let recognizer = context.coordinator.recognizer {
+            if recognizer.minimumPressDuration != minimumDuration { recognizer.minimumPressDuration = minimumDuration }
+            if recognizer.allowableMovement != maximumDistance { recognizer.allowableMovement = maximumDistance }
+            if recognizer.isEnabled != dragEnabled { recognizer.isEnabled = dragEnabled }
+        }
     }
 
     final class Coordinator: NSObject, UIGestureRecognizerDelegate {
         var onEvent: (TimelinePlanPresetLongPressDragEvent) -> Void
         var onTap: (() -> Void)?
         var onSwipeRight: (() -> Void)?
+        var onSwipeLeft: (() -> Void)?
         weak var recognizer: UILongPressGestureRecognizer?
         weak var swipeRecognizer: UISwipeGestureRecognizer?
         weak var tapRecognizer: UITapGestureRecognizer?
+        weak var leftSwipeRecognizer: UISwipeGestureRecognizer?
         private var tapOrigin: CGPoint?
 
         init(onEvent: @escaping (TimelinePlanPresetLongPressDragEvent) -> Void, onTap: (() -> Void)?,
-             onSwipeRight: (() -> Void)?) {
+             onSwipeRight: (() -> Void)?, onSwipeLeft: (() -> Void)?) {
             self.onEvent = onEvent
             self.onTap = onTap
             self.onSwipeRight = onSwipeRight
+            self.onSwipeLeft = onSwipeLeft
         }
 
         static func isTap(from origin: CGPoint, to point: CGPoint) -> Bool {
@@ -556,11 +584,13 @@ struct TimelinePlanPresetLongPressDragSurface: UIViewRepresentable {
         }
 
         func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+            trace("receive \(gestureRecognizer.name ?? "swipe")")
             if gestureRecognizer === tapRecognizer { tapOrigin = touch.location(in: touch.window) }
             return true
         }
 
         func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+            trace("shouldBegin \(gestureRecognizer.name ?? "swipe")")
             guard gestureRecognizer === tapRecognizer, let tapOrigin,
                   let window = gestureRecognizer.view?.window else { return true }
             return Self.isTap(from: tapOrigin, to: gestureRecognizer.location(in: window))
@@ -572,10 +602,32 @@ struct TimelinePlanPresetLongPressDragSurface: UIViewRepresentable {
             gestureRecognizer === tapRecognizer && otherGestureRecognizer !== recognizer
         }
 
-        @objc func handleTap() { onTap?() }
+        static func hasPriority(over other: UIGestureRecognizer, drag: UIGestureRecognizer) -> Bool {
+            guard drag.isEnabled, let surface = drag.view, let parent = other.view,
+                  parent !== surface, surface.isDescendant(of: parent) else { return false }
+            return other is UIPanGestureRecognizer || other is UITapGestureRecognizer || other is UISwipeGestureRecognizer
+        }
+
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+                               shouldBeRequiredToFailBy otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+            guard gestureRecognizer === recognizer else { return false }
+            // Ancestor scrolling/sheet panning may begin only after this hold fails.
+            // Moving before the hold threshold fails it promptly; holding first owns the drag.
+            return Self.hasPriority(over: otherGestureRecognizer, drag: gestureRecognizer)
+        }
+
+        private func trace(_ message: String) {
+            #if DEBUG
+            if LiminalogRuntime.isRunningUITests { NSLog("DrawerTouch %@", message) }
+            #endif
+        }
+
+        @objc func handleTap() { trace("TAP holdState=\(recognizer?.state.rawValue ?? -1)"); onTap?() }
         @objc func handleSwipeRight() { onSwipeRight?() }
+        @objc func handleSwipeLeft() { onSwipeLeft?() }
 
         @objc func handle(_ recognizer: UILongPressGestureRecognizer) {
+            if recognizer.state != .changed { trace("HOLD state=\(recognizer.state.rawValue) duration=\(recognizer.minimumPressDuration)") }
             guard let window = recognizer.view?.window else {
                 if recognizer.state == .cancelled || recognizer.state == .failed {
                     onEvent(.cancelled)
@@ -596,6 +648,14 @@ struct TimelinePlanPresetLongPressDragSurface: UIViewRepresentable {
                 break
             }
         }
+    }
+}
+
+/// A recognized preset/plan drag must not turn into scrolling halfway through.
+final class TimelinePresetLongPressRecognizer: UILongPressGestureRecognizer {
+    override func canBePrevented(by preventingGestureRecognizer: UIGestureRecognizer) -> Bool {
+        if state == .began || state == .changed { return false }
+        return super.canBePrevented(by: preventingGestureRecognizer)
     }
 }
 

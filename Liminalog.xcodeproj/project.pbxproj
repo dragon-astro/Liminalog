@@ -25,6 +25,13 @@
 			remoteGlobalIDString = 425397A52FBECFB600C94B4E;
 			remoteInfo = Liminalog;
 		};
+		C300000A2FCE000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4253979E2FBECFB600C94B4E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 425397A52FBECFB600C94B4E;
+			remoteInfo = Liminalog;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -45,6 +52,7 @@
 		425397A62FBECFB600C94B4E /* Liminalog.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Liminalog.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A10000022FBECFB600C94B4E /* LiminalogWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = LiminalogWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		B20000012FCE000000000001 /* LiminalogTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LiminalogTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		C30000012FCE000000000001 /* LiminalogUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LiminalogUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		C0DE00102FDF000000000001 /* liminalog.storekit */ = {isa = PBXFileReference; lastKnownFileType = file.storekit; path = liminalog.storekit; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -95,6 +103,11 @@
 			path = LiminalogTests;
 			sourceTree = "<group>";
 		};
+		C30000022FCE000000000001 /* LiminalogUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = LiminalogUITests;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -119,6 +132,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C30000032FCE000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -128,6 +148,7 @@
 				425397A82FBECFB600C94B4E /* Liminalog */,
 				A10000012FBECFB600C94B4E /* LiminalogWidget */,
 				B20000022FCE000000000001 /* LiminalogTests */,
+				C30000022FCE000000000001 /* LiminalogUITests */,
 				C0DE00102FDF000000000001 /* liminalog.storekit */,
 				425397A72FBECFB600C94B4E /* Products */,
 			);
@@ -138,6 +159,7 @@
 			children = (
 				425397A62FBECFB600C94B4E /* Liminalog.app */,
 				B20000012FCE000000000001 /* LiminalogTests.xctest */,
+				C30000012FCE000000000001 /* LiminalogUITests.xctest */,
 				A10000022FBECFB600C94B4E /* LiminalogWidgetExtension.appex */,
 			);
 			name = Products;
@@ -215,6 +237,29 @@
 			productReference = B20000012FCE000000000001 /* LiminalogTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		C30000042FCE000000000001 /* LiminalogUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C30000082FCE000000000001 /* Build configuration list for PBXNativeTarget "LiminalogUITests" */;
+			buildPhases = (
+				C30000052FCE000000000001 /* Sources */,
+				C30000032FCE000000000001 /* Frameworks */,
+				C30000062FCE000000000001 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				C300000C2FCE000000000001 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				C30000022FCE000000000001 /* LiminalogUITests */,
+			);
+			name = LiminalogUITests;
+			packageProductDependencies = (
+			);
+			productName = LiminalogUITests;
+			productReference = C30000012FCE000000000001 /* LiminalogUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -248,6 +293,10 @@
 						CreatedOnToolsVersion = 26.5;
 						TestTargetID = 425397A52FBECFB600C94B4E;
 					};
+					C30000042FCE000000000001 = {
+						CreatedOnToolsVersion = 26.5;
+						TestTargetID = 425397A52FBECFB600C94B4E;
+					};
 				};
 			};
 			buildConfigurationList = 425397A12FBECFB600C94B4E /* Build configuration list for PBXProject "Liminalog" */;
@@ -266,6 +315,7 @@
 			targets = (
 				425397A52FBECFB600C94B4E /* Liminalog */,
 				B20000042FCE000000000001 /* LiminalogTests */,
+				C30000042FCE000000000001 /* LiminalogUITests */,
 				A10000032FBECFB600C94B4E /* LiminalogWidgetExtension */,
 			);
 		};
@@ -287,6 +337,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		B20000062FCE000000000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C30000062FCE000000000001 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -317,6 +374,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C30000052FCE000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -329,6 +393,11 @@
 			isa = PBXTargetDependency;
 			target = 425397A52FBECFB600C94B4E /* Liminalog */;
 			targetProxy = B200000A2FCE000000000001 /* PBXContainerItemProxy */;
+		};
+		C300000C2FCE000000000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 425397A52FBECFB600C94B4E /* Liminalog */;
+			targetProxy = C300000A2FCE000000000001 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -608,6 +677,32 @@
 			};
 			name = Debug;
 		};
+		C30000072FCE000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 2;
+				DEVELOPMENT_TEAM = 7834TP2P53;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.1;
+				PRODUCT_BUNDLE_IDENTIFIER = app.YasudaRyuga.LiminalogUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = Liminalog;
+			};
+			name = Debug;
+		};
 		B20000092FCE000000000001 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -633,6 +728,32 @@
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Liminalog.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Liminalog";
+			};
+			name = Release;
+		};
+		C30000092FCE000000000001 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 2;
+				DEVELOPMENT_TEAM = 7834TP2P53;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.1;
+				PRODUCT_BUNDLE_IDENTIFIER = app.YasudaRyuga.LiminalogUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = Liminalog;
 			};
 			name = Release;
 		};
@@ -671,6 +792,15 @@
 			buildConfigurations = (
 				B20000072FCE000000000001 /* Debug */,
 				B20000092FCE000000000001 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C30000082FCE000000000001 /* Build configuration list for PBXNativeTarget "LiminalogUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C30000072FCE000000000001 /* Debug */,
+				C30000092FCE000000000001 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

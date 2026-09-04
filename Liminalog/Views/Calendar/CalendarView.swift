@@ -108,6 +108,11 @@ struct CalendarView: View {
 
     private static var currentMonthStart: Date {
         let cal = Calendar.japanese
+        #if DEBUG
+        if LiminalogRuntime.isRunningUITests {
+            return cal.date(from: cal.dateComponents([.year, .month], from: CalendarMonthDrawerUITestFixture.day))!
+        }
+        #endif
         return cal.date(from: cal.dateComponents([.year, .month], from: Date())) ?? Date()
     }
 

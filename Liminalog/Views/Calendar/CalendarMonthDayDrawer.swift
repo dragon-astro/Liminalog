@@ -24,6 +24,7 @@ struct CalendarMonthDayDrawer: View {
     let onSelectionChanged: (Bool) -> Void
     @State private var selectedPlanID: UUID?
     @State private var pendingDeletion: DeletionRequest?
+    @State private var revealedDeletionID: UUID?
 
     private struct DeletionRequest {
         let id: UUID
@@ -70,6 +71,8 @@ struct CalendarMonthDayDrawer: View {
                     .accessibilityLabel("当日の予定一覧に戻る")
                 }
                 Text(date.japaneseMonthDayShortWeekday)
+                    .accessibilityIdentifier("calendar-drawer-date")
+                    .accessibilityValue(DailyCardSnapshot.dayIdentifier(for: date, calendar: .current))
                     .font(.headline.weight(.bold))
                     .foregroundStyle(LiminalTheme.text)
                     .accessibilityAddTraits(.isHeader)
@@ -101,51 +104,18 @@ struct CalendarMonthDayDrawer: View {
             .frame(height: CalendarDrawerStyle.headerHeight)
             .padding(.horizontal, CalendarDrawerStyle.horizontalInset)
             Divider()
-            ZStack(alignment: .topLeading) {
-                    if let plan = plans.first(where: { $0.id == selectedPlanID }) {
-                        ScrollView {
-                            detail(plan)
-                        }
-                            .safeAreaInset(edge: .bottom, spacing: 0) {
-                                transferButtons(plan)
-                            }
-                            .accessibilityAction(named: "当日の予定一覧に戻る", returnToList)
-                            .transition(contentTransition(from: .trailing))
-                    } else if plans.isEmpty {
-                        VStack(spacing: 10) {
-                            Text("予定はありません").foregroundStyle(LiminalTheme.secondaryText)
-                            Button("予定を追加", systemImage: "plus", action: onCreate)
-                                .disabled(!CalendarPlanCreationPreset.allowsCreation(for: date))
-                        }
-                        .frame(maxWidth: .infinity).padding(24)
-                    } else {
-                        List {
-                            ForEach(plans) { plan in
-                                    planButton(plan)
-                                    .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
-                                    .listRowBackground(CalendarDrawerStyle.background)
-                                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                        if !store.isPlanScheduleLocked(plan) {
-                                            Button(role: .destructive) {
-                                                pendingDeletion = DeletionRequest(
-                                                    id: plan.id, title: plan.title,
-                                                    spansDays: !Calendar.current.isDate(plan.startTime, inSameDayAs: plan.endTime.addingTimeInterval(-0.001))
-                                                )
-                                            } label: { Label("削除", systemImage: "trash") }
-                                        }
-                                    }
-                            }
-                        }
-                        .listStyle(.plain)
-                        .scrollContentBackground(.hidden)
-                        .contentMargins(.vertical, 0, for: .scrollContent)
-                        .transition(contentTransition(from: .leading))
-                    }
-                }
-                .animation(.easeInOut(duration: reduceMotion ? 0.15 : 0.24), value: selectedPlanID)
-            .clipped()
+            ScrollView {
+                drawerContent
+                    .padding(.bottom, 16)
+            }
+            .scrollDisabled(transfer?.isDragging == true)
+            .accessibilityIdentifier("calendar-drawer-scroll")
+            .scrollEdgeEffectHidden(true, for: .bottom)
             .frame(maxHeight: .infinity, alignment: .top)
         }
+        // Extend the scroll viewport itself to the sheet bottom. No fixed footer or
+        // opaque safe-area band may cover the last editor/transfer controls.
+        .ignoresSafeArea(.container, edges: .bottom)
         .onChange(of: selectedPlanID, initial: true) { _, id in onSelectionChanged(id != nil) }
         .onChange(of: highlightedPlanID) { _, id in selectedPlanID = id }
         .onChange(of: plans.map(\.id)) { _, ids in
@@ -168,20 +138,75 @@ struct CalendarMonthDayDrawer: View {
         } message: { Text(transfer?.error ?? "") }
     }
 
-    @ViewBuilder
-    private func planButton(_ plan: PlanBlock) -> some View {
-        planSurface(plan, onTap: { selectedPlanID = plan.id })
-            .padding(.horizontal, 14).padding(.vertical, 10)
+    private var drawerContent: some View {
+        ZStack(alignment: .topLeading) {
+            if let plan = plans.first(where: { $0.id == selectedPlanID }) {
+                detail(plan)
+                    .accessibilityAction(named: "当日の予定一覧に戻る", returnToList)
+                    .transition(contentTransition(from: .trailing))
+            } else if plans.isEmpty {
+                VStack(spacing: 10) {
+                    Text("予定はありません").foregroundStyle(LiminalTheme.secondaryText)
+                    Button("予定を追加", systemImage: "plus", action: onCreate)
+                        .disabled(!CalendarPlanCreationPreset.allowsCreation(for: date))
+                }
+                .frame(maxWidth: .infinity).padding(24)
+            } else {
+                LazyVStack(spacing: 0) {
+                    ForEach(plans) { plan in
+                        swipeRow(plan)
+                        Divider().padding(.leading, 50)
+                    }
+                }
+                .transition(contentTransition(from: .leading))
+            }
+        }
+        .animation(.easeInOut(duration: reduceMotion ? 0.15 : 0.24), value: selectedPlanID)
+    }
+
+    private func swipeRow(_ plan: PlanBlock) -> some View {
+        let revealed = revealedDeletionID == plan.id
+        let canDelete = !store.isPlanScheduleLocked(plan)
+        let reveal: (() -> Void)? = canDelete ? { revealedDeletionID = plan.id } : nil
+        return ZStack(alignment: .trailing) {
+            if canDelete && revealed {
+                Button(role: .destructive) {
+                    pendingDeletion = DeletionRequest(id: plan.id, title: plan.title,
+                        spansDays: !Calendar.current.isDate(plan.startTime, inSameDayAs: plan.endTime.addingTimeInterval(-0.001)))
+                } label: {
+                    Label("削除", systemImage: "trash")
+                        .font(.subheadline.weight(.semibold))
+                        .frame(width: 76, height: 52)
+                        .foregroundStyle(.white)
+                        .background(Color.red)
+                }
+                .buttonStyle(.plain).tint(.red)
+                .accessibilityIdentifier("calendar-drawer-delete-\(plan.id)")
+            }
+            planSurface(plan, onTap: {
+                if revealed { revealedDeletionID = nil }
+                else { selectedPlanID = plan.id }
+            }, onSwipeLeft: reveal, onSwipeRight: { revealedDeletionID = nil })
+                .padding(.horizontal, 14).padding(.vertical, 10)
+                .background(CalendarDrawerStyle.background)
+                .offset(x: revealed ? -76 : 0)
+        }
+        .clipped()
+        .animation(.easeOut(duration: reduceMotion ? 0 : 0.2), value: revealed)
     }
 
     @ViewBuilder
-    private func planSurface(_ plan: PlanBlock, onTap: @escaping () -> Void) -> some View {
-        if let transfer, !store.isPlanScheduleLocked(plan), plan.sourceEventID == nil {
-            interactivePlanRow(plan, transfer: transfer, onTap: onTap)
+    private func planSurface(_ plan: PlanBlock, onTap: @escaping () -> Void,
+                             onSwipeLeft: (() -> Void)? = nil, onSwipeRight: (() -> Void)? = nil) -> some View {
+        if let transfer {
+            interactivePlanRow(plan, transfer: transfer, onTap: onTap,
+                               onSwipeLeft: onSwipeLeft, onSwipeRight: onSwipeRight)
                 .accessibilityAction(.default) { onTap() }
                 .accessibilityActions {
                     Button("複製") { transfer.begin(plan, mode: .copy) }
-                    Button("別の日へ移動") { transfer.begin(plan, mode: .move) }
+                    if !store.isPlanScheduleLocked(plan), plan.sourceEventID == nil {
+                        Button("別の日へ移動") { transfer.begin(plan, mode: .move) }
+                    }
                 }
         } else {
             Button(action: onTap) { row(plan, showsDisclosure: false) }
@@ -191,23 +216,28 @@ struct CalendarMonthDayDrawer: View {
     }
 
     private func interactivePlanRow(_ plan: PlanBlock, transfer: CalendarMonthTransferInteraction,
-                                    onTap: @escaping () -> Void) -> some View {
+                                    onTap: @escaping () -> Void, onSwipeLeft: (() -> Void)?,
+                                    onSwipeRight: (() -> Void)?) -> some View {
         row(plan, showsDisclosure: false)
-            .overlay { dragSurface(plan, transfer: transfer, onTap: onTap) }
+            .overlay { dragSurface(plan, transfer: transfer, onTap: onTap,
+                                   onSwipeLeft: onSwipeLeft, onSwipeRight: onSwipeRight) }
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(.isButton)
+            .accessibilityIdentifier("calendar-drawer-plan-\(plan.id)")
     }
 
     private func dragSurface(_ plan: PlanBlock, transfer: CalendarMonthTransferInteraction,
-                             onTap: @escaping () -> Void) -> some View {
-        let onBack: (() -> Void)? = selectedPlanID == nil ? nil : { returnToList() }
+                             onTap: @escaping () -> Void, onSwipeLeft: (() -> Void)?,
+                             onSwipeRight: (() -> Void)?) -> some View {
         return TimelinePlanPresetLongPressDragSurface(
-            minimumDuration: monthDragMinimumDuration, maximumDistance: 12,
-            onTap: onTap, onSwipeRight: onBack
+            minimumDuration: 0.28, maximumDistance: 12,
+            onTap: onTap, onSwipeRight: onSwipeRight, onSwipeLeft: onSwipeLeft,
+            dragEnabled: !store.isPlanScheduleLocked(plan) && plan.sourceEventID == nil
         ) { event in
             switch event {
             case .began(let point):
                 transfer.begin(plan, mode: .move, dragging: true)
+                revealedDeletionID = nil
                 LiminalHaptics.selection()
                 transfer.updateDrag(at: point)
             case .changed(let point): transfer.updateDrag(at: point)
@@ -215,15 +245,6 @@ struct CalendarMonthDayDrawer: View {
             case .cancelled: transfer.finishDrag(at: nil)
             }
         }
-    }
-
-    /// Simulator automation cannot hold before dragging. Only bypass the recognition delay
-    /// for opt-in Debug QA; all movement/retreat/drop handling remains the production path.
-    private var monthDragMinimumDuration: TimeInterval {
-        #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("-LiminalogDebugImmediateMonthDrag") { return 0 }
-        #endif
-        return 0.28
     }
 
     private func deletePlan(id: UUID) {
@@ -271,21 +292,25 @@ struct CalendarMonthDayDrawer: View {
 
     private func detail(_ plan: PlanBlock) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            planSurface(plan, onTap: { onEdit(plan) })
+            planSurface(plan, onTap: { onEdit(plan) }, onSwipeRight: returnToList)
             VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text(plan.category?.name ?? "カテゴリ未設定")
-                Spacer()
-                Label(plan.isPublic ? "友達に公開" : "自分だけ", systemImage: plan.isPublic ? "person.2" : "lock")
-            }
-            .font(.caption).foregroundStyle(LiminalTheme.secondaryText)
-            if let note = plan.note, !note.isEmpty { Text(note).font(.subheadline).foregroundStyle(LiminalTheme.text) }
-            Button { onEdit(plan) } label: {
-                Label("予定を編集", systemImage: "pencil")
-                    .font(.subheadline.weight(.semibold)).frame(maxWidth: .infinity, minHeight: 44)
-                    .background(LiminalTheme.accent.opacity(0.1), in: Capsule())
-            }
-            .buttonStyle(.plain).foregroundStyle(LiminalTheme.accent)
+                HStack {
+                    Text(plan.category?.name ?? "カテゴリ未設定")
+                    Spacer()
+                    Label(plan.isPublic ? "友達に公開" : "自分だけ", systemImage: plan.isPublic ? "person.2" : "lock")
+                }
+                .font(.caption).foregroundStyle(LiminalTheme.secondaryText)
+                if let note = plan.note, !note.isEmpty {
+                    Text(note).font(.subheadline).foregroundStyle(LiminalTheme.text)
+                }
+                Button { onEdit(plan) } label: {
+                    Label("予定を編集", systemImage: "pencil")
+                        .font(.subheadline.weight(.semibold)).frame(maxWidth: .infinity, minHeight: 44)
+                        .background(LiminalTheme.accent.opacity(0.1), in: Capsule())
+                }
+                .buttonStyle(.plain).foregroundStyle(LiminalTheme.accent)
+                .accessibilityIdentifier("calendar-drawer-edit")
+                transferButtons(plan)
             }
             .contentShape(Rectangle())
             .simultaneousGesture(DragGesture(minimumDistance: 24).onEnded { value in
@@ -299,18 +324,18 @@ struct CalendarMonthDayDrawer: View {
     }
 
     private func transferButtons(_ plan: PlanBlock) -> some View {
-            HStack(spacing: 12) {
-                Button { transfer?.begin(plan, mode: .copy) } label: {
-                    Label("複製", systemImage: "doc.on.doc").frame(maxWidth: .infinity, minHeight: 36)
-                }
-                Button { transfer?.begin(plan, mode: .move) } label: {
-                    Label("移動", systemImage: "arrow.up.right").frame(maxWidth: .infinity, minHeight: 36)
-                }
-                .disabled(store.isPlanScheduleLocked(plan) || plan.sourceEventID != nil)
+        HStack(spacing: 12) {
+            Button { transfer?.begin(plan, mode: .copy) } label: {
+                Label("複製", systemImage: "doc.on.doc").frame(maxWidth: .infinity, minHeight: 36)
             }
-            .buttonStyle(.bordered).tint(LiminalTheme.accent)
-            .padding(.horizontal, 16).padding(.vertical, 8)
-            .background(CalendarDrawerStyle.background)
+            .accessibilityIdentifier("calendar-drawer-copy")
+            Button { transfer?.begin(plan, mode: .move) } label: {
+                Label("移動", systemImage: "arrow.up.right").frame(maxWidth: .infinity, minHeight: 36)
+            }
+            .disabled(store.isPlanScheduleLocked(plan) || plan.sourceEventID != nil)
+            .accessibilityIdentifier("calendar-drawer-move")
+        }
+        .buttonStyle(.bordered).tint(LiminalTheme.accent)
     }
 
     private func timeLabel(_ plan: PlanBlock) -> String {

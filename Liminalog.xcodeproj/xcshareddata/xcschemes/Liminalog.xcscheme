@@ -30,6 +30,13 @@
       shouldUseLaunchSchemeArgsEnv = "YES"
       shouldAutocreateTestPlan = "YES">
       <Testables>
+         <TestableReference skipped="NO" parallelizable="NO">
+            <BuildableReference BuildableIdentifier="primary"
+               BlueprintIdentifier="C30000042FCE000000000001"
+               BuildableName="LiminalogUITests.xctest" BlueprintName="LiminalogUITests"
+               ReferencedContainer="container:Liminalog.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
          <TestableReference
             skipped = "NO"
             parallelizable = "NO">
