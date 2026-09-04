@@ -21,7 +21,6 @@ struct CalendarMonthDayDrawer: View {
     let onCreate: () -> Void
     let onEdit: (PlanBlock) -> Void
     let onDelete: (PlanBlock) -> Bool
-    let onSelectionChanged: (Bool) -> Void
     @State private var selectedPlanID: UUID?
     @State private var pendingDeletion: DeletionRequest?
     @State private var revealedDeletionID: UUID?
@@ -35,8 +34,7 @@ struct CalendarMonthDayDrawer: View {
     init(date: Date, highlightedPlanID: UUID?, visibleCategoryIDs: Set<UUID>?,
          onClose: @escaping () -> Void, onExpand: @escaping () -> Void,
          onCreate: @escaping () -> Void, onEdit: @escaping (PlanBlock) -> Void,
-         onDelete: @escaping (PlanBlock) -> Bool,
-         onSelectionChanged: @escaping (Bool) -> Void) {
+         onDelete: @escaping (PlanBlock) -> Bool) {
         self.date = date
         self.highlightedPlanID = highlightedPlanID
         self.visibleCategoryIDs = visibleCategoryIDs
@@ -45,7 +43,6 @@ struct CalendarMonthDayDrawer: View {
         self.onCreate = onCreate
         self.onEdit = onEdit
         self.onDelete = onDelete
-        self.onSelectionChanged = onSelectionChanged
         _selectedPlanID = State(initialValue: highlightedPlanID)
         let start = Calendar.current.startOfDay(for: date)
         let end = Calendar.current.date(byAdding: .day, value: 1, to: start) ?? start
@@ -116,7 +113,6 @@ struct CalendarMonthDayDrawer: View {
         // Extend the scroll viewport itself to the sheet bottom. No fixed footer or
         // opaque safe-area band may cover the last editor/transfer controls.
         .ignoresSafeArea(.container, edges: .bottom)
-        .onChange(of: selectedPlanID, initial: true) { _, id in onSelectionChanged(id != nil) }
         .onChange(of: highlightedPlanID) { _, id in selectedPlanID = id }
         .onChange(of: plans.map(\.id)) { _, ids in
             if let selectedPlanID, !ids.contains(selectedPlanID) { self.selectedPlanID = nil }
@@ -186,8 +182,8 @@ struct CalendarMonthDayDrawer: View {
             planSurface(plan, onTap: {
                 if revealed { revealedDeletionID = nil }
                 else { selectedPlanID = plan.id }
-            }, onSwipeLeft: reveal, onSwipeRight: { revealedDeletionID = nil })
-                .padding(.horizontal, 14).padding(.vertical, 10)
+            }, onSwipeLeft: reveal, onSwipeRight: { revealedDeletionID = nil },
+               insets: EdgeInsets(top: 10, leading: 14, bottom: 10, trailing: 14))
                 .background(CalendarDrawerStyle.background)
                 .offset(x: revealed ? -76 : 0)
         }
@@ -197,10 +193,11 @@ struct CalendarMonthDayDrawer: View {
 
     @ViewBuilder
     private func planSurface(_ plan: PlanBlock, onTap: @escaping () -> Void,
-                             onSwipeLeft: (() -> Void)? = nil, onSwipeRight: (() -> Void)? = nil) -> some View {
+                             onSwipeLeft: (() -> Void)? = nil, onSwipeRight: (() -> Void)? = nil,
+                             insets: EdgeInsets = EdgeInsets()) -> some View {
         if let transfer {
             interactivePlanRow(plan, transfer: transfer, onTap: onTap,
-                               onSwipeLeft: onSwipeLeft, onSwipeRight: onSwipeRight)
+                               onSwipeLeft: onSwipeLeft, onSwipeRight: onSwipeRight, insets: insets)
                 .accessibilityAction(.default) { onTap() }
                 .accessibilityActions {
                     Button("複製") { transfer.begin(plan, mode: .copy) }
@@ -209,7 +206,7 @@ struct CalendarMonthDayDrawer: View {
                     }
                 }
         } else {
-            Button(action: onTap) { row(plan, showsDisclosure: false) }
+            Button(action: onTap) { row(plan, showsDisclosure: false).padding(insets) }
                 .buttonStyle(.plain)
                 .accessibilityAction(named: "複製") { transfer?.begin(plan, mode: .copy) }
         }
@@ -217,8 +214,11 @@ struct CalendarMonthDayDrawer: View {
 
     private func interactivePlanRow(_ plan: PlanBlock, transfer: CalendarMonthTransferInteraction,
                                     onTap: @escaping () -> Void, onSwipeLeft: (() -> Void)?,
-                                    onSwipeRight: (() -> Void)?) -> some View {
+                                    onSwipeRight: (() -> Void)?, insets: EdgeInsets) -> some View {
         row(plan, showsDisclosure: false)
+            // The visible row padding is part of the touch surface, not dead space
+            // where the ancestor ScrollView can consume the user's hold.
+            .padding(insets)
             .overlay { dragSurface(plan, transfer: transfer, onTap: onTap,
                                    onSwipeLeft: onSwipeLeft, onSwipeRight: onSwipeRight) }
             .accessibilityElement(children: .combine)

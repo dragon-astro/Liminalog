@@ -60,6 +60,42 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         assertMoved(app, to: destination)
     }
 
+    func testDetailKeepsDrawerHeight() {
+        let app = launch()
+        let header = app.staticTexts.matching(NSPredicate(format: "value == %@", dayID(fixtureDay))).firstMatch
+        let originalY = header.frame.minY
+        element(app, "calendar-drawer-plan-\(sourceID)").tap()
+        XCTAssertTrue(element(app, "calendar-drawer-edit").waitForExistence(timeout: 5))
+        XCTAssertEqual(header.frame.minY, originalY, accuracy: 2)
+        app.buttons["当日の予定一覧に戻る"].tap()
+        XCTAssertEqual(header.frame.minY, originalY, accuracy: 2)
+    }
+
+    func testLongPressOnListIconMovesToAnotherDay() {
+        assertCoordinateHoldMoves(dx: 0.04, dy: 0.5)
+    }
+
+    func testLongPressOnListTitleMovesToAnotherDay() {
+        assertCoordinateHoldMoves(dx: 0.3, dy: 0.2)
+    }
+
+    func testLongPressOnListBottomPaddingMovesToAnotherDay() {
+        assertCoordinateHoldMoves(dx: 0.5, dy: 0.96)
+    }
+
+    func testLongPressOnListTopPaddingMovesToAnotherDay() {
+        assertCoordinateHoldMoves(dx: 0.5, dy: 0.04)
+    }
+
+    private func assertCoordinateHoldMoves(dx: CGFloat, dy: CGFloat) {
+        let app = launch()
+        let destination = Calendar.current.date(byAdding: .day, value: 1, to: fixtureDay)!
+        let source = element(app, "calendar-drawer-plan-\(sourceID)").coordinate(withNormalizedOffset: CGVector(dx: dx, dy: dy))
+        let target = element(app, "calendar-month-day-\(dayID(destination))").coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        source.press(forDuration: 0.7, thenDragTo: target, withVelocity: .slow, thenHoldForDuration: 0.3)
+        assertMoved(app, to: destination)
+    }
+
     func testSwipeOnlyRevealsDeleteAndCancelKeepsPlan() {
         let app = launch()
         let source = element(app, "calendar-drawer-plan-\(sourceID)")
@@ -84,9 +120,15 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         element(app, "calendar-drawer-plan-\(sourceID)").tap()
         let scroll = app.scrollViews.matching(identifier: "calendar-month-day-drawer").firstMatch
         let copy = element(app, "calendar-drawer-copy")
-        for _ in 0..<8 {
+        for _ in 0..<12 {
             if copy.isHittable { break }
-            scroll.swipeUp()
+            // A compact sheet reaches the home-indicator area. XCTest's default
+            // swipe starts there on iPhone 16; keep both endpoints inside content.
+            let visible = scroll.frame.intersection(app.frame)
+            let origin = app.coordinate(withNormalizedOffset: .zero)
+            let start = origin.withOffset(CGVector(dx: visible.midX, dy: visible.maxY - 64))
+            let end = origin.withOffset(CGVector(dx: visible.midX, dy: visible.minY + 32))
+            start.press(forDuration: 0.01, thenDragTo: end)
         }
         XCTAssertTrue(element(app, "calendar-drawer-edit").isHittable)
         XCTAssertTrue(copy.isHittable)
