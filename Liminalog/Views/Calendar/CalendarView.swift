@@ -757,7 +757,12 @@ struct CalendarView: View {
                 onExpand: { monthDrawerTimeline = target },
                 onCreate: { preparePlanCreation(for: target.date) },
                 onEdit: { monthDrawerEditingPlan = $0 },
-                onConfirmTransfer: confirmMonthTransfer
+                onConfirmTransfer: confirmMonthTransfer,
+                onDelete: { plan in
+                    guard store.deletePlanBlock(plan) else { return false }
+                    reloadVisibleData()
+                    return true
+                }
             )
             .environment(\.monthPlanTransfer, monthTransfer)
             .id(target.date)

@@ -21,12 +21,20 @@ struct CalendarMonthDayDrawer: View {
     let onCreate: () -> Void
     let onEdit: (PlanBlock) -> Void
     let onConfirmTransfer: () -> Void
+    let onDelete: (PlanBlock) -> Bool
     @State private var selectedPlanID: UUID?
+    @State private var pendingDeletion: DeletionRequest?
+
+    private struct DeletionRequest {
+        let id: UUID
+        let title: String
+        let spansDays: Bool
+    }
 
     init(date: Date, highlightedPlanID: UUID?, visibleCategoryIDs: Set<UUID>?,
          onClose: @escaping () -> Void, onExpand: @escaping () -> Void,
          onCreate: @escaping () -> Void, onEdit: @escaping (PlanBlock) -> Void,
-         onConfirmTransfer: @escaping () -> Void) {
+         onConfirmTransfer: @escaping () -> Void, onDelete: @escaping (PlanBlock) -> Bool) {
         self.date = date
         self.highlightedPlanID = highlightedPlanID
         self.visibleCategoryIDs = visibleCategoryIDs
@@ -35,6 +43,7 @@ struct CalendarMonthDayDrawer: View {
         self.onCreate = onCreate
         self.onEdit = onEdit
         self.onConfirmTransfer = onConfirmTransfer
+        self.onDelete = onDelete
         _selectedPlanID = State(initialValue: highlightedPlanID)
         let start = Calendar.current.startOfDay(for: date)
         let end = Calendar.current.date(byAdding: .day, value: 1, to: start) ?? start
@@ -109,7 +118,23 @@ struct CalendarMonthDayDrawer: View {
                     } else {
                         LazyVStack(spacing: 0) {
                             ForEach(plans) { plan in
-                                planButton(plan)
+                                HStack(spacing: 0) {
+                                    planButton(plan)
+                                    Button(role: .destructive) {
+                                        pendingDeletion = DeletionRequest(
+                                            id: plan.id, title: plan.title,
+                                            spansDays: !Calendar.current.isDate(plan.startTime, inSameDayAs: plan.endTime.addingTimeInterval(-0.001))
+                                        )
+                                    } label: {
+                                        Image(systemName: "trash")
+                                            .frame(width: 44, height: 44)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .foregroundStyle(store.isPlanScheduleLocked(plan) ? LiminalTheme.tertiaryText : .red)
+                                    .disabled(store.isPlanScheduleLocked(plan))
+                                    .accessibilityLabel("\(plan.title)を削除")
+                                    .padding(.trailing, 6)
+                                }
                                 Divider().padding(.leading, 50)
                             }
                         }
@@ -133,6 +158,14 @@ struct CalendarMonthDayDrawer: View {
         }
         .accessibilityIdentifier("calendar-month-day-drawer")
         .interactiveDismissDisabled(transfer?.request != nil)
+        .alert("予定を削除しますか？", isPresented: Binding(
+            get: { pendingDeletion != nil }, set: { if !$0 { pendingDeletion = nil } }
+        ), presenting: pendingDeletion) { request in
+            Button("削除", role: .destructive) { deletePlan(id: request.id) }
+            Button("キャンセル", role: .cancel) { pendingDeletion = nil }
+        } message: { request in
+            Text("「\(request.title)」を削除します。\(request.spansDays ? "全日程が対象です。" : "")この操作は取り消せません。")
+        }
         .alert("予定を変更できません", isPresented: Binding(
             get: { transfer?.error != nil }, set: { if !$0 { transfer?.error = nil } }
         )) {
@@ -143,7 +176,7 @@ struct CalendarMonthDayDrawer: View {
     @ViewBuilder
     private func planButton(_ plan: PlanBlock) -> some View {
         let button = Button { selectedPlanID = plan.id } label: {
-            row(plan).padding(.horizontal, 14).padding(.vertical, 10)
+            row(plan, showsDisclosure: false).padding(.horizontal, 14).padding(.vertical, 10)
         }
         .buttonStyle(.plain)
         .accessibilityAction(named: "複製") { transfer?.begin(plan, mode: .copy) }
@@ -155,6 +188,23 @@ struct CalendarMonthDayDrawer: View {
                 }
                 .accessibilityAction(named: "別の日へ移動") { transfer.begin(plan, mode: .move) }
         } else { button }
+    }
+
+    private func deletePlan(id: UUID) {
+        guard let plan = plans.first(where: { $0.id == id }) else {
+            transfer?.error = "削除する予定が見つかりません。"
+            return
+        }
+        guard !store.isPlanScheduleLocked(plan) else {
+            transfer?.error = "今日以前の時間指定の予定は削除できません。"
+            return
+        }
+        guard onDelete(plan) else {
+            LiminalHaptics.failure()
+            transfer?.error = "予定を削除できませんでした。時間をおいてもう一度試してください。"
+            return
+        }
+        LiminalHaptics.commit()
     }
 
     private func transferControls(_ transfer: CalendarMonthTransferInteraction,
@@ -191,7 +241,7 @@ struct CalendarMonthDayDrawer: View {
         .padding(16)
     }
 
-    private func row(_ plan: PlanBlock) -> some View {
+    private func row(_ plan: PlanBlock, showsDisclosure: Bool = true) -> some View {
         HStack(spacing: 10) {
             CategoryPreviewIcon(category: plan.category, size: 28)
             VStack(alignment: .leading, spacing: 3) {
@@ -200,7 +250,9 @@ struct CalendarMonthDayDrawer: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             if plan.isImportant { Image(systemName: "star.fill").foregroundStyle(LiminalTheme.reward) }
-            Image(systemName: "chevron.right").font(.caption).foregroundStyle(LiminalTheme.tertiaryText)
+            if showsDisclosure {
+                Image(systemName: "chevron.right").font(.caption).foregroundStyle(LiminalTheme.tertiaryText)
+            }
         }
         .frame(minHeight: 32)
         .contentShape(Rectangle())

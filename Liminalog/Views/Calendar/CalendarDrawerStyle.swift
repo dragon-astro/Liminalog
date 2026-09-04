@@ -56,7 +56,7 @@ private struct CalendarDrawerShadow: UIViewRepresentable {
                         styledView = presented
                     }
                     layer.shadowColor = UIColor.black.cgColor
-                    layer.shadowOpacity = 0.16
+                    layer.shadowOpacity = 0.08
                     layer.shadowRadius = 14
                     layer.shadowOffset = CGSize(width: 0, height: -2)
                     return
