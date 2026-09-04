@@ -120,8 +120,12 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         element(app, "calendar-drawer-plan-\(sourceID)").tap()
         let scroll = app.scrollViews.matching(identifier: "calendar-month-day-drawer").firstMatch
         let copy = element(app, "calendar-drawer-copy")
+        func fullyVisible(_ element: XCUIElement) -> Bool {
+            let viewport = scroll.frame.intersection(app.frame).insetBy(dx: 0, dy: 24)
+            return element.isHittable && viewport.contains(element.frame)
+        }
         for _ in 0..<12 {
-            if copy.isHittable { break }
+            if fullyVisible(copy) { break }
             // A compact sheet reaches the home-indicator area. XCTest's default
             // swipe starts there on iPhone 16; keep both endpoints inside content.
             let visible = scroll.frame.intersection(app.frame)
@@ -130,9 +134,9 @@ final class CalendarMonthDrawerUITests: XCTestCase {
             let end = origin.withOffset(CGVector(dx: visible.midX, dy: visible.minY + 32))
             start.press(forDuration: 0.01, thenDragTo: end)
         }
-        XCTAssertTrue(element(app, "calendar-drawer-edit").isHittable)
-        XCTAssertTrue(copy.isHittable)
-        XCTAssertTrue(element(app, "calendar-drawer-move").isHittable)
+        XCTAssertTrue(fullyVisible(element(app, "calendar-drawer-edit")))
+        XCTAssertTrue(fullyVisible(copy))
+        XCTAssertTrue(fullyVisible(element(app, "calendar-drawer-move")))
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.lifetime = .keepAlways
         add(attachment)
