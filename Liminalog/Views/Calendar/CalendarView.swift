@@ -72,6 +72,8 @@ struct CalendarView: View {
     @State private var showingCalendarFilter = false
     @State private var selectedDay: CalendarDayPresentation?
     @State private var monthDrawerDay: CalendarDayPresentation?
+    @State private var monthDrawerExpanded = false
+    @State private var monthDrawerCoversTabBar = false
     @State private var editingPlan: PlanBlock?
     @State private var pendingPlanCreation: CalendarPlanCreationRequest?
     @State private var displayMode = Self.initialDisplayMode()
@@ -139,7 +141,7 @@ struct CalendarView: View {
             }
             .background(LiminalTheme.canvasGradient)
             .toolbar(.hidden, for: .navigationBar)
-            .toolbar(monthDrawerDay != nil && displayMode == .month ? .hidden : .visible, for: .tabBar)
+            .toolbar(monthDrawerCoversTabBar && displayMode == .month ? .hidden : .visible, for: .tabBar)
             .sheet(isPresented: $showingMonthPicker) {
                 CalendarMonthPickerSheet(
                     selectedYear: $pickerYear,
@@ -431,32 +433,34 @@ struct CalendarView: View {
         switch displayMode {
         case .month:
             GeometryReader { proxy in
-                let drawerHeight = min(300.0, proxy.size.height * 0.43)
+                let compactHeight = min(320.0, proxy.size.height * 0.46)
+                let expandedHeight = max(compactHeight, proxy.size.height - 60)
+                let drawerHeight = monthDrawerExpanded ? expandedHeight : compactHeight
                 ZStack(alignment: .bottom) {
                     monthPager(viewportHeight: proxy.size.height, drawerHeight: monthDrawerDay == nil ? 0 : drawerHeight)
                     if let target = monthDrawerDay {
-                        CalendarMonthDayDrawer(
-                            date: target.date,
-                            highlightedPlanID: target.planID,
-                            visibleCategoryIDs: usesCustomCategoryFilter ? selectedCategoryIDs : nil,
-                            onClose: { monthDrawerDay = nil },
-                            onExpand: {
-                                selectedDay = target
-                            },
-                            onCreate: { preparePlanCreation(for: target.date) },
-                            onEdit: { editingPlan = $0 }
-                        )
-                        .id(target.date)
-                        .frame(height: drawerHeight)
-                        .background(alignment: .bottom) {
-                            LiminalTheme.plainSheetBackground
-                                .frame(height: 20 + proxy.safeAreaInsets.bottom)
-                                .offset(y: proxy.safeAreaInsets.bottom)
+                        CalendarMonthDrawerContainer(
+                            isExpanded: $monthDrawerExpanded,
+                            compactHeight: compactHeight, expandedHeight: expandedHeight,
+                            bottomInset: proxy.safeAreaInsets.bottom, onClose: closeMonthDrawer
+                        ) {
+                            CalendarMonthDayDrawer(
+                                date: target.date,
+                                highlightedPlanID: target.planID,
+                                visibleCategoryIDs: usesCustomCategoryFilter ? selectedCategoryIDs : nil,
+                                onClose: closeMonthDrawer,
+                                onExpand: {
+                                    selectedDay = target
+                                },
+                                onCreate: { preparePlanCreation(for: target.date) },
+                                onEdit: { editingPlan = $0 }
+                            )
+                            .id(target.date)
                         }
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .zIndex(1)
+                        .transition(.move(edge: .bottom))
                     }
                 }
-                .animation(.snappy(duration: 0.22), value: monthDrawerDay != nil)
             }
         case .week:
             timelineModeContent {
@@ -679,7 +683,7 @@ struct CalendarView: View {
                                 selectedDate: monthDrawerDay?.date,
                                 onOpenDay: { date, planID in
                                     LiminalHaptics.selection()
-                                    monthDrawerDay = CalendarDayPresentation(date: calendar.startOfDay(for: date), planID: planID)
+                                    openMonthDrawer(date: date, planID: planID)
                                 },
                                 onCreatePlan: { date in
                                     preparePlanCreation(for: date)
@@ -721,6 +725,24 @@ struct CalendarView: View {
         )
         .padding(.top, 6)
         .frame(maxHeight: .infinity, alignment: .top)
+    }
+
+    private func openMonthDrawer(date: Date, planID: UUID?) {
+        if monthDrawerDay == nil { monthDrawerExpanded = false }
+        withAnimation(CalendarMonthDrawerMotion.animation) {
+            monthDrawerCoversTabBar = true
+            monthDrawerDay = CalendarDayPresentation(date: calendar.startOfDay(for: date), planID: planID)
+        }
+    }
+
+    private func closeMonthDrawer() {
+        withAnimation(CalendarMonthDrawerMotion.animation, completionCriteria: .logicallyComplete) {
+            monthDrawerDay = nil
+        } completion: {
+            guard monthDrawerDay == nil else { return }
+            monthDrawerCoversTabBar = false
+            monthDrawerExpanded = false
+        }
     }
 
     private func preparePlanCreation(for date: Date) {

@@ -67,14 +67,7 @@ struct CalendarMonthDayDrawer: View {
             .buttonStyle(.plain)
             .foregroundStyle(LiminalTheme.accent)
             .padding(.horizontal, 12)
-            .padding(.top, 6)
-            .contentShape(Rectangle())
-            .simultaneousGesture(DragGesture(minimumDistance: 20).onEnded { value in
-                if value.translation.height > 40,
-                   value.translation.height > abs(value.translation.width) {
-                    onClose()
-                }
-            })
+            .padding(.bottom, 8)
             Divider()
             ScrollView {
                 if let plan = plans.first(where: { $0.id == selectedPlanID }) {
@@ -98,11 +91,6 @@ struct CalendarMonthDayDrawer: View {
                     }
                 }
             }
-        }
-        .background(LiminalTheme.plainSheetBackground, in: UnevenRoundedRectangle(topLeadingRadius: 20, topTrailingRadius: 20))
-        .overlay(alignment: .top) {
-            Capsule().fill(LiminalTheme.divider).frame(width: 32, height: 3)
-                .offset(y: 3).accessibilityHidden(true)
         }
         .onChange(of: highlightedPlanID) { _, id in selectedPlanID = id }
         .onChange(of: plans.map(\.id)) { _, ids in

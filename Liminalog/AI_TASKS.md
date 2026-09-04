@@ -1029,6 +1029,8 @@ refactor: split plan store
 
 ## 8.16 UXフィードバック v3（docs/28・選択状態/操作性能）
 
+- [x] 2026-09-04 [Codex]: 月間ドロワーの開閉をスライド＋springに統一、ドラッグ中の追従と2段階の高さを追加。グラバーを48×5pt/操作領域44ptへ拡大。タップでも高さ切替可。退場中も前面描画し、閉じ完了後にタブバー復帰。復元点 `caae50d`。原寸カレンダー・既存予定保存は維持。Debug/Release build、動作判定4 tests成功。シミュレーターで上ドラッグ拡大・タップ縮小・下ドラッグ終了とタブバー復帰を確認。iPhone 16へRelease導入・起動成功（実機での指操作・アニメーション体感確認は未実施）。
+
 - [x] 2026-09-04 [Codex・実装]: 月間ドロワーの縮小レイアウトを撤去。原寸のまま前面下部に重ね、表示中のみ各月ページ内の縦スクロールを許可、閉じると先頭復帰して縦スクロール禁止。タブバーは一時非表示、背景は端末下端まで延長。予定編集は開始/終了を縦2行、日付と時刻を同じ行へ戻した。復元点 `b5bd99b`。Debug/Release build成功、原寸維持・下端背景・タブバー復帰・日時2行をシミュレーターで確認。
 - [ ] 上記月間ドロワーの実機操作確認: 自動操作では縦スクロールの移動を確認できず。月末までの到達、閉じた状態での縦スクロール禁止、月送りとの両立を指操作で確認する。実装済みと動作検証済みを区別する。
 
@@ -1117,6 +1119,7 @@ refactor: split plan store
 
 | 日付 | 担当 | 内容 |
 |---|---|---|
+| 2026-09-04 | Codex | 月間当日ドロワーの操作改善。固定高さ＋離した時だけ閉じるジェスチャーから、局所GestureStateによる連続追従と通常/拡大の2段階へ変更。バー48×5pt、操作領域44pt。スライド＋spring、明示zIndex、退出完了後のタブバー復帰で開閉を改善。`CalendarMonthDrawerMotionTests` 4件成功、Debug Simulator/Release iOS build成功。シミュレーターで上ドラッグ拡大、バータップで縮小、下ドラッグ終了、タブバー復帰を確認。iPhone 16 Release導入・起動成功。実機での指操作・アニメーション体感は未確認。ログ `/private/tmp/liminalog-month-drawer-motion-tests.log`。 |
 | 2026-09-04 | Codex | 月間ドロワーのフィードバック修正。グリッド縮小を削除し、各月の内側ScrollViewにドロワー高分の下余白を追加、閉じたときは縦スクロールを無効化して先頭に戻す。外側の横ページングは維持。ドロワー中はタブバーを隠し、下端の安全領域まで無彩色背景で覆う。予定編集の日時は開始/終了の縦2行、各行に日付と時刻を表示。Debug/Release buildとdiff check成功。シミュレーターで原寸表示・開閉・タブバー復帰・下端余白なし・日時2行・既存の重複警告を確認。縦スクロールの移動は自動操作で確認できておらず、実機指操作による検証を残した。復元点 `b5bd99b`。 |
 | 2026-09-04 | Codex | 月間＋当日一覧ドロワー/共通予定フォーム改修の第1段階。復元点 `4ef66b1`。月間の高さを調整して一覧を併設、選択日・カテゴリ範囲Query、同じ場所で詳細表示、予定追加/編集・既存日間への導線を追加。共通フォームは重複プレビュー撤去、カテゴリ/公開範囲・開始/終了を2列、中サイズ→拡大、プリセット候補は必要時呼び出し、削除は三点直下＋確認。シミュレーターで別日選択、予定保存→一覧反映、詳細→編集、下ドラッグで閉じる、プリセット保存→呼び出し→適用を確認。`CalendarPlanCreationPresetTests` / `PlanPresetStoreTests` の12件成功。署名付きDebug Simulator/Release iOS build成功。iPhone 16へReleaseインストール・起動成功。実機の手操作/性能比較、アクセシビリティ文字サイズでの実表示は未検証。別日ドラッグ移動/一括複製は後続。ログ: `/private/tmp/liminalog-month-drawer-{build,release,tests}.log`。 |
 | 2026-09-01 | Codex | **docs/31 §3 軽量化 P-1〜P-11 完了**（P-10は証拠不足で条件付き不採用、P-11のID配列監視8箇所はユーザー判断で挙動変更ゼロを優先して現状維持）。環境判定キャッシュ、構造化署名、装飾解放の一回化、Score日別bucket/summary-only、章group共有、active chapterのpredicate付きQuery、Calendar条件付きcache、Set/安定sort、Timeline identity整理、小粒置換を実装。検証: `git diff --check`、generic iOS Release、iPhone 17/iOS 26.5 SimulatorでSwift Testing 558件＋XCTest 15件（failure 0、環境依存15件skip）。署名済みbefore=`7a7c006` / after=`d240a32`をiPhone 16/iOS 26.6へ同一bundle IDで順に上書きし、双方の前面起動・プロセス生存、appDataContainer直下構成一致を確認。最終的にafter版（1.1 build 2）を端末へ残した。詳細: docs/31 §8。 |
