@@ -126,7 +126,7 @@ struct TimelinePlanPresetLibrary: View {
     @State private var selectedCategoryID: UUID?
     @State private var draggedPresetID: UUID?
     @State private var placementError: String?
-    @State private var selectedPresentationDetent: PresentationDetent = .height(264)
+    @State private var selectedPresentationDetent = CalendarDrawerStyle.compact
 
     init(
         presets: [PlanPreset],
@@ -190,21 +190,12 @@ struct TimelinePlanPresetLibrary: View {
 
     private var drawer: some View {
         drawerContents
-            .padding(.top, 6)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .background(LiminalTheme.plainSheetBackground)
+            .calendarDrawerStyle(selection: $selectedPresentationDetent)
             .background {
                 TimelinePlanPresetSheetRetreatBridge(
                     isRetreated: isDurationDragActive
                 )
             }
-            .presentationDetents(
-                [compactPresentationDetent, expandedPresentationDetent],
-                selection: $selectedPresentationDetent
-            )
-            .presentationDragIndicator(.visible)
-            .presentationBackground(LiminalTheme.plainSheetBackground)
-            .presentationBackgroundInteraction(.enabled)
             .alert("予定を追加できませんでした", isPresented: placementErrorPresented) {
                 Button("OK", role: .cancel) { placementError = nil }
             } message: {
@@ -244,8 +235,8 @@ struct TimelinePlanPresetLibrary: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("予定プリセットを閉じる")
             }
-            .frame(height: 48)
-            .padding(.horizontal, 14)
+            .frame(height: CalendarDrawerStyle.headerHeight)
+            .padding(.horizontal, CalendarDrawerStyle.horizontalInset)
 
             quickShelf
                 .padding(.bottom, 8)
@@ -411,15 +402,11 @@ struct TimelinePlanPresetLibrary: View {
     }
 
     private var compactPresentationDetent: PresentationDetent {
-        .height(264)
+        CalendarDrawerStyle.compact
     }
 
     private var isDurationDragActive: Bool {
         draggedPresetID != nil
-    }
-
-    private var expandedPresentationDetent: PresentationDetent {
-        .medium
     }
 
     private func resetPresentation() {

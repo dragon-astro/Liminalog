@@ -40,7 +40,7 @@ struct CalendarMonthDayDrawer: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 4) {
+            HStack(spacing: 10) {
                 if selectedPlanID != nil {
                     Button { selectedPlanID = nil } label: {
                         Image(systemName: "chevron.left").frame(width: 40, height: 44)
@@ -48,7 +48,8 @@ struct CalendarMonthDayDrawer: View {
                     .accessibilityLabel("当日の予定一覧に戻る")
                 }
                 Text(date.japaneseMonthDayShortWeekday)
-                    .font(.headline)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(LiminalTheme.text)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 Button(action: onCreate) {
                     Image(systemName: "plus").frame(width: 44, height: 44)
@@ -60,14 +61,16 @@ struct CalendarMonthDayDrawer: View {
                 }
                 .accessibilityLabel("日間タイムラインを開く")
                 Button(action: onClose) {
-                    Image(systemName: "xmark").frame(width: 44, height: 44)
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.title3)
+                        .foregroundStyle(LiminalTheme.secondaryText)
                 }
                 .accessibilityLabel("当日の予定を閉じる")
             }
             .buttonStyle(.plain)
             .foregroundStyle(LiminalTheme.accent)
-            .padding(.horizontal, 12)
-            .padding(.bottom, 8)
+            .frame(height: CalendarDrawerStyle.headerHeight)
+            .padding(.horizontal, CalendarDrawerStyle.horizontalInset)
             Divider()
             ScrollView {
                 if let plan = plans.first(where: { $0.id == selectedPlanID }) {
