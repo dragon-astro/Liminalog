@@ -1,8 +1,16 @@
 import Foundation
+import CoreGraphics
 import Testing
 @testable import Liminalog
 
 struct CalendarMonthDayDrawerNavigationTests {
+    @MainActor
+    @Test func rowSwipeDoesNotBecomeTap() {
+        let origin = CGPoint(x: 200, y: 700)
+        #expect(TimelinePlanPresetLongPressDragSurface.Coordinator.isTap(from: origin, to: CGPoint(x: 204, y: 703)))
+        #expect(!TimelinePlanPresetLongPressDragSurface.Coordinator.isTap(from: origin, to: CGPoint(x: 80, y: 700)))
+        #expect(!TimelinePlanPresetLongPressDragSurface.Coordinator.isTap(from: origin, to: CGPoint(x: 200, y: 650)))
+    }
     @Test func rightSwipeReturnsToList() {
         #expect(CalendarMonthDayDrawerNavigation.shouldReturnToList(horizontal: 100, vertical: 10))
     }

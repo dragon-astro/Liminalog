@@ -831,11 +831,19 @@ struct CalendarView: View {
                     guard store.deletePlanBlock(plan) else { return false }
                     reloadVisibleData()
                     return true
+                },
+                onSelectionChanged: { hasSelection in
+                    guard monthTransfer.request == nil else { return }
+                    if hasSelection, monthDrawerDetent == CalendarDrawerStyle.compact {
+                        monthDrawerDetent = CalendarDrawerStyle.detail
+                    } else if !hasSelection, monthDrawerDetent == CalendarDrawerStyle.detail {
+                        monthDrawerDetent = CalendarDrawerStyle.compact
+                    }
                 }
             )
             .environment(\.monthPlanTransfer, monthTransfer)
             .id(target.date)
-            .calendarDrawerStyle(selection: $monthDrawerDetent)
+            .calendarDrawerStyle(selection: $monthDrawerDetent, supportsDetail: true)
             .background(CalendarSheetRetreatBridge(isRetreated: monthTransfer.request != nil))
             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { monthDrawerHeight = $0 }
             .sheet(item: $monthDrawerEditingPlan, onDismiss: reloadVisibleData) { plan in

@@ -488,10 +488,11 @@ struct TimelinePlanPresetLongPressDragSurface: UIViewRepresentable {
     let minimumDuration: TimeInterval
     let maximumDistance: CGFloat
     var onTap: (() -> Void)? = nil
+    var onSwipeRight: (() -> Void)? = nil
     let onEvent: (TimelinePlanPresetLongPressDragEvent) -> Void
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(onEvent: onEvent, onTap: onTap)
+        Coordinator(onEvent: onEvent, onTap: onTap, onSwipeRight: onSwipeRight)
     }
 
     func makeUIView(context: Context) -> UIView {
@@ -505,10 +506,21 @@ struct TimelinePlanPresetLongPressDragSurface: UIViewRepresentable {
         recognizer.allowableMovement = maximumDistance
         recognizer.cancelsTouchesInView = true
         view.addGestureRecognizer(recognizer)
+        if onSwipeRight != nil {
+            let swipe = UISwipeGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleSwipeRight))
+            swipe.direction = .right
+            swipe.require(toFail: recognizer)
+            view.addGestureRecognizer(swipe)
+            context.coordinator.swipeRecognizer = swipe
+        }
         if onTap != nil {
             let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleTap))
             tap.require(toFail: recognizer)
+            if let swipe = context.coordinator.swipeRecognizer { tap.require(toFail: swipe) }
+            tap.cancelsTouchesInView = false
+            tap.delegate = context.coordinator
             view.addGestureRecognizer(tap)
+            context.coordinator.tapRecognizer = tap
         }
         context.coordinator.recognizer = recognizer
         return view
@@ -517,21 +529,51 @@ struct TimelinePlanPresetLongPressDragSurface: UIViewRepresentable {
     func updateUIView(_ uiView: UIView, context: Context) {
         context.coordinator.onEvent = onEvent
         context.coordinator.onTap = onTap
+        context.coordinator.onSwipeRight = onSwipeRight
+        context.coordinator.swipeRecognizer?.isEnabled = onSwipeRight != nil
         context.coordinator.recognizer?.minimumPressDuration = minimumDuration
         context.coordinator.recognizer?.allowableMovement = maximumDistance
     }
 
-    final class Coordinator: NSObject {
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
         var onEvent: (TimelinePlanPresetLongPressDragEvent) -> Void
         var onTap: (() -> Void)?
+        var onSwipeRight: (() -> Void)?
         weak var recognizer: UILongPressGestureRecognizer?
+        weak var swipeRecognizer: UISwipeGestureRecognizer?
+        weak var tapRecognizer: UITapGestureRecognizer?
+        private var tapOrigin: CGPoint?
 
-        init(onEvent: @escaping (TimelinePlanPresetLongPressDragEvent) -> Void, onTap: (() -> Void)?) {
+        init(onEvent: @escaping (TimelinePlanPresetLongPressDragEvent) -> Void, onTap: (() -> Void)?,
+             onSwipeRight: (() -> Void)?) {
             self.onEvent = onEvent
             self.onTap = onTap
+            self.onSwipeRight = onSwipeRight
+        }
+
+        static func isTap(from origin: CGPoint, to point: CGPoint) -> Bool {
+            hypot(point.x - origin.x, point.y - origin.y) <= 12
+        }
+
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+            if gestureRecognizer === tapRecognizer { tapOrigin = touch.location(in: touch.window) }
+            return true
+        }
+
+        func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+            guard gestureRecognizer === tapRecognizer, let tapOrigin,
+                  let window = gestureRecognizer.view?.window else { return true }
+            return Self.isTap(from: tapOrigin, to: gestureRecognizer.location(in: window))
+        }
+
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+                               shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+            // A row tap must not win against the list's scroll/swipe gestures.
+            gestureRecognizer === tapRecognizer && otherGestureRecognizer !== recognizer
         }
 
         @objc func handleTap() { onTap?() }
+        @objc func handleSwipeRight() { onSwipeRight?() }
 
         @objc func handle(_ recognizer: UILongPressGestureRecognizer) {
             guard let window = recognizer.view?.window else {

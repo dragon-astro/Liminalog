@@ -21,6 +21,7 @@ struct CalendarMonthDayDrawer: View {
     let onCreate: () -> Void
     let onEdit: (PlanBlock) -> Void
     let onDelete: (PlanBlock) -> Bool
+    let onSelectionChanged: (Bool) -> Void
     @State private var selectedPlanID: UUID?
     @State private var pendingDeletion: DeletionRequest?
 
@@ -33,7 +34,8 @@ struct CalendarMonthDayDrawer: View {
     init(date: Date, highlightedPlanID: UUID?, visibleCategoryIDs: Set<UUID>?,
          onClose: @escaping () -> Void, onExpand: @escaping () -> Void,
          onCreate: @escaping () -> Void, onEdit: @escaping (PlanBlock) -> Void,
-         onDelete: @escaping (PlanBlock) -> Bool) {
+         onDelete: @escaping (PlanBlock) -> Bool,
+         onSelectionChanged: @escaping (Bool) -> Void) {
         self.date = date
         self.highlightedPlanID = highlightedPlanID
         self.visibleCategoryIDs = visibleCategoryIDs
@@ -42,6 +44,7 @@ struct CalendarMonthDayDrawer: View {
         self.onCreate = onCreate
         self.onEdit = onEdit
         self.onDelete = onDelete
+        self.onSelectionChanged = onSelectionChanged
         _selectedPlanID = State(initialValue: highlightedPlanID)
         let start = Calendar.current.startOfDay(for: date)
         let end = Calendar.current.date(byAdding: .day, value: 1, to: start) ?? start
@@ -98,10 +101,14 @@ struct CalendarMonthDayDrawer: View {
             .frame(height: CalendarDrawerStyle.headerHeight)
             .padding(.horizontal, CalendarDrawerStyle.horizontalInset)
             Divider()
-            ScrollView {
-                ZStack(alignment: .topLeading) {
+            ZStack(alignment: .topLeading) {
                     if let plan = plans.first(where: { $0.id == selectedPlanID }) {
-                        detail(plan)
+                        ScrollView {
+                            detail(plan)
+                        }
+                            .safeAreaInset(edge: .bottom, spacing: 0) {
+                                transferButtons(plan)
+                            }
                             .accessibilityAction(named: "当日の予定一覧に戻る", returnToList)
                             .transition(contentTransition(from: .trailing))
                     } else if plans.isEmpty {
@@ -112,42 +119,34 @@ struct CalendarMonthDayDrawer: View {
                         }
                         .frame(maxWidth: .infinity).padding(24)
                     } else {
-                        LazyVStack(spacing: 0) {
+                        List {
                             ForEach(plans) { plan in
-                                HStack(spacing: 0) {
                                     planButton(plan)
-                                    Button(role: .destructive) {
-                                        pendingDeletion = DeletionRequest(
-                                            id: plan.id, title: plan.title,
-                                            spansDays: !Calendar.current.isDate(plan.startTime, inSameDayAs: plan.endTime.addingTimeInterval(-0.001))
-                                        )
-                                    } label: {
-                                        Image(systemName: "trash")
-                                            .frame(width: 44, height: 44)
+                                    .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
+                                    .listRowBackground(CalendarDrawerStyle.background)
+                                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                        if !store.isPlanScheduleLocked(plan) {
+                                            Button(role: .destructive) {
+                                                pendingDeletion = DeletionRequest(
+                                                    id: plan.id, title: plan.title,
+                                                    spansDays: !Calendar.current.isDate(plan.startTime, inSameDayAs: plan.endTime.addingTimeInterval(-0.001))
+                                                )
+                                            } label: { Label("削除", systemImage: "trash") }
+                                        }
                                     }
-                                    .buttonStyle(.plain)
-                                    .foregroundStyle(store.isPlanScheduleLocked(plan) ? LiminalTheme.tertiaryText : .red)
-                                    .disabled(store.isPlanScheduleLocked(plan))
-                                    .accessibilityLabel("\(plan.title)を削除")
-                                    .padding(.trailing, 6)
-                                }
-                                Divider().padding(.leading, 50)
                             }
                         }
+                        .listStyle(.plain)
+                        .scrollContentBackground(.hidden)
+                        .contentMargins(.vertical, 0, for: .scrollContent)
                         .transition(contentTransition(from: .leading))
                     }
                 }
                 .animation(.easeInOut(duration: reduceMotion ? 0.15 : 0.24), value: selectedPlanID)
-            }
             .clipped()
-            .contentShape(Rectangle())
-            .simultaneousGesture(DragGesture(minimumDistance: 24).onEnded { value in
-                guard selectedPlanID != nil, transfer?.request == nil else { return }
-                if CalendarMonthDayDrawerNavigation.shouldReturnToList(
-                    horizontal: value.translation.width, vertical: value.translation.height
-                ) { returnToList() }
-            })
+            .frame(maxHeight: .infinity, alignment: .top)
         }
+        .onChange(of: selectedPlanID, initial: true) { _, id in onSelectionChanged(id != nil) }
         .onChange(of: highlightedPlanID) { _, id in selectedPlanID = id }
         .onChange(of: plans.map(\.id)) { _, ids in
             if let selectedPlanID, !ids.contains(selectedPlanID) { self.selectedPlanID = nil }
@@ -171,29 +170,60 @@ struct CalendarMonthDayDrawer: View {
 
     @ViewBuilder
     private func planButton(_ plan: PlanBlock) -> some View {
-        let button = Button { selectedPlanID = plan.id } label: {
-            row(plan, showsDisclosure: false).padding(.horizontal, 14).padding(.vertical, 10)
-        }
-        .buttonStyle(.plain)
-        .accessibilityAction(named: "複製") { transfer?.begin(plan, mode: .copy) }
+        planSurface(plan, onTap: { selectedPlanID = plan.id })
+            .padding(.horizontal, 14).padding(.vertical, 10)
+    }
+
+    @ViewBuilder
+    private func planSurface(_ plan: PlanBlock, onTap: @escaping () -> Void) -> some View {
         if let transfer, !store.isPlanScheduleLocked(plan), plan.sourceEventID == nil {
-            button
-                .overlay {
-                    TimelinePlanPresetLongPressDragSurface(minimumDuration: 0.28, maximumDistance: 12,
-                        onTap: { selectedPlanID = plan.id }) { event in
-                        switch event {
-                        case .began(let point):
-                            transfer.begin(plan, mode: .move, dragging: true)
-                            LiminalHaptics.selection()
-                            transfer.updateDrag(at: point)
-                        case .changed(let point): transfer.updateDrag(at: point)
-                        case .ended(let point): transfer.finishDrag(at: point)
-                        case .cancelled: transfer.finishDrag(at: nil)
-                        }
-                    }
+            interactivePlanRow(plan, transfer: transfer, onTap: onTap)
+                .accessibilityAction(.default) { onTap() }
+                .accessibilityActions {
+                    Button("複製") { transfer.begin(plan, mode: .copy) }
+                    Button("別の日へ移動") { transfer.begin(plan, mode: .move) }
                 }
-                .accessibilityAction(named: "別の日へ移動") { transfer.begin(plan, mode: .move) }
-        } else { button }
+        } else {
+            Button(action: onTap) { row(plan, showsDisclosure: false) }
+                .buttonStyle(.plain)
+                .accessibilityAction(named: "複製") { transfer?.begin(plan, mode: .copy) }
+        }
+    }
+
+    private func interactivePlanRow(_ plan: PlanBlock, transfer: CalendarMonthTransferInteraction,
+                                    onTap: @escaping () -> Void) -> some View {
+        row(plan, showsDisclosure: false)
+            .overlay { dragSurface(plan, transfer: transfer, onTap: onTap) }
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isButton)
+    }
+
+    private func dragSurface(_ plan: PlanBlock, transfer: CalendarMonthTransferInteraction,
+                             onTap: @escaping () -> Void) -> some View {
+        let onBack: (() -> Void)? = selectedPlanID == nil ? nil : { returnToList() }
+        return TimelinePlanPresetLongPressDragSurface(
+            minimumDuration: monthDragMinimumDuration, maximumDistance: 12,
+            onTap: onTap, onSwipeRight: onBack
+        ) { event in
+            switch event {
+            case .began(let point):
+                transfer.begin(plan, mode: .move, dragging: true)
+                LiminalHaptics.selection()
+                transfer.updateDrag(at: point)
+            case .changed(let point): transfer.updateDrag(at: point)
+            case .ended(let point): transfer.finishDrag(at: point)
+            case .cancelled: transfer.finishDrag(at: nil)
+            }
+        }
+    }
+
+    /// Simulator automation cannot hold before dragging. Only bypass the recognition delay
+    /// for opt-in Debug QA; all movement/retreat/drop handling remains the production path.
+    private var monthDragMinimumDuration: TimeInterval {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-LiminalogDebugImmediateMonthDrag") { return 0 }
+        #endif
+        return 0.28
     }
 
     private func deletePlan(id: UUID) {
@@ -241,7 +271,8 @@ struct CalendarMonthDayDrawer: View {
 
     private func detail(_ plan: PlanBlock) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            row(plan)
+            planSurface(plan, onTap: { onEdit(plan) })
+            VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text(plan.category?.name ?? "カテゴリ未設定")
                 Spacer()
@@ -255,6 +286,19 @@ struct CalendarMonthDayDrawer: View {
                     .background(LiminalTheme.accent.opacity(0.1), in: Capsule())
             }
             .buttonStyle(.plain).foregroundStyle(LiminalTheme.accent)
+            }
+            .contentShape(Rectangle())
+            .simultaneousGesture(DragGesture(minimumDistance: 24).onEnded { value in
+                guard transfer?.request == nil else { return }
+                if CalendarMonthDayDrawerNavigation.shouldReturnToList(
+                    horizontal: value.translation.width, vertical: value.translation.height
+                ) { returnToList() }
+            })
+        }
+        .padding(16)
+    }
+
+    private func transferButtons(_ plan: PlanBlock) -> some View {
             HStack(spacing: 12) {
                 Button { transfer?.begin(plan, mode: .copy) } label: {
                     Label("複製", systemImage: "doc.on.doc").frame(maxWidth: .infinity, minHeight: 36)
@@ -265,8 +309,8 @@ struct CalendarMonthDayDrawer: View {
                 .disabled(store.isPlanScheduleLocked(plan) || plan.sourceEventID != nil)
             }
             .buttonStyle(.bordered).tint(LiminalTheme.accent)
-        }
-        .padding(16)
+            .padding(.horizontal, 16).padding(.vertical, 8)
+            .background(CalendarDrawerStyle.background)
     }
 
     private func timeLabel(_ plan: PlanBlock) -> String {

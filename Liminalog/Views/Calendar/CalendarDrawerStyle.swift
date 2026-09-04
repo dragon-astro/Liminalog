@@ -3,6 +3,7 @@ import SwiftUI
 /// Shared system-sheet chrome for the preset library and the selected-day list.
 enum CalendarDrawerStyle {
     static let compact: PresentationDetent = .height(264)
+    static let detail: PresentationDetent = .height(320)
     static let expanded: PresentationDetent = .medium
     static let headerHeight: CGFloat = 48
     static let horizontalInset: CGFloat = 14
@@ -11,6 +12,7 @@ enum CalendarDrawerStyle {
 
 private struct CalendarDrawerStyleModifier: ViewModifier {
     @Binding var selection: PresentationDetent
+    var supportsDetail: Bool
 
     func body(content: Content) -> some View {
         content
@@ -18,7 +20,9 @@ private struct CalendarDrawerStyleModifier: ViewModifier {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background(CalendarDrawerStyle.background)
             .background(CalendarDrawerShadow())
-            .presentationDetents([CalendarDrawerStyle.compact, CalendarDrawerStyle.expanded], selection: $selection)
+            .presentationDetents(supportsDetail
+                ? [CalendarDrawerStyle.compact, CalendarDrawerStyle.detail, CalendarDrawerStyle.expanded]
+                : [CalendarDrawerStyle.compact, CalendarDrawerStyle.expanded], selection: $selection)
             .presentationDragIndicator(.visible)
             .presentationBackground(CalendarDrawerStyle.background)
             .presentationBackgroundInteraction(.enabled)
@@ -56,7 +60,7 @@ private struct CalendarDrawerShadow: UIViewRepresentable {
                         styledView = presented
                     }
                     layer.shadowColor = UIColor.black.cgColor
-                    layer.shadowOpacity = 0.08
+                    layer.shadowOpacity = 0.05
                     layer.shadowRadius = 14
                     layer.shadowOffset = CGSize(width: 0, height: -2)
                     return
@@ -79,7 +83,7 @@ private struct CalendarDrawerShadow: UIViewRepresentable {
 }
 
 extension View {
-    func calendarDrawerStyle(selection: Binding<PresentationDetent>) -> some View {
-        modifier(CalendarDrawerStyleModifier(selection: selection))
+    func calendarDrawerStyle(selection: Binding<PresentationDetent>, supportsDetail: Bool = false) -> some View {
+        modifier(CalendarDrawerStyleModifier(selection: selection, supportsDetail: supportsDetail))
     }
 }
