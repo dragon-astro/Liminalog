@@ -80,6 +80,9 @@ struct CalendarView: View {
     @State private var monthDrawerCreation: CalendarPlanCreationRequest?
     @State private var monthDrawerTimeline: CalendarDayPresentation?
     @State private var monthTransfer = CalendarMonthTransferInteraction()
+    @State private var monthDrawerSuspending = false
+    @State private var pendingMonthTransferAction: CalendarMonthTransferInteraction.Action?
+    @State private var monthReplacementPreview: CalendarPlanTransferPreview?
     @State private var editingPlan: PlanBlock?
     @State private var pendingPlanCreation: CalendarPlanCreationRequest?
     @State private var displayMode = Self.initialDisplayMode()
@@ -141,11 +144,7 @@ struct CalendarView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                calendarTopBar
-                calendarModeContent
-            }
-            .background(LiminalTheme.canvasGradient)
+            calendarSurface
             .toolbar(.hidden, for: .navigationBar)
             .sheet(isPresented: $monthDrawerPresented, onDismiss: didDismissMonthDrawer) {
                 monthDrawerSheet
@@ -299,6 +298,52 @@ struct CalendarView: View {
         }
     }
 
+    private var calendarSurface: some View {
+        VStack(spacing: 0) {
+            if monthTransfer.request != nil { monthTransferTopBar }
+            else { calendarTopBar }
+            calendarModeContent
+        }
+        .background(LiminalTheme.canvasGradient)
+        .background(TimelineWindowFrameReader(frameSource: monthTransfer.rootFrame))
+        .overlay(alignment: .topLeading) { CalendarMonthDragPreview(interaction: monthTransfer) }
+        .onChange(of: monthTransfer.request?.id) { _, id in
+            guard id != nil else { return }
+            refreshMonthTransferStatuses()
+            if !monthTransfer.isDragging {
+                if let target = monthDrawerDay, let request = monthTransfer.request {
+                    monthDrawerDay = CalendarDayPresentation(date: target.date, planID: request.planID)
+                }
+                suspendMonthDrawer()
+            }
+        }
+        .onChange(of: monthTransfer.action) { _, action in
+            guard let action else { return }
+            monthTransfer.action = nil
+            pendingMonthTransferAction = action
+            if monthDrawerPresented { suspendMonthDrawer() }
+            else if !monthDrawerSuspending { performPendingMonthTransferAction() }
+        }
+        .onChange(of: visibleMonth) { _, _ in refreshMonthTransferStatuses() }
+        .onChange(of: store.contentRevision) { _, _ in refreshMonthTransferStatuses() }
+        .alert("重なる予定を置換しますか？", isPresented: Binding(
+            get: { monthReplacementPreview != nil }, set: { if !$0 { monthReplacementPreview = nil } }
+        ), presenting: monthReplacementPreview) { preview in
+            Button("キャンセル", role: .cancel) { finishMonthTransfer() }
+            Button("置換して\(preview.mode.title)", role: .destructive) {
+                applyMonthTransfer(preview, approved: true)
+            }
+        } message: { preview in
+            Text(monthReplacementMessage(preview))
+        }
+        .alert("予定を変更できません", isPresented: Binding(
+            get: { monthTransfer.request != nil && monthTransfer.error != nil },
+            set: { if !$0 { monthTransfer.error = nil } }
+        )) {
+            Button("閉じる", role: .cancel) { finishMonthTransfer() }
+        } message: { Text(monthTransfer.error ?? "") }
+    }
+
     private var calendarTopBar: some View {
         ZStack {
             calendarTitleButton
@@ -311,6 +356,29 @@ struct CalendarView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 14)
+    }
+
+    private var monthTransferTopBar: some View {
+        HStack(spacing: 12) {
+            Button("キャンセル") { monthTransfer.action = .cancel }
+                .font(.subheadline)
+            VStack(spacing: 2) {
+                Text(visibleMonth.japaneseYearMonth).font(.headline)
+                if let request = monthTransfer.request {
+                    Text("\(request.title) · \(request.mode.title)先を選択")
+                        .font(.caption).lineLimit(1)
+                }
+            }
+            .foregroundStyle(LiminalTheme.text)
+            .frame(maxWidth: .infinity)
+            Button(monthTransfer.request?.mode == .copy ? "複製 \(monthTransfer.selectedDates.count)" : "移動") {
+                monthTransfer.action = .confirm
+            }
+            .buttonStyle(.borderedProminent).foregroundStyle(.white)
+            .disabled(monthTransfer.selectedDates.isEmpty || monthTransfer.isDragging)
+        }
+        .tint(LiminalTheme.accent)
+        .padding(.horizontal, 12).padding(.vertical, 14)
     }
 
     private var calendarLeadingButtons: some View {
@@ -443,7 +511,8 @@ struct CalendarView: View {
         switch displayMode {
         case .month:
             GeometryReader { proxy in
-                monthPager(viewportHeight: proxy.size.height, drawerHeight: monthDrawerPresented ? monthDrawerHeight : 0)
+                monthPager(viewportHeight: proxy.size.height,
+                           drawerHeight: monthDrawerPresented && monthTransfer.request == nil ? monthDrawerHeight : 0)
             }
         case .week:
             timelineModeContent {
@@ -709,11 +778,7 @@ struct CalendarView: View {
         .padding(.top, 6)
         .frame(maxHeight: .infinity, alignment: .top)
         .environment(\.monthPlanTransfer, monthTransfer)
-        .onChange(of: monthTransfer.pendingDrop) { _, drop in
-            guard let drop else { return }
-            monthTransfer.pendingDrop = nil
-            completeMonthTransfer(id: drop.planID, dates: [drop.date], mode: .move)
-        }
+        .background(TimelineWindowFrameReader(frameSource: monthTransfer.viewportFrame))
     }
 
     private func openMonthDrawer(date: Date, planID: UUID?) {
@@ -740,6 +805,11 @@ struct CalendarView: View {
     }
 
     private func didDismissMonthDrawer() {
+        monthDrawerSuspending = false
+        if monthTransfer.request != nil {
+            performPendingMonthTransferAction()
+            return
+        }
         monthTransfer.cancel()
         monthDrawerDay = nil
         let nextAction = monthDrawerNextAction
@@ -757,7 +827,6 @@ struct CalendarView: View {
                 onExpand: { monthDrawerTimeline = target },
                 onCreate: { preparePlanCreation(for: target.date) },
                 onEdit: { monthDrawerEditingPlan = $0 },
-                onConfirmTransfer: confirmMonthTransfer,
                 onDelete: { plan in
                     guard store.deletePlanBlock(plan) else { return false }
                     reloadVisibleData()
@@ -767,6 +836,7 @@ struct CalendarView: View {
             .environment(\.monthPlanTransfer, monthTransfer)
             .id(target.date)
             .calendarDrawerStyle(selection: $monthDrawerDetent)
+            .background(CalendarSheetRetreatBridge(isRetreated: monthTransfer.request != nil))
             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { monthDrawerHeight = $0 }
             .sheet(item: $monthDrawerEditingPlan, onDismiss: reloadVisibleData) { plan in
                 PlanCreateSheet(plan: plan)
@@ -785,19 +855,59 @@ struct CalendarView: View {
 
     private func confirmMonthTransfer() {
         guard let request = monthTransfer.request else { return }
-        completeMonthTransfer(id: request.planID, dates: monthTransfer.selectedDates, mode: request.mode)
+        switch store.transferPreview(id: request.planID, to: monthTransfer.selectedDates, mode: request.mode) {
+        case .success(let preview):
+            if preview.replacement.changes.isEmpty { applyMonthTransfer(preview, approved: false) }
+            else { monthReplacementPreview = preview }
+        case .failure(let error): monthTransfer.error = error.localizedDescription
+        }
     }
 
-    private func completeMonthTransfer(id: UUID, dates: Set<Date>, mode: CalendarPlanTransferMode) {
-        switch store.transferPlan(id: id, to: dates, mode: mode) {
+    private func applyMonthTransfer(_ preview: CalendarPlanTransferPreview, approved: Bool) {
+        switch store.transferPlan(id: preview.sourceID, to: preview.dates, mode: preview.mode,
+                                 approvedReplacement: approved ? preview : nil) {
         case .success:
-            monthTransfer.cancel()
             reloadVisibleData()
             LiminalHaptics.selection()
-            if mode == .move, let date = dates.first { openMonthDrawer(date: date, planID: id) }
+            if preview.mode == .move, let date = preview.dates.first {
+                monthDrawerDay = CalendarDayPresentation(date: date, planID: preview.sourceID)
+            }
+            finishMonthTransfer()
         case .failure(let error):
             monthTransfer.error = error.localizedDescription
         }
+    }
+
+    private func suspendMonthDrawer() {
+        guard monthDrawerPresented else { return }
+        monthDrawerSuspending = true
+        monthDrawerPresented = false
+    }
+
+    private func performPendingMonthTransferAction() {
+        guard let action = pendingMonthTransferAction else { return }
+        pendingMonthTransferAction = nil
+        if action == .cancel { finishMonthTransfer() }
+        else { confirmMonthTransfer() }
+    }
+
+    private func finishMonthTransfer() {
+        monthReplacementPreview = nil
+        pendingMonthTransferAction = nil
+        monthTransfer.cancel()
+        if monthDrawerDay != nil { monthDrawerPresented = true }
+    }
+
+    private func refreshMonthTransferStatuses() {
+        guard let request = monthTransfer.request else { return }
+        monthTransfer.dayStatuses = store.transferDayStatuses(id: request.planID,
+            dates: Set(cachedPageData(for: visibleMonth).dates), mode: request.mode)
+    }
+
+    private func monthReplacementMessage(_ preview: CalendarPlanTransferPreview) -> String {
+        let changes = preview.replacement.changes
+        let names = changes.prefix(3).map { "「\($0.title)」" }.joined(separator: "、")
+        return "\(names)\(changes.count > 3 ? "ほか" : "")、計\(changes.count)件と重なります。重なる時間帯だけ置き換え、前後の時間は残します。"
     }
 
     private func preparePlanCreation(for date: Date) {
@@ -3622,7 +3732,6 @@ private struct CalendarMonthWeekRow: View {
             .frame(height: cellHeight)
         }
         .frame(height: cellHeight)
-        .modifier(CalendarPlanWeekDropTarget(dates: dates))
     }
 
     @ViewBuilder

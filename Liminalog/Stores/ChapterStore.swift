@@ -612,12 +612,21 @@ final class ChapterStore {
         return true
     }
 
-    func transferPlan(id: UUID, to dates: Set<Date>, mode: CalendarPlanTransferMode) -> Result<Int, CalendarPlanTransferError> {
-        let result = planStore.transferPlan(id: id, to: dates, mode: mode)
+    func transferPlan(id: UUID, to dates: Set<Date>, mode: CalendarPlanTransferMode,
+                      approvedReplacement: CalendarPlanTransferPreview? = nil) -> Result<Int, CalendarPlanTransferError> {
+        let result = planStore.transferPlan(id: id, to: dates, mode: mode, approvedReplacement: approvedReplacement)
         if case .success(let count) = result, count > 0 {
             markChanged(requestCloudFriendShareRefresh: false)
         }
         return result
+    }
+
+    func transferPreview(id: UUID, to dates: Set<Date>, mode: CalendarPlanTransferMode) -> Result<CalendarPlanTransferPreview, CalendarPlanTransferError> {
+        planStore.transferPreview(id: id, to: dates, mode: mode)
+    }
+
+    func transferDayStatuses(id: UUID, dates: Set<Date>, mode: CalendarPlanTransferMode) -> [Date: CalendarPlanTransferDayStatus] {
+        planStore.transferDayStatuses(id: id, dates: dates, mode: mode)
     }
 
     @discardableResult

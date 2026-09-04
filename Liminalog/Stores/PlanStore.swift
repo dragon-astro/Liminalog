@@ -187,36 +187,9 @@ final class PlanStore {
         guard audienceContext.didFetch else { return false }
 
         var insertedPlans: [PlanBlock] = []
-        var changedScoreDayStarts: Set<Date> = []
-        var replacedIDs: Set<UUID> = []
-        for change in replacement?.changes ?? [] {
-            guard let original = existingPlans.first(where: { $0.id == change.id }) else { return false }
-            replacedIDs.insert(original.id)
-            changedScoreDayStarts.formUnion(affectedScoreDayStarts(start: original.startTime, end: original.endTime))
-            // Keep the first remainder's identity. Extra pieces retain all user metadata.
-            for part in change.remaining.dropFirst() {
-                let copy = PlanBlock(category: original.category, title: original.title,
-                                     startTime: part.start, endTime: part.end,
-                                     isAllDay: original.isAllDay, isImportant: original.isImportant,
-                                     note: original.note, isPublic: original.isPublic)
-                copy.visibilityScope = original.visibilityScope
-                copy.audienceFriendIDs = original.audienceFriendIDs
-                copy.audienceSourceRawValue = original.audienceSourceRawValue
-                copy.hasAudienceSnapshot = original.hasAudienceSnapshot
-                copy.sourceEventID = original.sourceEventID
-                copy.createdAt = original.createdAt
-                copy.updatedAt = clock.now
-                modelContext.insert(copy)
-                replacedIDs.insert(copy.id)
-            }
-            if let first = change.remaining.first {
-                original.startTime = first.start
-                original.endTime = first.end
-                original.updatedAt = clock.now
-            } else {
-                modelContext.delete(original)
-            }
-        }
+        guard let replaced = applyReplacement(replacement, existingPlans: existingPlans) else { return false }
+        var changedScoreDayStarts = replaced.days
+        let replacedIDs = replaced.ids
         for application in applications {
             guard let interval = application.snapshot.interval(
                 on: targetDate,
@@ -470,15 +443,86 @@ final class PlanStore {
         )
     }
 
-    /// Validate the complete batch before changing any model, then save once.
-    func transferPlan(id: UUID, to dates: Set<Date>, mode: CalendarPlanTransferMode,
-                      calendar: Calendar = .current) -> Result<Int, CalendarPlanTransferError> {
-        let source: PlanBlock
+    /// Shared by preset application and calendar transfers. Validate every target before touching any model.
+    private func applyReplacement(_ replacement: PlanTemplateReplacement?, existingPlans: [PlanBlock]) -> (ids: Set<UUID>, days: Set<Date>)? {
+        let changes = replacement?.changes ?? []
+        let originals = changes.compactMap { change in existingPlans.first { $0.id == change.id } }
+        guard originals.count == changes.count else { return nil }
+        var ids: Set<UUID> = []
+        var days: Set<Date> = []
+        for (change, original) in zip(changes, originals) {
+            ids.insert(original.id)
+            days.formUnion(affectedScoreDayStarts(start: original.startTime, end: original.endTime))
+            for part in change.remaining.dropFirst() {
+                let copy = PlanBlock(category: original.category, title: original.title,
+                                     startTime: part.start, endTime: part.end,
+                                     isAllDay: original.isAllDay, isImportant: original.isImportant,
+                                     note: original.note, isPublic: original.isPublic)
+                copy.visibilityScope = original.visibilityScope
+                copy.audienceFriendIDs = original.audienceFriendIDs
+                copy.audienceSourceRawValue = original.audienceSourceRawValue
+                copy.hasAudienceSnapshot = original.hasAudienceSnapshot
+                copy.sourceEventID = original.sourceEventID
+                copy.createdAt = original.createdAt
+                copy.updatedAt = clock.now
+                modelContext.insert(copy)
+                ids.insert(copy.id)
+            }
+            if let first = change.remaining.first {
+                original.startTime = first.start
+                original.endTime = first.end
+                original.updatedAt = clock.now
+            } else { modelContext.delete(original) }
+        }
+        return (ids, days)
+    }
+
+    private func transferSource(id: UUID) -> Result<PlanBlock, CalendarPlanTransferError> {
         do {
             let descriptor = FetchDescriptor<PlanBlock>(predicate: #Predicate { $0.id == id })
             guard let plan = try modelContext.fetch(descriptor).first else { return .failure(.missingPlan) }
-            source = plan
+            return .success(plan)
         } catch { return .failure(.persistence) }
+    }
+
+    private func transferExistingPlans(source: PlanBlock, dates: Set<Date>, calendar: Calendar) -> [PlanBlock]? {
+        let intervals = dates.compactMap { CalendarPlanTransfer.interval(start: source.startTime, end: source.endTime, to: $0, calendar: calendar) }
+        guard let start = intervals.map(\.start).min(), let end = intervals.map(\.end).max() else { return [] }
+        return plannedBlocksIfAvailable(from: start, to: end)
+    }
+
+    func transferPreview(id: UUID, to dates: Set<Date>, mode: CalendarPlanTransferMode,
+                         calendar: Calendar = .current) -> Result<CalendarPlanTransferPreview, CalendarPlanTransferError> {
+        transferSource(id: id).flatMap { source in
+            guard let existing = transferExistingPlans(source: source, dates: dates, calendar: calendar) else { return .failure(.persistence) }
+            return makeTransferPreview(source: source, dates: dates, mode: mode, existing: existing, calendar: calendar)
+        }
+    }
+
+    /// One source fetch and one bounded range fetch for all visible dates, never a query on every drag frame.
+    func transferDayStatuses(id: UUID, dates: Set<Date>, mode: CalendarPlanTransferMode,
+                             calendar: Calendar = .current) -> [Date: CalendarPlanTransferDayStatus] {
+        let days = Set(dates.map { calendar.startOfDay(for: $0) })
+        let source: PlanBlock
+        switch transferSource(id: id) {
+        case .success(let plan): source = plan
+        case .failure(let error): return Dictionary(uniqueKeysWithValues: days.map { ($0, .blocked(error.localizedDescription)) })
+        }
+        guard let existing = transferExistingPlans(source: source, dates: days, calendar: calendar) else {
+            return Dictionary(uniqueKeysWithValues: days.map { ($0, .blocked(CalendarPlanTransferError.persistence.localizedDescription)) })
+        }
+        return Dictionary(uniqueKeysWithValues: days.map { day in
+            let status: CalendarPlanTransferDayStatus
+            switch makeTransferPreview(source: source, dates: [day], mode: mode, existing: existing, calendar: calendar) {
+            case .success(let preview): status = preview.replacement.changes.isEmpty ? .available : .replacement(preview.replacement.changes.count)
+            case .failure(let error): status = .blocked(error.localizedDescription)
+            }
+            return (day, status)
+        })
+    }
+
+    private func makeTransferPreview(source: PlanBlock, dates: Set<Date>, mode: CalendarPlanTransferMode,
+                                     existing: [PlanBlock], calendar: Calendar) -> Result<CalendarPlanTransferPreview, CalendarPlanTransferError> {
         if mode == .move {
             guard !isScheduleLocked(source) else { return .failure(.locked) }
             guard source.sourceEventID == nil else { return .failure(.externalPlan) }
@@ -495,20 +539,49 @@ final class PlanStore {
                 return .failure(.unavailableDay)
             }
             if !source.isAllDay {
-                guard let overlap = timedPlanOverlapIfAvailable(startTime: interval.start, endTime: interval.end,
-                                                                 excluding: mode == .move ? source.id : nil) else {
-                    return .failure(.persistence)
-                }
-                guard !overlap, !intervals.contains(where: { $0.start < interval.end && $0.end > interval.start }) else {
-                    return .failure(.overlap)
+                guard !intervals.contains(where: { $0.start < interval.end && $0.end > interval.start }) else {
+                    return .failure(.incomingOverlap)
                 }
             }
             intervals.append(interval)
         }
+        var changes: [PlanTemplateReplacement.Change] = []
+        for plan in existing where !source.isAllDay && !plan.isAllDay {
+            if mode == .move && plan.id == source.id { continue }
+            let original = DateInterval(start: plan.startTime, end: max(plan.startTime, plan.endTime))
+            let remaining = PlanTemplateReplacement.remainingParts(of: original, excluding: intervals)
+            guard remaining != [original] else { continue }
+            guard plan.id != source.id else { return .failure(.sourceOverlap) }
+            guard !isScheduleLocked(plan), plan.sourceEventID == nil else { return .failure(.protectedOverlap) }
+            changes.append(.init(id: plan.id, title: plan.title, updatedAt: plan.updatedAt, original: original, remaining: remaining))
+        }
+        changes.sort { $0.id.uuidString < $1.id.uuidString }
+        return .success(CalendarPlanTransferPreview(sourceID: source.id, sourceUpdatedAt: source.updatedAt,
+            sourceTitle: source.title, sourceStart: source.startTime, sourceEnd: source.endTime,
+            isAllDay: source.isAllDay, dates: Set(days), mode: mode, intervals: intervals,
+            replacement: .init(mode: .keepRemainders, changes: changes)))
+    }
+
+    /// Approval covers both the source/ranges and all affected revisions. Save the whole batch once.
+    func transferPlan(id: UUID, to dates: Set<Date>, mode: CalendarPlanTransferMode,
+                      calendar: Calendar = .current,
+                      approvedReplacement: CalendarPlanTransferPreview? = nil) -> Result<Int, CalendarPlanTransferError> {
+        let preview: CalendarPlanTransferPreview
+        switch transferPreview(id: id, to: dates, mode: mode, calendar: calendar) {
+        case .success(let value): preview = value
+        case .failure(let error): return .failure(error)
+        }
+        if let approvedReplacement {
+            guard preview == approvedReplacement else { return .failure(.changed) }
+        } else if !preview.replacement.changes.isEmpty { return .failure(.overlap) }
+        guard case .success(let source) = transferSource(id: id),
+              let existing = transferExistingPlans(source: source, dates: dates, calendar: calendar) else { return .failure(.persistence) }
+        let intervals = preview.intervals
         if mode == .move, let interval = intervals.first,
            interval.start == source.startTime, interval.end == source.endTime { return .success(0) }
-        var changedIDs: Set<UUID> = []
-        var changedDays: Set<Date> = []
+        guard let replaced = applyReplacement(preview.replacement, existingPlans: existing) else { return .failure(.changed) }
+        var changedIDs = replaced.ids
+        var changedDays = replaced.days
         for interval in intervals {
             let target: PlanBlock
             if mode == .move {

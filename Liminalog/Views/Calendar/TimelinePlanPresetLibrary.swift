@@ -192,7 +192,7 @@ struct TimelinePlanPresetLibrary: View {
         drawerContents
             .calendarDrawerStyle(selection: $selectedPresentationDetent)
             .background {
-                TimelinePlanPresetSheetRetreatBridge(
+                CalendarSheetRetreatBridge(
                     isRetreated: isDurationDragActive
                 )
             }
@@ -487,10 +487,11 @@ enum TimelinePlanPresetLongPressDragEvent {
 struct TimelinePlanPresetLongPressDragSurface: UIViewRepresentable {
     let minimumDuration: TimeInterval
     let maximumDistance: CGFloat
+    var onTap: (() -> Void)? = nil
     let onEvent: (TimelinePlanPresetLongPressDragEvent) -> Void
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(onEvent: onEvent)
+        Coordinator(onEvent: onEvent, onTap: onTap)
     }
 
     func makeUIView(context: Context) -> UIView {
@@ -504,23 +505,33 @@ struct TimelinePlanPresetLongPressDragSurface: UIViewRepresentable {
         recognizer.allowableMovement = maximumDistance
         recognizer.cancelsTouchesInView = true
         view.addGestureRecognizer(recognizer)
+        if onTap != nil {
+            let tap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleTap))
+            tap.require(toFail: recognizer)
+            view.addGestureRecognizer(tap)
+        }
         context.coordinator.recognizer = recognizer
         return view
     }
 
     func updateUIView(_ uiView: UIView, context: Context) {
         context.coordinator.onEvent = onEvent
+        context.coordinator.onTap = onTap
         context.coordinator.recognizer?.minimumPressDuration = minimumDuration
         context.coordinator.recognizer?.allowableMovement = maximumDistance
     }
 
     final class Coordinator: NSObject {
         var onEvent: (TimelinePlanPresetLongPressDragEvent) -> Void
+        var onTap: (() -> Void)?
         weak var recognizer: UILongPressGestureRecognizer?
 
-        init(onEvent: @escaping (TimelinePlanPresetLongPressDragEvent) -> Void) {
+        init(onEvent: @escaping (TimelinePlanPresetLongPressDragEvent) -> Void, onTap: (() -> Void)?) {
             self.onEvent = onEvent
+            self.onTap = onTap
         }
+
+        @objc func handleTap() { onTap?() }
 
         @objc func handle(_ recognizer: UILongPressGestureRecognizer) {
             guard let window = recognizer.view?.window else {
@@ -548,7 +559,7 @@ struct TimelinePlanPresetLongPressDragSurface: UIViewRepresentable {
 
 /// 長押し成立後はsheet全体を画面外へ退避させる。
 /// 認識器はUIKitのwindow座標を追うため、親Viewを移動しても指の追跡が継続する。
-private struct TimelinePlanPresetSheetRetreatBridge: UIViewRepresentable {
+struct CalendarSheetRetreatBridge: UIViewRepresentable {
     let isRetreated: Bool
 
     func makeUIView(context: Context) -> RetreatView {

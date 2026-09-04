@@ -20,7 +20,6 @@ struct CalendarMonthDayDrawer: View {
     let onExpand: () -> Void
     let onCreate: () -> Void
     let onEdit: (PlanBlock) -> Void
-    let onConfirmTransfer: () -> Void
     let onDelete: (PlanBlock) -> Bool
     @State private var selectedPlanID: UUID?
     @State private var pendingDeletion: DeletionRequest?
@@ -34,7 +33,7 @@ struct CalendarMonthDayDrawer: View {
     init(date: Date, highlightedPlanID: UUID?, visibleCategoryIDs: Set<UUID>?,
          onClose: @escaping () -> Void, onExpand: @escaping () -> Void,
          onCreate: @escaping () -> Void, onEdit: @escaping (PlanBlock) -> Void,
-         onConfirmTransfer: @escaping () -> Void, onDelete: @escaping (PlanBlock) -> Bool) {
+         onDelete: @escaping (PlanBlock) -> Bool) {
         self.date = date
         self.highlightedPlanID = highlightedPlanID
         self.visibleCategoryIDs = visibleCategoryIDs
@@ -42,7 +41,6 @@ struct CalendarMonthDayDrawer: View {
         self.onExpand = onExpand
         self.onCreate = onCreate
         self.onEdit = onEdit
-        self.onConfirmTransfer = onConfirmTransfer
         self.onDelete = onDelete
         _selectedPlanID = State(initialValue: highlightedPlanID)
         let start = Calendar.current.startOfDay(for: date)
@@ -102,9 +100,7 @@ struct CalendarMonthDayDrawer: View {
             Divider()
             ScrollView {
                 ZStack(alignment: .topLeading) {
-                    if let transfer, let request = transfer.request {
-                        transferControls(transfer, request: request)
-                    } else if let plan = plans.first(where: { $0.id == selectedPlanID }) {
+                    if let plan = plans.first(where: { $0.id == selectedPlanID }) {
                         detail(plan)
                             .accessibilityAction(named: "当日の予定一覧に戻る", returnToList)
                             .transition(contentTransition(from: .trailing))
@@ -167,7 +163,7 @@ struct CalendarMonthDayDrawer: View {
             Text("「\(request.title)」を削除します。\(request.spansDays ? "全日程が対象です。" : "")この操作は取り消せません。")
         }
         .alert("予定を変更できません", isPresented: Binding(
-            get: { transfer?.error != nil }, set: { if !$0 { transfer?.error = nil } }
+            get: { transfer?.error != nil && transfer?.request == nil }, set: { if !$0 { transfer?.error = nil } }
         )) {
             Button("閉じる", role: .cancel) { transfer?.error = nil }
         } message: { Text(transfer?.error ?? "") }
@@ -182,9 +178,19 @@ struct CalendarMonthDayDrawer: View {
         .accessibilityAction(named: "複製") { transfer?.begin(plan, mode: .copy) }
         if let transfer, !store.isPlanScheduleLocked(plan), plan.sourceEventID == nil {
             button
-                .onDrag { transfer.dragProvider(for: plan) } preview: {
-                    row(plan).padding(12).frame(width: 220)
-                        .background(CalendarDrawerStyle.background, in: RoundedRectangle(cornerRadius: 12))
+                .overlay {
+                    TimelinePlanPresetLongPressDragSurface(minimumDuration: 0.28, maximumDistance: 12,
+                        onTap: { selectedPlanID = plan.id }) { event in
+                        switch event {
+                        case .began(let point):
+                            transfer.begin(plan, mode: .move, dragging: true)
+                            LiminalHaptics.selection()
+                            transfer.updateDrag(at: point)
+                        case .changed(let point): transfer.updateDrag(at: point)
+                        case .ended(let point): transfer.finishDrag(at: point)
+                        case .cancelled: transfer.finishDrag(at: nil)
+                        }
+                    }
                 }
                 .accessibilityAction(named: "別の日へ移動") { transfer.begin(plan, mode: .move) }
         } else { button }
@@ -205,40 +211,6 @@ struct CalendarMonthDayDrawer: View {
             return
         }
         LiminalHaptics.commit()
-    }
-
-    private func transferControls(_ transfer: CalendarMonthTransferInteraction,
-                                  request: CalendarMonthTransferInteraction.Request) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Label(request.title, systemImage: request.mode.symbol)
-                .font(.headline).lineLimit(1)
-            Text("カレンダーで\(request.mode.title)先の日付を選択")
-                .font(.subheadline).foregroundStyle(LiminalTheme.secondaryText)
-            ScrollView(.horizontal) {
-                HStack(spacing: 8) {
-                    ForEach(transfer.selectedDates.sorted(), id: \.self) { day in
-                        Button { transfer.select(day) } label: {
-                            Text(day.japaneseMonthDayShortWeekday).font(.caption)
-                                .padding(.horizontal, 10).padding(.vertical, 6)
-                                .background(LiminalTheme.accent.opacity(0.12), in: Capsule())
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
-            .scrollIndicators(.hidden)
-            .frame(minHeight: 28)
-            HStack {
-                Button("キャンセル") { transfer.cancel() }
-                Spacer()
-                Button(request.mode == .copy ? "\(transfer.selectedDates.count)日に複製" : "移動", action: onConfirmTransfer)
-                    .buttonStyle(.borderedProminent)
-                    .foregroundStyle(.white)
-                    .disabled(transfer.selectedDates.isEmpty)
-            }
-        }
-        .foregroundStyle(LiminalTheme.text).tint(LiminalTheme.accent)
-        .padding(16)
     }
 
     private func row(_ plan: PlanBlock, showsDisclosure: Bool = true) -> some View {

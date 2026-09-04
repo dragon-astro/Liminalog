@@ -1,35 +1,44 @@
 import SwiftUI
-import UniformTypeIdentifiers
 
 @MainActor
 @Observable
 final class CalendarMonthTransferInteraction {
-    struct Request {
+    struct Request: Identifiable {
+        let id = UUID()
         let planID: UUID
         let title: String
         let mode: CalendarPlanTransferMode
+        let timeText: String
+        let tint: Color
     }
-    struct Drop: Equatable {
-        let planID: UUID
-        let date: Date
-    }
-    static let dragType = "app.YasudaRyuga.Liminalog.calendar-plan"
-    static func dropDate(x: CGFloat, width: CGFloat, dates: [Date]) -> Date? {
-        guard width > 0, x >= 0, x < width, !dates.isEmpty else { return nil }
-        return dates[min(dates.count - 1, Int(x / width * CGFloat(dates.count)))]
-    }
+    enum Action { case confirm, cancel }
     var request: Request?
     var selectedDates: Set<Date> = []
-    var draggedPlanID: UUID?
     var hoveredDate: Date?
-    var pendingDrop: Drop?
+    var isDragging = false
+    var dragLocation: CGPoint?
+    var action: Action?
     var error: String?
+    var dayStatuses: [Date: CalendarPlanTransferDayStatus] = [:]
+    @ObservationIgnored let rootFrame = TimelineWindowFrameSource()
+    @ObservationIgnored let viewportFrame = TimelineWindowFrameSource()
+    @ObservationIgnored var dayFrames: [UUID: (date: Date, source: TimelineWindowFrameSource)] = [:]
 
-    func begin(_ plan: PlanBlock, mode: CalendarPlanTransferMode) {
-        request = Request(planID: plan.id, title: plan.title, mode: mode)
+    static func dropDate(at point: CGPoint, viewport: CGRect, frames: [(Date, CGRect)]) -> Date? {
+        guard viewport.contains(point) else { return nil }
+        return frames.first { $0.1.contains(point) }?.0
+    }
+
+    func begin(_ plan: PlanBlock, mode: CalendarPlanTransferMode, dragging: Bool = false) {
+        isDragging = dragging
         selectedDates = []
-        draggedPlanID = nil
         hoveredDate = nil
+        action = nil
+        error = nil
+        dayStatuses = [:]
+        request = Request(planID: plan.id, title: plan.title, mode: mode,
+            timeText: plan.isAllDay ? "終日" : "\(plan.startTime.shortTime)–\(plan.endTime.shortTime)",
+            tint: plan.category?.displayColor ?? LiminalTheme.accent)
     }
 
     func select(_ date: Date) {
@@ -40,30 +49,51 @@ final class CalendarMonthTransferInteraction {
         LiminalHaptics.selection()
     }
 
+    func updateDrag(at point: CGPoint) {
+        guard isDragging else { return }
+        dragLocation = point
+        let day = date(at: point)
+        if hoveredDate != day {
+            hoveredDate = day
+            if day != nil { LiminalHaptics.selection() }
+        }
+    }
+
+    func finishDrag(at point: CGPoint?) {
+        guard isDragging else { return }
+        if let point { updateDrag(at: point) }
+        let target = point == nil ? nil : hoveredDate
+        isDragging = false
+        dragLocation = nil
+        hoveredDate = nil
+        selectedDates = target.map { [$0] } ?? []
+        action = target == nil ? .cancel : .confirm
+    }
+
+    func date(at point: CGPoint) -> Date? {
+        guard let viewport = viewportFrame.currentFrame else { return nil }
+        let frames = dayFrames.values.compactMap { entry -> (Date, CGRect)? in
+            guard let frame = entry.source.currentFrame else { return nil }
+            return (entry.date, frame)
+        }
+        return Self.dropDate(at: point, viewport: viewport, frames: frames)
+    }
+
     func cancel() {
         request = nil
         selectedDates = []
-        draggedPlanID = nil
         hoveredDate = nil
-    }
-
-    func dragProvider(for plan: PlanBlock) -> NSItemProvider {
-        draggedPlanID = plan.id
-        let provider = NSItemProvider()
-        let data = Data(plan.id.uuidString.utf8)
-        provider.registerDataRepresentation(forTypeIdentifier: Self.dragType, visibility: .ownProcess) { completion in
-            completion(data, nil)
-            return nil
-        }
-        LiminalHaptics.selection()
-        return provider
+        isDragging = false
+        dragLocation = nil
+        action = nil
+        dayStatuses = [:]
+        error = nil
     }
 }
 
 private struct CalendarMonthTransferKey: EnvironmentKey {
     static let defaultValue: CalendarMonthTransferInteraction? = nil
 }
-
 extension EnvironmentValues {
     var monthPlanTransfer: CalendarMonthTransferInteraction? {
         get { self[CalendarMonthTransferKey.self] }
@@ -73,82 +103,70 @@ extension EnvironmentValues {
 
 struct CalendarPlanDropTarget: ViewModifier {
     @Environment(\.monthPlanTransfer) private var interaction
+    @State private var frameSource = TimelineWindowFrameSource()
+    @State private var frameID = UUID()
     let date: Date
 
     func body(content: Content) -> some View {
         content
+            .background(TimelineWindowFrameReader(frameSource: frameSource))
+            .onAppear { interaction?.dayFrames[frameID] = (date, frameSource) }
+            .onDisappear { interaction?.dayFrames.removeValue(forKey: frameID) }
             .overlay {
-                if let interaction {
-                    let selected = interaction.selectedDates.contains(Calendar.current.startOfDay(for: date))
-                    let hovered = interaction.hoveredDate == date
+                if let interaction, interaction.request != nil {
+                    let day = Calendar.current.startOfDay(for: date)
+                    let selected = interaction.selectedDates.contains(day)
+                    let hovered = interaction.hoveredDate == day
                     if selected || hovered {
                         Rectangle().fill(LiminalTheme.accent.opacity(0.22))
                             .overlay(alignment: .bottomTrailing) {
                                 Image(systemName: selected ? "checkmark.circle.fill" : "arrow.down.circle.fill")
-                                    .font(.body).foregroundStyle(LiminalTheme.accent)
-                                    .padding(4)
+                                    .font(.body).foregroundStyle(LiminalTheme.accent).padding(4)
                             }
                             .allowsHitTesting(false)
                     }
+                    if let warning = interaction.dayStatuses[day]?.warning {
+                        VStack {
+                            HStack {
+                                Spacer()
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .font(.caption).foregroundStyle(.orange)
+                                    .padding(3).background(.background, in: Circle())
+                                    .accessibilityLabel(warning)
+                            }
+                            Spacer()
+                        }
+                        .padding(3).allowsHitTesting(false)
+                    }
                 }
             }
+            .accessibilityHint(interaction?.dayStatuses[Calendar.current.startOfDay(for: date)]?.warning ?? "")
     }
 }
 
-/// The entire week accepts drops, including the multi-day bars over the day cells.
-struct CalendarPlanWeekDropTarget: ViewModifier {
-    @Environment(\.monthPlanTransfer) private var interaction
-    @State private var width: CGFloat = 0
-    let dates: [Date]
+struct CalendarMonthDragPreview: View {
+    let interaction: CalendarMonthTransferInteraction
 
-    func body(content: Content) -> some View {
-        content
-            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
-            .onDrop(of: [CalendarMonthTransferInteraction.dragType],
-                    delegate: CalendarPlanDayDropDelegate(dates: dates, width: width, interaction: interaction))
-    }
-}
-
-private struct CalendarPlanDayDropDelegate: DropDelegate {
-    let dates: [Date]
-    let width: CGFloat
-    let interaction: CalendarMonthTransferInteraction?
-
-    private func date(for info: DropInfo) -> Date? {
-        CalendarMonthTransferInteraction.dropDate(x: info.location.x, width: width, dates: dates)
-    }
-
-    func validateDrop(info: DropInfo) -> Bool {
-        interaction?.request == nil && interaction?.draggedPlanID != nil
-            && info.hasItemsConforming(to: [CalendarMonthTransferInteraction.dragType])
-    }
-
-    func dropEntered(info: DropInfo) {
-        guard validateDrop(info: info), let date = date(for: info), interaction?.hoveredDate != date else { return }
-        interaction?.hoveredDate = date
-        LiminalHaptics.selection()
-    }
-
-    func dropExited(info: DropInfo) {
-        if let hovered = interaction?.hoveredDate, dates.contains(hovered) { interaction?.hoveredDate = nil }
-    }
-
-    func dropUpdated(info: DropInfo) -> DropProposal? {
-        dropEntered(info: info)
-        return DropProposal(operation: validateDrop(info: info) && date(for: info) != nil ? .move : .forbidden)
-    }
-
-    func performDrop(info: DropInfo) -> Bool {
-        guard validateDrop(info: info), let date = date(for: info), let interaction, let id = interaction.draggedPlanID,
-              let provider = info.itemProviders(for: [CalendarMonthTransferInteraction.dragType]).first else { return false }
-        interaction.hoveredDate = nil
-        interaction.draggedPlanID = nil
-        provider.loadDataRepresentation(forTypeIdentifier: CalendarMonthTransferInteraction.dragType) { data, _ in
-            guard let data, String(data: data, encoding: .utf8) == id.uuidString else { return }
-            Task { @MainActor in
-                interaction.pendingDrop = .init(planID: id, date: date)
+    var body: some View {
+        if interaction.isDragging, let request = interaction.request, let point = interaction.dragLocation,
+           let frame = interaction.rootFrame.currentFrame {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(request.title).font(.subheadline.bold()).lineLimit(1)
+                Text(request.timeText).font(.caption.monospacedDigit())
+                if let day = interaction.hoveredDate {
+                    Label(day.japaneseMonthDayShortWeekday,
+                          systemImage: interaction.dayStatuses[day]?.warning == nil ? "calendar" : "exclamationmark.triangle.fill")
+                        .font(.caption)
+                }
             }
+            .foregroundStyle(LiminalTheme.text)
+            .padding(10).frame(width: 180, alignment: .leading)
+            .background(CalendarDrawerStyle.background, in: RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(request.tint, lineWidth: 2))
+            .shadow(color: .black.opacity(0.12), radius: 8, y: 3)
+            .position(x: min(max(90, point.x - frame.minX), max(90, frame.width - 90)),
+                      y: max(44, point.y - frame.minY - 55))
+            .allowsHitTesting(false)
         }
-        return true
     }
 }

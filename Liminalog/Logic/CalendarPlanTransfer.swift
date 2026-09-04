@@ -9,6 +9,7 @@ enum CalendarPlanTransferMode: String {
 
 enum CalendarPlanTransferError: Error, LocalizedError {
     case missingPlan, locked, externalPlan, noDates, invalidTime, unavailableDay, overlap, persistence
+    case protectedOverlap, sourceOverlap, incomingOverlap, changed
 
     var errorDescription: String? {
         switch self {
@@ -20,6 +21,37 @@ enum CalendarPlanTransferError: Error, LocalizedError {
         case .unavailableDay: "時間指定の予定は明日以降の日付を選んでください。"
         case .overlap: "選んだ日付に重なる予定があります。日付を選び直してください。予定は変更していません。"
         case .persistence: "予定を保存できませんでした。予定は変更していません。"
+        case .protectedOverlap: "移動先には、履歴としてロックされた予定か外部連携の予定があります。これらは置換できません。"
+        case .sourceOverlap: "複製元の予定と重なります。元の予定を残すため、別の日付を選んでください。"
+        case .incomingOverlap: "追加する予定同士が重なります。日付の間隔を空けてください。"
+        case .changed: "確認中に予定が変更されました。内容を確認し直してから実行してください。"
+        }
+    }
+}
+
+struct CalendarPlanTransferPreview: Equatable {
+    let sourceID: UUID
+    let sourceUpdatedAt: Date
+    let sourceTitle: String
+    let sourceStart: Date
+    let sourceEnd: Date
+    let isAllDay: Bool
+    let dates: Set<Date>
+    let mode: CalendarPlanTransferMode
+    let intervals: [DateInterval]
+    let replacement: PlanTemplateReplacement
+}
+
+enum CalendarPlanTransferDayStatus: Equatable {
+    case available
+    case replacement(Int)
+    case blocked(String)
+
+    var warning: String? {
+        switch self {
+        case .available: nil
+        case .replacement(let count): "\(count)件の予定と重複。確認後に置換できます。"
+        case .blocked(let reason): reason
         }
     }
 }

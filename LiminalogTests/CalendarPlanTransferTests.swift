@@ -1,4 +1,5 @@
 import Foundation
+import CoreGraphics
 import SwiftData
 import Testing
 @testable import Liminalog
@@ -128,7 +129,7 @@ struct CalendarPlanTransferTests {
         let source = plan(10, endDay: 12)
         context.insert(source)
         try context.save()
-        guard case .failure(.overlap) = store(context).transferPlan(id: source.id, to: [day(20), day(21)], mode: .copy, calendar: calendar) else {
+        guard case .failure(.incomingOverlap) = store(context).transferPlan(id: source.id, to: [day(20), day(21)], mode: .copy, calendar: calendar) else {
             Issue.record("Expected overlap between copies"); return
         }
         #expect(try context.fetchCount(FetchDescriptor<PlanBlock>()) == 1)
@@ -168,11 +169,13 @@ struct CalendarPlanTransferTests {
     @Test("ドロップ先は左右の列で判定し、枠外は受け取らない")
     func dropColumns() {
         let dates = (10...16).map { day($0) }
-        #expect(CalendarMonthTransferInteraction.dropDate(x: 0, width: 350, dates: dates) == dates[0])
-        #expect(CalendarMonthTransferInteraction.dropDate(x: 175, width: 350, dates: dates) == dates[3])
-        #expect(CalendarMonthTransferInteraction.dropDate(x: 349, width: 350, dates: dates) == dates[6])
-        #expect(CalendarMonthTransferInteraction.dropDate(x: -1, width: 350, dates: dates) == nil)
-        #expect(CalendarMonthTransferInteraction.dropDate(x: 350, width: 350, dates: dates) == nil)
-        #expect(CalendarMonthTransferInteraction.dropDate(x: 0, width: 0, dates: dates) == nil)
+        let viewport = CGRect(x: 100, y: 200, width: 350, height: 200)
+        let frames = dates.enumerated().map { ($0.element, CGRect(x: 100 + $0.offset * 50, y: 200, width: 50, height: 100)) }
+        #expect(CalendarMonthTransferInteraction.dropDate(at: CGPoint(x: 101, y: 250), viewport: viewport, frames: frames) == dates[0])
+        #expect(CalendarMonthTransferInteraction.dropDate(at: CGPoint(x: 275, y: 250), viewport: viewport, frames: frames) == dates[3])
+        #expect(CalendarMonthTransferInteraction.dropDate(at: CGPoint(x: 449, y: 250), viewport: viewport, frames: frames) == dates[6])
+        #expect(CalendarMonthTransferInteraction.dropDate(at: CGPoint(x: 99, y: 250), viewport: viewport, frames: frames) == nil)
+        #expect(CalendarMonthTransferInteraction.dropDate(at: CGPoint(x: 275, y: 150), viewport: viewport, frames: frames) == nil)
+        #expect(CalendarMonthTransferInteraction.dropDate(at: CGPoint(x: 275, y: 350), viewport: viewport, frames: frames) == nil)
     }
 }
