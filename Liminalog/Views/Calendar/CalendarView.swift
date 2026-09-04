@@ -139,6 +139,7 @@ struct CalendarView: View {
             }
             .background(LiminalTheme.canvasGradient)
             .toolbar(.hidden, for: .navigationBar)
+            .toolbar(monthDrawerDay != nil && displayMode == .month ? .hidden : .visible, for: .tabBar)
             .sheet(isPresented: $showingMonthPicker) {
                 CalendarMonthPickerSheet(
                     selectedYear: $pickerYear,
@@ -431,8 +432,8 @@ struct CalendarView: View {
         case .month:
             GeometryReader { proxy in
                 let drawerHeight = min(300.0, proxy.size.height * 0.43)
-                VStack(spacing: 8) {
-                    monthPager(availableHeight: monthDrawerDay == nil ? nil : max(280, proxy.size.height - drawerHeight - 8))
+                ZStack(alignment: .bottom) {
+                    monthPager(viewportHeight: proxy.size.height, drawerHeight: monthDrawerDay == nil ? 0 : drawerHeight)
                     if let target = monthDrawerDay {
                         CalendarMonthDayDrawer(
                             date: target.date,
@@ -447,6 +448,11 @@ struct CalendarView: View {
                         )
                         .id(target.date)
                         .frame(height: drawerHeight)
+                        .background(alignment: .bottom) {
+                            LiminalTheme.plainSheetBackground
+                                .frame(height: 20 + proxy.safeAreaInsets.bottom)
+                                .offset(y: proxy.safeAreaInsets.bottom)
+                        }
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
                 }
@@ -657,27 +663,38 @@ struct CalendarView: View {
         }
     }
 
-    private func monthPager(availableHeight: CGFloat? = nil) -> some View {
+    private func monthPager(viewportHeight: CGFloat, drawerHeight: CGFloat) -> some View {
         let pageData = cachedPageData(for: visibleMonth)
-        let pageHeight = availableHeight.map { max(280, $0 - 6) }
-            ?? CalendarMonthPage.height(forWeekCount: pageData.dates.count / 7)
+        let pageHeight = drawerHeight > 0 ? max(0, viewportHeight - 6) : CalendarMonthPage.height(forWeekCount: pageData.dates.count / 7)
         return ScrollView(.horizontal) {
             LazyHStack(alignment: .top, spacing: 0) {
                 ForEach(monthPageOffsets, id: \.self) { offset in
-                    CalendarMonthPage(
-                        weekdays: weekdays,
-                        weekdayColor: weekdayColor(_:),
-                        pageData: cachedPageData(for: month(forOffset: offset)),
-                        availableHeight: availableHeight == nil ? nil : pageHeight,
-                        selectedDate: monthDrawerDay?.date,
-                        onOpenDay: { date, planID in
-                            LiminalHaptics.selection()
-                            monthDrawerDay = CalendarDayPresentation(date: calendar.startOfDay(for: date), planID: planID)
-                        },
-                        onCreatePlan: { date in
-                            preparePlanCreation(for: date)
+                    // Each month owns its vertical scroll; the outer pager only handles horizontal paging.
+                    ScrollViewReader { scrollProxy in
+                        ScrollView(.vertical) {
+                            CalendarMonthPage(
+                                weekdays: weekdays,
+                                weekdayColor: weekdayColor(_:),
+                                pageData: cachedPageData(for: month(forOffset: offset)),
+                                selectedDate: monthDrawerDay?.date,
+                                onOpenDay: { date, planID in
+                                    LiminalHaptics.selection()
+                                    monthDrawerDay = CalendarDayPresentation(date: calendar.startOfDay(for: date), planID: planID)
+                                },
+                                onCreatePlan: { date in
+                                    preparePlanCreation(for: date)
+                                }
+                            )
+                            .id("month-top-\(offset)")
+                            .padding(.bottom, drawerHeight)
                         }
-                    )
+                        .scrollIndicators(.hidden)
+                        .scrollDisabled(drawerHeight == 0)
+                        .onChange(of: drawerHeight == 0) { _, isClosed in
+                            if isClosed { scrollProxy.scrollTo("month-top-\(offset)", anchor: .top) }
+                        }
+                    }
+                    .frame(height: pageHeight)
                     .containerRelativeFrame(.horizontal)
                     .id(offset)
                 }
@@ -3230,7 +3247,6 @@ private struct CalendarMonthPage: View {
     let weekdays: [String]
     let weekdayColor: (String) -> Color
     let pageData: CalendarMonthPageData
-    var availableHeight: CGFloat? = nil
     var selectedDate: Date? = nil
     let onOpenDay: (Date, UUID?) -> Void
     let onCreatePlan: (Date) -> Void
@@ -3249,7 +3265,6 @@ private struct CalendarMonthPage: View {
                     pageData: pageData,
                     onOpenDay: onOpenDay,
                     onCreatePlan: onCreatePlan,
-                    availableHeight: availableHeight.map { $0 - 29 },
                     selectedDate: selectedDate
                 )
             }
@@ -3271,7 +3286,7 @@ private struct CalendarMonthPage: View {
                     .padding(.top, 30)
             }
         }
-        .frame(height: availableHeight ?? Self.height(forWeekCount: weekCount), alignment: .top)
+        .frame(height: Self.height(forWeekCount: weekCount), alignment: .top)
         .background(LiminalTheme.divider.opacity(0.56))
     }
 
@@ -3432,7 +3447,6 @@ struct CalendarMonthGrid: View {
     let pageData: CalendarMonthPageData
     let onOpenDay: (Date, UUID?) -> Void
     let onCreatePlan: ((Date) -> Void)?
-    var availableHeight: CGFloat? = nil
     var selectedDate: Date? = nil
 
     private let spacing: CGFloat = 1
@@ -3464,10 +3478,7 @@ struct CalendarMonthGrid: View {
     }
 
     private var cellHeight: CGFloat {
-        if let availableHeight {
-            return max(40, (availableHeight - CGFloat(weekDates.count - 1)) / CGFloat(max(1, weekDates.count)))
-        }
-        return CalendarMonthDayCell.cellHeight(forWeekCount: weekDates.count)
+        CalendarMonthDayCell.cellHeight(forWeekCount: weekDates.count)
     }
 
     private var gridDividerColor: Color {

@@ -390,9 +390,9 @@ struct PlanCreateSheet: View {
                         PlanTemplateTimeFields(startMinute: $templateStartMinute, endMinute: $templateEndMinute)
                     }
                 } else {
-                    compactColumns {
-                        dateColumn(title: "開始", date: $startTime)
-                        dateColumn(title: "終了", date: isAllDay ? $allDayEndDate : $endTime)
+                    VStack(spacing: 12) {
+                        dateRow(title: "開始", date: $startTime)
+                        dateRow(title: "終了", date: isAllDay ? $allDayEndDate : $endTime)
                     }
                     .disabled(isScheduleLocked)
                 }
@@ -401,22 +401,11 @@ struct PlanCreateSheet: View {
         }
     }
 
-    private func dateColumn(title: String, date: Binding<Date>) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title).font(.caption.weight(.semibold)).foregroundStyle(LiminalTheme.secondaryText)
-            DatePicker(title + "日", selection: date, displayedComponents: .date)
-                .labelsHidden()
-                .datePickerStyle(.compact)
-                .accessibilityLabel(title + "日")
-            if !isAllDay {
-                DatePicker(title + "時刻", selection: date, displayedComponents: .hourAndMinute)
-                    .labelsHidden()
-                    .datePickerStyle(.compact)
-                    .accessibilityLabel(title + "時刻")
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .tint(LiminalTheme.text)
+    private func dateRow(title: String, date: Binding<Date>) -> some View {
+        DatePicker(title, selection: date, displayedComponents: isAllDay ? [.date] : [.date, .hourAndMinute])
+            .font(.subheadline)
+            .datePickerStyle(.compact)
+            .tint(LiminalTheme.text)
     }
 
     private var noteCard: some View {
