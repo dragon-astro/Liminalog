@@ -3,6 +3,7 @@ import SwiftData
 
 struct PlanCreateSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(ChapterStore.self) private var store
     @Environment(PlanPresetStore.self) private var planPresetStore
     @Query(sort: \Category.sortOrder) private var categories: [Category]
@@ -31,6 +32,8 @@ struct PlanCreateSheet: View {
     @State private var isPublic = true
     @State private var showingCategoryPicker = false
     @State private var showingAudiencePicker = false
+    @State private var showingPresetChoices = false
+    @State private var showingDeleteConfirmation = false
     @State private var audienceFriendIDs: [UUID] = []
     @State private var audienceSource: AudienceSource = .categoryDefaultSnapshot
     @State private var didInitializeAudience = false
@@ -92,19 +95,14 @@ struct PlanCreateSheet: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 14) {
-                    planPreviewCard
-                    if !planPresets.isEmpty {
-                        presetChips
-                    }
+                VStack(spacing: 10) {
                     planTitleCard
-                    categoryCard
+                    compactColumns {
+                        categoryCard
+                        visibilityCard
+                    }
                     timeCard
                     noteCard
-                    visibilityCard
-                    if editingPlan != nil || snapshotEditor?.onDelete != nil {
-                        deleteCard
-                    }
                 }
                 .padding(16)
                 .padding(.bottom, 30)
@@ -132,6 +130,14 @@ struct PlanCreateSheet: View {
                         Label("プリセットとして保存", systemImage: "bookmark")
                     }
                     .disabled(!canSave)
+                }
+                if editingPlan != nil || snapshotEditor?.onDelete != nil {
+                    ToolbarItem(placement: .secondaryAction) {
+                        Button("予定を削除", systemImage: "trash", role: .destructive) {
+                            showingDeleteConfirmation = true
+                        }
+                        .disabled(isScheduleLocked)
+                    }
                 }
             }
             .onAppear {
@@ -180,8 +186,28 @@ struct PlanCreateSheet: View {
             .sheet(isPresented: $showingAudiencePicker) {
                 AudienceSnapshotPickerSheet(audienceFriendIDs: $audienceFriendIDs)
             }
-            .sheet(item: $editingPreset) { preset in
-                PlanPresetEditSheet(preset: preset)
+            .sheet(isPresented: $showingPresetChoices) {
+                NavigationStack {
+                    ScrollView { presetChips.padding(16) }
+                        .background(LiminalTheme.plainSheetBackground)
+                        .navigationTitle("予定プリセット")
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbar {
+                            ToolbarItem(placement: .confirmationAction) {
+                                Button("閉じる") { showingPresetChoices = false }
+                            }
+                        }
+                        .sheet(item: $editingPreset) { preset in
+                            PlanPresetEditSheet(preset: preset)
+                        }
+                }
+                .presentationDetents([.medium, .large])
+            }
+            .confirmationDialog("予定を削除しますか？", isPresented: $showingDeleteConfirmation, titleVisibility: .visible) {
+                Button("削除", role: .destructive) { deletePlan() }
+                Button("キャンセル", role: .cancel) {}
+            } message: {
+                Text("この操作は元に戻せません。")
             }
             .alert(errorTitle, isPresented: saveErrorPresented) {
                 Button("OK") {
@@ -191,6 +217,8 @@ struct PlanCreateSheet: View {
                 Text(saveError ?? "")
             }
         }
+        .presentationDetents(dynamicTypeSize.isAccessibilitySize ? [.large] : [.height(560), .large])
+        .presentationDragIndicator(.visible)
     }
 
     private var presetChips: some View {
@@ -260,247 +288,145 @@ struct PlanCreateSheet: View {
         }
     }
 
-    private var planPreviewCard: some View {
-        let tint = selectedTint
-        return VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .top, spacing: 12) {
-                CategoryPreviewIcon(category: selectedCategory, size: 52)
-
-                VStack(alignment: .leading, spacing: 7) {
-                    Text(previewTitle)
-                        .font(.title3.weight(.bold))
-                        .foregroundStyle(LiminalTheme.text)
-                        .lineLimit(2)
-
-                    Text(previewTimeText)
-                        .font(.subheadline.monospacedDigit().weight(.semibold))
-                        .foregroundStyle(LiminalTheme.text)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.78)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-                Image(systemName: isImportant ? "star.fill" : "calendar")
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(tint)
-                    .frame(width: 26, height: 26)
-                    .liminalGlassFill(in: Circle())
-            }
-
-            HStack(spacing: 8) {
-                PlanPreviewBadge(text: isAllDay ? "終日" : "時間指定", systemImage: isAllDay ? "sun.max.fill" : "clock.fill", tint: tint)
-                PlanPreviewBadge(text: isPublic ? "共有" : "非公開", systemImage: isPublic ? "eye.fill" : "eye.slash.fill", tint: isPublic ? LiminalTheme.accent : LiminalTheme.secondaryText)
-                if isImportant {
-                    PlanPreviewBadge(text: "重要", systemImage: "star.fill", tint: LiminalTheme.reward)
-                }
-            }
-        }
-        .padding(18)
-        .background {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(LiminalTheme.surface)
-                .overlay(alignment: .bottom) {
-                    DecorativeAccentStrip(color: tint)
-                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                }
-        }
-        .overlay(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(tint.opacity(0.24), lineWidth: 1)
-        )
+    private func compactColumns<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 10))
+            : AnyLayout(HStackLayout(alignment: .top, spacing: 10))
+        return layout { content() }
     }
 
     private var planTitleCard: some View {
         PlanEditorCard(tint: selectedTint) {
-            VStack(alignment: .leading, spacing: 10) {
-                PlanEditorSectionHeader(title: "予定名", systemImage: "text.cursor", tint: selectedTint)
-                TextField(text: $title) {
-                    Text(planTitlePlaceholder)
-                        .foregroundStyle(LiminalTheme.tertiaryText)
-                }
+            HStack(spacing: 10) {
+                CategoryPreviewIcon(category: selectedCategory, size: 36)
+                TextField(planTitlePlaceholder, text: $title, axis: .vertical)
                     .font(.headline)
-                    .padding(.horizontal, 12)
-                    .frame(minHeight: 46)
-                    .background(LiminalTheme.elevated, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .foregroundStyle(LiminalTheme.text)
+                    .lineLimit(1...3)
+                    .frame(minHeight: 44)
                     .disabled(isScheduleLocked)
-
-                if !isScheduleLocked && title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    PlanEditorStatusLabel(
-                        text: "未入力の場合は「\(fallbackPlanTitle)」として登録します。",
-                        systemImage: "sparkles",
-                        tint: .secondary
-                    )
+                    .accessibilityLabel("予定名")
+                if !planPresets.isEmpty, !isScheduleLocked {
+                    Button { showingPresetChoices = true } label: {
+                        Image(systemName: "bookmark")
+                            .frame(width: 44, height: 44)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("予定プリセットを選ぶ")
                 }
             }
+            .foregroundStyle(selectedTint)
         }
     }
 
     private var categoryCard: some View {
-        PlanEditorCard(tint: selectedTint) {
-            VStack(alignment: .leading, spacing: 10) {
-                PlanEditorSectionHeader(title: "カテゴリ", systemImage: "square.grid.2x2.fill", tint: selectedTint)
-
-                Button {
-                    LiminalHaptics.openSheet()
-                    showingCategoryPicker = true
-                } label: {
-                    HStack(spacing: 12) {
-                        CategoryPreviewIcon(category: selectedCategory, size: 42)
-
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(selectedCategory?.name ?? "カテゴリ未設定")
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(LiminalTheme.text)
-                            Text(selectedCategorySetName)
-                                .font(.caption)
-                                .foregroundStyle(LiminalTheme.secondaryText)
-                        }
-
-                        Spacer()
-
-                        Image(systemName: "chevron.right")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(LiminalTheme.tertiaryText)
+        Button {
+            LiminalHaptics.openSheet()
+            showingCategoryPicker = true
+        } label: {
+            PlanEditorCard(tint: selectedTint) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Label("カテゴリ", systemImage: "square.grid.2x2")
+                        .font(.caption).foregroundStyle(LiminalTheme.secondaryText)
+                    HStack(spacing: 6) {
+                        Text(selectedCategory?.name ?? "未設定")
+                            .font(.subheadline.weight(.semibold)).lineLimit(2)
+                        Spacer(minLength: 0)
+                        Image(systemName: "chevron.down").font(.caption2)
                     }
-                    .padding(12)
-                    .background(selectedTint.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .foregroundStyle(selectedTint)
+                    .frame(minHeight: 28)
                 }
-                .buttonStyle(.plain)
-                .disabled(isScheduleLocked)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
+        .buttonStyle(.plain)
+        .disabled(isScheduleLocked)
+    }
+
+    private var visibilityCard: some View {
+        Menu {
+            Toggle("友達に見せる", isOn: $isPublic)
+            if isPublic, snapshotEditor == nil {
+                Button("公開相手を選ぶ", systemImage: "person.2") {
+                    showingAudiencePicker = true
+                    audienceSource = .custom
+                }
+                Button("カテゴリ既定値に戻す", systemImage: "arrow.counterclockwise") {
+                    resetAudienceToCategoryDefault()
+                }
+            }
+        } label: {
+            PlanEditorCard(tint: selectedTint) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Label("公開範囲", systemImage: isPublic ? "person.2" : "lock")
+                        .font(.caption).foregroundStyle(LiminalTheme.secondaryText)
+                    HStack(spacing: 6) {
+                        Text(!isPublic ? "自分だけ" : snapshotEditor != nil ? "カテゴリに従う" : "友達 \(audienceFriendIDs.count)人")
+                            .font(.subheadline.weight(.semibold)).lineLimit(2)
+                        Spacer(minLength: 0)
+                        Image(systemName: "chevron.down").font(.caption2)
+                    }
+                    .foregroundStyle(LiminalTheme.text)
+                    .frame(minHeight: 28)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .accessibilityLabel("公開範囲")
     }
 
     private var timeCard: some View {
         PlanEditorCard(tint: selectedTint) {
             VStack(alignment: .leading, spacing: 12) {
-                PlanEditorSectionHeader(title: "時間", systemImage: "clock.fill", tint: selectedTint)
-
-                Toggle(isOn: $isImportant) {
-                    Label("重要な予定", systemImage: "star.fill")
+                compactColumns {
+                    Toggle("終日", isOn: $isAllDay).disabled(isScheduleLocked)
+                    Toggle("重要", isOn: $isImportant)
                 }
+                .font(.subheadline)
                 .tint(selectedTint)
-
-                Toggle(isOn: $isAllDay) {
-                    Label("終日", systemImage: "sun.max.fill")
-                }
-                .tint(selectedTint)
-                .disabled(isScheduleLocked)
-
-                if snapshotEditor == nil || !isAllDay {
-                    VStack(spacing: 10) {
-                        if snapshotEditor != nil {
-                            PlanTemplateTimeFields(startMinute: $templateStartMinute, endMinute: $templateEndMinute)
-                        } else if !isAllDay {
-                            DatePicker("開始", selection: $startTime, displayedComponents: [.date, .hourAndMinute])
-                                .foregroundStyle(LiminalTheme.text)
-                                .tint(LiminalTheme.text)
-                                .allowsHitTesting(!isScheduleLocked)
-                            DatePicker("終了", selection: $endTime, in: startTime..., displayedComponents: [.date, .hourAndMinute])
-                                .foregroundStyle(LiminalTheme.text)
-                                .tint(LiminalTheme.text)
-                                .allowsHitTesting(!isScheduleLocked)
-                        } else {
-                            DatePicker("開始日", selection: $startTime, displayedComponents: [.date])
-                                .foregroundStyle(LiminalTheme.text)
-                                .tint(LiminalTheme.text)
-                                .allowsHitTesting(!isScheduleLocked)
-                            DatePicker("終了日", selection: $allDayEndDate, displayedComponents: [.date])
-                                .foregroundStyle(LiminalTheme.text)
-                                .tint(LiminalTheme.text)
-                                .allowsHitTesting(!isScheduleLocked)
-                        }
+                if snapshotEditor != nil {
+                    if !isAllDay {
+                        PlanTemplateTimeFields(startMinute: $templateStartMinute, endMinute: $templateEndMinute)
                     }
-                    .padding(12)
-                    .background(LiminalTheme.elevated, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                } else {
+                    compactColumns {
+                        dateColumn(title: "開始", date: $startTime)
+                        dateColumn(title: "終了", date: isAllDay ? $allDayEndDate : $endTime)
+                    }
+                    .disabled(isScheduleLocked)
                 }
-
                 validationStatus
             }
         }
     }
 
+    private func dateColumn(title: String, date: Binding<Date>) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title).font(.caption.weight(.semibold)).foregroundStyle(LiminalTheme.secondaryText)
+            DatePicker(title + "日", selection: date, displayedComponents: .date)
+                .labelsHidden()
+                .datePickerStyle(.compact)
+                .accessibilityLabel(title + "日")
+            if !isAllDay {
+                DatePicker(title + "時刻", selection: date, displayedComponents: .hourAndMinute)
+                    .labelsHidden()
+                    .datePickerStyle(.compact)
+                    .accessibilityLabel(title + "時刻")
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .tint(LiminalTheme.text)
+    }
+
     private var noteCard: some View {
         PlanEditorCard(tint: selectedTint) {
-            VStack(alignment: .leading, spacing: 10) {
-                PlanEditorSectionHeader(title: "メモ", systemImage: "note.text", tint: selectedTint)
-                TextField("メモを追加...", text: $note, axis: .vertical)
-                    .lineLimit(3...6)
-                    .padding(12)
-                    .background(LiminalTheme.elevated, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-            }
-        }
-    }
-
-    private var visibilityCard: some View {
-        PlanEditorCard(tint: selectedTint) {
-            VStack(alignment: .leading, spacing: 12) {
-                Toggle(isOn: $isPublic) {
-                    PlanEditorSectionHeader(title: isPublic ? "友達に見せる" : "自分だけ", systemImage: isPublic ? "eye.fill" : "eye.slash.fill", tint: isPublic ? LiminalTheme.accent : LiminalTheme.secondaryText)
-                }
-                .tint(selectedTint)
-
-                if isPublic, snapshotEditor != nil {
-                    PlanEditorStatusLabel(
-                        text: "適用時のカテゴリの公開相手を使います。",
-                        systemImage: "person.2.fill",
-                        tint: LiminalTheme.secondaryText
-                    )
-                } else if isPublic {
-                    Button {
-                        LiminalHaptics.openSheet()
-                        showingAudiencePicker = true
-                        audienceSource = .custom
-                    } label: {
-                        AudienceSummaryRow(
-                            title: "公開相手",
-                            count: audienceFriendIDs.count,
-                            systemImage: "person.2.fill",
-                            tint: selectedTint
-                        )
-                        .padding(12)
-                        .background(LiminalTheme.elevated, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                    }
-                    .buttonStyle(.plain)
-
-                    Button {
-                        LiminalHaptics.selection()
-                        resetAudienceToCategoryDefault()
-                    } label: {
-                        Label("カテゴリ既定値に戻す", systemImage: "arrow.counterclockwise")
-                            .font(.caption.weight(.semibold))
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(LiminalTheme.secondaryText)
-                }
-            }
-        }
-    }
-
-    private var deleteCard: some View {
-        PlanEditorCard(tint: isScheduleLocked ? LiminalTheme.secondaryText : Color.red) {
-            if isScheduleLocked {
-                PlanEditorStatusLabel(
-                    text: "今日以前の時間指定の予定は削除できません。",
-                    systemImage: "lock.fill",
-                    tint: LiminalTheme.secondaryText
-                )
-            } else {
-                Menu {
-                    Section("この予定は元に戻せません。") {
-                        Button(role: .destructive) {
-                            LiminalHaptics.warning()
-                            deletePlan()
-                        } label: {
-                            Label("削除", systemImage: "trash.fill")
-                        }
-                    }
-                } label: {
-                    Label("予定を削除", systemImage: "trash.fill")
-                        .font(.subheadline.weight(.semibold))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .tint(.red)
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "note.text").foregroundStyle(selectedTint).padding(.top, 10)
+                TextField("メモを追加", text: $note, axis: .vertical)
+                    .lineLimit(1...6)
+                    .frame(minHeight: 44)
+                    .accessibilityLabel("メモ")
             }
         }
     }
@@ -528,40 +454,8 @@ struct PlanCreateSheet: View {
         }
     }
 
-    private var selectedCategorySetName: String {
-        guard let selectedCategory else { return "未選択" }
-        if let set = categorySets.first(where: { $0.assignedIDs.contains(selectedCategory.id) }) {
-            return "\(set.name) セット"
-        }
-        return "すべてのカテゴリ"
-    }
-
     private var selectedTint: Color {
         selectedCategory?.displayColor ?? LiminalTheme.accent
-    }
-
-    private var previewTitle: String {
-        resolvedPlanTitle
-    }
-
-    private var previewTimeText: String {
-        if snapshotEditor != nil {
-            return isAllDay ? "終日" : "\(PlanPresetTimeEditor.start.valueText(templateStartMinute))–\(PlanPresetTimeEditor.end.valueText(templateEndMinute))"
-        }
-        let calendar = Calendar.current
-        if isAllDay {
-            let start = calendar.startOfDay(for: startTime)
-            let end = calendar.startOfDay(for: allDayEndDate)
-            if calendar.isDate(start, inSameDayAs: end) {
-                return "\(start.japaneseMonthDayShortWeekday) 終日"
-            }
-            return "\(start.japaneseMonthDayShortWeekday) - \(end.japaneseMonthDayShortWeekday)"
-        }
-
-        if calendar.isDate(startTime, inSameDayAs: endTime) {
-            return "\(startTime.japaneseMonthDayShortWeekday) \(startTime.shortTime) - \(endTime.shortTime)"
-        }
-        return "\(startTime.japaneseMonthDayShortWeekday) \(startTime.shortTime) - \(endTime.japaneseMonthDayShortWeekday) \(endTime.shortTime)"
     }
 
     private var canSave: Bool {
@@ -657,6 +551,7 @@ struct PlanCreateSheet: View {
         _ preset: PlanPreset,
         usesPresetStartTime: Bool
     ) {
+        showingPresetChoices = false
         let snapshot = preset.snapshot
         let calendar = Calendar.current
         let targetDay = calendar.startOfDay(for: startTime)

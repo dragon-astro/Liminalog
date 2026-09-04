@@ -71,6 +71,7 @@ struct CalendarView: View {
     @State private var showingCalendarSearch = false
     @State private var showingCalendarFilter = false
     @State private var selectedDay: CalendarDayPresentation?
+    @State private var monthDrawerDay: CalendarDayPresentation?
     @State private var editingPlan: PlanBlock?
     @State private var pendingPlanCreation: CalendarPlanCreationRequest?
     @State private var displayMode = Self.initialDisplayMode()
@@ -428,7 +429,29 @@ struct CalendarView: View {
     private var calendarModeContent: some View {
         switch displayMode {
         case .month:
-            monthPager
+            GeometryReader { proxy in
+                let drawerHeight = min(300.0, proxy.size.height * 0.43)
+                VStack(spacing: 8) {
+                    monthPager(availableHeight: monthDrawerDay == nil ? nil : max(280, proxy.size.height - drawerHeight - 8))
+                    if let target = monthDrawerDay {
+                        CalendarMonthDayDrawer(
+                            date: target.date,
+                            highlightedPlanID: target.planID,
+                            visibleCategoryIDs: usesCustomCategoryFilter ? selectedCategoryIDs : nil,
+                            onClose: { monthDrawerDay = nil },
+                            onExpand: {
+                                selectedDay = target
+                            },
+                            onCreate: { preparePlanCreation(for: target.date) },
+                            onEdit: { editingPlan = $0 }
+                        )
+                        .id(target.date)
+                        .frame(height: drawerHeight)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
+                }
+                .animation(.snappy(duration: 0.22), value: monthDrawerDay != nil)
+            }
         case .week:
             timelineModeContent {
                 timelinePager { offset, isInteractionEnabled in
@@ -634,9 +657,10 @@ struct CalendarView: View {
         }
     }
 
-    private var monthPager: some View {
+    private func monthPager(availableHeight: CGFloat? = nil) -> some View {
         let pageData = cachedPageData(for: visibleMonth)
-        let pageHeight = CalendarMonthPage.height(forWeekCount: pageData.dates.count / 7)
+        let pageHeight = availableHeight.map { max(280, $0 - 6) }
+            ?? CalendarMonthPage.height(forWeekCount: pageData.dates.count / 7)
         return ScrollView(.horizontal) {
             LazyHStack(alignment: .top, spacing: 0) {
                 ForEach(monthPageOffsets, id: \.self) { offset in
@@ -644,9 +668,11 @@ struct CalendarView: View {
                         weekdays: weekdays,
                         weekdayColor: weekdayColor(_:),
                         pageData: cachedPageData(for: month(forOffset: offset)),
+                        availableHeight: availableHeight == nil ? nil : pageHeight,
+                        selectedDate: monthDrawerDay?.date,
                         onOpenDay: { date, planID in
-                            LiminalHaptics.openSheet()
-                            selectedDay = CalendarDayPresentation(date: date, planID: planID)
+                            LiminalHaptics.selection()
+                            monthDrawerDay = CalendarDayPresentation(date: calendar.startOfDay(for: date), planID: planID)
                         },
                         onCreatePlan: { date in
                             preparePlanCreation(for: date)
@@ -3204,6 +3230,8 @@ private struct CalendarMonthPage: View {
     let weekdays: [String]
     let weekdayColor: (String) -> Color
     let pageData: CalendarMonthPageData
+    var availableHeight: CGFloat? = nil
+    var selectedDate: Date? = nil
     let onOpenDay: (Date, UUID?) -> Void
     let onCreatePlan: (Date) -> Void
 
@@ -3220,7 +3248,9 @@ private struct CalendarMonthPage: View {
                 CalendarMonthGrid(
                     pageData: pageData,
                     onOpenDay: onOpenDay,
-                    onCreatePlan: onCreatePlan
+                    onCreatePlan: onCreatePlan,
+                    availableHeight: availableHeight.map { $0 - 29 },
+                    selectedDate: selectedDate
                 )
             }
 
@@ -3241,7 +3271,7 @@ private struct CalendarMonthPage: View {
                     .padding(.top, 30)
             }
         }
-        .frame(height: Self.height(forWeekCount: weekCount), alignment: .top)
+        .frame(height: availableHeight ?? Self.height(forWeekCount: weekCount), alignment: .top)
         .background(LiminalTheme.divider.opacity(0.56))
     }
 
@@ -3402,6 +3432,8 @@ struct CalendarMonthGrid: View {
     let pageData: CalendarMonthPageData
     let onOpenDay: (Date, UUID?) -> Void
     let onCreatePlan: ((Date) -> Void)?
+    var availableHeight: CGFloat? = nil
+    var selectedDate: Date? = nil
 
     private let spacing: CGFloat = 1
 
@@ -3417,7 +3449,8 @@ struct CalendarMonthGrid: View {
                     onOpenDay: onOpenDay,
                     onCreatePlan: onCreatePlan,
                     spacing: spacing,
-                    cellHeight: cellHeight
+                    cellHeight: cellHeight,
+                    selectedDate: selectedDate
                 )
             }
         }
@@ -3431,7 +3464,10 @@ struct CalendarMonthGrid: View {
     }
 
     private var cellHeight: CGFloat {
-        CalendarMonthDayCell.cellHeight(forWeekCount: weekDates.count)
+        if let availableHeight {
+            return max(40, (availableHeight - CGFloat(weekDates.count - 1)) / CGFloat(max(1, weekDates.count)))
+        }
+        return CalendarMonthDayCell.cellHeight(forWeekCount: weekDates.count)
     }
 
     private var gridDividerColor: Color {
@@ -3449,6 +3485,7 @@ private struct CalendarMonthWeekRow: View {
     let onCreatePlan: ((Date) -> Void)?
     let spacing: CGFloat
     let cellHeight: CGFloat
+    var selectedDate: Date? = nil
 
     @AppStorage("calendarPlanTitleFontSize") private var planTitleFontSize = 6.0
     @AppStorage("calendarTimedPlanLabelStyle") private var timedPlanLabelStyleRaw = CalendarPlanLabelStyle.background.rawValue
@@ -3535,6 +3572,12 @@ private struct CalendarMonthWeekRow: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(model.accessibilityText)
+        .overlay {
+            if let selectedDate, calendar.isDate(selectedDate, inSameDayAs: model.date) {
+                Rectangle().strokeBorder(LiminalTheme.accent, lineWidth: 2)
+                    .allowsHitTesting(false)
+            }
+        }
         .accessibilityHint(onCreatePlan == nil ? "日を開きます" : "タップで日を開き、長押しで予定を追加できます")
         .accessibilityIdentifier(
             "calendar-month-day-\(DailyCardSnapshot.dayIdentifier(for: model.date, calendar: calendar))"
