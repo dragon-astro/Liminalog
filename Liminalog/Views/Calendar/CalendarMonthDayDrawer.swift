@@ -227,8 +227,8 @@ struct CalendarMonthDayDrawer: View {
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(.isButton)
             .accessibilityIdentifier("calendar-drawer-plan-\(plan.id)")
-            #if DEBUG
-            .accessibilityValue(LiminalogRuntime.isRunningUITests ? "recognizedHolds:\(transfer.recognizedHoldCount)" : "")
+            #if DEBUG || LIMINALOG_UI_TESTING
+            .accessibilityValue(LiminalogRuntime.isRunningUITests ? transfer.uiTestingValue : "")
             #endif
     }
 
@@ -236,7 +236,7 @@ struct CalendarMonthDayDrawer: View {
                              onTap: @escaping () -> Void, onSwipeLeft: (() -> Void)?,
                              onSwipeRight: (() -> Void)?) -> some View {
         return TimelinePlanPresetLongPressDragSurface(
-            minimumDuration: 0.14, maximumDistance: 24,
+            minimumDuration: 0.24, maximumDistance: 24,
             onTap: onTap, onSwipeRight: onSwipeRight, onSwipeLeft: onSwipeLeft,
             dragEnabled: !store.isPlanScheduleLocked(plan) && !plan.hasExternalCalendarSource
         ) { event in

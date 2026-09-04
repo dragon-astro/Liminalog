@@ -1,4 +1,4 @@
-#if DEBUG
+#if DEBUG || LIMINALOG_UI_TESTING
 import Foundation
 import SwiftData
 
@@ -26,6 +26,12 @@ enum CalendarMonthDrawerUITestFixture {
                 }
             }
             context.insert(plan)
+        }
+        if ProcessInfo.processInfo.arguments.contains("-LiminalogUITestDropOverlap") {
+            let nextDay = calendar.date(byAdding: .day, value: 1, to: day)!
+            let start = calendar.date(byAdding: .minute, value: 550, to: nextDay)!
+            context.insert(PlanBlock(category: nil, title: "UITest 重複予定",
+                startTime: start, endTime: start.addingTimeInterval(2400), isPublic: false))
         }
         try! context.save()
     }

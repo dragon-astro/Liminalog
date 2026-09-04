@@ -108,7 +108,7 @@ struct CalendarView: View {
 
     private static var currentMonthStart: Date {
         let cal = Calendar.japanese
-        #if DEBUG
+        #if DEBUG || LIMINALOG_UI_TESTING
         if LiminalogRuntime.isRunningUITests {
             return cal.date(from: cal.dateComponents([.year, .month], from: CalendarMonthDrawerUITestFixture.day))!
         }
@@ -326,7 +326,7 @@ struct CalendarView: View {
             guard let action else { return }
             monthTransfer.action = nil
             pendingMonthTransferAction = action
-            if monthDrawerPresented { suspendMonthDrawer() }
+            if monthDrawerPresented && monthTransfer.request?.keepsDrawerPresented != true { suspendMonthDrawer() }
             else if !monthDrawerSuspending { performPendingMonthTransferAction() }
         }
         .onChange(of: visibleMonth) { _, _ in refreshMonthTransferStatuses() }
@@ -811,14 +811,15 @@ struct CalendarView: View {
 
     private func didDismissMonthDrawer() {
         monthDrawerSuspending = false
+        let nextAction = monthDrawerNextAction
+        monthDrawerNextAction = nil
         if monthTransfer.request != nil {
-            performPendingMonthTransferAction()
+            if pendingMonthTransferAction != nil { performPendingMonthTransferAction() }
+            else { nextAction?() }
             return
         }
         monthTransfer.cancel()
         monthDrawerDay = nil
-        let nextAction = monthDrawerNextAction
-        monthDrawerNextAction = nil
         nextAction?()
     }
 
@@ -863,8 +864,9 @@ struct CalendarView: View {
         switch store.transferPreview(id: request.planID, to: monthTransfer.selectedDates, mode: request.mode) {
         case .success(let preview):
             if preview.replacement.changes.isEmpty { applyMonthTransfer(preview, approved: false) }
-            else { monthReplacementPreview = preview }
-        case .failure(let error): monthTransfer.error = error.localizedDescription
+            else { presentMonthTransferAlert { monthReplacementPreview = preview } }
+        case .failure(let error):
+            presentMonthTransferAlert { monthTransfer.error = error.localizedDescription }
         }
     }
 
@@ -872,6 +874,9 @@ struct CalendarView: View {
         switch store.transferPlan(id: preview.sourceID, to: preview.dates, mode: preview.mode,
                                  approvedReplacement: approved ? preview : nil) {
         case .success:
+            #if DEBUG || LIMINALOG_UI_TESTING
+            monthTransfer.recordCommit()
+            #endif
             reloadVisibleData()
             LiminalHaptics.selection()
             if preview.mode == .move, let date = preview.dates.first {
@@ -879,12 +884,23 @@ struct CalendarView: View {
             }
             finishMonthTransfer()
         case .failure(let error):
-            monthTransfer.error = error.localizedDescription
+            presentMonthTransferAlert { monthTransfer.error = error.localizedDescription }
         }
+    }
+
+    private func presentMonthTransferAlert(_ action: @escaping () -> Void) {
+        // Root alerts need the native sheet gone; ordinary drops only need its
+        // existing retreat transform reversed, not another dismiss/present cycle.
+        guard monthDrawerPresented || monthDrawerSuspending else { action(); return }
+        monthDrawerNextAction = action
+        suspendMonthDrawer()
     }
 
     private func suspendMonthDrawer() {
         guard monthDrawerPresented else { return }
+        #if DEBUG || LIMINALOG_UI_TESTING
+        monthTransfer.drawerDismissCount += 1
+        #endif
         monthDrawerSuspending = true
         monthDrawerPresented = false
     }
@@ -897,8 +913,12 @@ struct CalendarView: View {
     }
 
     private func finishMonthTransfer() {
+        #if DEBUG || LIMINALOG_UI_TESTING
+        monthTransfer.recordRestoreRequest()
+        #endif
         monthReplacementPreview = nil
         pendingMonthTransferAction = nil
+        monthDrawerNextAction = nil
         monthTransfer.cancel()
         if monthDrawerDay != nil { monthDrawerPresented = true }
     }

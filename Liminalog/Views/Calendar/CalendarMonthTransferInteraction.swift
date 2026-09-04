@@ -10,6 +10,8 @@ final class CalendarMonthTransferInteraction {
         let mode: CalendarPlanTransferMode
         let timeText: String
         let tint: Color
+        // Remains true after the finger lifts, until the transfer finishes.
+        let keepsDrawerPresented: Bool
     }
     enum Action { case confirm, cancel }
     var request: Request?
@@ -19,9 +21,24 @@ final class CalendarMonthTransferInteraction {
     var dragLocation: CGPoint?
     var action: Action?
     var error: String?
-    #if DEBUG
+    #if DEBUG || LIMINALOG_UI_TESTING
     // Test observation only: incremented by the real hold callback, never simulated.
     var recognizedHoldCount = 0
+    var drawerDismissCount = 0
+    private var releasedAt: TimeInterval?
+    private var commitMilliseconds: Double = -1
+    private var restoreMilliseconds: Double = -1
+    var uiTestingValue: String {
+        let value = "recognizedHolds:\(recognizedHoldCount)"
+        guard ProcessInfo.processInfo.arguments.contains("-LiminalogMeasureMonthDrop") else { return value }
+        return "\(value)|commit:\(commitMilliseconds)|restore:\(restoreMilliseconds)|dismiss:\(drawerDismissCount)"
+    }
+    func recordCommit() {
+        if let releasedAt { commitMilliseconds = (ProcessInfo.processInfo.systemUptime - releasedAt) * 1000 }
+    }
+    func recordRestoreRequest() {
+        if let releasedAt { restoreMilliseconds = (ProcessInfo.processInfo.systemUptime - releasedAt) * 1000 }
+    }
     #endif
     var dayStatuses: [Date: CalendarPlanTransferDayStatus] = [:]
     @ObservationIgnored let rootFrame = TimelineWindowFrameSource()
@@ -34,8 +51,12 @@ final class CalendarMonthTransferInteraction {
     }
 
     func begin(_ plan: PlanBlock, mode: CalendarPlanTransferMode, dragging: Bool = false) {
-        #if DEBUG
+        #if DEBUG || LIMINALOG_UI_TESTING
         if dragging { recognizedHoldCount += 1 }
+        releasedAt = nil
+        commitMilliseconds = -1
+        restoreMilliseconds = -1
+        drawerDismissCount = 0
         #endif
         isDragging = dragging
         selectedDates = []
@@ -45,7 +66,8 @@ final class CalendarMonthTransferInteraction {
         dayStatuses = [:]
         request = Request(planID: plan.id, title: plan.title, mode: mode,
             timeText: plan.isAllDay ? "終日" : "\(plan.startTime.shortTime)–\(plan.endTime.shortTime)",
-            tint: plan.category?.displayColor ?? LiminalTheme.accent)
+            tint: plan.category?.displayColor ?? LiminalTheme.accent,
+            keepsDrawerPresented: dragging)
     }
 
     func select(_ date: Date) {
@@ -68,6 +90,9 @@ final class CalendarMonthTransferInteraction {
 
     func finishDrag(at point: CGPoint?) {
         guard isDragging else { return }
+        #if DEBUG || LIMINALOG_UI_TESTING
+        releasedAt = ProcessInfo.processInfo.systemUptime
+        #endif
         if let point { updateDrag(at: point) }
         let target = point == nil ? nil : hoveredDate
         isDragging = false

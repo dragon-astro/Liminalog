@@ -166,6 +166,21 @@ struct CalendarPlanTransferTests {
         #expect(interaction.request == nil && interaction.selectedDates.isEmpty)
     }
 
+    @Test("指を離してもドラッグ由来を保持し、ボタン操作とは区別する")
+    func dragRetainsDrawerUntilFinished() {
+        let interaction = CalendarMonthTransferInteraction()
+        let source = plan(10)
+        interaction.begin(source, mode: .move, dragging: true)
+        interaction.finishDrag(at: nil)
+        #expect(!interaction.isDragging)
+        #expect(interaction.request?.keepsDrawerPresented == true)
+        #expect(interaction.action == .cancel)
+        interaction.cancel()
+        #expect(interaction.request == nil)
+        interaction.begin(source, mode: .copy)
+        #expect(interaction.request?.keepsDrawerPresented == false)
+    }
+
     @Test("アプリ内サンプルの識別子は外部連携と区別して移動できる")
     func previewSourceIsNotExternal() throws {
         let container = try TestModelContainer.make()

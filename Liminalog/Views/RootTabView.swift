@@ -386,7 +386,7 @@ struct RootTabView: View {
     }
 
     private static func initialTab() -> RootTab {
-        #if DEBUG
+        #if DEBUG || LIMINALOG_UI_TESTING
         if let environmentValue = ProcessInfo.processInfo.environment["LiminalogInitialRootTab"] {
             return tab(from: environmentValue)
         }

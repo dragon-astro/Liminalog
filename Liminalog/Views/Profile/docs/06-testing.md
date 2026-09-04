@@ -56,6 +56,14 @@ Liminalog.xcodeproj
 
 ## 2. テストフレームワーク選定
 
+### 月間ドロワーのRelease実機回帰（2026-09-05）
+
+`Liminalog-UIRegression` schemeはUI targetだけをテストし、DEBUG専用APIに依存する単体テスト群をReleaseでビルドしない。`-configuration Release SWIFT_ACTIVE_COMPILATION_CONDITIONS=LIMINALOG_UI_TESTING ENABLE_TESTABILITY=YES` を指定して `CalendarMonthDrawerUITests` を実行する。`DEBUG` は定義しない。専用コンパイル条件と `-LiminalogMonthDrawerUITests` 起動引数が揃った場合だけ、メモリ内データで通常seed/クラウド処理を隔離する。通常配布用Releaseはこのコンパイル条件を付けずに再ビルド・導入する。
+
+`testDropLatencyMetric` は同じ翌月予定を3回移動し、指を離したcallbackから保存完了/ドロワー復帰要求までの単調時計差分とnative dismiss回数を添付する。描画完了時間ではなく、実データの永続ストレージ速度も測っていない。成功/枠外キャンセルはdismiss 0回、重複確認は1回と復帰先を検証する。単体テストは通常schemeのDebugで別途実行する。
+
+同日iPhone 16・Release・同じin-memory予定での比較: 保存完了は変更前623.998/620.313/618.758ms、変更後57.481/58.938/56.365ms。復帰要求は632.083/627.557/625.607ms→60.621/62.172/59.657ms。通常移動のdismissは全試行1→0回。ログは `/private/tmp/liminalog-drop-release-before-ui.log` と `/private/tmp/liminalog-drop-release-after.log`。後者の枠外テスト1件は誤って退避後の10/29セルへ落として失敗したため、カレンダーより上へ離す入力へ修正し `/private/tmp/liminalog-drop-outside-retry.log` で成功。計16種類のUIケースを確認。重複確認/通常復帰画像を目視し、ドロワーの残骸・下端遮蔽がないことも確認した。実データでの体感はユーザー再確認待ち。
+
 **Swift Testing (`import Testing`)** を採用。
 
 理由:

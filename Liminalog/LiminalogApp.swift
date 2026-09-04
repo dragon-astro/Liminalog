@@ -16,7 +16,7 @@ struct LiminalogApp: App {
     private static let currentOutgoingPublishStateRepairVersion = 1
 
     private let modelContainer: ModelContainer = {
-        #if DEBUG
+        #if DEBUG || LIMINALOG_UI_TESTING
         if LiminalogRuntime.isRunningUITests {
             // Never fall back to the user's persistent store when running UI fixtures.
             let container = try! SharedModelContainer.inMemory()

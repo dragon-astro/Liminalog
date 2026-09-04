@@ -15,13 +15,15 @@ final class CalendarMonthDrawerUITests: XCTestCase {
     private func element(_ app: XCUIApplication, _ id: String) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: id).firstMatch
     }
-    private func launch(longNote: Bool = false, previewSource: Bool = false) -> XCUIApplication {
+    private func launch(longNote: Bool = false, previewSource: Bool = false, measureDrop: Bool = false, overlap: Bool = false) -> XCUIApplication {
         continueAfterFailure = false
         let app = XCUIApplication()
         app.launchArguments = ["-LiminalogMonthDrawerUITests", "-LiminalogInitialRootTab", "calendar",
                                "-LiminalogInitialCalendarMode", "month", "-calendar.filter.usesCustomCategories", "NO"]
         if longNote { app.launchArguments.append("-LiminalogUITestLongNote") }
         if previewSource { app.launchArguments.append("-LiminalogUITestPreviewSource") }
+        if measureDrop { app.launchArguments.append("-LiminalogMeasureMonthDrop") }
+        if overlap { app.launchArguments.append("-LiminalogUITestDropOverlap") }
         app.launch()
         let day = element(app, "calendar-month-day-\(dayID(fixtureDay))")
         XCTAssertTrue(day.waitForExistence(timeout: 30), app.debugDescription)
@@ -48,6 +50,63 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         // Use the production threshold, without an immediate-drag debug flag.
         source.press(forDuration: 0.7, thenDragTo: target, withVelocity: .slow, thenHoldForDuration: 0.3)
         assertMoved(app, to: destination)
+    }
+
+    func testDropLatencyMetric() {
+        for sample in 1...3 {
+            let app = launch(measureDrop: true)
+            let destination = Calendar.current.date(byAdding: .day, value: 1, to: fixtureDay)!
+            element(app, "calendar-drawer-plan-\(sourceID)").press(forDuration: 0.4,
+                thenDragTo: element(app, "calendar-month-day-\(dayID(destination))"),
+                withVelocity: .slow, thenHoldForDuration: 0)
+            assertMoved(app, to: destination)
+            let value = element(app, "calendar-drawer-plan-\(sourceID)").value as? String ?? "missing"
+            print("MONTH_DROP_SAMPLE \(sample) \(value)")
+            let attachment = XCTAttachment(string: value)
+            attachment.lifetime = .keepAlways
+            add(attachment)
+            XCTAssertTrue(value.contains("|commit:"))
+            XCTAssertTrue(value.contains("|dismiss:0"), value)
+        }
+    }
+
+    func testDropOutsideCalendarRestoresWithoutDismissing() {
+        let app = launch(measureDrop: true)
+        let row = element(app, "calendar-drawer-plan-\(sourceID)")
+        let start = row.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        // The original drawer position exposes another day once it retreats.
+        // Use the top of the app, above the calendar viewport, as a real outside drop.
+        let outside = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08))
+        start.press(forDuration: 0.4, thenDragTo: outside,
+                    withVelocity: .slow, thenHoldForDuration: 0)
+        assertMoved(app, to: fixtureDay)
+        let value = row.value as? String ?? ""
+        XCTAssertTrue(value.contains("recognizedHolds:1|commit:-1.0"), value)
+        XCTAssertTrue(value.contains("|dismiss:0"), value)
+    }
+
+    func testOverlappingDropCancelRestoresSource() {
+        assertOverlappingDrop(approve: false)
+    }
+
+    func testOverlappingDropConfirmRestoresDestination() {
+        assertOverlappingDrop(approve: true)
+    }
+
+    private func assertOverlappingDrop(approve: Bool) {
+        let app = launch(measureDrop: true, overlap: true)
+        let destination = Calendar.current.date(byAdding: .day, value: 1, to: fixtureDay)!
+        element(app, "calendar-drawer-plan-\(sourceID)").press(forDuration: 0.4,
+            thenDragTo: element(app, "calendar-month-day-\(dayID(destination))"),
+            withVelocity: .slow, thenHoldForDuration: 0)
+        let alert = app.alerts["重なる予定を置換しますか？"]
+        XCTAssertTrue(alert.waitForExistence(timeout: 8), app.debugDescription)
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.lifetime = .keepAlways
+        add(attachment)
+        alert.buttons[approve ? "置換して移動" : "キャンセル"].tap()
+        assertMoved(app, to: approve ? destination : fixtureDay)
+        XCTAssertTrue((element(app, "calendar-drawer-plan-\(sourceID)").value as? String ?? "").contains("|dismiss:1"))
     }
 
     func testLongPressFromDetailMovesToAnotherDay() {

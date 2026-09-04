@@ -2,7 +2,7 @@ import Foundation
 
 enum LiminalogRuntime {
     nonisolated static let isRunningUITests: Bool = {
-        #if DEBUG
+        #if DEBUG || LIMINALOG_UI_TESTING
         ProcessInfo.processInfo.arguments.contains("-LiminalogMonthDrawerUITests")
         #else
         false
