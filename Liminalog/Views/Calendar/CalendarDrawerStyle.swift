@@ -6,7 +6,7 @@ enum CalendarDrawerStyle {
     static let expanded: PresentationDetent = .medium
     static let headerHeight: CGFloat = 48
     static let horizontalInset: CGFloat = 14
-    static let background = Color(uiColor: .secondarySystemBackground)
+    static var background: Color { LiminalTheme.plainSheetBackground }
 }
 
 private struct CalendarDrawerStyleModifier: ViewModifier {
