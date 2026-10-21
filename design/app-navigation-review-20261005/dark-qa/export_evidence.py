@@ -1,0 +1,43 @@
+"""Copy original XCTAttachments into the docs/37 review set (no resizing).
+
+Usage: python3 export_evidence.py ATTACHMENTS_DIR light|dark before|after
+Export attachments first with xcrun xcresulttool export attachments.
+"""
+import hashlib
+import json
+from pathlib import Path
+import re
+import shutil
+import struct
+import sys
+
+source = Path(sys.argv[1])
+appearance, phase = sys.argv[2:4]
+assert appearance in ('light', 'dark') and phase in ('before', 'after')
+destination = Path(__file__).resolve().parent
+index_path = destination / 'screenshots.json'
+index = json.loads(index_path.read_text()) if index_path.exists() else {}
+for test in json.loads((source / 'manifest.json').read_text()):
+    for attachment in test['attachments']:
+        name = attachment.get('suggestedHumanReadableName', '').split('_0_')[0]
+        if not re.fullmatch(r'\d\d-[a-z-]+', name):
+            continue
+        if name == '10-future-summary-tabs':
+            continue  # The top view already contains the disabled actual tab.
+        original = source / attachment['exportedFileName']
+        if original.suffix != '.png':
+            continue
+        suffix = '-before' if phase == 'before' and name.startswith(('10-', '12-', '13-')) else ''
+        output = destination / f'{name}{suffix}-{appearance}.png'
+        shutil.copy2(original, output)
+        data = output.read_bytes()
+        width, height = struct.unpack('>II', data[16:24])
+        assert (width, height) == (1206, 2622), (output.name, width, height)
+        index[output.name] = dict(
+            phase=phase, appearance=appearance, pixels=[width, height], scale=3,
+            sha256=hashlib.sha256(data).hexdigest(), bytes=len(data),
+            test=test['testIdentifier'], attachments=str(source),
+            original=attachment['exportedFileName'],
+        )
+index_path.write_text(json.dumps(dict(sorted(index.items())), indent=2, ensure_ascii=False) + '\n')
+print(f'{len(index)} original PNGs indexed in {destination}')

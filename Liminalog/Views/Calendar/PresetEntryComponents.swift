@@ -1,6 +1,26 @@
 import SwiftUI
 import SwiftData
 
+/// 一日のまとめのツールバー。対象日は表示中の日に固定する。
+struct SummaryPresetToolbarButton: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button {
+            LiminalHaptics.openSheet()
+            action()
+        } label: {
+            Image(systemName: "bookmark")
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(LiminalTheme.accent)
+                .frame(width: 32, height: 32)
+                .contentShape(Rectangle())
+        }
+        .accessibilityLabel("プリセットを開く")
+        .accessibilityIdentifier("summary-open-presets")
+    }
+}
+
 /// プリセットの入口は1つ（しおり）。開いた先で「予定／一日」を切り替える（docs/36 §R C v3）。
 enum PresetDrawerKind: String, CaseIterable, Identifiable {
     case plan

@@ -683,7 +683,22 @@ struct PlanPresetEditSheet: View {
         }
     }
 
+    @ViewBuilder
     private var categoryCard: some View {
+        if categories.isEmpty {
+            categoryListCard
+        } else {
+            PlanEditorCard(tint: selectedTint) {
+                PlanCategoryInlinePicker(
+                    categories: categories,
+                    categorySets: categorySets,
+                    selectedCategory: $selectedCategory
+                )
+            }
+        }
+    }
+
+    private var categoryListCard: some View {
         PlanEditorCard(tint: selectedTint) {
             VStack(alignment: .leading, spacing: 10) {
                 PlanEditorSectionHeader(

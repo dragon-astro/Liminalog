@@ -154,7 +154,33 @@ struct ChapterEditSheet: View {
         )
     }
 
+    @ViewBuilder
     private var categoryCard: some View {
+        if categories.isEmpty {
+            categoryListCard
+        } else {
+            PlanEditorCard(tint: selectedTint) {
+                VStack(alignment: .leading, spacing: 10) {
+                    PlanCategoryInlinePicker(
+                        categories: categories,
+                        categorySets: categorySets,
+                        selectedCategory: $selectedCategory
+                    )
+                    if selectedCategory != nil && !isTimeLocked {
+                        Button { selectedCategory = nil } label: {
+                            Label("カテゴリを外す", systemImage: "xmark.circle")
+                                .font(.caption.weight(.semibold))
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(LiminalTheme.secondaryText)
+                    }
+                }
+            }
+            .disabled(isTimeLocked)
+        }
+    }
+
+    private var categoryListCard: some View {
         PlanEditorCard(tint: selectedTint) {
             VStack(alignment: .leading, spacing: 10) {
                 PlanEditorSectionHeader(title: "カテゴリ", systemImage: "square.grid.2x2.fill", tint: selectedTint)

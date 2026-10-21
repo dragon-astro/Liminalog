@@ -30,6 +30,7 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         if let expandedMode { app.launchArguments += ["-calendar.month.expandedDayMode", expandedMode] }
         app.launchArguments += ["-timeline.day.hourScale", "1"]
         if let contentSize { app.launchArguments += ["-UIPreferredContentSizeCategoryName", contentSize] }
+        app.terminate()
         app.launch()
         let day = element(app, "calendar-month-day-\(dayID(fixtureDay))")
         XCTAssertTrue(day.waitForExistence(timeout: 30), app.debugDescription)
@@ -1274,6 +1275,270 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
+    }
+
+    // Opt-in evidence capture for docs/37 §7. Set LIMINALOG_CAPTURE_UI=1 in
+    // the xctestrun EnvironmentVariables; set Simulator appearance externally.
+    private func requirePolishCapture() throws {
+        #if !targetEnvironment(simulator)
+        throw XCTSkip("Developer sample capture is restricted to Simulator.")
+        #endif
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["LIMINALOG_CAPTURE_UI"] == "1")
+        continueAfterFailure = false
+    }
+
+    func testSummaryPresetDurationUsesVisibleDateAndPlusOpensEditorDirectly() {
+        let app = launch(templateReplacement: true)
+        openPresetDay(app, offset: 1)
+        app.buttons["calendar-drawer-date"].tap()
+        XCTAssertTrue(app.buttons["summary-open-presets"].waitForExistence(timeout: 5))
+        app.buttons["予定を追加"].tap()
+        XCTAssertTrue(app.segmentedControls["plan-kind-picker"].waitForExistence(timeout: 5))
+        app.buttons["キャンセル"].tap()
+        // Move to the following day before opening the sheet: the preset must
+        // use the visible page, not CalendarDayPagerSheet.initialDate.
+        app.swipeLeft()
+        assertExpandedDate(app, Calendar.current.date(byAdding: .day, value: 2, to: presetDay)!)
+        openPresets(app, entry: "summary-open-presets", kind: "plan")
+        XCTAssertFalse(app.staticTexts["長押ししてカレンダーの日付へ置く"].exists)
+        let tile = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'month-preset-' AND label == '読書'")).firstMatch
+        for _ in 0..<3 where !tile.isHittable { app.scrollViews.firstMatch.swipeUp() }
+        tile.tap()
+        XCTAssertFalse(element(app, "month-preset-target-date").exists)
+        XCTAssertEqual(app.pickerWheels.count, 2)
+        app.pickerWheels.element(boundBy: 0).adjust(toPickerWheelValue: "18")
+        app.pickerWheels.element(boundBy: 1).adjust(toPickerWheelValue: "30")
+        app.buttons["month-preset-apply"].tap()
+        XCTAssertTrue(app.buttons["summary-open-presets"].waitForExistence(timeout: 5))
+        app.buttons["calendar-expanded-day-back"].tap()
+        openPresetDay(app, offset: 2)
+        let reading = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'calendar-drawer-plan-' AND label CONTAINS '読書'")).firstMatch
+        XCTAssertTrue(reading.waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(reading.label.contains("18:30") && reading.label.contains("19:30"), reading.label)
+        openPresetDay(app, offset: 1)
+        XCTAssertFalse(reading.exists)
+    }
+
+    func testSummaryDayPresetReplacesOnItsFixedDate() {
+        let app = launch(templateReplacement: true)
+        openPresetDay(app)
+        app.buttons["calendar-drawer-date"].tap()
+        openPresets(app, entry: "summary-open-presets", kind: "day")
+        XCTAssertFalse(element(app, "day-preset-target-date").exists)
+        let apply = app.buttons["丸ごと追加"]
+        XCTAssertTrue(apply.waitForExistence(timeout: 5), app.debugDescription)
+        apply.tap()
+        XCTAssertTrue(app.buttons["replacement-apply"].waitForExistence(timeout: 5))
+        app.buttons["replacement-apply"].tap()
+        XCTAssertTrue(app.buttons["summary-open-presets"].waitForExistence(timeout: 5))
+        app.buttons["calendar-expanded-day-back"].tap()
+        let study = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'calendar-drawer-plan-' AND label CONTAINS '勉強'")).firstMatch
+        XCTAssertTrue(study.waitForExistence(timeout: 5), app.debugDescription)
+        openPresetDay(app, offset: 1)
+        XCTAssertFalse(study.exists)
+    }
+
+    func testCapturePolishSummaryPresets() throws {
+        try requirePolishCapture()
+        let app = launch(templateReplacement: true)
+        openPresetDay(app)
+        app.buttons["calendar-drawer-date"].tap()
+        openPresets(app, entry: "summary-open-presets", kind: "plan")
+        keepScreenshot(app, name: "14-summary-plan-presets")
+        app.buttons["preset-kind-day"].tap()
+        keepScreenshot(app, name: "14-summary-day-presets")
+    }
+
+    private func launchSeededCapture(tab: String = "calendar", page: String = "today") -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments = ["-LiminalogSeedDevData", "YES", "-LiminalogSeedDevFriends", "YES",
+            "-LiminalogInitialRootTab", tab, "-LiminalogInitialCalendarMode", "month",
+            "-LiminalogInitialTodayPage", page, "-calendar.filter.usesCustomCategories", "NO"]
+        app.terminate()
+        app.launch()
+        XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 30), app.debugDescription)
+        return app
+    }
+
+    func testCapturePolishSeededCalendar() throws {
+        try requirePolishCapture()
+        let app = launchSeededCapture()
+        let period = app.buttons["calendar-period-button"]
+        XCTAssertTrue(period.waitForExistence(timeout: 30))
+        keepScreenshot(app, name: "01-month")
+        period.tap()
+        XCTAssertTrue(app.buttons["週間"].waitForExistence(timeout: 5))
+        keepScreenshot(app, name: "02-period")
+        app.buttons["月間"].tap()
+        let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Date())!
+        let day = element(app, "calendar-month-day-\(dayID(tomorrow))")
+        XCTAssertTrue(day.waitForExistence(timeout: 5))
+        day.tap()
+        app.buttons["calendar-drawer-date"].tap()
+        XCTAssertTrue(app.buttons["calendar-expanded-day-back"].waitForExistence(timeout: 5))
+        keepScreenshot(app, name: "10-future-summary")
+    }
+
+    func testCapturePolishHomeAndChapter() throws {
+        try requirePolishCapture()
+        let app = launchSeededCapture(tab: "today", page: "tomorrow")
+        // Capture the requested screen through its normal entry as well. A
+        // fresh Xcode test session can open Today before debug launch routing.
+        app.buttons["明日の予定"].tap()
+        XCTAssertTrue(app.buttons["timeline-open-presets"].waitForExistence(timeout: 20), app.debugDescription)
+        keepScreenshot(app, name: "06-home-tomorrow")
+        app.terminate()
+        let today = launchSeededCapture(tab: "today")
+        today.buttons["今日の記録"].tap()
+        let actual = today.buttons["実績"]
+        for _ in 0..<6 where !actual.isHittable { today.swipeUp() }
+        XCTAssertTrue(actual.isHittable, today.debugDescription)
+        actual.tap()
+        let row = today.buttons.matching(NSPredicate(format: "label BEGINSWITH '睡眠、'")).firstMatch
+        for _ in 0..<6 where !row.isHittable { today.swipeUp() }
+        XCTAssertTrue(row.isHittable, today.debugDescription)
+        row.tap()
+        XCTAssertTrue(today.navigationBars["チャプターを編集"].waitForExistence(timeout: 5), today.debugDescription)
+        let category = today.buttons["plan-category-picker"]
+        if category.exists && category.images["chevron.down"].exists { category.tap() }
+        keepScreenshot(today, name: "12-chapter-category")
+    }
+
+    func testCapturePolishPresets() throws {
+        try requirePolishCapture()
+        let app = launch(templateReplacement: true)
+        app.buttons["当日の予定を閉じる"].tap()
+        openMonthPresets(app, kind: "plan")
+        keepScreenshot(app, name: "03-month-plan-presets")
+        app.buttons["preset-kind-day"].tap()
+        keepScreenshot(app, name: "03-month-day-presets")
+        app.buttons["キャンセル"].tap()
+        switchCalendarMode(app, "週間")
+        openPresets(app, entry: "calendar-open-presets", kind: "plan")
+        keepScreenshot(app, name: "04-week-plan-presets")
+        app.buttons["preset-kind-day"].tap()
+        keepScreenshot(app, name: "04-week-day-presets")
+    }
+
+    func testCapturePolishPresetEditor() throws {
+        try requirePolishCapture()
+        let settingsApp = launch(templateReplacement: true)
+        openFixturePresetEditor(settingsApp)
+        let category = settingsApp.buttons["plan-category-picker"]
+        if category.exists {
+            if category.images["chevron.down"].exists { category.tap() }
+            let other = settingsApp.buttons["その他の並び順"]
+            let scroll = settingsApp.scrollViews.containing(.button, identifier: "plan-category-picker").firstMatch
+            for _ in 0..<3 where !other.isHittable || other.frame.maxY > settingsApp.frame.maxY - 120 {
+                scroll.swipeUp(velocity: .slow)
+            }
+            XCTAssertTrue(category.isHittable && other.isHittable)
+        }
+        keepScreenshot(settingsApp, name: "13-preset-category")
+    }
+
+    private func openFixturePresetEditor(_ settingsApp: XCUIApplication) {
+        settingsApp.buttons["当日の予定を閉じる"].tap()
+        settingsApp.buttons["カレンダー表示設定"].tap()
+        let presets = settingsApp.buttons["予定プリセット"]
+        for _ in 0..<5 where !presets.isHittable { settingsApp.swipeUp() }
+        XCTAssertTrue(presets.isHittable, settingsApp.debugDescription)
+        presets.tap()
+        let preset = settingsApp.staticTexts["休憩を編集"].firstMatch
+        XCTAssertTrue(preset.waitForExistence(timeout: 5), settingsApp.debugDescription)
+        preset.tap()
+        XCTAssertTrue(settingsApp.navigationBars["プリセットを編集"].waitForExistence(timeout: 5), settingsApp.debugDescription)
+    }
+
+    func testPresetInlineCategorySavesChoiceAndSharesExpansionPreference() {
+        let app = launch(templateReplacement: true)
+        openFixturePresetEditor(app)
+        let category = app.buttons["plan-category-picker"]
+        XCTAssertTrue(category.waitForExistence(timeout: 5))
+        if !app.buttons["その他の並び順"].exists { category.tap() }
+        let scroll = app.scrollViews.containing(.button, identifier: "plan-category-picker").firstMatch
+        let work = scroll.buttons.matching(NSPredicate(format: "label BEGINSWITH '仕事'")).firstMatch
+        for _ in 0..<3 where !work.isHittable { scroll.swipeUp() }
+        work.tap()
+        XCTAssertEqual(category.value as? String, "仕事")
+        category.tap()
+        XCTAssertFalse(app.buttons["その他の並び順"].exists)
+        app.buttons["保存"].tap()
+        XCTAssertTrue(app.navigationBars["予定プリセット"].waitForExistence(timeout: 5))
+        app.staticTexts["休憩を編集"].firstMatch.tap()
+        XCTAssertTrue(category.waitForExistence(timeout: 5))
+        XCTAssertEqual(category.value as? String, "仕事")
+        XCTAssertFalse(app.buttons["その他の並び順"].exists)
+        let editor = launch(planMemos: true)
+        openEditor(editor, planID: sourceID)
+        XCTAssertTrue(editor.buttons["plan-category-picker"].exists)
+        XCTAssertFalse(editor.buttons["その他の並び順"].exists)
+    }
+
+    func testCapturePolishEditorAndTimeline() throws {
+        try requirePolishCapture()
+        let app = launch(planMemos: true)
+        app.buttons["calendar-drawer-open-timeline"].tap()
+        XCTAssertTrue(app.buttons["timeline-open-presets"].waitForExistence(timeout: 10))
+        keepScreenshot(app, name: "05-expanded-timeline")
+        app.buttons["calendar-expanded-day-back"].tap()
+        openEditor(app, planID: sourceID)
+        let category = app.buttons["plan-category-picker"]
+        XCTAssertTrue(category.waitForExistence(timeout: 5))
+        let scroll = app.scrollViews["plan-editor-scroll"]
+        if !app.buttons["その他の並び順"].exists { category.tap() }
+        let otherOrder = app.buttons["その他の並び順"]
+        for _ in 0..<4 where !otherOrder.isHittable || otherOrder.frame.maxY > app.frame.maxY - 120 {
+            scroll.swipeUp(velocity: .slow)
+        }
+        XCTAssertTrue(category.isHittable && otherOrder.isHittable)
+        keepScreenshot(app, name: "07-category-open")
+        category.tap()
+        keepScreenshot(app, name: "07-category-closed")
+        let visible = app.switches["友達に見せる"]
+        for _ in 0..<6 where !visible.isHittable || visible.frame.maxY > app.frame.maxY - 180 { scroll.swipeUp() }
+        if visible.value as? String == "0" { visible.tap() }
+        let audience = app.buttons["公開相手"]
+        for _ in 0..<3 where !audience.isHittable { scroll.swipeUp() }
+        keepScreenshot(app, name: "08-public-audience-row")
+        audience.tap()
+        XCTAssertTrue(app.segmentedControls.buttons["カテゴリの既定"].waitForExistence(timeout: 5), app.debugDescription)
+        keepScreenshot(app, name: "08-public-audience-sheet")
+    }
+
+    func testCapturePolishMonthlyRecurrence() throws {
+        try requirePolishCapture()
+        let app = launch(planMemos: true)
+        openEditor(app, planID: sourceID)
+        let scroll = app.scrollViews["plan-editor-scroll"]
+        let toggle = app.switches["plan-recurrence-enabled"]
+        for _ in 0..<5 where !toggle.isHittable || toggle.frame.maxY > app.frame.maxY - 120 { scroll.swipeUp() }
+        toggle.tap()
+        app.segmentedControls["plan-recurrence-frequency"].buttons["毎月"].tap()
+        let byWeekday = app.segmentedControls["plan-recurrence-monthly-mode"].buttons["曜日で"]
+        for _ in 0..<4 where !byWeekday.isHittable { scroll.swipeUp() }
+        byWeekday.tap()
+        let fourth = app.buttons["第4週"]
+        for _ in 0..<4 where !fourth.isHittable { scroll.swipeUp() }
+        app.buttons["第2週"].tap(); fourth.tap(); app.buttons["第1週"].tap()
+        app.buttons["水曜日"].tap()
+        keepScreenshot(app, name: "11-monthly-weekday")
+    }
+
+    func testCapturePolishFriendVisibility() throws {
+        try requirePolishCapture()
+        let app = launchSeededCapture(tab: "friends")
+        let friend = app.buttons.matching(NSPredicate(format: "label CONTAINS 'Mika'" )).firstMatch
+        XCTAssertTrue(friend.waitForExistence(timeout: 20), app.debugDescription)
+        friend.tap()
+        let picker = app.buttons.matching(NSPredicate(format: "label CONTAINS 'この友達への見え方'" )).firstMatch
+        for _ in 0..<7 where !picker.isHittable { app.swipeUp() }
+        XCTAssertTrue(picker.isHittable, app.debugDescription)
+        for _ in 0..<3 where picker.frame.minY > 300 { app.swipeUp(velocity: .slow) }
+        picker.tap(); app.buttons["控えめ"].tap()
+        keepScreenshot(app, name: "09-friend-limited")
+        picker.tap(); app.buttons["オフ"].tap()
+        keepScreenshot(app, name: "09-friend-off")
     }
 
     func testMonthFixedPresetShowsEveryChangedPlanAndKeepsRemainders() {

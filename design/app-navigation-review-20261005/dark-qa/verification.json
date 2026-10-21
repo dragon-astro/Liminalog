@@ -1,0 +1,126 @@
+{
+  "date": "2026-10-21",
+  "branch": "codex/ui-polish-dark-qa",
+  "baseline": "854e763",
+  "device": {
+    "name": "Liminalog-Internals-QA-20261016",
+    "model": "iPhone 17",
+    "udid": "5DA1E432-0D01-42A6-8259-B59A9CEC7854",
+    "os": "iOS 26.5",
+    "configuration": "Debug",
+    "physicalDeviceTested": false
+  },
+  "buildLog": "/private/tmp/liminalog-polish-20261021/build-final-selector.log",
+  "uiRegression": {
+    "distinctCases": 11,
+    "latestPassed": 11,
+    "cases": {
+      "testDrawerHeaderOpensExplicitDestinationsRegardlessOfLegacyPreference": {
+        "status": "passed",
+        "seconds": 62.197,
+        "run": "regression"
+      },
+      "testMonthDayPresetReplacesWholePlansAndIncludesAllDayItem": {
+        "status": "passed",
+        "seconds": 24.114,
+        "run": "regression"
+      },
+      "testMonthDurationAndAllDayPresetsCanBeAppliedWithoutTimeline": {
+        "status": "passed",
+        "seconds": 36.54,
+        "run": "regression"
+      },
+      "testMonthFixedPresetShowsEveryChangedPlanAndKeepsRemainders": {
+        "status": "passed",
+        "seconds": 28.695,
+        "run": "regression"
+      },
+      "testMonthlyOrdinalWeekdayRecurrenceShowsSummaryAndSaves": {
+        "status": "passed",
+        "seconds": 32.607,
+        "run": "regression"
+      },
+      "testMonthPresetDateCanChangeBeforeApplying": {
+        "status": "passed",
+        "seconds": 45.239,
+        "run": "regression"
+      },
+      "testMonthPresetDragUsesDroppedDayAndAsksTimeOnlyForDuration": {
+        "status": "passed",
+        "seconds": 44.73,
+        "run": "regression"
+      },
+      "testPlanEditorCategoryOpenRoundTrips": {
+        "status": "passed",
+        "seconds": 24.766,
+        "run": "regression"
+      },
+      "testPresetInlineCategorySavesChoiceAndSharesExpansionPreference": {
+        "status": "passed",
+        "seconds": 37.835,
+        "run": "regression-category-final"
+      },
+      "testSummaryDayPresetReplacesOnItsFixedDate": {
+        "status": "passed",
+        "seconds": 31.789,
+        "run": "regression"
+      },
+      "testSummaryPresetDurationUsesVisibleDateAndPlusOpensEditorDirectly": {
+        "status": "passed",
+        "seconds": 42.994,
+        "run": "regression"
+      }
+    },
+    "runs": {
+      "regression": {
+        "result": "Failed",
+        "totalTestCount": 11,
+        "passedTests": 10,
+        "failedTests": 1,
+        "skippedTests": 0
+      },
+      "regression-category-final": {
+        "result": "Passed",
+        "totalTestCount": 1,
+        "passedTests": 1,
+        "failedTests": 0,
+        "skippedTests": 0
+      },
+      "final-capture-light": {
+        "result": "Passed",
+        "totalTestCount": 3,
+        "passedTests": 3,
+        "failedTests": 0,
+        "skippedTests": 0
+      },
+      "final-capture-dark": {
+        "result": "Passed",
+        "totalTestCount": 3,
+        "passedTests": 3,
+        "failedTests": 0,
+        "skippedTests": 0
+      }
+    }
+  },
+  "screenshots": {
+    "count": 46,
+    "index": "index.html",
+    "manifest": "screenshots.json",
+    "originalPixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "theme": "default (system)",
+    "archive": "artifacts/ui-polish-dark-qa-20261021/dark-qa.tar.gz"
+  },
+  "binarySHA256": {
+    "before": "132f36fe5cbb978e8b9086cb130b86f5275ffc0aadd1825491fc5b76eeab807f",
+    "after": "ae7659b7c6a0f605447f777ee14c99117cb437206794d8fac96312383bdc3d42"
+  },
+  "reviewStatus": "Claude color/opacity/spacing review pending (docs/37 section 7-3)",
+  "remaining": [
+    "Initial debug launch routing can be missed in a fresh Xcode test session; not fixed by this batch.",
+    "Manual device feel and X2/X3 decisions remain pending."
+  ]
+}

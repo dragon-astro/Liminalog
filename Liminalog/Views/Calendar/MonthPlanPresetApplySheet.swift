@@ -34,8 +34,10 @@ struct MonthPlanPresetApplySheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    Text("長押ししてカレンダーの日付へ置く")
-                        .font(.subheadline.weight(.semibold)).padding(.horizontal, 14)
+                    if transfer != nil {
+                        Text("長押ししてカレンダーの日付へ置く")
+                            .font(.subheadline.weight(.semibold)).padding(.horizontal, 14)
+                    }
                     RecentPlanPresetShelf(presets: presets) { preset in tile(preset, style: .quick) }
                     Divider()
                     PlanPresetFilterControls(searchText: $searchText, selectedCategoryID: $selectedCategoryID,
@@ -84,7 +86,7 @@ struct MonthPlanPresetApplySheet: View {
 
     private func tile(_ preset: PlanPreset, style: PlanPresetLibraryCardStyle) -> some View {
         PlanPresetLibraryCard(preset: preset, category: categories.first { $0.id == preset.categoryID },
-                                  style: style, trailingSymbol: "hand.draw.fill")
+                                  style: style, trailingSymbol: transfer == nil ? "plus.circle.fill" : "hand.draw.fill")
         .overlay {
             TimelinePlanPresetLongPressDragSurface(minimumDuration: 0.14, maximumDistance: 12,
                 onTap: { placementDate = nil; selectedPreset = preset; detent = .large }) { event in

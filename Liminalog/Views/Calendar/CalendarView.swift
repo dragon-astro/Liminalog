@@ -384,8 +384,9 @@ struct CalendarView: View {
     }
 
     private func monthPresetSheet(_ request: CalendarMonthPresetRequest) -> some View {
-        CalendarMonthPresetSheet(
-            request: request,
+        CalendarPresetSheet(
+            targetDate: request.date,
+            allowsDateSelection: request.allowsDateSelection,
             transfer: monthTransfer,
             onAppliedToDate: { monthPresetAppliedDate = $0 }
         )
@@ -1827,50 +1828,6 @@ private struct CalendarMonthPresetRequest: Identifiable {
     let id = UUID()
     let date: Date
     let allowsDateSelection: Bool
-}
-
-/// 月表示のプリセット画面。見出しの位置で「予定｜一日」を切り替え、最後に開いた方を覚える。
-private struct CalendarMonthPresetSheet: View {
-    @Environment(ChapterStore.self) private var store
-    @AppStorage(PresetDrawerKind.storageKey) private var kindRawValue = PresetDrawerKind.plan.rawValue
-
-    let request: CalendarMonthPresetRequest
-    let transfer: CalendarMonthTransferInteraction
-    let onAppliedToDate: (Date) -> Void
-
-    var body: some View {
-        switch kind {
-        case .plan:
-            MonthPlanPresetApplySheet(
-                targetDate: request.date,
-                allowsDateSelection: request.allowsDateSelection,
-                titleAccessory: AnyView(PresetKindTabs(selection: kindSelection, compact: true)),
-                onAppliedToDate: onAppliedToDate
-            )
-            .environment(\.monthPlanTransfer, transfer)
-        case .day:
-            DayPresetApplySheet(
-                targetDate: request.date,
-                existingPlans: store.plannedBlocks(
-                    from: request.date,
-                    to: Calendar.japanese.date(byAdding: .day, value: 2, to: request.date) ?? request.date
-                ),
-                allowsDateSelection: request.allowsDateSelection,
-                titleAccessory: AnyView(PresetKindTabs(selection: kindSelection, compact: true)),
-                onAppliedToDate: onAppliedToDate
-            )
-            .presentationDetents([.fraction(0.65), .large])
-            .presentationDragIndicator(.visible)
-        }
-    }
-
-    private var kind: PresetDrawerKind {
-        PresetDrawerKind(rawValue: kindRawValue) ?? .plan
-    }
-
-    private var kindSelection: Binding<PresetDrawerKind> {
-        Binding { kind } set: { kindRawValue = $0.rawValue }
-    }
 }
 
 enum CalendarTimelineCardMetrics {

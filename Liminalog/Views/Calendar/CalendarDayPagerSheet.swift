@@ -17,6 +17,7 @@ struct CalendarDayPagerSheet: View {
     @State private var pendingCreateDate: Date
     @State private var pendingPlanStartsAsAllDay = false
     @State private var showingPlanSheet = false
+    @State private var showingPresetSheet = false
     @State private var operationError: String?
     private let pageOffsets = Array(-240...240)
 
@@ -73,7 +74,10 @@ struct CalendarDayPagerSheet: View {
             }
             ToolbarItem(placement: .topBarTrailing) {
                 HStack(spacing: 14) {
-                    if mode == .summary { dayVisibilityMenu }
+                    if mode == .summary {
+                        dayVisibilityMenu
+                        SummaryPresetToolbarButton { showingPresetSheet = true }
+                    }
                     if canCreatePlansForDay {
                         Button {
                             LiminalHaptics.openSheet()
@@ -92,6 +96,9 @@ struct CalendarDayPagerSheet: View {
         }
         .sheet(isPresented: $showingPlanSheet) {
             PlanCreateSheet(initialDate: pendingCreateDate, startsAsAllDay: pendingPlanStartsAsAllDay)
+        }
+        .sheet(isPresented: $showingPresetSheet) {
+            CalendarPresetSheet(targetDate: currentDate)
         }
         .alert("反映できませんでした", isPresented: operationErrorPresented) {
             Button("OK", role: .cancel) {

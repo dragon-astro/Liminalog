@@ -6,11 +6,6 @@ struct CalendarDayView: View {
     @Environment(\.dismiss) private var dismiss
     @Query private var queriedPlans: [PlanBlock]
     @Query private var queriedChapters: [Chapter]
-    @Query(sort: [
-        SortDescriptor(\DayPreset.sortOrder),
-        SortDescriptor(\DayPreset.createdAt)
-    ]) private var dayPresets: [DayPreset]
-
     @State private var date: Date
     @State private var editingChapter: Chapter?
     @State private var editingPlan: PlanBlock?
@@ -19,8 +14,7 @@ struct CalendarDayView: View {
     @State private var showingPlanSheet = false
     @State private var clock = TickClock(interval: 60)
     @State private var operationError: String?
-    @State private var showingDayPresetApplySheet = false
-    @State private var dayPresetExistingPlans: [PlanBlock] = []
+    @State private var showingPresetSheet = false
 
     private let highlightedPlanID: UUID?
     private let showsNavigationControls: Bool
@@ -92,29 +86,17 @@ struct CalendarDayView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 14) {
                         dayVisibilityMenu
-                        if canCreatePlansForDay || !dayPresets.isEmpty {
-                            Menu {
-                                if canCreatePlansForDay {
-                                    Button {
-                                        preparePlanCreation()
-                                    } label: {
-                                        Label("予定を追加", systemImage: "plus")
-                                    }
-                                }
-                                if !dayPresets.isEmpty {
-                                    Button {
-                                        prepareDayPresetApply()
-                                    } label: {
-                                        Label("一日プリセットを適用", systemImage: "calendar.badge.plus")
-                                    }
-                                }
+                        SummaryPresetToolbarButton { showingPresetSheet = true }
+                        if canCreatePlansForDay {
+                            Button {
+                                preparePlanCreation()
                             } label: {
                                 Image(systemName: "plus")
                                     .font(.title3.weight(.semibold))
                                     .foregroundStyle(LiminalTheme.accent)
                                     .frame(width: 32, height: 32)
                             }
-                            .accessibilityLabel("予定メニュー")
+                            .accessibilityLabel("予定を追加")
                         }
                     }
                 }
@@ -130,13 +112,8 @@ struct CalendarDayView: View {
         .sheet(isPresented: $showingPlanSheet) {
             PlanCreateSheet(initialDate: pendingCreateDate, startsAsAllDay: pendingPlanStartsAsAllDay)
         }
-        .sheet(isPresented: $showingDayPresetApplySheet) {
-            DayPresetApplySheet(
-                targetDate: date,
-                existingPlans: dayPresetExistingPlans
-            )
-            .presentationDetents([.medium, .large])
-            .presentationDragIndicator(.visible)
+        .sheet(isPresented: $showingPresetSheet) {
+            CalendarPresetSheet(targetDate: date)
         }
         .onAppear {
             clock.start()
@@ -178,7 +155,7 @@ struct CalendarDayView: View {
 
                 HStack(spacing: 7) {
                     DayHeaderPill(systemImage: "star.fill", text: "重要 \(importantPlans.count)", tint: CalendarSemanticColor.importantPlan)
-                    DayHeaderPill(systemImage: "calendar.badge.clock", text: "予定 \(timedPlans.count)", tint: LiminalTheme.accent)
+                    DayHeaderPill(systemImage: "clock", text: "予定 \(timedPlans.count)", tint: LiminalTheme.accent)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -509,17 +486,6 @@ struct CalendarDayView: View {
         pendingCreateDate = preset.initialDate
         pendingPlanStartsAsAllDay = preset.startsAsAllDay
         showingPlanSheet = true
-    }
-
-    private func prepareDayPresetApply() {
-        let boundary = DayBoundary(date: date, calendar: .japanese)
-        let fetchEnd = Calendar.japanese.date(
-            byAdding: .day,
-            value: 2,
-            to: boundary.dayStart
-        ) ?? boundary.dayEnd
-        dayPresetExistingPlans = store.plannedBlocks(from: boundary.dayStart, to: fetchEnd)
-        showingDayPresetApplySheet = true
     }
 
     private func chapters(on date: Date) -> [Chapter] {
