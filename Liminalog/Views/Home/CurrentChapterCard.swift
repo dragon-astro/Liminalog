@@ -72,7 +72,7 @@ struct CurrentChapterCard: View {
     private var currentPlans: [PlanBlock] {
         let now = clock.now
         return todayPlans.filter { plan in
-            !plan.isAllDay && plan.startTime <= now && now < plan.endTime
+            !plan.isAllDay && !plan.isMemo && plan.startTime <= now && now < plan.endTime
         }
     }
 

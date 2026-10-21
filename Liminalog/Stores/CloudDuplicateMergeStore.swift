@@ -296,9 +296,23 @@ struct CloudDuplicateMergeStore {
     private func mergePlanBlocks() -> Int {
         let all = (try? modelContext.fetch(FetchDescriptor<PlanBlock>())) ?? []
         let groups = Dictionary(grouping: all, by: planDuplicateKey)
+        let recurringDuplicates = groups.values.contains { $0.count > 1 && $0.contains { $0.recurrenceSeriesID != nil } }
+        let occurrences = recurringDuplicates ? ((try? modelContext.fetch(FetchDescriptor<PlanRecurrenceOccurrence>())) ?? []) : []
+        func isPersonal(_ plan: PlanBlock) -> Bool {
+            guard plan.recurrenceSeriesID != nil else { return false }
+            let records = occurrences.filter { $0.planID == plan.id }
+            return !records.contains { PlanRecurrenceBaseline(plan).matches($0.baselineData) }
+        }
         var merged = 0
         for (_, group) in groups where group.count > 1 {
+            if let plan = group.first, plan.recurrenceSeriesID != nil,
+               !occurrences.contains(where: { $0.planID == plan.id }) {
+                // The matching history can arrive later in a CloudKit import.
+                // Wait instead of guessing which copy the user adjusted.
+                continue
+            }
             let winner = group.min { lhs, rhs in
+                if isPersonal(lhs) != isPersonal(rhs) { return isPersonal(lhs) }
                 if lhs.updatedAt != rhs.updatedAt {
                     return lhs.updatedAt > rhs.updatedAt
                 }
@@ -306,7 +320,7 @@ struct CloudDuplicateMergeStore {
             }
             guard let winner else { continue }
             for loser in group where loser !== winner {
-                mergePlanBlock(loser, into: winner)
+                if winner.recurrenceSeriesID == nil { mergePlanBlock(loser, into: winner) }
                 modelContext.delete(loser)
                 merged += 1
             }
@@ -344,6 +358,7 @@ struct CloudDuplicateMergeStore {
     }
 
     private func planDuplicateKey(_ plan: PlanBlock) -> String {
+        if plan.recurrenceSeriesID != nil { return "recurring:\(plan.id)" }
         if let sourceEventID = plan.sourceEventID?.trimmingCharacters(in: .whitespacesAndNewlines),
            !sourceEventID.isEmpty {
             return "source:\(sourceEventID)"
@@ -359,6 +374,7 @@ struct CloudDuplicateMergeStore {
             minuteKey(plan.startTime),
             minuteKey(plan.endTime),
             plan.isAllDay ? "all-day" : "timed",
+            plan.isMemo ? "memo" : "main",
             note
         ].joined(separator: "|")
     }

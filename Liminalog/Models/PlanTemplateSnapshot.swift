@@ -9,6 +9,25 @@ struct PlanTemplateSnapshot: Codable, Equatable, Sendable {
     var isImportant: Bool
     var note: String?
     var isPublic: Bool
+    var reminderMinutesBefore: Int? = nil
+    var templateItemID: UUID? = nil
+    private var memo: Bool? = nil
+
+    var isMemo: Bool {
+        get { memo ?? false }
+        set { memo = newValue ? true : nil }
+    }
+
+    init(title: String, categoryID: UUID?, startMinute: Int, endMinute: Int, isAllDay: Bool,
+         isImportant: Bool, note: String? = nil, isPublic: Bool, reminderMinutesBefore: Int? = nil,
+         templateItemID: UUID? = nil, isMemo: Bool = false) {
+        self.title = title; self.categoryID = categoryID
+        self.startMinute = startMinute; self.endMinute = endMinute
+        self.isAllDay = isAllDay; self.isImportant = isImportant
+        self.note = note; self.isPublic = isPublic
+        self.reminderMinutesBefore = reminderMinutesBefore; self.templateItemID = templateItemID
+        self.isMemo = isMemo
+    }
 
     var durationMinutes: Int {
         max(1, endMinute - startMinute)

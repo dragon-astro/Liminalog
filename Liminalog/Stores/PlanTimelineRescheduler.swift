@@ -5,6 +5,7 @@ struct PlanTimelineInterval: Hashable, Identifiable {
     var startMinute: Int
     var endMinute: Int
     var isLocked: Bool = false
+    var isMemo: Bool = false
 
     var duration: Int {
         max(endMinute - startMinute, 0)
@@ -99,6 +100,20 @@ enum PlanTimelineRescheduler {
             return nil
         }
 
+        guard let editing = items.first(where: { $0.id == editingID }), !editing.isLocked else { return nil }
+        if editing.isMemo {
+            return sortedIntervals(items.map { item in
+                guard item.id == editingID else { return item }
+                var copy = item; copy.startMinute = proposedStartMinute; copy.endMinute = proposedEndMinute
+                return copy
+            })
+        }
+        if items.contains(where: \.isMemo) {
+            guard let main = resolve(items: items.filter { !$0.isMemo }, editingID: editingID,
+                proposedStartMinute: proposedStartMinute, proposedEndMinute: proposedEndMinute,
+                pushDirection: pushDirection) else { return nil }
+            return sortedIntervals(main + items.filter(\.isMemo))
+        }
         var resolved = sortedIntervals(items)
         guard let editingIndex = resolved.firstIndex(where: { $0.id == editingID }),
               !resolved[editingIndex].isLocked
@@ -153,6 +168,19 @@ enum PlanTimelineRescheduler {
             return nil
         }
 
+        guard !original.isLocked else { return nil }
+        if original.isMemo {
+            let bounds = clampedToDay(start: proposedStartMinute, end: proposedEndMinute,
+                original: original, adjustment: adjustment, minimumDuration: minimumDuration)
+            return resolve(items: items, editingID: editingID, proposedStartMinute: bounds.start,
+                proposedEndMinute: bounds.end, pushDirection: pushDirection)
+        }
+        if items.contains(where: \.isMemo) {
+            guard let main = resolveClamped(items: items.filter { !$0.isMemo }, editingID: editingID,
+                proposedStartMinute: proposedStartMinute, proposedEndMinute: proposedEndMinute,
+                pushDirection: pushDirection, adjustment: adjustment, minimumDuration: minimumDuration) else { return nil }
+            return sortedIntervals(main + items.filter(\.isMemo))
+        }
         var proposal = clampedToDay(
             start: proposedStartMinute,
             end: proposedEndMinute,

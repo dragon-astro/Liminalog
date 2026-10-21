@@ -27,7 +27,7 @@ struct PlanCoverageSummary {
     ) -> PlanCoverageSummary {
         let boundary = DayBoundary(date: date, calendar: calendar)
         let clippedIntervals = plans
-            .filter { !$0.isAllDay }
+            .filter { !$0.isAllDay && !$0.isMemo }
             .compactMap { plan -> DateInterval? in
                 let start = max(plan.startTime, boundary.dayStart)
                 let end = min(plan.endTime, boundary.dayEnd)

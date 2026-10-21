@@ -187,7 +187,7 @@ struct ProfileView: View {
                     Button {
                         isShowingSettings = true
                     } label: {
-                        Image(systemName: "line.3.horizontal")
+                        Image(systemName: "gearshape")
                             .font(.title3.weight(.semibold))
                     }
                     .accessibilityLabel("設定")

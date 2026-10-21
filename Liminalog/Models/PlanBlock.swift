@@ -8,6 +8,7 @@ final class PlanBlock {
     var title: String = ""
     var startTime: Date = Date()
     var endTime: Date = Date()
+    var isMemo: Bool = false
     var isAllDay: Bool = false
     var isImportant: Bool = false
     var note: String?
@@ -16,6 +17,9 @@ final class PlanBlock {
     var audienceFriendIDs: [UUID] = []
     var audienceSourceRawValue: String = AudienceSource.categoryDefaultSnapshot.rawValue
     var hasAudienceSnapshot: Bool = false
+    var reminderMinutesBefore: Int?
+    var reminderDate: Date?
+    var recurrenceSeriesID: UUID?
     var sourceEventID: String?
     var createdAt: Date = Date()
     var updatedAt: Date = Date()
@@ -32,12 +36,13 @@ final class PlanBlock {
 
     init() {}
 
-    init(category: Category?, title: String, startTime: Date, endTime: Date, isAllDay: Bool = false, isImportant: Bool = false, note: String? = nil, isPublic: Bool = true) {
+    init(category: Category?, title: String, startTime: Date, endTime: Date, isAllDay: Bool = false, isMemo: Bool = false, isImportant: Bool = false, note: String? = nil, isPublic: Bool = true) {
         self.id = UUID()
         self.category = category
         self.title = title
         self.startTime = startTime
         self.endTime = endTime
+        self.isMemo = isMemo
         self.isAllDay = isAllDay
         self.isImportant = isImportant
         self.note = note

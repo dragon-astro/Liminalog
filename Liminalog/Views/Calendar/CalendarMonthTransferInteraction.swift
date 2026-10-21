@@ -14,6 +14,7 @@ final class CalendarMonthTransferInteraction {
         let keepsDrawerPresented: Bool
     }
     enum Action { case confirm, cancel }
+    var presetRequest: Request?
     var request: Request?
     var selectedDates: Set<Date> = []
     var hoveredDate: Date?
@@ -68,6 +69,25 @@ final class CalendarMonthTransferInteraction {
             timeText: plan.isAllDay ? "終日" : "\(plan.startTime.shortTime)–\(plan.endTime.shortTime)",
             tint: plan.category?.displayColor ?? LiminalTheme.accent,
             keepsDrawerPresented: dragging)
+    }
+
+    func beginPreset(_ preset: PlanPreset, tint: Color, at point: CGPoint) {
+        guard request == nil else { return }
+        presetRequest = Request(planID: preset.id, title: preset.displayName, mode: .copy,
+            timeText: preset.isAllDay ? "終日" : preset.placementMode == .duration
+                ? "\(preset.snapshot.durationMinutes)分・置いて開始時刻を指定"
+                : String(format: "%02d:%02d–%02d:%02d", preset.startMinute / 60, preset.startMinute % 60, preset.endMinute / 60, preset.endMinute % 60),
+            tint: tint, keepsDrawerPresented: true)
+        isDragging = true
+        updateDrag(at: point)
+        LiminalHaptics.selection()
+    }
+
+    func endPreset(at point: CGPoint?) -> Date? {
+        guard presetRequest != nil else { return nil }
+        let target = point.flatMap { date(at: $0) }
+        presetRequest = nil; isDragging = false; hoveredDate = nil; dragLocation = nil
+        return target
     }
 
     func select(_ date: Date) {
@@ -145,7 +165,7 @@ struct CalendarPlanDropTarget: ViewModifier {
             .onAppear { interaction?.dayFrames[frameID] = (date, frameSource) }
             .onDisappear { interaction?.dayFrames.removeValue(forKey: frameID) }
             .overlay {
-                if let interaction, interaction.request != nil {
+                if let interaction, (interaction.request != nil || interaction.presetRequest != nil) {
                     let day = Calendar.current.startOfDay(for: date)
                     let selected = interaction.selectedDates.contains(day)
                     let hovered = interaction.hoveredDate == day
@@ -180,7 +200,7 @@ struct CalendarMonthDragPreview: View {
     let interaction: CalendarMonthTransferInteraction
 
     var body: some View {
-        if interaction.isDragging, let request = interaction.request, let point = interaction.dragLocation,
+        if interaction.isDragging, let request = interaction.presetRequest ?? interaction.request, let point = interaction.dragLocation,
            let frame = interaction.rootFrame.currentFrame {
             VStack(alignment: .leading, spacing: 4) {
                 Text(request.title).font(.subheadline.bold()).lineLimit(1)

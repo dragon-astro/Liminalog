@@ -9,3 +9,10 @@ skills-lock.json
 
 # スクショ生成ツールの作業/ビルド生成物（数百MB・アプリ無関係）
 marketing/
+
+# ローカルのXcode表示順と、このMacだけのClaude起動設定
+**/xcuserdata/
+.claude/launch.json
+
+# 比較用の生成画像。設計資料・生成コード・画像のハッシュ一覧は管理する。
+/design/**/*.png

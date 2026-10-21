@@ -18,6 +18,14 @@ struct PlanTemplateReplacement: Equatable {
         let updatedAt: Date
         let original: DateInterval
         let remaining: [DateInterval]
+        var categoryName: String? = nil
+        var colorHex: String? = nil
+        var icon: String? = nil
+
+        var removingEntirePlan: Self {
+            Self(id: id, title: title, updatedAt: updatedAt, original: original, remaining: [],
+                 categoryName: categoryName, colorHex: colorHex, icon: icon)
+        }
     }
     let mode: PlanTemplateReplacementMode
     let changes: [Change]

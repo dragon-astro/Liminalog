@@ -41,6 +41,12 @@
 | 30 | [30-claude-design-brief.md](30-claude-design-brief.md) | Claude Design 引き継ぎブリーフ（リポジトリ外へ貼る自己完結のアプリ全体像） | ✅ 初版 |
 | 31 | [31-over-implementation-and-lightweight-audit.md](31-over-implementation-and-lightweight-audit.md) | 過剰実装・軽量化台帳（全体監査。二重実装/死蔵コード O-1〜O-7 ＋ 挙動不変の軽量化 P-1〜P-11） | 🟢 §3はCodex着手可 / §2はユーザー確認待ち |
 
+| 33 | [33-plan-memos.md](33-plan-memos.md) | メイン予定と独立した予定メモ | ✅ 実装・実機確認 |
+| 34 | [34-timeline-direct-edit-and-scheduling.md](34-timeline-direct-edit-and-scheduling.md) | タイムライン直接操作・編集画面整理・通知日時・繰り返し終了条件 | ✅ 実装・実機確認 |
+| 35 | [35-calendar-interaction-refinement.md](35-calendar-interaction-refinement.md) | 日付選択→予定追加・移動を中心とした導線・情報量の刷新 | 🟡 コード調査・設計たたき台／画面実査は未完了 |
+| 36 | [36-app-navigation-review.md](36-app-navigation-review.md) | アプリ全体の動線・操作部品の見直し（隠れた切替→スライド式セグメント・入口の統一・層の削減） | 🟡 改訂版 §R（UI=Claude / 機能=Codex） |
+| 37 | [37-codex-handoff-ui-batch-20261021.md](37-codex-handoff-ui-batch-20261021.md) | docs/36 の UI・動線バッチを Codex へ引き継ぐ（変更一覧・識別子の変更・検証状況・Codex のタスク） | 🟢 Codex 着手可 |
+
 ---
 
 ## 読む順序

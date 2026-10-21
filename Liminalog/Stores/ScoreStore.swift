@@ -262,7 +262,7 @@ enum ScoreSnapshotLoader {
         }
 
         let validDayStarts = Set(dates)
-        let plansByDay = bucketByOverlappingDay(
+        let plansByDay = DayIntervalBuckets.make(
             plans,
             interval: interval,
             calendar: calendar,
@@ -270,7 +270,7 @@ enum ScoreSnapshotLoader {
             start: \.startTime,
             end: \.endTime
         )
-        let chaptersByDay = bucketByOverlappingDay(
+        let chaptersByDay = DayIntervalBuckets.make(
             chapters,
             interval: interval,
             calendar: calendar,
@@ -285,33 +285,6 @@ enum ScoreSnapshotLoader {
         )
     }
 
-    private static func bucketByOverlappingDay<Value>(
-        _ values: [Value],
-        interval: DateInterval,
-        calendar: Calendar,
-        validDayStarts: Set<Date>,
-        start: (Value) -> Date,
-        end: (Value) -> Date
-    ) -> [Date: [Value]] {
-        var result: [Date: [Value]] = [:]
-        for value in values {
-            let clippedStart = max(start(value), interval.start)
-            let clippedEnd = min(end(value), interval.end)
-            guard clippedStart < clippedEnd else { continue }
-
-            var dayStart = DayBoundary.dayStart(for: clippedStart, calendar: calendar)
-            while dayStart < clippedEnd {
-                if validDayStarts.contains(dayStart) {
-                    result[dayStart, default: []].append(value)
-                }
-                guard let nextDay = calendar.date(byAdding: .day, value: 1, to: dayStart) else {
-                    break
-                }
-                dayStart = nextDay
-            }
-        }
-        return result
-    }
 
     /// 累積スコア。昨日以前は日別の確定台帳、今日はライブ計算を足す。
     static func cumulativeScore(
@@ -344,6 +317,7 @@ enum ScoreSnapshotLoader {
         calendar: Calendar = .japanese
     ) -> Date? {
         var descriptor = FetchDescriptor<PlanBlock>(
+            predicate: #Predicate { !$0.isMemo },
             sortBy: [SortDescriptor(\.startTime)]
         )
         descriptor.fetchLimit = 1

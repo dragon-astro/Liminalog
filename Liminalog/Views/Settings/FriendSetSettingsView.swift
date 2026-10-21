@@ -278,9 +278,7 @@ private struct FriendSetEditSheet: View {
                         }
                     }
                 } header: {
-                    Text("メンバー")
-                } footer: {
-                    Text("セットを変更すると、今後このセットを使う公開相手に反映されます。既に作成済みの予定や記録の個別公開相手は変更しません。")
+                    SettingsSectionHeader(title: "メンバー", explanation: "セットを変更すると、今後このセットを使う公開相手に反映されます。既に作成済みの予定や記録の個別公開相手は変更しません。")
                 }
             }
             .navigationTitle(isNew ? "友達セットを追加" : "友達セットを編集")

@@ -11,6 +11,7 @@ enum LiminalogSchemaV1: VersionedSchema {
             PlanBlock.self,
             PlanPreset.self,
             DayPreset.self,
+            PlanRecurrenceOccurrence.self,
             UnlockItem.self,
             VisibilityPreset.self,
             UserSettings.self,

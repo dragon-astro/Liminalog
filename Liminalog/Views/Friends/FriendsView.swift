@@ -2411,27 +2411,40 @@ private struct FriendDetailView: View {
             Divider()
 
             VStack(alignment: .leading, spacing: 10) {
-                Text("この相手に見せるもの")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(LiminalTheme.text)
+                HStack {
+                    Text("この相手に見せるもの")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(LiminalTheme.text)
+                    Spacer()
+                    InformationButton(title: "この相手に見せるもの", explanation: "カテゴリ別のデフォルト公開相手と連動します。既存チャプター/予定や個別例外は変更しません。")
+                }
 
                 if categories.isEmpty {
                     Text("カテゴリはまだありません")
                         .font(.caption)
                         .foregroundStyle(LiminalTheme.secondaryText)
                 } else {
-                    ForEach(categories) { category in
-                        Toggle(isOn: categoryAudienceBinding(category)) {
-                            Label(category.name, systemImage: category.icon ?? "circle.fill")
-                                .foregroundStyle(category.displayColor)
+                    // スイッチの縦並びではなく、タイムラインと同じカテゴリチップの複数選択。
+                    ChipFlowLayout(spacing: 8) {
+                        ForEach(categories) { category in
+                            let binding = categoryAudienceBinding(category)
+                            Button {
+                                binding.wrappedValue.toggle()
+                            } label: {
+                                TimelineCategoryChip(category: category, isSelected: binding.wrappedValue)
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
-                }
+                    .opacity(isSharingOff ? 0.45 : 1)
+                    .disabled(isSharingOff)
 
-                Text("カテゴリ別のデフォルト公開相手と連動します。既存チャプター/予定や個別例外は変更しません。")
-                    .font(.caption)
-                    .foregroundStyle(LiminalTheme.secondaryText)
-                    .fixedSize(horizontal: false, vertical: true)
+                    if isSharingOff {
+                        Text("見え方が「オフ」の間は、この相手には何も共有されません。")
+                            .font(.caption)
+                            .foregroundStyle(LiminalTheme.secondaryText)
+                    }
+                }
             }
         }
         .padding(16)
@@ -2443,6 +2456,13 @@ private struct FriendDetailView: View {
             RoundedRectangle(cornerRadius: 18)
                 .stroke(accentColor.opacity(0.18), lineWidth: 1)
         )
+    }
+
+    /// 見え方「オフ」はカテゴリの設定に関係なく共有を止める（`Friend` の publishingDisabled と同じ条件）。
+    private var isSharingOff: Bool {
+        guard let id = visibilityPresetSelection.wrappedValue,
+              let preset = visibilityPresets.first(where: { $0.id == id }) else { return false }
+        return preset.publishMode == .none || preset.level == .none
     }
 
     private var visibilityPresetSelection: Binding<UUID?> {

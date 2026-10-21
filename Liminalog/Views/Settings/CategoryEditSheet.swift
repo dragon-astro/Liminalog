@@ -114,9 +114,7 @@ struct CategoryEditSheet: View {
                         }
                     }
                 } header: {
-                    Text("分析での扱い")
-                } footer: {
-                    Text("設定したカテゴリだけ、統計やプロフィールバッジの判定に使われます。未指定のカテゴリは判定に使われません。カテゴリ名や表示には影響しません。")
+                    SettingsSectionHeader(title: "分析での扱い", explanation: "設定したカテゴリだけ、統計やプロフィールバッジの判定に使われます。未指定のカテゴリは判定に使われません。カテゴリ名や表示には影響しません。")
                 }
 
                 Section {
@@ -132,9 +130,7 @@ struct CategoryEditSheet: View {
                     }
                     .buttonStyle(.plain)
                 } header: {
-                    Text("デフォルト公開相手")
-                } footer: {
-                    Text("通常は新しく作るものにだけコピーされます。必要な時だけ、公開相手の編集画面から過去の予定にも反映できます。")
+                    SettingsSectionHeader(title: "デフォルト公開相手", explanation: "通常は新しく作るものにだけコピーされます。必要な時だけ、公開相手の編集画面から過去の予定にも反映できます。")
                 }
 
                 Section {

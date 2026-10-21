@@ -30,7 +30,7 @@ enum ScoreCalculator {
         let dayStart = boundary.dayStart
         let dayEnd = boundary.dayEnd
         let clippedPlans = plans
-            .filter { !$0.isAllDay }
+            .filter { !$0.isAllDay && !$0.isMemo }
             .map { TimeSlice(categoryID: $0.category?.id, start: max($0.startTime, dayStart), end: min($0.endTime, dayEnd)) }
             .filter { $0.duration > 0 }
         let clippedChapters = chapters

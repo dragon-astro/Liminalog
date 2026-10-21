@@ -6,8 +6,13 @@ import WidgetKit
 @MainActor
 final class ChapterStore {
     private(set) var contentRevision = 0
+    private(set) var categoryUsageRevision = 0
+    @ObservationIgnored private let categoryUsageCache = CategoryUsageCache()
 
     private var modelContext: ModelContext
+    @ObservationIgnored private var recurringCoverage: Set<Date> = []
+    @ObservationIgnored private var recurringCoverageRevision = -1
+    @ObservationIgnored private var recurringCoverageToday: Date?
     private let clock: any LiminalogClock
     private let categoryStore: CategoryStore
     private let categorySetStore: CategorySetStore
@@ -46,6 +51,25 @@ final class ChapterStore {
         self.categoryBoardSelectionScheduler = CategoryBoardSelectionScheduler(
             lastCommittedID: Self.cachedPublishedCategorySetID()
         )
+    }
+
+    /// Counts are shared across editor presentations; manual order never needs this fetch.
+    func categoryUsageCounts(calendar: Calendar = .current) -> [UUID: Int]? {
+        let window = CategoryUsageRanking.window(now: clock.now, calendar: calendar)
+        do {
+            return try categoryUsageCache.counts(revision: contentRevision, window: window) {
+                try CategoryUsageRanking.load(modelContext: modelContext, window: window)
+            }
+        } catch {
+            NSLog("Liminalog: category usage fetch failed: \(error)")
+            return nil
+        }
+    }
+
+    /// Foreground/remote changes may bypass this store's mutation methods.
+    func invalidateCategoryUsageRanking() {
+        categoryUsageCache.invalidate()
+        categoryUsageRevision &+= 1
     }
 
     private func markChanged(
@@ -231,14 +255,15 @@ final class ChapterStore {
         planStore.isScheduleLocked(plan, now: now)
     }
 
-    func canCreatePlan(startTime: Date, isAllDay: Bool = false, now: Date = Date()) -> Bool {
-        planStore.canCreate(startTime: startTime, isAllDay: isAllDay, now: now)
+    func canCreatePlan(startTime: Date, isAllDay: Bool = false, isMemo: Bool = false, now: Date = Date()) -> Bool {
+        planStore.canCreate(startTime: startTime, isAllDay: isAllDay, isMemo: isMemo, now: now)
     }
 
     func canCreatePlan(
         startTime: Date,
         endTime: Date,
         isAllDay: Bool = false,
+        isMemo: Bool = false,
         excluding planID: UUID? = nil,
         now: Date = Date()
     ) -> Bool {
@@ -246,6 +271,7 @@ final class ChapterStore {
             startTime: startTime,
             endTime: endTime,
             isAllDay: isAllDay,
+            isMemo: isMemo,
             excluding: planID,
             now: now
         )
@@ -253,6 +279,14 @@ final class ChapterStore {
 
     func hasTimedPlanOverlap(startTime: Date, endTime: Date, excluding planID: UUID? = nil) -> Bool {
         planStore.hasTimedPlanOverlap(startTime: startTime, endTime: endTime, excluding: planID)
+    }
+
+    func memoPromotionPreview(start: Date, end: Date, excluding id: UUID) -> [PlanMemoPromotionChange]? {
+        planStore.memoPromotionPreview(start: start, end: end, excluding: id)
+    }
+
+    func firstAvailableHourStart(on date: Date, calendar: Calendar = .japanese) -> Date? {
+        planStore.firstAvailableHourStart(on: date, calendar: calendar)
     }
 
     func isChapterTimeLocked(_ chapter: Chapter, now: Date = Date()) -> Bool {
@@ -533,6 +567,37 @@ final class ChapterStore {
         return true
     }
 
+    func registerRecurrence(_ plan: PlanBlock, rule: PlanRecurrenceRule) -> Bool {
+        PlanRecurrenceStore(modelContext: modelContext, clock: clock).register(plan, rule: rule)
+    }
+
+    func refreshRecurringPlans(from start: Date? = nil, to end: Date? = nil, force: Bool = false) {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: clock.now)
+        if force || recurringCoverageRevision != contentRevision || recurringCoverageToday != today {
+            recurringCoverage.removeAll()
+        }
+        let rangeStart = max(today, calendar.startOfDay(for: start ?? today))
+        let rangeEnd = min(end ?? calendar.date(byAdding: .day, value: 60, to: rangeStart)!,
+            calendar.date(byAdding: .day, value: 100, to: rangeStart)!)
+        var requestedDays: Set<Date> = []
+        var day = rangeStart
+        while day < rangeEnd {
+            requestedDays.insert(day)
+            day = calendar.date(byAdding: .day, value: 1, to: day)!
+        }
+        guard !requestedDays.isSubset(of: recurringCoverage), !modelContext.hasChanges else { return }
+        do {
+            let changed = try PlanRecurrenceStore(modelContext: modelContext, clock: clock).materialize(from: start, to: end)
+            if !changed.isEmpty { markChanged(requestCloudFriendShareRefresh: false) }
+            recurringCoverage.formUnion(requestedDays)
+            recurringCoverageRevision = contentRevision
+            recurringCoverageToday = today
+        } catch {
+            NSLog("Liminalog: recurring plan refresh failed: \(error)")
+        }
+    }
+
     // MARK: - Plans
 
     @discardableResult
@@ -542,6 +607,7 @@ final class ChapterStore {
         startTime: Date,
         endTime: Date,
         isAllDay: Bool = false,
+        isMemo: Bool = false,
         isImportant: Bool = false,
         note: String? = nil,
         isPublic: Bool = true,
@@ -555,6 +621,7 @@ final class ChapterStore {
             startTime: startTime,
             endTime: endTime,
             isAllDay: isAllDay,
+            isMemo: isMemo,
             isImportant: isImportant,
             note: note,
             isPublic: isPublic,
@@ -571,12 +638,14 @@ final class ChapterStore {
         startTime: Date,
         endTime: Date,
         isAllDay: Bool = false,
+        isMemo: Bool = false,
         isImportant: Bool = false,
         note: String? = nil,
         isPublic: Bool = true,
         audienceFriendIDs: [UUID]? = nil,
         audienceSource: AudienceSource = .categoryDefaultSnapshot,
-        hasAudienceSnapshot: Bool = true
+        hasAudienceSnapshot: Bool = true,
+        beforeSave: ((PlanBlock) -> Bool)? = nil
     ) -> PlanBlock? {
         let audienceResolution = audienceFriendIDs.map {
             AudienceResolution(friendIDs: $0, didResolveSnapshot: hasAudienceSnapshot)
@@ -587,22 +656,32 @@ final class ChapterStore {
             startTime: startTime,
             endTime: endTime,
             isAllDay: isAllDay,
+            isMemo: isMemo,
             isImportant: isImportant,
             note: note,
             isPublic: isPublic,
             audienceFriendIDs: audienceResolution.friendIDs,
             audienceSource: audienceSource,
-            hasAudienceSnapshot: hasAudienceSnapshot && audienceResolution.didResolveSnapshot
+            hasAudienceSnapshot: hasAudienceSnapshot && audienceResolution.didResolveSnapshot,
+            beforeSave: beforeSave
         ) else { return nil }
         markChanged(requestCloudFriendShareRefresh: false)
         return plan
     }
 
     @discardableResult
-    func savePlanBlock(_ plan: PlanBlock, category: Category?, title: String, startTime: Date, endTime: Date, isAllDay: Bool, isImportant: Bool, note: String?, isPublic: Bool, audienceFriendIDs: [UUID]? = nil, audienceSource: AudienceSource? = nil, hasAudienceSnapshot: Bool? = nil) -> Bool {
-        guard planStore.savePlanBlock(plan, category: category, title: title, startTime: startTime, endTime: endTime, isAllDay: isAllDay, isImportant: isImportant, note: note, isPublic: isPublic, audienceFriendIDs: audienceFriendIDs, audienceSource: audienceSource, hasAudienceSnapshot: hasAudienceSnapshot) else { return false }
+    func savePlanBlock(_ plan: PlanBlock, category: Category?, title: String, startTime: Date, endTime: Date, isAllDay: Bool, isMemo: Bool? = nil, isImportant: Bool, note: String?, isPublic: Bool, audienceFriendIDs: [UUID]? = nil, audienceSource: AudienceSource? = nil, hasAudienceSnapshot: Bool? = nil, approvedPromotion: [PlanMemoPromotionChange]? = nil, promotionMode: PlanMemoPromotionMode = .keepRemainders, beforeSave: ((PlanBlock) -> Bool)? = nil) -> Bool {
+        guard planStore.savePlanBlock(plan, category: category, title: title, startTime: startTime, endTime: endTime, isAllDay: isAllDay, isMemo: isMemo, isImportant: isImportant, note: note, isPublic: isPublic, audienceFriendIDs: audienceFriendIDs, audienceSource: audienceSource, hasAudienceSnapshot: hasAudienceSnapshot, approvedPromotion: approvedPromotion, promotionMode: promotionMode, beforeSave: beforeSave) else { return false }
         markChanged(requestCloudFriendShareRefresh: false)
         return true
+    }
+
+    @discardableResult
+    func savePlanPlacement(_ plan: PlanBlock, start: Date, end: Date, isMemo: Bool,
+                           approvedPromotion: [PlanMemoPromotionChange]? = nil, promotionMode: PlanMemoPromotionMode = .keepRemainders) -> Bool {
+        savePlanBlock(plan, category: plan.category, title: plan.title, startTime: start, endTime: end,
+            isAllDay: plan.isAllDay, isMemo: isMemo, isImportant: plan.isImportant, note: plan.note,
+            isPublic: plan.isPublic, approvedPromotion: approvedPromotion, promotionMode: promotionMode)
     }
 
     @discardableResult

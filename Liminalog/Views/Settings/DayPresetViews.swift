@@ -155,6 +155,9 @@ private struct DayPresetRow: View {
                 Text(preset.name)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(LiminalTheme.text)
+                if let rule = PlanRecurrenceRule.decode(preset.recurrenceData) {
+                    Label(rule.summary, systemImage: "repeat").font(.caption).foregroundStyle(LiminalTheme.accent)
+                }
                 Text(isReadable ? "予定 \(preset.itemCount)件" : "このプリセットは開けません")
                     .font(.caption)
                     .foregroundStyle(isReadable ? LiminalTheme.secondaryText : Color.orange)
@@ -184,16 +187,44 @@ struct DayPresetApplySheet: View {
     ]) private var presets: [DayPreset]
     @Query(sort: \Category.sortOrder) private var categories: [Category]
 
-    let targetDate: Date
+    @State private var targetDate: Date
     let existingPlans: [PlanBlock]
+    let allowsDateSelection: Bool
+    let onAppliedToDate: (Date) -> Void
+    /// 月表示のプリセット画面では、見出しの位置に「予定｜一日」の切替を置く。
+    private let titleAccessory: AnyView?
 
     @State private var selectedPresetID: UUID?
     @State private var operationError: String?
     @State private var replacementRequest: PlanTemplateApplyRequest?
 
+    init(targetDate: Date, existingPlans: [PlanBlock], allowsDateSelection: Bool = false,
+         initialPresetID: UUID? = nil, titleAccessory: AnyView? = nil,
+         onAppliedToDate: @escaping (Date) -> Void = { _ in }) {
+        _targetDate = State(initialValue: targetDate)
+        _selectedPresetID = State(initialValue: initialPresetID)
+        self.existingPlans = existingPlans
+        self.allowsDateSelection = allowsDateSelection
+        self.titleAccessory = titleAccessory
+        self.onAppliedToDate = onAppliedToDate
+    }
+
+    private var targetPlans: [PlanBlock] {
+        guard allowsDateSelection else { return existingPlans }
+        let start = Calendar.japanese.startOfDay(for: targetDate)
+        let end = Calendar.japanese.date(byAdding: .day, value: 2, to: start) ?? start
+        return store.plannedBlocks(from: start, to: end)
+    }
+
     var body: some View {
         NavigationStack {
             List {
+                if allowsDateSelection {
+                    Section {
+                        DatePicker("追加する日", selection: $targetDate, displayedComponents: .date)
+                            .accessibilityIdentifier("day-preset-target-date")
+                    }
+                }
                 if presets.isEmpty {
                     ContentUnavailableView(
                         "一日プリセットはありません",
@@ -227,16 +258,19 @@ struct DayPresetApplySheet: View {
                                 )
                             }
                         } header: {
-                            Text("この一日を丸ごと追加")
+                            SettingsSectionHeader(title: "この一日を丸ごと追加", explanation: "一日分をまとめて追加します。既存の予定と重なる場合は、置き換え方と変更内容を確認してから適用します。")
                         } footer: {
-                            Text(applyFooterText)
+                            if !canApplyWholePreset { Text(applyFooterText) }
                         }
                     }
                 }
             }
-            .navigationTitle(targetDate.japaneseMonthDayShortWeekday)
+            .navigationTitle(allowsDateSelection ? "一日プリセット" : targetDate.japaneseMonthDayShortWeekday)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                if let titleAccessory {
+                    ToolbarItem(placement: .principal) { titleAccessory }
+                }
                 ToolbarItem(placement: .cancellationAction) {
                     Button("キャンセル") { dismiss() }
                 }
@@ -299,12 +333,12 @@ struct DayPresetApplySheet: View {
         DayPresetApplyPlanner.plan(
             items: items,
             targetDate: targetDate,
-            existing: existingPlans.map {
+            existing: targetPlans.map {
                 DayPresetApplyPlanner.ExistingInterval(
                     id: $0.id,
                     start: $0.startTime,
                     end: $0.endTime,
-                    isAllDay: $0.isAllDay
+                    isAllDay: $0.isAllDay, isMemo: $0.isMemo
                 )
             },
             now: Date(),
@@ -322,7 +356,7 @@ struct DayPresetApplySheet: View {
     ) -> String? {
         guard case let .conflictsWithExisting(ids) = verdict else { return nil }
         let idSet = Set(ids)
-        let names = existingPlans.filter { idSet.contains($0.id) }.map(\.title)
+        let names = targetPlans.filter { idSet.contains($0.id) }.map(\.title)
         return names.isEmpty ? nil : names.joined(separator: "、")
     }
 
@@ -343,6 +377,7 @@ struct DayPresetApplySheet: View {
 
     private func apply() {
         guard let selectedPreset, canApplyWholePreset else { return }
+        let date = Calendar.japanese.startOfDay(for: targetDate)
         let applications = items.map { item in
             PlanStore.TemplateApplication(
                 snapshot: item,
@@ -350,19 +385,21 @@ struct DayPresetApplySheet: View {
             )
         }
         if verdicts.contains(where: { if case .conflictsWithExisting = $0 { return true }; return false }) {
-            replacementRequest = PlanTemplateApplyRequest(applications: applications, targetDate: targetDate,
+            replacementRequest = PlanTemplateApplyRequest(applications: applications, targetDate: date,
                 onApplied: {
                     _ = presetStore.markUsed(selectedPreset)
+                    onAppliedToDate(date)
                     dismiss()
                 })
             return
         }
-        guard store.applyPlanTemplates(applications, to: targetDate) else {
+        guard store.applyPlanTemplates(applications, to: date) else {
             operationError = "予定の重なりや日付が変わった可能性があります。内容を確認してもう一度お試しください。"
             return
         }
         _ = presetStore.markUsed(selectedPreset)
         LiminalHaptics.commit()
+        onAppliedToDate(date)
         dismiss()
     }
 

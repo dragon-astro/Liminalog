@@ -433,7 +433,7 @@ enum DashboardPeriod: String, CaseIterable, Identifiable {
     var symbolName: String {
         switch self {
         case .today: "sun.max.fill"
-        case .week: "calendar.badge.clock"
+        case .week: "rectangle.split.3x1"
         case .month: "calendar"
         case .year: "calendar.circle.fill"
         }

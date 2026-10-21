@@ -7,12 +7,17 @@ struct CalendarPlanCreationPreset: Equatable {
     static func make(
         for date: Date,
         canCreateTimedPlan: Bool,
+        includesMemos: Bool = false,
         now: Date = Date(),
         calendar: Calendar = .japanese
     ) -> CalendarPlanCreationPreset? {
         let dayStart = calendar.startOfDay(for: date)
-        guard allowsCreation(for: date, now: now, calendar: calendar) else {
+        guard includesMemos || allowsCreation(for: date, now: now, calendar: calendar) else {
             return nil
+        }
+        if includesMemos && dayStart < calendar.startOfDay(for: now) {
+            let start = calendar.date(bySettingHour: 9, minute: 0, second: 0, of: dayStart) ?? dayStart
+            return CalendarPlanCreationPreset(initialDate: start, startsAsAllDay: false)
         }
         guard canCreateTimedPlan else {
             return CalendarPlanCreationPreset(initialDate: dayStart, startsAsAllDay: true)

@@ -1,0 +1,114 @@
+{
+  "frames": {
+    "original-leaf": {
+      "clear_radius_px": 283.0,
+      "clear_radius_unit": 0.739,
+      "edge_pixels_in_4px_border": 0,
+      "alpha_centroid_offset_px": [
+        -6.5,
+        19.0
+      ],
+      "bbox": [
+        78,
+        92,
+        945,
+        929
+      ],
+      "bbox_center_offset_px": [
+        0.0,
+        -1.0
+      ],
+      "ring_sectors_covered_of_360": 360,
+      "mean_alpha_in_band_0.88_1.12": 0.367
+    },
+    "code-leaf": {
+      "clear_radius_px": 342.7,
+      "clear_radius_unit": 0.895,
+      "edge_pixels_in_4px_border": 0,
+      "alpha_centroid_offset_px": [
+        -8.8,
+        -5.7
+      ],
+      "bbox": [
+        46,
+        69,
+        955,
+        954
+      ],
+      "bbox_center_offset_px": [
+        -11.0,
+        0.0
+      ],
+      "ring_sectors_covered_of_360": 360,
+      "mean_alpha_in_band_0.88_1.12": 0.426
+    },
+    "original-star": {
+      "clear_radius_px": 270.0,
+      "clear_radius_unit": 0.705,
+      "edge_pixels_in_4px_border": 0,
+      "alpha_centroid_offset_px": [
+        -20.3,
+        33.6
+      ],
+      "bbox": [
+        75,
+        83,
+        947,
+        941
+      ],
+      "bbox_center_offset_px": [
+        -0.5,
+        0.5
+      ],
+      "ring_sectors_covered_of_360": 360,
+      "mean_alpha_in_band_0.88_1.12": 0.218
+    },
+    "code-star": {
+      "clear_radius_px": 324.1,
+      "clear_radius_unit": 0.846,
+      "edge_pixels_in_4px_border": 0,
+      "alpha_centroid_offset_px": [
+        13.6,
+        5.8
+      ],
+      "bbox": [
+        61,
+        58,
+        973,
+        947
+      ],
+      "bbox_center_offset_px": [
+        5.5,
+        -9.0
+      ],
+      "ring_sectors_covered_of_360": 360,
+      "mean_alpha_in_band_0.88_1.12": 0.656
+    }
+  },
+  "cards": {
+    "original-leaf": {
+      "text_zone_luminance_mean": 0.734,
+      "text_zone_luminance_sd": 0.0675,
+      "difference_text_contrast_min": 1.0,
+      "difference_text_contrast_p5": 8.03
+    },
+    "code-leaf": {
+      "text_zone_luminance_mean": 0.792,
+      "text_zone_luminance_sd": 0.042,
+      "difference_text_contrast_min": 1.01,
+      "difference_text_contrast_p5": 12.0
+    },
+    "original-star": {
+      "text_zone_luminance_mean": 0.55,
+      "text_zone_luminance_sd": 0.0643,
+      "difference_text_contrast_min": 1.9,
+      "difference_text_contrast_p5": 3.67
+    },
+    "code-star": {
+      "text_zone_luminance_mean": 0.616,
+      "text_zone_luminance_sd": 0.0653,
+      "difference_text_contrast_min": 2.43,
+      "difference_text_contrast_p5": 4.46
+    }
+  }
+}

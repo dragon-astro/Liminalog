@@ -1,0 +1,114 @@
+{
+  "status": "pass",
+  "scope": "structural gates only; aesthetic adoption pending",
+  "checks": [
+    {
+      "file": "botanical-frame-1024.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "central_clear_radius_fraction": 0.3,
+      "central_alpha_max": 0,
+      "edge_alpha_max": 0,
+      "visible_inner_radius_fraction": 0.328,
+      "guide_angular_coverage": 1.0,
+      "alpha_bbox": [
+        71,
+        78,
+        946,
+        952
+      ],
+      "status": "pass"
+    },
+    {
+      "file": "botanical-frame-2048.png",
+      "size": [
+        2048,
+        2048
+      ],
+      "central_clear_radius_fraction": 0.3,
+      "central_alpha_max": 0,
+      "edge_alpha_max": 0,
+      "visible_inner_radius_fraction": 0.3283,
+      "guide_angular_coverage": 1.0,
+      "alpha_bbox": [
+        143,
+        156,
+        1891,
+        1903
+      ],
+      "status": "pass"
+    },
+    {
+      "file": "botanical-card.png",
+      "size": [
+        2048,
+        1365
+      ],
+      "text_safe_zone": [
+        0.4,
+        0.15,
+        0.93,
+        0.76
+      ],
+      "body_color": "#D3DFE1",
+      "min_static_background_contrast": 9.23,
+      "status": "pass"
+    },
+    {
+      "file": "celestial-frame-1024.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "central_clear_radius_fraction": 0.3,
+      "central_alpha_max": 0,
+      "edge_alpha_max": 0,
+      "visible_inner_radius_fraction": 0.337,
+      "guide_angular_coverage": 1.0,
+      "alpha_bbox": [
+        71,
+        82,
+        941,
+        944
+      ],
+      "status": "pass"
+    },
+    {
+      "file": "celestial-frame-2048.png",
+      "size": [
+        2048,
+        2048
+      ],
+      "central_clear_radius_fraction": 0.3,
+      "central_alpha_max": 0,
+      "edge_alpha_max": 0,
+      "visible_inner_radius_fraction": 0.3368,
+      "guide_angular_coverage": 1.0,
+      "alpha_bbox": [
+        142,
+        165,
+        1882,
+        1888
+      ],
+      "status": "pass"
+    },
+    {
+      "file": "celestial-card.png",
+      "size": [
+        2048,
+        1365
+      ],
+      "text_safe_zone": [
+        0.4,
+        0.15,
+        0.93,
+        0.76
+      ],
+      "body_color": "#D3DFE1",
+      "min_static_background_contrast": 6.19,
+      "status": "pass"
+    }
+  ]
+}

@@ -219,6 +219,56 @@ struct PlanStoreApplyTemplatesTests {
         #expect(store.allPlannedBlocks().count == 2)
     }
 
+    @Test("置換プレビューは予定のカテゴリ表示を保持し、確認後の色変更も再確認する")
+    func replacementApprovalIncludesAppearance() throws {
+        let container = try TestModelContainer.make()
+        let context = container.mainContext
+        let category = Category(name: "仕事", colorHex: "#7E57C2", icon: "laptopcomputer")
+        context.insert(category)
+        let target = try date(2026, 9, 3, 0, 0)
+        let existing = PlanBlock(category: category, title: "作業", startTime: try date(2026, 9, 3, 9, 0),
+                                 endTime: try date(2026, 9, 3, 12, 0))
+        context.insert(existing)
+        try context.save()
+        let store = PlanStore(modelContext: context, clock: MutableTestClock(now: try date(2026, 9, 2, 12, 0)), requestRefresh: { _, _, _ in })
+        let apps: [PlanStore.TemplateApplication] = [.init(snapshot: snapshot(title: "休憩", start: 600, end: 660), resolvedCategory: nil)]
+        let partial = try #require(store.templateReplacementPreview(apps, to: target, mode: .keepRemainders, calendar: calendar))
+        let change = try #require(partial.changes.first)
+        #expect(change.categoryName == "仕事" && change.colorHex == "#7E57C2" && change.icon == "laptopcomputer")
+        let whole = PlanTemplateReplacement(mode: .replaceWholePlans, changes: partial.changes.map(\.removingEntirePlan))
+        #expect(whole == store.templateReplacementPreview(apps, to: target, mode: .replaceWholePlans, calendar: calendar))
+        category.colorHex = "#FF8800"
+        try context.save()
+        #expect(!store.applyTemplates(apps, to: target, calendar: calendar, approvedReplacement: whole))
+        #expect(store.allPlannedBlocks().count == 1)
+    }
+
+    @Test("一日プリセットは二つの予定を置換し、重ならない予定と終日予定を保持する")
+    func dayPresetReplacesMultiplePlans() throws {
+        for mode in PlanTemplateReplacementMode.allCases {
+            let container = try TestModelContainer.make()
+            let context = container.mainContext
+            let target = try date(2026, 9, 3, 0, 0)
+            for (title, start, end) in [("作業", 9, 12), ("会議", 13, 16), ("夕食", 18, 19)] {
+                context.insert(PlanBlock(category: nil, title: title, startTime: try date(2026, 9, 3, start, 0),
+                                         endTime: try date(2026, 9, 3, end, 0)))
+            }
+            try context.save()
+            let store = PlanStore(modelContext: context, clock: MutableTestClock(now: try date(2026, 9, 2, 12, 0)), requestRefresh: { _, _, _ in })
+            let apps = [snapshot(title: "勉強", start: 600, end: 660), snapshot(title: "運動", start: 840, end: 900),
+                        snapshot(title: "学習日", start: 0, end: 1440, isAllDay: true)].map {
+                PlanStore.TemplateApplication(snapshot: $0, resolvedCategory: nil)
+            }
+            let preview = try #require(store.templateReplacementPreview(apps, to: target, mode: mode, calendar: calendar))
+            #expect(preview.changes.map(\.title) == ["作業", "会議"])
+            #expect(store.applyTemplates(apps, to: target, calendar: calendar, approvedReplacement: preview))
+            let plans = store.allPlannedBlocks()
+            #expect(plans.count == (mode == .keepRemainders ? 8 : 4))
+            #expect(plans.filter { $0.title == "学習日" && $0.isAllDay }.count == 1)
+            #expect(plans.filter { $0.title == "夕食" }.count == 1)
+        }
+    }
+
     private func snapshot(
         title: String,
         start: Int,

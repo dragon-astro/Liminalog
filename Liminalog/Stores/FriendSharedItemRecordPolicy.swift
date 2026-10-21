@@ -16,6 +16,7 @@ enum FriendSharedItemRecordPolicy {
         static let title = "title"
         static let startTime = "startTime"
         static let endTime = "endTime"
+        static let isMemo = "isMemo"
         static let isAllDay = "isAllDay"
         static let isImportant = "isImportant"
         static let categoryID = "categoryID"
@@ -78,6 +79,7 @@ enum FriendSharedItemRecordPolicy {
         record[Field.title] = snapshot.title as CKRecordValue
         record[Field.startTime] = snapshot.startTime as CKRecordValue
         record[Field.endTime] = snapshot.endTime as CKRecordValue
+        record[Field.isMemo] = snapshot.isMemo as CKRecordValue
         record[Field.isAllDay] = snapshot.isAllDay as CKRecordValue
         record[Field.isImportant] = snapshot.isImportant as CKRecordValue
         record[Field.categoryID] = snapshot.categoryID?.uuidString as CKRecordValue?
@@ -142,6 +144,7 @@ enum FriendSharedItemRecordPolicy {
             startTime: startTime,
             endTime: endTime,
             isAllDay: (record[Field.isAllDay] as? Bool) ?? false,
+            isMemo: (record[Field.isMemo] as? Bool) ?? false,
             isImportant: (record[Field.isImportant] as? Bool) ?? false,
             categoryTitle: (record[Field.categoryTitle] as? String) ?? "",
             categoryIconName: (record[Field.categoryIconName] as? String) ?? "calendar",

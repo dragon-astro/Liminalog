@@ -288,24 +288,7 @@ struct HomeView: View {
     }
 
     private var firstAvailableTomorrowPlanStart: Date? {
-        let calendar = Calendar.japanese
-        let boundary = DayBoundary(date: tomorrowDate, calendar: calendar)
-        let preferred = calendar.date(bySettingHour: 9, minute: 0, second: 0, of: tomorrowDate) ?? boundary.dayStart
-        let latestStart = calendar.date(byAdding: .hour, value: -1, to: boundary.dayEnd) ?? preferred
-
-        var candidate = preferred
-        while candidate <= latestStart {
-            let candidateEnd = calendar.date(byAdding: .hour, value: 1, to: candidate) ?? candidate
-            if !store.hasTimedPlanOverlap(startTime: candidate, endTime: candidateEnd) {
-                return candidate
-            }
-            guard let nextCandidate = calendar.date(byAdding: .minute, value: 15, to: candidate),
-                  nextCandidate > candidate
-            else { break }
-            candidate = nextCandidate
-        }
-
-        return nil
+        store.firstAvailableHourStart(on: tomorrowDate)
     }
 
     private func relativeDate(_ dayOffset: Int) -> Date {
@@ -511,7 +494,8 @@ private struct TomorrowPlanPage: View {
     @State private var loadedExternalRefreshRevision = 0
     @State private var clock = TickClock(interval: 60)
     @State private var showingCategoryEditor = false
-    @State private var showingDayPresetApply = false
+    @State private var showingPresetDrawer = false
+    @State private var showingPresetSettings = false
 
     var body: some View {
         Group {
@@ -557,16 +541,8 @@ private struct TomorrowPlanPage: View {
                 selectedCategoryID = category.id
             }
         }
-        .sheet(isPresented: $showingDayPresetApply, onDismiss: {
-            reloadTimelinePlans()
-            onScheduleChanged()
-        }) {
-            DayPresetApplySheet(
-                targetDate: date,
-                existingPlans: timelinePlans
-            )
-            .presentationDetents([.medium, .large])
-            .presentationDragIndicator(.visible)
+        .sheet(isPresented: $showingPresetSettings) {
+            CalendarSettingsSheet()
         }
     }
 
@@ -583,9 +559,8 @@ private struct TomorrowPlanPage: View {
             HomeTomorrowTimelineCategoryPalette(
                 categories: categories,
                 selectedCategoryID: $selectedCategoryID,
-                onApplyDayPreset: {
-                    LiminalHaptics.openSheet()
-                    showingDayPresetApply = true
+                onOpenPresets: {
+                    showingPresetDrawer = true
                 },
                 onCreateCategory: {
                     LiminalHaptics.openSheet()
@@ -603,6 +578,12 @@ private struct TomorrowPlanPage: View {
                 planTitleBold: planTitleBold,
                 isInteractionEnabled: true,
                 isPageSwipeActive: false,
+                presetDrawerPresentation: $showingPresetDrawer,
+                presetDayConfiguration: TimelineDayPresetConfiguration(date: date) { _ in
+                    reloadTimelinePlans()
+                    onScheduleChanged()
+                },
+                onPresetManage: { showingPresetSettings = true },
                 visibleHour: $visibleHour,
                 selectedCategoryID: $selectedCategoryID,
                 isScheduleInteractionActive: $isScheduleInteractionActive,
@@ -732,51 +713,47 @@ private struct HomeTomorrowPlanningStatusIndicator: View {
 private struct HomeTomorrowTimelineCategoryPalette: View {
     let categories: [Category]
     @Binding var selectedCategoryID: UUID?
-    let onApplyDayPreset: () -> Void
+    let onOpenPresets: () -> Void
     let onCreateCategory: () -> Void
 
     var body: some View {
-        ScrollView(.horizontal) {
-            HStack(spacing: 8) {
-                Button(action: onApplyDayPreset) {
-                    TimelineCategoryStatusChip(
-                        title: "一日プリセット",
-                        systemImage: "calendar.badge.clock",
-                        accessibilityLabel: "一日プリセットを適用"
-                    )
-                }
-                .buttonStyle(.plain)
-
-                if categories.isEmpty {
-                    TimelineCategoryStatusChip(
-                        title: "カテゴリなし",
-                        systemImage: "square.grid.2x2",
-                        accessibilityLabel: "カテゴリなし"
-                    )
-                } else {
-                    ForEach(categories) { category in
-                        Button {
-                            selectedCategoryID = category.id
-                            LiminalHaptics.selection()
-                        } label: {
-                            TimelineCategoryChip(
-                                category: category,
-                                isSelected: category.id == selectedCategoryID
-                            )
+        HStack(spacing: 8) {
+            PresetEntryButton(action: onOpenPresets)
+            PresetEntryDivider()
+            ScrollView(.horizontal) {
+                HStack(spacing: 8) {
+                    if categories.isEmpty {
+                        TimelineCategoryStatusChip(
+                            title: "カテゴリなし",
+                            systemImage: "square.grid.2x2",
+                            accessibilityLabel: "カテゴリなし"
+                        )
+                    } else {
+                        ForEach(categories) { category in
+                            Button {
+                                selectedCategoryID = category.id
+                                LiminalHaptics.selection()
+                            } label: {
+                                TimelineCategoryChip(
+                                    category: category,
+                                    isSelected: category.id == selectedCategoryID
+                                )
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
                     }
-                }
 
-                Button(action: onCreateCategory) {
-                    TimelineCreateCategoryChip()
+                    Button(action: onCreateCategory) {
+                        TimelineCreateCategoryChip()
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
+                .padding(.trailing, 12)
+                .padding(.vertical, 2)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 2)
+            .scrollIndicators(.hidden)
         }
-        .scrollIndicators(.hidden)
+        .padding(.leading, 12)
         .padding(.top, 6)
     }
 }

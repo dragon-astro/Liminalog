@@ -63,6 +63,9 @@ struct CalendarDayView: View {
     }
 
     var body: some View {
+        #if DEBUG || LIMINALOG_UI_TESTING
+        let _ = CalendarExpandedDayDiagnostics.evaluated(date: date)
+        #endif
         ScrollView {
             VStack(spacing: 16) {
                 if showsPlanningStatus {
@@ -170,6 +173,8 @@ struct CalendarDayView: View {
                     .font(.title2.weight(.bold))
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
+                    .accessibilityIdentifier("calendar-day-summary-date")
+                    .accessibilityValue(DailyCardSnapshot.dayIdentifier(for: date, calendar: .japanese))
 
                 HStack(spacing: 7) {
                     DayHeaderPill(systemImage: "star.fill", text: "重要 \(importantPlans.count)", tint: CalendarSemanticColor.importantPlan)
@@ -248,13 +253,15 @@ struct CalendarDayView: View {
 
     private var scoreArea: some View {
         let summary = scoreSummary
+        let isUpcoming = isUpcomingDay
         return DayScoreCard(
             summary: summary,
             scoreText: scoreText(summary),
-            color: scoreColor(summary)
+            color: scoreColor(summary),
+            isUpcoming: isUpcoming
         )
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("スコア \(scoreText(summary)) \(summary.gradeText)")
+        .accessibilityLabel("スコア \(scoreText(summary)) \(DayScoreCard.gradeText(summary, isUpcoming: isUpcoming))")
     }
 
     private var importantPlanArea: some View {
@@ -333,7 +340,8 @@ struct CalendarDayView: View {
             compactEmptyState: true,
             editingChapter: $editingChapter,
             allowsChapterCreation: false,
-            focusedPlanID: highlightedPlanID
+            focusedPlanID: highlightedPlanID,
+            plansOnly: isUpcomingDay
         )
     }
 
@@ -404,15 +412,21 @@ struct CalendarDayView: View {
     }
 
     private var canCreatePlansForDay: Bool {
-        CalendarPlanCreationPreset.allowsCreation(for: date)
+        true
+    }
+
+    /// まだ来ていない日。点数・一致・実績は必ず0なので、0ではなく「--」で「まだ無い」と示す。
+    private var isUpcomingDay: Bool {
+        DayBoundary.dayStart(for: date, calendar: .japanese)
+            > DayBoundary.dayStart(for: clock.now, calendar: .japanese)
     }
 
     private func scoreText(_ summary: ScoreSummary) -> String {
-        summary.plannedDuration > 0 ? "\(Int(summary.totalScore.rounded()))" : "--"
+        summary.plannedDuration > 0 && !isUpcomingDay ? "\(Int(summary.totalScore.rounded()))" : "--"
     }
 
     private func scoreColor(_ summary: ScoreSummary) -> Color {
-        guard summary.plannedDuration > 0 else { return .secondary }
+        guard summary.plannedDuration > 0, !isUpcomingDay else { return .secondary }
         switch summary.totalScore {
         case 85...:
             return .green
@@ -490,7 +504,7 @@ struct CalendarDayView: View {
     private func preparePlanCreation() {
         guard let preset = CalendarPlanCreationPreset.make(
             for: date,
-            canCreateTimedPlan: canCreateTimedPlansForDay
+            canCreateTimedPlan: canCreateTimedPlansForDay, includesMemos: true
         ) else { return }
         pendingCreateDate = preset.initialDate
         pendingPlanStartsAsAllDay = preset.startsAsAllDay
@@ -585,21 +599,31 @@ private struct DayScoreCard: View {
     let summary: ScoreSummary
     let scoreText: String
     let color: Color
+    var isUpcoming = false
+
+    /// 未来日は予定が入っていても採点前なので、「予定待ち」ではなく「これから」。
+    static func gradeText(_ summary: ScoreSummary, isUpcoming: Bool) -> String {
+        isUpcoming ? "これから" : summary.gradeText
+    }
+
+    private var hasScore: Bool {
+        summary.plannedDuration > 0 && !isUpcoming
+    }
 
     var body: some View {
         HStack(alignment: .center, spacing: 14) {
-            DayScoreRing(score: summary.totalScore, hasScore: summary.plannedDuration > 0, color: color)
+            DayScoreRing(score: summary.totalScore, hasScore: hasScore, color: color)
 
             VStack(alignment: .leading, spacing: 10) {
-                Text(summary.gradeText)
+                Text(Self.gradeText(summary, isUpcoming: isUpcoming))
                     .font(.title3.weight(.bold))
                     .lineLimit(1)
                     .minimumScaleFactor(0.78)
 
                 HStack(spacing: 8) {
                     DayScoreMetric(title: "予定", value: compactDuration(summary.plannedDuration), tint: LiminalTheme.accent)
-                    DayScoreMetric(title: "一致", value: compactDuration(summary.matchedDuration), tint: color)
-                    DayScoreMetric(title: "実績", value: compactDuration(summary.recordedDuration), tint: Color(hex: "#6C5CE7"))
+                    DayScoreMetric(title: "一致", value: isUpcoming ? "--" : compactDuration(summary.matchedDuration), tint: color)
+                    DayScoreMetric(title: "実績", value: isUpcoming ? "--" : compactDuration(summary.recordedDuration), tint: Color(hex: "#6C5CE7"))
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -611,7 +635,7 @@ private struct DayScoreCard: View {
         }
         .overlay(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(color.opacity(summary.plannedDuration > 0 ? 0.28 : 0.12), lineWidth: 1)
+                .stroke(color.opacity(hasScore ? 0.28 : 0.12), lineWidth: 1)
         )
     }
 

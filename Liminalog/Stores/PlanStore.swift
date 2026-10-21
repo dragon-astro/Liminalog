@@ -45,11 +45,11 @@ final class PlanStore {
 
     func isScheduleLocked(_ plan: PlanBlock, now: Date? = nil) -> Bool {
         let reference = now ?? clock.now
-        return !plan.isAllDay && DayBoundary.dayStart(for: plan.startTime) <= DayBoundary.dayStart(for: reference)
+        return !plan.isAllDay && !plan.isMemo && DayBoundary.dayStart(for: plan.startTime) <= DayBoundary.dayStart(for: reference)
     }
 
-    func canCreate(startTime: Date, isAllDay: Bool = false, now: Date? = nil) -> Bool {
-        if isAllDay {
+    func canCreate(startTime: Date, isAllDay: Bool = false, isMemo: Bool = false, now: Date? = nil) -> Bool {
+        if isAllDay || isMemo {
             return true
         }
         let reference = now ?? clock.now
@@ -60,13 +60,14 @@ final class PlanStore {
         startTime: Date,
         endTime: Date,
         isAllDay: Bool = false,
+        isMemo: Bool = false,
         excluding planID: UUID? = nil,
         now: Date? = nil
     ) -> Bool {
-        guard canCreate(startTime: startTime, isAllDay: isAllDay, now: now) else { return false }
+        guard canCreate(startTime: startTime, isAllDay: isAllDay, isMemo: isMemo, now: now) else { return false }
         guard !isAllDay else { return true }
         guard endTime > startTime else { return false }
-        return !hasTimedPlanOverlap(startTime: startTime, endTime: endTime, excluding: planID)
+        return isMemo || !hasTimedPlanOverlap(startTime: startTime, endTime: endTime, excluding: planID)
     }
 
     func hasTimedPlanOverlap(startTime: Date, endTime: Date, excluding planID: UUID? = nil) -> Bool {
@@ -76,7 +77,9 @@ final class PlanStore {
     private func timedPlanOverlapIfAvailable(startTime: Date, endTime: Date, excluding planID: UUID? = nil) -> Bool? {
         guard startTime < endTime else { return false }
         let descriptor = FetchDescriptor<PlanBlock>(
-            predicate: #Predicate { !$0.isAllDay && $0.startTime < endTime },
+            predicate: #Predicate {
+                !$0.isAllDay && !$0.isMemo && $0.startTime < endTime && $0.endTime > startTime
+            },
             sortBy: [SortDescriptor(\.startTime)]
         )
         let candidates: [PlanBlock]
@@ -94,6 +97,25 @@ final class PlanStore {
 
     func plannedBlocks(on date: Date) -> [PlanBlock] {
         plannedBlocksIfAvailable(on: date) ?? []
+    }
+
+    /// Preserve the existing 09:00-first, 15-minute search with one bounded fetch.
+    func firstAvailableHourStart(on date: Date, calendar: Calendar = .japanese) -> Date? {
+        let boundary = DayBoundary(date: date, calendar: calendar)
+        let preferred = calendar.date(bySettingHour: 9, minute: 0, second: 0, of: date) ?? boundary.dayStart
+        let latestStart = calendar.date(byAdding: .hour, value: -1, to: boundary.dayEnd) ?? preferred
+        guard let plans = plannedBlocksIfAvailable(from: preferred, to: boundary.dayEnd) else { return nil }
+        let timedPlans = plans.filter { !$0.isAllDay && !$0.isMemo }
+        var candidate = preferred
+        while candidate <= latestStart {
+            let end = calendar.date(byAdding: .hour, value: 1, to: candidate) ?? candidate
+            if !timedPlans.contains(where: { $0.startTime < end && $0.endTime > candidate }) {
+                return candidate
+            }
+            guard let next = calendar.date(byAdding: .minute, value: 15, to: candidate), next > candidate else { break }
+            candidate = next
+        }
+        return nil
     }
 
     func plannedBlocksIfAvailable(on date: Date) -> [PlanBlock]? {
@@ -159,7 +181,7 @@ final class PlanStore {
                 id: $0.id,
                 start: $0.startTime,
                 end: $0.endTime,
-                isAllDay: $0.isAllDay
+                isAllDay: $0.isAllDay, isMemo: $0.isMemo
             )
         }
         let verdicts = DayPresetApplyPlanner.plan(
@@ -210,11 +232,12 @@ final class PlanStore {
                 title: normalizedTitle(snapshot.title, category: application.resolvedCategory),
                 startTime: interval.start,
                 endTime: interval.end,
-                isAllDay: snapshot.isAllDay,
+                isAllDay: snapshot.isAllDay, isMemo: snapshot.isMemo,
                 isImportant: snapshot.isImportant,
                 note: snapshot.note.flatMap { $0.isEmpty ? nil : $0 },
                 isPublic: snapshot.isPublic
             )
+            plan.reminderMinutesBefore = snapshot.reminderMinutesBefore
             plan.audienceFriendIDs = audienceFriendIDs
             plan.audienceSource = audienceSource
             plan.hasAudienceSnapshot = AudienceSnapshotPolicy.shouldSaveSnapshot(
@@ -254,16 +277,16 @@ final class PlanStore {
         guard !applications.isEmpty else { return nil }
         let snapshots = applications.map(\.snapshot)
         let verdicts = DayPresetApplyPlanner.plan(items: snapshots, targetDate: targetDate,
-            existing: existingPlans.map { .init(id: $0.id, start: $0.startTime, end: $0.endTime, isAllDay: $0.isAllDay) },
+            existing: existingPlans.map { .init(id: $0.id, start: $0.startTime, end: $0.endTime, isAllDay: $0.isAllDay, isMemo: $0.isMemo) },
             now: clock.now, calendar: calendar)
         guard verdicts.allSatisfy({ verdict in
             if verdict == .insertable { return true }
             if case .conflictsWithExisting = verdict { return true }
             return false
         }) else { return nil }
-        let incoming = snapshots.filter { !$0.isAllDay }.compactMap { $0.interval(on: targetDate, calendar: calendar) }
+        let incoming = snapshots.filter { !$0.isAllDay && !$0.isMemo }.compactMap { $0.interval(on: targetDate, calendar: calendar) }
         var changes: [PlanTemplateReplacement.Change] = []
-        for plan in existingPlans where !plan.isAllDay {
+        for plan in existingPlans where !plan.isAllDay && !plan.isMemo {
             let original = DateInterval(start: plan.startTime, end: max(plan.startTime, plan.endTime))
             let parts = PlanTemplateReplacement.remainingParts(of: original, excluding: incoming)
             guard parts != [original] else { continue }
@@ -272,7 +295,9 @@ final class PlanStore {
                     > DayBoundary.dayStart(for: clock.now, calendar: calendar),
                   !plan.hasExternalCalendarSource else { return nil }
             changes.append(.init(id: plan.id, title: plan.title, updatedAt: plan.updatedAt, original: original,
-                                 remaining: mode == .keepRemainders ? parts : []))
+                                 remaining: mode == .keepRemainders ? parts : [],
+                                 categoryName: plan.category?.name, colorHex: plan.category?.colorHex,
+                                 icon: plan.category?.icon))
         }
         return PlanTemplateReplacement(mode: mode, changes: changes.sorted {
             if $0.original.start != $1.original.start { return $0.original.start < $1.original.start }
@@ -287,6 +312,7 @@ final class PlanStore {
         startTime: Date,
         endTime: Date,
         isAllDay: Bool = false,
+        isMemo: Bool = false,
         isImportant: Bool = false,
         note: String? = nil,
         isPublic: Bool = true,
@@ -300,6 +326,7 @@ final class PlanStore {
             startTime: startTime,
             endTime: endTime,
             isAllDay: isAllDay,
+            isMemo: isMemo,
             isImportant: isImportant,
             note: note,
             isPublic: isPublic,
@@ -316,20 +343,23 @@ final class PlanStore {
         startTime: Date,
         endTime: Date,
         isAllDay: Bool = false,
+        isMemo: Bool = false,
         isImportant: Bool = false,
         note: String? = nil,
         isPublic: Bool = true,
         audienceFriendIDs: [UUID] = [],
         audienceSource: AudienceSource = .categoryDefaultSnapshot,
-        hasAudienceSnapshot: Bool = false
+        hasAudienceSnapshot: Bool = false,
+        beforeSave: ((PlanBlock) -> Bool)? = nil
     ) -> PlanBlock? {
-        guard canCreate(startTime: startTime, endTime: endTime, isAllDay: isAllDay) else { return nil }
+        guard canCreate(startTime: startTime, endTime: endTime, isAllDay: isAllDay, isMemo: isMemo) else { return nil }
         let plan = PlanBlock(
             category: category,
             title: normalizedTitle(title, category: category),
             startTime: startTime,
             endTime: max(endTime, startTime.addingTimeInterval(60)),
             isAllDay: isAllDay,
+            isMemo: isMemo,
             isImportant: isImportant,
             note: note.flatMap { $0.isEmpty ? nil : $0 },
             isPublic: isPublic
@@ -339,6 +369,7 @@ final class PlanStore {
         plan.hasAudienceSnapshot = hasAudienceSnapshot
         plan.updatedAt = clock.now
         modelContext.insert(plan)
+        guard beforeSave?(plan) ?? true else { modelContext.rollback(); return nil }
         return saveChanges(
             "plan add",
             changedPlanSourceID: plan.id,
@@ -354,18 +385,42 @@ final class PlanStore {
         startTime: Date,
         endTime: Date,
         isAllDay: Bool,
+        isMemo: Bool? = nil,
         isImportant: Bool,
         note: String?,
         isPublic: Bool,
         audienceFriendIDs: [UUID]? = nil,
         audienceSource: AudienceSource? = nil,
-        hasAudienceSnapshot: Bool? = nil
+        hasAudienceSnapshot: Bool? = nil,
+        approvedPromotion: [PlanMemoPromotionChange]? = nil,
+        promotionMode: PlanMemoPromotionMode = .keepRemainders,
+        beforeSave: ((PlanBlock) -> Bool)? = nil
     ) -> Bool {
+        let resolvedMemo = isMemo ?? plan.isMemo
+        var changedIDs: Set<UUID> = [plan.id]
+        var promotions: [PlanBlock] = []
+        if plan.isMemo && !resolvedMemo && !isAllDay {
+            guard let current = memoPromotionPreview(start: startTime, end: endTime, excluding: plan.id),
+                  approvedPromotion.map({ $0 == current }) ?? current.isEmpty else { return false }
+            guard let all = plannedBlocksIfAvailable(from: startTime, to: endTime) else { return false }
+            promotions = all.filter { current.map(\.id).contains($0.id) }
+        }
         var changedScoreDayStarts = affectedScoreDayStarts(start: plan.startTime, end: plan.endTime)
         if isScheduleLocked(plan) {
+            guard resolvedMemo == plan.isMemo else { return false }
             plan.isImportant = isImportant
         } else {
-            guard canCreate(startTime: startTime, endTime: endTime, isAllDay: isAllDay, excluding: plan.id) else { return false }
+            guard canCreate(startTime: startTime, isAllDay: isAllDay, isMemo: resolvedMemo),
+                  endTime > startTime,
+                  resolvedMemo || isAllDay || !promotions.isEmpty
+                    || !hasTimedPlanOverlap(startTime: startTime, endTime: endTime, excluding: plan.id)
+            else { return false }
+            let replacement = promotionMode.replacement(changes: promotions.map(PlanMemoPromotionChange.init),
+                start: startTime, end: endTime)
+            guard let result = applyReplacement(replacement, existingPlans: promotions) else { return false }
+            changedIDs.formUnion(result.ids)
+            changedScoreDayStarts.formUnion(result.days)
+            plan.isMemo = resolvedMemo
             plan.category = category
             plan.title = normalizedTitle(title, category: category)
             plan.startTime = startTime
@@ -386,9 +441,10 @@ final class PlanStore {
             plan.hasAudienceSnapshot = hasAudienceSnapshot
         }
         plan.updatedAt = clock.now
+        guard beforeSave?(plan) ?? true else { modelContext.rollback(); return false }
         return saveChanges(
             "plan update",
-            changedPlanSourceID: plan.id,
+            changedPlanSourceIDs: changedIDs,
             changedScoreDayStarts: changedScoreDayStarts
         )
     }
@@ -405,7 +461,7 @@ final class PlanStore {
         for change in meaningfulChanges {
             guard !change.plan.isAllDay,
                   !isScheduleLocked(change.plan),
-                  canCreate(startTime: change.startTime, isAllDay: false),
+                  canCreate(startTime: change.startTime, isAllDay: false, isMemo: change.plan.isMemo),
                   change.startTime < change.endTime
             else {
                 return false
@@ -535,10 +591,10 @@ final class PlanStore {
                                                                to: day, calendar: calendar) else {
                 return .failure(.invalidTime)
             }
-            guard canCreate(startTime: interval.start, isAllDay: source.isAllDay) else {
+            guard canCreate(startTime: interval.start, isAllDay: source.isAllDay, isMemo: source.isMemo) else {
                 return .failure(.unavailableDay)
             }
-            if !source.isAllDay {
+            if !source.isAllDay && !source.isMemo {
                 guard !intervals.contains(where: { $0.start < interval.end && $0.end > interval.start }) else {
                     return .failure(.incomingOverlap)
                 }
@@ -546,7 +602,7 @@ final class PlanStore {
             intervals.append(interval)
         }
         var changes: [PlanTemplateReplacement.Change] = []
-        for plan in existing where !source.isAllDay && !plan.isAllDay {
+        for plan in existing where !source.isAllDay && !source.isMemo && !plan.isAllDay && !plan.isMemo {
             if mode == .move && plan.id == source.id { continue }
             let original = DateInterval(start: plan.startTime, end: max(plan.startTime, plan.endTime))
             let remaining = PlanTemplateReplacement.remainingParts(of: original, excluding: intervals)
@@ -590,8 +646,10 @@ final class PlanStore {
             } else {
                 target = PlanBlock(category: source.category, title: source.title,
                                    startTime: interval.start, endTime: interval.end,
-                                   isAllDay: source.isAllDay, isImportant: source.isImportant,
+                                   isAllDay: source.isAllDay, isMemo: source.isMemo, isImportant: source.isImportant,
                                    note: source.note, isPublic: source.isPublic)
+                target.reminderMinutesBefore = source.reminderMinutesBefore
+                target.reminderDate = source.reminderDate
                 target.visibilityScope = source.visibilityScope
                 target.audienceFriendIDs = source.audienceFriendIDs
                 target.audienceSourceRawValue = source.audienceSourceRawValue
@@ -609,6 +667,14 @@ final class PlanStore {
         guard saveChanges("plan \(mode.rawValue)", changedPlanSourceIDs: changedIDs,
                           changedScoreDayStarts: changedDays) else { return .failure(.persistence) }
         return .success(intervals.count)
+    }
+
+    func memoPromotionPreview(start: Date, end: Date, excluding id: UUID) -> [PlanMemoPromotionChange]? {
+        guard end > start, canCreate(startTime: start),
+              let plans = plannedBlocksIfAvailable(from: start, to: end) else { return nil }
+        let conflicts = plans.filter { $0.id != id && !$0.isAllDay && !$0.isMemo }
+        guard conflicts.allSatisfy({ !isScheduleLocked($0) && !$0.hasExternalCalendarSource }) else { return nil }
+        return conflicts.map(PlanMemoPromotionChange.init).sorted { $0.id.uuidString < $1.id.uuidString }
     }
 
     private func normalizedTitle(_ title: String, category: Category?) -> String {
@@ -636,6 +702,7 @@ final class PlanStore {
         do {
             try modelContext.save()
             requestRefresh(action, changedPlanSourceIDs, changedScoreDayStarts)
+            NotificationCenter.default.post(name: .planSchedulingChanged, object: nil)
             return true
         } catch {
             NSLog("Liminalog: failed to save \(action): \(String(describing: error))")
@@ -668,7 +735,7 @@ final class PlanStore {
         let fetchStart = changes.map(\.startTime).min() ?? clock.now
         let fetchEnd = changes.map(\.endTime).max() ?? clock.now
         let descriptor = FetchDescriptor<PlanBlock>(
-            predicate: #Predicate { !$0.isAllDay && $0.startTime < fetchEnd && $0.endTime > fetchStart },
+            predicate: #Predicate { !$0.isAllDay && !$0.isMemo && $0.startTime < fetchEnd && $0.endTime > fetchStart },
             sortBy: [SortDescriptor(\.startTime)]
         )
         let candidates: [PlanBlock]
@@ -679,7 +746,9 @@ final class PlanStore {
             return false
         }
 
-        let intervals = candidates.map { plan in
+        let candidateIDs = Set(candidates.map(\.id))
+        let mainCandidates = candidates + changes.filter { !$0.plan.isMemo && !candidateIDs.contains($0.plan.id) }.map(\.plan)
+        let intervals = mainCandidates.map { plan in
             if let change = changesByID[plan.id] {
                 return (id: plan.id, start: change.startTime, end: change.endTime)
             }

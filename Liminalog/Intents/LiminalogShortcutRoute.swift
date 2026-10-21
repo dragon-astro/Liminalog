@@ -9,8 +9,11 @@ enum LiminalogShortcutRoute: String, CaseIterable {
     nonisolated private static let appGroupID = "group.app.YasudaRyuga.Liminalog"
     nonisolated private static let pendingRouteKey = "shortcut.pendingRoute"
 
-    nonisolated static func request(_ route: LiminalogShortcutRoute) {
-        guard let defaults = UserDefaults(suiteName: appGroupID) else {
+    nonisolated static func request(
+        _ route: LiminalogShortcutRoute,
+        defaults: UserDefaults? = UserDefaults(suiteName: appGroupID)
+    ) {
+        guard let defaults else {
             NSLog("Liminalog: skipped shortcut route request because app group UserDefaults was unavailable")
             return
         }
@@ -18,8 +21,14 @@ enum LiminalogShortcutRoute: String, CaseIterable {
         defaults.synchronize()
     }
 
-    nonisolated static func consumePendingRoute() -> LiminalogShortcutRoute? {
-        guard let defaults = UserDefaults(suiteName: appGroupID) else {
+    nonisolated static func consumePendingRoute(
+        defaults: UserDefaults? = UserDefaults(suiteName: appGroupID),
+        isRunningUITests: Bool = LiminalogRuntime.isRunningUITests
+    ) -> LiminalogShortcutRoute? {
+        // Fixtures use an isolated model container; real shortcut requests must
+        // neither redirect that launch nor be removed from the user's queue.
+        guard !isRunningUITests else { return nil }
+        guard let defaults else {
             NSLog("Liminalog: skipped shortcut route consumption because app group UserDefaults was unavailable")
             return nil
         }

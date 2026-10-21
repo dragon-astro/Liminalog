@@ -50,7 +50,7 @@ struct DailyReflectionCard: View {
 
     private var planSegments: [DailyRingSegment] {
         plans.compactMap { plan in
-            guard !plan.isAllDay else { return nil }
+            guard !plan.isAllDay && !plan.isMemo else { return nil }
             let start = max(plan.startTime, dayBoundary.dayStart)
             let end = min(plan.endTime, dayBoundary.dayEnd)
             guard end > start else { return nil }

@@ -34,10 +34,23 @@ enum StatsEngine {
             cursor = next
         }
 
+        let validDayStarts = Set(dates)
+        // Preserve the old whole-day clipping even if a caller supplies a partial day.
+        let bucketInterval = DateInterval(
+            start: dates.first ?? interval.start,
+            end: dates.last.map { DayBoundary(date: $0, calendar: calendar).dayEnd } ?? interval.end
+        )
+        let plansByDay = DayIntervalBuckets.make(
+            plans, interval: bucketInterval, calendar: calendar,
+            validDayStarts: validDayStarts, start: \.startTime, end: \.endTime
+        )
+        let chaptersByDay = DayIntervalBuckets.make(
+            chapters, interval: bucketInterval, calendar: calendar,
+            validDayStarts: validDayStarts, start: \.startTime, end: { $0.endTime ?? now }
+        )
         return dates.map { date in
-            let boundary = DayBoundary(date: date, calendar: calendar)
-            let dayPlans = plans.filter { $0.startTime < boundary.dayEnd && $0.endTime > boundary.dayStart }
-            let dayChapters = chapters.filter { $0.startTime < boundary.dayEnd && ($0.endTime ?? now) > boundary.dayStart }
+            let dayPlans = plansByDay[date] ?? []
+            let dayChapters = chaptersByDay[date] ?? []
             return ScoreCalculator.summary(
                 date: date,
                 plans: dayPlans,

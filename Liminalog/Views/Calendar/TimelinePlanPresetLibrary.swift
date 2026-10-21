@@ -78,6 +78,14 @@ final class TimelinePlanPresetInteractionCoordinator {
 }
 
 enum TimelinePlanPresetPlacementGeometry {
+    static func snapshot(_ source: PlanTemplateSnapshot, placementMode: PlanPresetPlacementMode,
+                         startMinute: Int, horizontalFraction: CGFloat, currentIsMemo: Bool) -> PlanTemplateSnapshot? {
+        guard var snapshot = placementMode == .fixedTime ? source : source.placed(at: startMinute) else { return nil }
+        snapshot.isMemo = PlanTimelineKindPolicy.memo(atFraction: horizontalFraction,
+            horizontalMovement: 0, current: currentIsMemo, threshold: 0)
+        return snapshot
+    }
+
     static let bottomGripClearance: CGFloat = 8
 
     static func axisY(
@@ -110,6 +118,13 @@ enum TimelinePlanPresetLauncherPlacement {
     case externalControl
 }
 
+/// ドロワーに「一日」タブを出すための対象日。対象日が決まっている画面では選べない。
+struct TimelineDayPresetConfiguration {
+    var date: Date
+    var allowsDateSelection = false
+    var onApplied: (Date) -> Void = { _ in }
+}
+
 struct TimelinePlanPresetLibrary: View {
     let presets: [PlanPreset]
     let categories: [Category]
@@ -120,6 +135,15 @@ struct TimelinePlanPresetLibrary: View {
     let launcherPlacement: TimelinePlanPresetLauncherPlacement
     private let externalIsPresented: Binding<Bool>?
     private let onDismiss: () -> Void
+    private let dayPresets: TimelineDayPresetConfiguration?
+    private let onManage: (() -> Void)?
+
+    @Environment(ChapterStore.self) private var store
+    @AppStorage(PresetDrawerKind.storageKey) private var kindRawValue = PresetDrawerKind.plan.rawValue
+    @State private var dayTargetDate = Date()
+    @State private var dayApplyTarget: DayPresetApplyTarget?
+    @State private var didApplyDayPreset = false
+    @State private var opensManageAfterDismiss = false
 
     @State private var internalIsPresented = false
     @State private var searchText = ""
@@ -137,6 +161,8 @@ struct TimelinePlanPresetLibrary: View {
         onDraggingChanged: @escaping (Bool) -> Void,
         launcherPlacement: TimelinePlanPresetLauncherPlacement = .bottomTrailing,
         isPresented: Binding<Bool>? = nil,
+        dayPresets: TimelineDayPresetConfiguration? = nil,
+        onManage: (() -> Void)? = nil,
         onDismiss: @escaping () -> Void = {}
     ) {
         self.presets = presets
@@ -147,6 +173,8 @@ struct TimelinePlanPresetLibrary: View {
         self.onDraggingChanged = onDraggingChanged
         self.launcherPlacement = launcherPlacement
         self.externalIsPresented = isPresented
+        self.dayPresets = dayPresets
+        self.onManage = onManage
         self.onDismiss = onDismiss
     }
 
@@ -191,6 +219,22 @@ struct TimelinePlanPresetLibrary: View {
     private var drawer: some View {
         drawerContents
             .calendarDrawerStyle(selection: $selectedPresentationDetent)
+            .onAppear {
+                if let dayPresets { dayTargetDate = dayPresets.date }
+                if dayPresets != nil, selectedKind == .day {
+                    selectedPresentationDetent = CalendarDrawerStyle.expanded
+                }
+            }
+            .sheet(item: $dayApplyTarget, onDismiss: finishDayPresetApply) { target in
+                DayPresetApplySheet(
+                    targetDate: target.date,
+                    existingPlans: existingPlans(around: target.date),
+                    initialPresetID: target.presetID,
+                    onAppliedToDate: { _ in didApplyDayPreset = true }
+                )
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+            }
             .background {
                 CalendarSheetRetreatBridge(
                     isRetreated: isDurationDragActive
@@ -219,7 +263,73 @@ struct TimelinePlanPresetLibrary: View {
         .accessibilityLabel("予定プリセットを開く")
     }
 
+    @ViewBuilder
     private var drawerContents: some View {
+        if dayPresets != nil {
+            kindDrawerContents
+        } else {
+            planDrawerContents
+        }
+    }
+
+    /// 入口を1つにした画面のドロワー。見出しの位置で「予定｜一日」を切り替える。
+    private var kindDrawerContents: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 4) {
+                PresetKindTabs(selection: kindSelection)
+                Spacer()
+                if onManage != nil {
+                    PresetManageLink {
+                        opensManageAfterDismiss = true
+                        closeDrawer()
+                    }
+                }
+                Button {
+                    closeDrawer()
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.title3)
+                        .foregroundStyle(LiminalTheme.secondaryText)
+                        .frame(minWidth: 44, minHeight: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("予定プリセットを閉じる")
+            }
+            .frame(height: CalendarDrawerStyle.headerHeight)
+            .padding(.horizontal, CalendarDrawerStyle.horizontalInset - 4)
+
+            switch selectedKind {
+            case .plan:
+                planLibraryBody
+            case .day:
+                DayPresetDrawerList(
+                    targetDate: $dayTargetDate,
+                    allowsDateSelection: dayPresets?.allowsDateSelection ?? false
+                ) { preset in
+                    dayApplyTarget = DayPresetApplyTarget(presetID: preset.id, date: dayTargetDate)
+                }
+                .padding(.top, 4)
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var planLibraryBody: some View {
+        VStack(spacing: 0) {
+            quickShelf
+                .padding(.bottom, 8)
+
+            Divider()
+
+            compactControls
+                .padding(.vertical, 7)
+
+            fullLibrary
+        }
+    }
+
+    private var planDrawerContents: some View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
                 Label("予定プリセット", systemImage: "bookmark.fill")
@@ -238,28 +348,14 @@ struct TimelinePlanPresetLibrary: View {
             .frame(height: CalendarDrawerStyle.headerHeight)
             .padding(.horizontal, CalendarDrawerStyle.horizontalInset)
 
-            quickShelf
-                .padding(.bottom, 8)
-
-            Divider()
-
-            compactControls
-                .padding(.vertical, 7)
-
-            fullLibrary
+            planLibraryBody
         }
         .frame(maxWidth: .infinity)
     }
 
     private var quickShelf: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(quickPresets) { preset in
-                    tile(preset, style: .quick)
-                }
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 1)
+        RecentPlanPresetShelf(presets: presets) { preset in
+            tile(preset, style: .quick)
         }
     }
 
@@ -292,7 +388,7 @@ struct TimelinePlanPresetLibrary: View {
 
     @ViewBuilder
     private func tile(_ preset: PlanPreset, style: PlanPresetLibraryCardStyle) -> some View {
-        if preset.isAllDay || preset.placementMode == .fixedTime {
+        if preset.isAllDay {
             tileContent(preset, style: style)
                 .onTapGesture {
                     onFixedTimeTap(preset)
@@ -302,25 +398,35 @@ struct TimelinePlanPresetLibrary: View {
                 .accessibilityAddTraits(.isButton)
                 .accessibilityAction(named: "追加") { onFixedTimeTap(preset) }
         } else {
-            durationTile(preset, style: style)
-                .overlay {
-                    TimelinePlanPresetLongPressDragSurface(
-                        minimumDuration: durationLongPressMinimumDuration,
-                        maximumDistance: durationLongPressMaximumDistance
-                    ) { event in
-                        handleDurationDragEvent(event, preset: preset)
-                    }
-                }
+            timedTile(preset, style: style)
         }
     }
 
-    private func durationTile(
-        _ preset: PlanPreset,
-        style: PlanPresetLibraryCardStyle
-    ) -> some View {
-        tileContent(preset, style: style)
+    @ViewBuilder
+    private func timedTile(_ preset: PlanPreset, style: PlanPresetLibraryCardStyle) -> some View {
+        let card = tileContent(preset, style: style)
             .accessibilityElement(children: .combine)
-            .accessibilityLabel("\(preset.displayName)、\(durationText(preset.snapshot.durationMinutes))、長押しして配置")
+            .overlay {
+                TimelinePlanPresetLongPressDragSurface(
+                    minimumDuration: durationLongPressMinimumDuration,
+                    maximumDistance: durationLongPressMaximumDistance,
+                    onTap: preset.placementMode == .fixedTime ? {
+                        onFixedTimeTap(preset)
+                        closeDrawer()
+                    } : nil
+                ) { event in
+                    handleDurationDragEvent(event, preset: preset)
+                }
+            }
+        if preset.placementMode == .fixedTime {
+            card
+                .accessibilityLabel("\(preset.displayName)、\(fixedTimeText(preset))")
+                .accessibilityHint("タップで追加、長押しで配置")
+                .accessibilityAddTraits(.isButton)
+                .accessibilityAction(named: "追加") { onFixedTimeTap(preset); closeDrawer() }
+        } else {
+            card.accessibilityLabel("\(preset.displayName)、\(durationText(preset.snapshot.durationMinutes))、長押しして配置")
+        }
     }
 
     private func tileContent(_ preset: PlanPreset, style: PlanPresetLibraryCardStyle) -> some View {
@@ -422,19 +528,47 @@ struct TimelinePlanPresetLibrary: View {
     private func handleDrawerDismiss() {
         resetPresentation()
         onDismiss()
+        if opensManageAfterDismiss {
+            opensManageAfterDismiss = false
+            onManage?()
+        }
+    }
+
+    private var selectedKind: PresetDrawerKind {
+        PresetDrawerKind(rawValue: kindRawValue) ?? .plan
+    }
+
+    private var kindSelection: Binding<PresetDrawerKind> {
+        Binding {
+            selectedKind
+        } set: { kind in
+            kindRawValue = kind.rawValue
+            // 一日の一覧はカードが縦に並ぶので、開いた高さを一段上げる。
+            if kind == .day {
+                selectedPresentationDetent = CalendarDrawerStyle.expanded
+            }
+        }
+    }
+
+    private func existingPlans(around date: Date) -> [PlanBlock] {
+        let start = Calendar.japanese.startOfDay(for: date)
+        let end = Calendar.japanese.date(byAdding: .day, value: 2, to: start) ?? start
+        return store.plannedBlocks(from: start, to: end)
+    }
+
+    /// 確認画面で丸ごと追加した時だけ、ドロワーも閉じて呼び出し元に知らせる。
+    private func finishDayPresetApply() {
+        guard didApplyDayPreset else { return }
+        didApplyDayPreset = false
+        let date = dayTargetDate
+        closeDrawer()
+        dayPresets?.onApplied(date)
     }
 
     private func closeDrawer() {
         draggedPresetID = nil
         onDraggingChanged(false)
         drawerPresentation.wrappedValue = false
-    }
-
-    private var quickPresets: [PlanPreset] {
-        Array(presets.sorted {
-            if $0.useCount == $1.useCount { return $0.sortOrder < $1.sortOrder }
-            return $0.useCount > $1.useCount
-        }.prefix(6))
     }
 
     private var filteredPresets: [PlanPreset] {
@@ -857,7 +991,7 @@ struct PlanPresetLibraryCard: View {
                 }
             }
 
-            Text(category == nil ? "\(summary) · カテゴリ未設定" : summary)
+            Text((preset.isMemo ? "予定メモ · " : "") + (category == nil ? "\(summary) · カテゴリ未設定" : summary))
                 .font(.caption2.monospacedDigit())
                 .foregroundStyle(LiminalTheme.secondaryText)
                 .lineLimit(1)

@@ -118,9 +118,7 @@ struct CategoryAudiencePickerSheet: View {
                         }
                     }
                 } header: {
-                    Text("個別の友達")
-                } footer: {
-                    Text("友達セットのメンバーは保存時点ではなく、新規チャプター/予定を作る時点の最新メンバーで展開されます。")
+                    SettingsSectionHeader(title: "個別の友達", explanation: "友達セットのメンバーは、新規チャプター/予定を作る時点の最新メンバーで展開されます。")
                 }
 
             }
@@ -313,7 +311,13 @@ struct CategoryAudiencePickerSheet: View {
     }
 }
 
-struct AudienceSnapshotPickerSheet: View {
+extension AudienceSnapshotPickerSheet where Header == EmptyView {
+    init(audienceFriendIDs: Binding<[UUID]>) {
+        self.init(audienceFriendIDs: audienceFriendIDs) { EmptyView() }
+    }
+}
+
+struct AudienceSnapshotPickerSheet<Header: View>: View {
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \FriendSet.sortOrder) private var friendSets: [FriendSet]
     @Query(sort: \Friend.displayName) private var friends: [Friend]
@@ -321,6 +325,13 @@ struct AudienceSnapshotPickerSheet: View {
     @Binding var audienceFriendIDs: [UUID]
     @State private var expandedFriendSetIDs: Set<UUID> = []
     @State private var searchText = ""
+    /// 一覧の上に置く呼び出し元専用の欄（予定編集の「公開相手の決め方」など）。
+    private let header: Header
+
+    init(audienceFriendIDs: Binding<[UUID]>, @ViewBuilder header: () -> Header) {
+        self._audienceFriendIDs = audienceFriendIDs
+        self.header = header()
+    }
 
     private var acceptedFriends: [Friend] {
         friends.filter { $0.status == .accepted }
@@ -341,6 +352,8 @@ struct AudienceSnapshotPickerSheet: View {
     var body: some View {
         NavigationStack {
             List {
+                header
+
                 Section("友達セット") {
                     if friendSets.isEmpty {
                         Text("友達セットはまだありません")
@@ -410,9 +423,7 @@ struct AudienceSnapshotPickerSheet: View {
                         }
                     }
                 } header: {
-                    Text("個別の友達")
-                } footer: {
-                    Text("友達セットを選ぶと、現在のメンバーをこのチャプター/予定の公開相手として保存します。")
+                    SettingsSectionHeader(title: "個別の友達", explanation: "友達セットを選ぶと、現在のメンバーをこのチャプター/予定の公開相手として保存します。")
                 }
             }
             .navigationTitle("公開相手")

@@ -157,6 +157,11 @@ struct FriendSharedPlanSnapshot: Codable, Identifiable, Hashable {
     var title: String
     var startTime: Date
     var endTime: Date
+    private var memo: Bool? = nil
+    nonisolated var isMemo: Bool {
+        get { memo ?? false }
+        set { memo = newValue ? true : nil }
+    }
     var isAllDay: Bool
     var isImportant: Bool
     var categoryTitle: String
@@ -171,6 +176,7 @@ struct FriendSharedPlanSnapshot: Codable, Identifiable, Hashable {
         startTime: Date,
         endTime: Date,
         isAllDay: Bool = false,
+        isMemo: Bool = false,
         isImportant: Bool = false,
         categoryTitle: String = "",
         categoryIconName: String = "calendar",
@@ -182,6 +188,7 @@ struct FriendSharedPlanSnapshot: Codable, Identifiable, Hashable {
         self.title = title
         self.startTime = startTime
         self.endTime = endTime
+        self.memo = isMemo ? true : nil
         self.isAllDay = isAllDay
         self.isImportant = isImportant
         self.categoryTitle = categoryTitle
@@ -196,6 +203,7 @@ struct FriendSharedPlanSnapshot: Codable, Identifiable, Hashable {
         self.title = plan.title
         self.startTime = plan.startTime
         self.endTime = plan.endTime
+        self.memo = plan.isMemo ? true : nil
         self.isAllDay = plan.isAllDay
         self.isImportant = plan.isImportant
         self.categoryTitle = plan.category?.name ?? ""

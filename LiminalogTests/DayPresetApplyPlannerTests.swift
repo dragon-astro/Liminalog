@@ -59,7 +59,7 @@ struct DayPresetApplyPlannerTests {
         (60, 60),
         (60, 60 + 24 * 60 + 1),
         (24 * 60, 24 * 60 + 60)
-    ])
+    ] as [(Int, Int)])
     func invalidTimedRanges(start: Int, end: Int) throws {
         let now = try date(2026, 9, 2, 12, 0)
         let target = try date(2026, 9, 3, 12, 0)

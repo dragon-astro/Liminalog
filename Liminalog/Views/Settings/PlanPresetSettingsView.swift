@@ -12,84 +12,100 @@ struct PlanPresetSettingsView: View {
     @State private var showingCreateSheet = false
     @State private var isEditingPresets = false
     @State private var editingPreset: PlanPreset?
+    @State private var recentPresetToRegister: PlanPreset?
     @State private var searchText = ""
     @State private var selectedCategoryID: UUID?
     @State private var operationError: String?
 
     var body: some View {
-        Group {
-            if presets.isEmpty {
-                ContentUnavailableView {
-                    Label("予定プリセットはまだありません", systemImage: "bookmark")
-                } description: {
-                    Text("予定作成画面のメニューから、入力中の内容をプリセットに保存できます。")
-                } actions: {
-                    Button("新しく作る") {
-                        showingCreateSheet = true
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                RecentPlanPresetShelf(presets: presets) { preset in
+                    Button {
+                        recentPresetToRegister = preset
+                    } label: {
+                        PlanPresetLibraryCard(preset: preset, category: category(for: preset),
+                                              style: .quick, trailingSymbol: "plus.circle.fill")
                     }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("\(preset.displayName)をプリセットに登録")
                 }
-            } else {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 20) {
-                        presetSectionHeader(
-                            title: "よく使う",
-                            systemImage: "clock.arrow.circlepath"
-                        )
-
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 8) {
-                                ForEach(quickPresets) { preset in
-                                    quickPresetButton(preset)
+                .allowsHitTesting(!isEditingPresets)
+                .opacity(isEditingPresets ? 0.55 : 1)
+                if presets.contains(where: { $0.recurrenceData != nil }) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Label("繰り返しの予定", systemImage: "repeat").font(.headline)
+                        ForEach(presets.filter { $0.recurrenceData != nil }) { preset in
+                            Button { editingPreset = preset } label: {
+                                HStack {
+                                    Circle().fill(category(for: preset)?.displayColor ?? .secondary).frame(width: 8, height: 8)
+                                    Text(preset.displayName)
+                                    Spacer()
+                                    Text(PlanRecurrenceRule.decode(preset.recurrenceData)?.summary ?? "設定を確認")
+                                        .font(.caption).foregroundStyle(.secondary)
+                                    Image(systemName: "chevron.right").font(.caption)
                                 }
                             }
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 1)
+                            .buttonStyle(.plain)
                         }
-                        .allowsHitTesting(!isEditingPresets)
-                        .opacity(isEditingPresets ? 0.55 : 1)
-
-                        presetSectionHeader(
-                            title: "すべてのプリセット",
-                            systemImage: "square.grid.3x3.fill"
-                        )
-
-                        settingsFilterControls
-                            .padding(.horizontal, 16)
-                            .allowsHitTesting(!isEditingPresets)
-                            .opacity(isEditingPresets ? 0.5 : 1)
-
-                        Group {
-                            if displayedPresets.isEmpty {
-                                VStack(spacing: 8) {
-                                    Image(systemName: "magnifyingglass")
-                                        .font(.title2)
-                                    Text("一致するプリセットがありません")
-                                        .font(.subheadline.weight(.semibold))
-                                }
-                                .foregroundStyle(LiminalTheme.secondaryText)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 28)
-                            } else {
-                                PlanPresetEditableGrid(
-                                    presets: displayedPresets,
-                                    isEditing: isEditingPresets,
-                                    categoryForPreset: category(for:),
-                                    onEdit: { editingPreset = $0 },
-                                    onDelete: deletePreset,
-                                    onMove: movePresets(from:to:)
-                                )
-                            }
-                        }
-                        .padding(.horizontal, 16)
-
                     }
-                    .padding(.vertical, 16)
+                    .padding(.horizontal, 16)
+                }
+                if presets.isEmpty {
+                    ContentUnavailableView {
+                        Label("予定プリセットはまだありません", systemImage: "bookmark")
+                    } description: {
+                        Text("予定作成画面のメニューから、入力中の内容をプリセットに保存できます。")
+                    } actions: {
+                        Button("新しく作る") {
+                            showingCreateSheet = true
+                        }
+                    }
+                } else {
+                    presetSectionHeader(
+                        title: "すべてのプリセット",
+                        systemImage: "square.grid.3x3.fill"
+                    )
+
+                    settingsFilterControls
+                        .padding(.horizontal, 16)
+                        .allowsHitTesting(!isEditingPresets)
+                        .opacity(isEditingPresets ? 0.5 : 1)
+
+                    Group {
+                        if displayedPresets.isEmpty {
+                            VStack(spacing: 8) {
+                                Image(systemName: "magnifyingglass")
+                                    .font(.title2)
+                                Text("一致するプリセットがありません")
+                                    .font(.subheadline.weight(.semibold))
+                            }
+                            .foregroundStyle(LiminalTheme.secondaryText)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 28)
+                        } else {
+                            PlanPresetEditableGrid(
+                                presets: displayedPresets,
+                                isEditing: isEditingPresets,
+                                categoryForPreset: category(for:),
+                                onEdit: { editingPreset = $0 },
+                                onDelete: deletePreset,
+                                onMove: movePresets(from:to:)
+                            )
+                        }
+                    }
+                    .padding(.horizontal, 16)
+
                 }
             }
+            .padding(.vertical, 16)
         }
         .background(LiminalTheme.plainSheetBackground.ignoresSafeArea())
         .navigationTitle("予定プリセット")
         .navigationBarTitleDisplayMode(.inline)
+        .onChange(of: presets.isEmpty) { _, isEmpty in
+            if isEmpty { isEditingPresets = false }
+        }
         .toolbar {
             if !presets.isEmpty {
                 ToolbarItem(placement: .topBarLeading) {
@@ -102,6 +118,9 @@ struct PlanPresetSettingsView: View {
         }
         .sheet(isPresented: $showingCreateSheet) {
             PlanPresetEditSheet(preset: nil)
+        }
+        .sheet(item: $recentPresetToRegister) { candidate in
+            PlanPresetEditSheet(preset: nil, initialPreset: candidate)
         }
         .sheet(item: $editingPreset) { preset in
             PlanPresetEditSheet(preset: preset)
@@ -116,13 +135,6 @@ struct PlanPresetSettingsView: View {
     private func category(for preset: PlanPreset) -> Category? {
         guard let categoryID = preset.categoryID else { return nil }
         return categories.first { $0.id == categoryID }
-    }
-
-    private var quickPresets: [PlanPreset] {
-        Array(presets.sorted {
-            if $0.useCount == $1.useCount { return $0.sortOrder < $1.sortOrder }
-            return $0.useCount > $1.useCount
-        }.prefix(6))
     }
 
     private var displayedPresets: [PlanPreset] {
@@ -190,33 +202,6 @@ struct PlanPresetSettingsView: View {
             .font(.headline)
             .foregroundStyle(LiminalTheme.text)
             .padding(.horizontal, 16)
-    }
-
-    private func quickPresetButton(_ preset: PlanPreset) -> some View {
-        Button {
-            editingPreset = preset
-        } label: {
-            PlanPresetLibraryCard(
-                preset: preset,
-                category: category(for: preset),
-                style: .quick,
-                trailingSymbol: nil
-            )
-        }
-        .buttonStyle(.plain)
-        .contextMenu {
-            Button {
-                editingPreset = preset
-            } label: {
-                Label("編集", systemImage: "pencil")
-            }
-            Button(role: .destructive) {
-                deletePreset(preset)
-            } label: {
-                Label("削除", systemImage: "trash")
-            }
-        }
-        .accessibilityLabel("\(preset.displayName)を編集")
     }
 
     private func deletePreset(_ preset: PlanPreset) {
@@ -496,12 +481,17 @@ struct PlanPresetEditSheet: View {
     @Query(sort: \CategorySet.sortOrder) private var categorySets: [CategorySet]
 
     private let preset: PlanPreset?
+    private let initialCategoryID: UUID?
+    private let hasInitialContent: Bool
 
+    @State private var recurrenceRule: PlanRecurrenceRule?
+    @State private var reminderMinutesBefore: Int?
     @State private var title: String
     @State private var selectedCategory: Category?
     @State private var startTime: Date
     @State private var endMinute: Int
     @State private var durationMinutes: Int
+    @State private var isMemo: Bool
     @State private var isAllDay: Bool
     @State private var isImportant: Bool
     @State private var note: String
@@ -511,9 +501,14 @@ struct PlanPresetEditSheet: View {
     @State private var activeTimeEditor: PlanPresetTimeEditor?
     @State private var saveError: String?
 
-    init(preset: PlanPreset?) {
+    init(preset: PlanPreset?, initialPreset: PlanPreset? = nil) {
         self.preset = preset
-        let snapshot = preset?.snapshot ?? PlanTemplateSnapshot(
+        _recurrenceRule = State(initialValue: PlanRecurrenceRule.decode(preset?.recurrenceData))
+        _reminderMinutesBefore = State(initialValue: (preset ?? initialPreset)?.reminderMinutesBefore)
+        let initial = preset ?? initialPreset
+        self.hasInitialContent = initial != nil
+        self.initialCategoryID = initial?.categoryID
+        let snapshot = initial?.snapshot ?? PlanTemplateSnapshot(
             title: "",
             categoryID: nil,
             startMinute: 9 * 60,
@@ -524,26 +519,33 @@ struct PlanPresetEditSheet: View {
             isPublic: true
         )
         let referenceDay = Calendar.current.startOfDay(for: Date(timeIntervalSinceReferenceDate: 0))
-        _title = State(initialValue: preset?.displayName ?? snapshot.title)
+        _title = State(initialValue: initial?.displayName ?? snapshot.title)
         _selectedCategory = State(initialValue: nil)
         _startTime = State(initialValue: Self.date(minute: snapshot.startMinute, from: referenceDay))
         _endMinute = State(initialValue: snapshot.endMinute)
         _durationMinutes = State(initialValue: snapshot.durationMinutes)
+        _isMemo = State(initialValue: snapshot.isMemo)
         _isAllDay = State(initialValue: snapshot.isAllDay)
         _isImportant = State(initialValue: snapshot.isImportant)
         _note = State(initialValue: snapshot.note ?? "")
         _isPublic = State(initialValue: snapshot.isPublic)
-        _placementMode = State(initialValue: preset?.placementMode ?? .duration)
+        _placementMode = State(initialValue: initial?.placementMode ?? .duration)
     }
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 14) {
-                    presetPreviewCard
                     identityCard
-                    categoryCard
                     timeCard
+                    PlanEditorCard(tint: selectedCategory?.displayColor ?? LiminalTheme.accent) {
+                        PlanKindPicker(isMemo: $isMemo)
+                    }
+                    categoryCard
+                    PlanEditorCard(tint: selectedCategory?.displayColor ?? LiminalTheme.accent) {
+                        PlanRecurrenceControls(rule: $recurrenceRule)
+                        PlanReminderControls(minutesBefore: $reminderMinutesBefore, isAllDay: isAllDay)
+                    }
                     noteCard
                     visibilityCard
                     if preset != nil {
@@ -566,11 +568,15 @@ struct PlanPresetEditSheet: View {
                         .disabled(!canSave)
                 }
             }
+            .onChange(of: recurrenceRule != nil) { _, enabled in
+                if enabled { placementMode = .fixedTime }
+            }
             .onAppear {
+                if recurrenceRule != nil { placementMode = .fixedTime }
                 guard selectedCategory == nil else { return }
-                if let categoryID = preset?.categoryID {
+                if let categoryID = initialCategoryID {
                     selectedCategory = categories.first { $0.id == categoryID }
-                } else if preset == nil {
+                } else if !hasInitialContent {
                     selectedCategory = categories.first
                 }
             }
@@ -659,11 +665,11 @@ struct PlanPresetEditSheet: View {
     private var identityCard: some View {
         PlanEditorCard(tint: selectedTint) {
             VStack(alignment: .leading, spacing: 12) {
-                PlanEditorSectionHeader(
-                    title: "予定名",
-                    systemImage: "text.cursor",
-                    tint: selectedTint
-                )
+                HStack {
+                    PlanEditorSectionHeader(title: "予定名", systemImage: "text.cursor", tint: selectedTint)
+                    Spacer()
+                    PlanImportanceButton(isImportant: $isImportant)
+                }
 
                 TextField("予定名", text: $title)
                     .font(.headline)
@@ -728,11 +734,6 @@ struct PlanPresetEditSheet: View {
                     tint: selectedTint
                 )
 
-                Toggle(isOn: $isImportant) {
-                    Label("重要な予定", systemImage: "star.fill")
-                }
-                .tint(selectedTint)
-
                 Toggle(isOn: $isAllDay) {
                     Label("終日", systemImage: "sun.max.fill")
                 }
@@ -745,6 +746,7 @@ struct PlanPresetEditSheet: View {
                         }
                     }
                     .pickerStyle(.segmented)
+                    .disabled(recurrenceRule != nil)
 
                     VStack(spacing: 0) {
                         if placementMode == .duration {
@@ -980,7 +982,9 @@ struct PlanPresetEditSheet: View {
             isAllDay: isAllDay,
             isImportant: isImportant,
             note: note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : note,
-            isPublic: isPublic
+            isPublic: isPublic,
+            reminderMinutesBefore: reminderMinutesBefore,
+            isMemo: isMemo
         )
     }
 
@@ -991,13 +995,15 @@ struct PlanPresetEditSheet: View {
                 preset,
                 name: title,
                 snapshot: snapshot,
-                placementMode: placementMode
+                placementMode: recurrenceRule == nil ? placementMode : .fixedTime,
+                recurrence: .some(recurrenceRule)
             )
         } else {
             didSave = presetStore.createPlanPreset(
                 name: title,
                 snapshot: snapshot,
-                placementMode: placementMode
+                placementMode: recurrenceRule == nil ? placementMode : .fixedTime,
+                recurrence: .some(recurrenceRule)
             ) != nil
         }
         guard didSave else {

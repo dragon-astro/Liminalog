@@ -21,12 +21,15 @@ final class PlanPreset {
     var categoryID: UUID?
     var startMinute: Int = 9 * 60
     var endMinute: Int = 10 * 60
+    var isMemo: Bool = false
     var isAllDay: Bool = false
     var isImportant: Bool = false
     var note: String?
     var isPublic: Bool = true
+    var reminderMinutesBefore: Int?
     var placementModeRawValue: String = PlanPresetPlacementMode.duration.rawValue
     var sortOrder: Int = 0
+    var recurrenceData: Data?
     var lastUsedAt: Date?
     var useCount: Int = 0
     var createdAt: Date = Date()
@@ -75,7 +78,9 @@ final class PlanPreset {
             isAllDay: isAllDay,
             isImportant: isImportant,
             note: note,
-            isPublic: isPublic
+            isPublic: isPublic,
+            reminderMinutesBefore: reminderMinutesBefore,
+            isMemo: isMemo
         )
     }
 
@@ -101,6 +106,7 @@ final class DayPreset {
     var itemsData: Data = Data()
     var itemCount: Int = 0
     var sortOrder: Int = 0
+    var recurrenceData: Data?
     var lastUsedAt: Date?
     var useCount: Int = 0
     var createdAt: Date = Date()

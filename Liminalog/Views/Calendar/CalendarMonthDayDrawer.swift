@@ -17,7 +17,8 @@ struct CalendarMonthDayDrawer: View {
     let highlightedPlanID: UUID?
     let visibleCategoryIDs: Set<UUID>?
     let onClose: () -> Void
-    let onExpand: () -> Void
+    let onSummary: () -> Void
+    let onTimeline: () -> Void
     let onCreate: () -> Void
     let onEdit: (PlanBlock) -> Void
     let onDelete: (PlanBlock) -> Bool
@@ -32,14 +33,16 @@ struct CalendarMonthDayDrawer: View {
     }
 
     init(date: Date, highlightedPlanID: UUID?, visibleCategoryIDs: Set<UUID>?,
-         onClose: @escaping () -> Void, onExpand: @escaping () -> Void,
+         onClose: @escaping () -> Void, onSummary: @escaping () -> Void,
+         onTimeline: @escaping () -> Void,
          onCreate: @escaping () -> Void, onEdit: @escaping (PlanBlock) -> Void,
          onDelete: @escaping (PlanBlock) -> Bool) {
         self.date = date
         self.highlightedPlanID = highlightedPlanID
         self.visibleCategoryIDs = visibleCategoryIDs
         self.onClose = onClose
-        self.onExpand = onExpand
+        self.onSummary = onSummary
+        self.onTimeline = onTimeline
         self.onCreate = onCreate
         self.onEdit = onEdit
         self.onDelete = onDelete
@@ -60,46 +63,7 @@ struct CalendarMonthDayDrawer: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 10) {
-                if selectedPlanID != nil && transfer?.request == nil {
-                    Button(action: returnToList) {
-                        Image(systemName: "chevron.left").frame(width: 40, height: 44)
-                    }
-                    .accessibilityLabel("当日の予定一覧に戻る")
-                }
-                Text(date.japaneseMonthDayShortWeekday)
-                    .accessibilityIdentifier("calendar-drawer-date")
-                    .accessibilityValue(DailyCardSnapshot.dayIdentifier(for: date, calendar: .current))
-                    .font(.headline.weight(.bold))
-                    .foregroundStyle(LiminalTheme.text)
-                    .accessibilityAddTraits(.isHeader)
-                    .padding(.leading, 6)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                if transfer?.request == nil {
-                Button(action: onCreate) {
-                    Image(systemName: "plus").frame(width: 44, height: 44)
-                }
-                .accessibilityLabel("この日に予定を追加")
-                .disabled(!CalendarPlanCreationPreset.allowsCreation(for: date))
-                Button(action: onExpand) {
-                    Image(systemName: "arrow.up.left.and.arrow.down.right").frame(width: 44, height: 44)
-                }
-                .accessibilityLabel("日間タイムラインを開く")
-                }
-                Button {
-                    if transfer?.request != nil { transfer?.cancel() }
-                    else { onClose() }
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.title3)
-                        .foregroundStyle(LiminalTheme.secondaryText)
-                }
-                .accessibilityLabel(transfer?.request == nil ? "当日の予定を閉じる" : "日付選択をキャンセル")
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(LiminalTheme.accent)
-            .frame(height: CalendarDrawerStyle.headerHeight)
-            .padding(.horizontal, CalendarDrawerStyle.horizontalInset)
+            header
             Divider()
             ScrollView {
                 drawerContent
@@ -113,10 +77,17 @@ struct CalendarMonthDayDrawer: View {
         // Extend the scroll viewport itself to the sheet bottom. No fixed footer or
         // opaque safe-area band may cover the last editor/transfer controls.
         .ignoresSafeArea(.container, edges: .bottom)
+        .background {
+            CalendarDrawerBackSwipe(
+                isEnabled: selectedPlanID != nil && transfer?.request == nil,
+                onBack: returnToList
+            )
+        }
         .onChange(of: highlightedPlanID) { _, id in selectedPlanID = id }
         .onChange(of: plans.map(\.id)) { _, ids in
             if let selectedPlanID, !ids.contains(selectedPlanID) { self.selectedPlanID = nil }
         }
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("calendar-month-day-drawer")
         .interactiveDismissDisabled(transfer?.request != nil)
         .alert("予定を削除しますか？", isPresented: Binding(
@@ -134,17 +105,111 @@ struct CalendarMonthDayDrawer: View {
         } message: { Text(transfer?.error ?? "") }
     }
 
+    private var header: some View {
+        HStack(spacing: 0) {
+            headerDate
+            Spacer(minLength: 4)
+            if transfer?.request == nil {
+                timelineButton
+                createButton
+            }
+            closeButton
+        }
+        .buttonStyle(.plain)
+        .font(.system(size: 17, weight: .semibold))
+        .foregroundStyle(LiminalTheme.accent)
+        .frame(minHeight: CalendarDrawerStyle.headerHeight)
+        .padding(.horizontal, CalendarDrawerStyle.horizontalInset)
+        .animation(.easeInOut(duration: reduceMotion ? 0.15 : 0.24), value: selectedPlanID)
+    }
+
+    private var timelineButton: some View {
+        Button(action: onTimeline) {
+            Image(systemName: "calendar.day.timeline.left")
+                .foregroundStyle(LiminalTheme.secondaryText)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .accessibilityLabel("この日のタイムラインを開く")
+        .accessibilityIdentifier("calendar-drawer-open-timeline")
+    }
+
+    private var headerDate: some View {
+        HStack(spacing: 0) {
+            if selectedPlanID != nil && transfer?.request == nil {
+                Button(action: returnToList) {
+                    Image(systemName: "chevron.left").frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .accessibilityLabel("当日の予定一覧に戻る")
+            }
+            Button(action: onSummary) {
+                HStack(spacing: 4) {
+                    Text(date.japaneseMonthDayShortWeekday)
+                        .font(.headline.weight(.bold))
+                        .lineLimit(2)
+                    if transfer?.request == nil {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(LiminalTheme.tertiaryText)
+                    }
+                }
+                .foregroundStyle(LiminalTheme.text)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
+            }
+            .accessibilityIdentifier("calendar-drawer-date")
+            .accessibilityLabel("\(date.japaneseMonthDayShortWeekday)の一日のまとめ")
+            .accessibilityValue(DailyCardSnapshot.dayIdentifier(for: date, calendar: .current))
+            .disabled(transfer?.request != nil)
+        }
+    }
+
+    private var createButton: some View {
+        Button(action: onCreate) {
+            Image(systemName: "plus")
+                .font(.system(size: 25, weight: .medium))
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .accessibilityLabel("この日に予定を追加")
+    }
+
+    private var closeButton: some View {
+        Button {
+            if transfer?.request != nil { transfer?.cancel() }
+            else { onClose() }
+        } label: {
+            Image(systemName: "xmark.circle.fill")
+                .font(.system(size: 20))
+                .foregroundStyle(LiminalTheme.secondaryText)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .accessibilityLabel(transfer?.request == nil ? "当日の予定を閉じる" : "日付選択をキャンセル")
+    }
+
     private var drawerContent: some View {
         ZStack(alignment: .topLeading) {
             if let plan = plans.first(where: { $0.id == selectedPlanID }) {
                 detail(plan)
                     .accessibilityAction(named: "当日の予定一覧に戻る", returnToList)
                     .transition(contentTransition(from: .trailing))
-            } else if plans.isEmpty {
+            } else {
+                listContent
+                    .transition(contentTransition(from: .leading))
+            }
+        }
+        .animation(.easeInOut(duration: reduceMotion ? 0.15 : 0.24), value: selectedPlanID)
+    }
+
+    private var listContent: some View {
+        VStack(spacing: 8) {
+            if plans.isEmpty {
                 VStack(spacing: 10) {
                     Text("予定はありません").foregroundStyle(LiminalTheme.secondaryText)
                     Button("予定を追加", systemImage: "plus", action: onCreate)
-                        .disabled(!CalendarPlanCreationPreset.allowsCreation(for: date))
                 }
                 .frame(maxWidth: .infinity).padding(24)
             } else {
@@ -154,10 +219,8 @@ struct CalendarMonthDayDrawer: View {
                         Divider().padding(.leading, 50)
                     }
                 }
-                .transition(contentTransition(from: .leading))
             }
         }
-        .animation(.easeInOut(duration: reduceMotion ? 0.15 : 0.24), value: selectedPlanID)
     }
 
     private func swipeRow(_ plan: PlanBlock) -> some View {
@@ -275,7 +338,7 @@ struct CalendarMonthDayDrawer: View {
             CategoryPreviewIcon(category: plan.category, size: 28)
             VStack(alignment: .leading, spacing: 3) {
                 Text(plan.title).font(.subheadline.weight(.semibold)).foregroundStyle(LiminalTheme.text)
-                Text(timeLabel(plan)).font(.caption.monospacedDigit()).foregroundStyle(LiminalTheme.secondaryText)
+                Text((plan.isMemo ? "予定メモ · " : "") + timeLabel(plan)).font(.caption.monospacedDigit()).foregroundStyle(LiminalTheme.secondaryText)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             if plan.isImportant { Image(systemName: "star.fill").foregroundStyle(LiminalTheme.reward) }
@@ -298,7 +361,7 @@ struct CalendarMonthDayDrawer: View {
 
     private func detail(_ plan: PlanBlock) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            planSurface(plan, onTap: { onEdit(plan) }, onSwipeRight: returnToList)
+            planSurface(plan, onTap: { onEdit(plan) })
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Text(plan.category?.name ?? "カテゴリ未設定")
@@ -318,13 +381,6 @@ struct CalendarMonthDayDrawer: View {
                 .accessibilityIdentifier("calendar-drawer-edit")
                 transferButtons(plan)
             }
-            .contentShape(Rectangle())
-            .simultaneousGesture(DragGesture(minimumDistance: 24).onEnded { value in
-                guard transfer?.request == nil else { return }
-                if CalendarMonthDayDrawerNavigation.shouldReturnToList(
-                    horizontal: value.translation.width, vertical: value.translation.height
-                ) { returnToList() }
-            })
         }
         .padding(16)
     }

@@ -10,6 +10,7 @@ struct PlanCreateSheet: View {
     @Query(sort: \CategorySet.sortOrder) private var categorySets: [CategorySet]
     @Query(sort: \FriendSet.sortOrder) private var friendSets: [FriendSet]
     @Query(sort: \Friend.displayName) private var friends: [Friend]
+    @Query(sort: \DayPreset.sortOrder) private var dayPresets: [DayPreset]
     @Query(sort: \PlanPreset.sortOrder) private var planPresets: [PlanPreset]
 
     private let editingPlan: PlanBlock?
@@ -21,10 +22,15 @@ struct PlanCreateSheet: View {
         let onDelete: (() -> Void)?
     }
 
+    @State private var recurrenceRule: PlanRecurrenceRule?
+    @State private var reminderMinutesBefore: Int?
+    @State private var reminderDate: Date?
     @State private var title = ""
     @State private var startTime = Date()
     @State private var endTime = Date()
     @State private var allDayEndDate = Date()
+    @State private var isMemo = false
+    @State private var memoPromotion: PlanMemoPromotionRequest?
     @State private var isAllDay = false
     @State private var isImportant = false
     @State private var selectedCategory: Category?
@@ -39,11 +45,13 @@ struct PlanCreateSheet: View {
     @State private var didInitializeAudience = false
     @State private var saveError: String?
     @State private var errorTitle = "保存できませんでした"
+    @State private var editingRecurringPreset: PlanPreset?
+    @State private var editingRecurringDayPreset: DayPreset?
     @State private var editingPreset: PlanPreset?
     @State private var templateStartMinute = 0
     @State private var templateEndMinute = 60
 
-    init(initialDate: Date = Date(), startsAsAllDay: Bool = false) {
+    init(initialDate: Date = Date(), startsAsAllDay: Bool = false, startsAsMemo: Bool = false) {
         editingPlan = nil
         snapshotEditor = nil
         let calendar = Calendar.current
@@ -51,6 +59,7 @@ struct PlanCreateSheet: View {
         _startTime = State(initialValue: start)
         _endTime = State(initialValue: calendar.date(byAdding: .hour, value: 1, to: start) ?? start)
         _allDayEndDate = State(initialValue: start)
+        _isMemo = State(initialValue: startsAsMemo || Calendar.current.startOfDay(for: initialDate) < Calendar.current.startOfDay(for: Date()))
         _isAllDay = State(initialValue: startsAsAllDay)
         _isImportant = State(initialValue: false)
     }
@@ -61,10 +70,13 @@ struct PlanCreateSheet: View {
         let inclusiveEndDate = plan.isAllDay
             ? plan.endTime.addingTimeInterval(-1)
             : plan.endTime
+        _reminderMinutesBefore = State(initialValue: plan.reminderMinutesBefore)
+        _reminderDate = State(initialValue: plan.reminderDate)
         _title = State(initialValue: plan.title)
         _startTime = State(initialValue: plan.startTime)
         _endTime = State(initialValue: plan.endTime)
         _allDayEndDate = State(initialValue: inclusiveEndDate)
+        _isMemo = State(initialValue: plan.isMemo)
         _isAllDay = State(initialValue: plan.isAllDay)
         _isImportant = State(initialValue: plan.isImportant)
         _selectedCategory = State(initialValue: plan.category)
@@ -83,9 +95,11 @@ struct PlanCreateSheet: View {
     ) {
         editingPlan = nil
         snapshotEditor = SnapshotEditor(initial: snapshot, onSave: onSaveSnapshot, onDelete: onDeleteSnapshot)
+        _reminderMinutesBefore = State(initialValue: snapshot.reminderMinutesBefore)
         _title = State(initialValue: snapshot.title)
         _templateStartMinute = State(initialValue: snapshot.startMinute)
         _templateEndMinute = State(initialValue: snapshot.endMinute)
+        _isMemo = State(initialValue: snapshot.isMemo)
         _isAllDay = State(initialValue: snapshot.isAllDay)
         _isImportant = State(initialValue: snapshot.isImportant)
         _note = State(initialValue: snapshot.note ?? "")
@@ -93,35 +107,56 @@ struct PlanCreateSheet: View {
     }
 
     var body: some View {
+        // Share one overlap lookup across both toolbar buttons and the warning.
+        // Store writes still validate the schedule again at save time.
+        let validationMessage = isScheduleLocked ? nil : timeValidationMessage
+        let canPlace = snapshotEditor != nil
+            ? draftSnapshot.hasValidTime
+            : store.canCreatePlan(startTime: startTime, isAllDay: isAllDay, isMemo: isMemo)
+        let canSave = (isScheduleLocked || (validationMessage == nil && canPlace))
+            && (recurrenceRule == nil || currentPresetSnapshot != nil)
         NavigationStack {
             ScrollView {
                 VStack(spacing: 10) {
                     planTitleCard
-                    compactColumns {
-                        categoryCard
-                        visibilityCard
+                    timeCard(validationMessage: validationMessage, canPlace: canPlace)
+                    PlanEditorCard(tint: selectedTint) {
+                        PlanKindPicker(isMemo: $isMemo).disabled(isScheduleLocked)
                     }
-                    compactColumns {
+                    categoryCard
+                    PlanEditorCard(tint: selectedTint) {
+                        PlanReminderControls(minutesBefore: $reminderMinutesBefore, absoluteDate: $reminderDate,
+                            isAllDay: isAllDay, startDate: snapshotEditor == nil ? startTime : nil)
+                    }
+                    if snapshotEditor == nil {
                         PlanEditorCard(tint: selectedTint) {
-                            Toggle(isOn: $isAllDay) {
-                                Label("終日", systemImage: "calendar")
-                            }
-                            .disabled(isScheduleLocked)
-                        }
-                        PlanEditorCard(tint: selectedTint) {
-                            Toggle(isOn: $isImportant) {
-                                Label("重要", systemImage: "star.fill")
+                            if let seriesID = editingPlan?.recurrenceSeriesID {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Label("繰り返しから追加した予定", systemImage: "repeat")
+                                    Text("ここでの変更は、この日の予定だけに適用されます。")
+                                        .font(.caption).foregroundStyle(.secondary)
+                                    if let master = planPresets.first(where: { $0.id == seriesID }) {
+                                        Button("繰り返しの元を編集") { editingRecurringPreset = master }
+                                    } else if let master = dayPresets.first(where: { $0.id == seriesID }) {
+                                        Button("一日プリセットの繰り返しを編集") { editingRecurringDayPreset = master }
+                                    }
+                                }
+                            } else {
+                                PlanRecurrenceControls(rule: $recurrenceRule, initialDate: startTime)
+                                if recurrenceRule != nil && currentPresetSnapshot == nil {
+                                    Text("繰り返しは24時間以内の予定、または1日分の終日予定に設定できます。")
+                                        .font(.caption).foregroundStyle(.orange)
+                                }
                             }
                         }
                     }
-                    .font(.subheadline)
-                    .tint(selectedTint)
-                    if snapshotEditor == nil || !isAllDay { timeCard }
+                    visibilityCard
                     noteCard
                 }
                 .padding(16)
                 .padding(.bottom, 30)
             }
+            .accessibilityIdentifier("plan-editor-scroll")
             .background(LiminalTheme.canvasGradient)
             .navigationTitle(editingPlan != nil || snapshotEditor?.onDelete != nil ? "予定を編集" : "予定を追加")
             .navigationBarTitleDisplayMode(.inline)
@@ -154,6 +189,13 @@ struct PlanCreateSheet: View {
                         .disabled(isScheduleLocked)
                     }
                 }
+            }
+            .sheet(item: $memoPromotion) { request in
+                PlanMemoPromotionSheet(request: request, title: resolvedPlanTitle, start: startTime, end: endTime,
+                    colorHex: selectedCategory?.colorHex, icon: selectedCategory?.icon) { mode in
+                        memoPromotion = nil
+                        save(approvedPromotion: request.changes, promotionMode: mode)
+                    }
             }
             .onAppear {
                 if selectedCategory == nil {
@@ -199,7 +241,9 @@ struct PlanCreateSheet: View {
                 )
             }
             .sheet(isPresented: $showingAudiencePicker) {
-                AudienceSnapshotPickerSheet(audienceFriendIDs: $audienceFriendIDs)
+                AudienceSnapshotPickerSheet(audienceFriendIDs: customAudienceFriendIDs) {
+                    audienceSourceSection
+                }
             }
             .sheet(isPresented: $showingPresetChoices) {
                 NavigationStack {
@@ -218,6 +262,8 @@ struct PlanCreateSheet: View {
                 }
                 .presentationDetents([.medium, .large])
             }
+            .sheet(item: $editingRecurringPreset) { PlanPresetEditSheet(preset: $0) }
+            .sheet(item: $editingRecurringDayPreset) { DayPresetEditSheet(preset: $0) }
             .confirmationDialog("予定を削除しますか？", isPresented: $showingDeleteConfirmation, titleVisibility: .visible) {
                 Button("削除", role: .destructive) { deletePlan() }
                 Button("キャンセル", role: .cancel) {}
@@ -321,6 +367,7 @@ struct PlanCreateSheet: View {
                     .frame(minHeight: 44)
                     .disabled(isScheduleLocked)
                     .accessibilityLabel("予定名")
+                PlanImportanceButton(isImportant: $isImportant)
                 if !planPresets.isEmpty, !isScheduleLocked {
                     Button { showingPresetChoices = true } label: {
                         Image(systemName: "bookmark")
@@ -334,7 +381,24 @@ struct PlanCreateSheet: View {
         }
     }
 
+    /// カテゴリ欄。閉じている時は選択中のカテゴリを1行で示し、開くとテーブルと「その他」を出す。
+    @ViewBuilder
     private var categoryCard: some View {
+        if categories.isEmpty {
+            categoryListCard
+        } else {
+            PlanEditorCard(tint: selectedTint) {
+                PlanCategoryInlinePicker(
+                    categories: categories,
+                    categorySets: categorySets,
+                    selectedCategory: $selectedCategory
+                )
+            }
+            .disabled(isScheduleLocked)
+        }
+    }
+
+    private var categoryListCard: some View {
         Button {
             LiminalHaptics.openSheet()
             showingCategoryPicker = true
@@ -359,41 +423,108 @@ struct PlanCreateSheet: View {
         .disabled(isScheduleLocked)
     }
 
+    /// 見せる/見せないは1タップのスイッチ。相手は「公開相手」の行からシートで選ぶ。
     private var visibilityCard: some View {
-        Menu {
-            Toggle("友達に見せる", isOn: $isPublic)
-            if isPublic, snapshotEditor == nil {
-                Button("公開相手を選ぶ", systemImage: "person.2") {
-                    showingAudiencePicker = true
-                    audienceSource = .custom
-                }
-                Button("カテゴリ既定値に戻す", systemImage: "arrow.counterclockwise") {
-                    resetAudienceToCategoryDefault()
-                }
-            }
-        } label: {
-            PlanEditorCard(tint: selectedTint) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Label("公開範囲", systemImage: isPublic ? "person.2" : "lock")
-                        .font(.caption).foregroundStyle(LiminalTheme.secondaryText)
-                    HStack(spacing: 6) {
-                        Text(!isPublic ? "自分だけ" : snapshotEditor != nil ? "カテゴリに従う" : "友達 \(audienceFriendIDs.count)人")
-                            .font(.subheadline.weight(.semibold)).lineLimit(2)
-                        Spacer(minLength: 0)
-                        Image(systemName: "chevron.down").font(.caption2)
-                    }
-                    .foregroundStyle(LiminalTheme.text)
-                    .frame(minHeight: 28)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-        }
-        .accessibilityLabel("公開範囲")
-    }
-
-    private var timeCard: some View {
         PlanEditorCard(tint: selectedTint) {
             VStack(alignment: .leading, spacing: 12) {
+                Toggle(isOn: $isPublic) {
+                    Label("友達に見せる", systemImage: isPublic ? "person.2" : "lock")
+                }
+                .font(.subheadline)
+
+                if isPublic {
+                    Divider()
+                    if snapshotEditor == nil {
+                        Button {
+                            LiminalHaptics.openSheet()
+                            showingAudiencePicker = true
+                        } label: {
+                            HStack(spacing: 6) {
+                                Text("公開相手")
+                                    .foregroundStyle(LiminalTheme.text)
+                                Spacer(minLength: 8)
+                                Text(audienceSummaryText)
+                                    .foregroundStyle(LiminalTheme.secondaryText)
+                                    .lineLimit(1)
+                                Image(systemName: "chevron.right")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(LiminalTheme.secondaryText)
+                            }
+                            .font(.subheadline)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("公開相手")
+                        .accessibilityValue(audienceSummaryText)
+                    } else {
+                        HStack(spacing: 6) {
+                            Text("公開相手")
+                                .foregroundStyle(LiminalTheme.text)
+                            Spacer(minLength: 8)
+                            Text("カテゴリに従う")
+                                .foregroundStyle(LiminalTheme.secondaryText)
+                        }
+                        .font(.subheadline)
+                    }
+                }
+            }
+        }
+    }
+
+    private var audienceSummaryText: String {
+        let count = audienceFriendIDs.count
+        return audienceSource == .categoryDefaultSnapshot
+            ? "カテゴリの既定（\(count)人）"
+            : "選んだ友達（\(count)人）"
+    }
+
+    /// 公開相手シートの上部。メニューにあった「公開相手を選ぶ／カテゴリ既定値に戻す」をここへ移した。
+    private var audienceSourceSection: some View {
+        Section {
+            Picker("公開相手の決め方", selection: audienceSourceSelection) {
+                Text("カテゴリの既定").tag(AudienceSource.categoryDefaultSnapshot)
+                Text("自分で選ぶ").tag(AudienceSource.custom)
+            }
+            .pickerStyle(.segmented)
+            .listRowBackground(Color.clear)
+            .listRowInsets(EdgeInsets())
+        } footer: {
+            Text(
+                audienceSource == .categoryDefaultSnapshot
+                    ? "カテゴリ「\(selectedCategory?.name ?? "未設定")」で決めた相手に見せます。下で選び直すと「自分で選ぶ」になります。"
+                    : "この予定だけ、選んだ友達に見せます。"
+            )
+        }
+    }
+
+    private var audienceSourceSelection: Binding<AudienceSource> {
+        Binding {
+            audienceSource
+        } set: { source in
+            LiminalHaptics.selection()
+            if source == .categoryDefaultSnapshot {
+                resetAudienceToCategoryDefault()
+            } else {
+                audienceSource = .custom
+            }
+        }
+    }
+
+    /// 一覧で友達を選び直したら、この予定だけの公開相手として扱う。
+    private var customAudienceFriendIDs: Binding<[UUID]> {
+        Binding {
+            audienceFriendIDs
+        } set: { ids in
+            audienceFriendIDs = ids
+            audienceSource = .custom
+        }
+    }
+
+    private func timeCard(validationMessage: String?, canPlace: Bool) -> some View {
+        PlanEditorCard(tint: selectedTint) {
+            VStack(alignment: .leading, spacing: 12) {
+                Toggle(isOn: $isAllDay) { Label("終日", systemImage: "calendar") }
+                    .font(.subheadline).disabled(isScheduleLocked)
                 if snapshotEditor != nil {
                     if !isAllDay {
                         PlanTemplateTimeFields(startMinute: $templateStartMinute, endMinute: $templateEndMinute)
@@ -405,7 +536,7 @@ struct PlanCreateSheet: View {
                     }
                     .disabled(isScheduleLocked)
                 }
-                validationStatus
+                validationStatus(message: validationMessage, canPlace: canPlace)
             }
         }
     }
@@ -443,20 +574,20 @@ struct PlanCreateSheet: View {
     }
 
     @ViewBuilder
-    private var validationStatus: some View {
+    private func validationStatus(message: String?, canPlace: Bool) -> some View {
         if isScheduleLocked {
             PlanEditorStatusLabel(
                 text: "今日以前の時間指定の予定は、重要表示・メモ・公開設定のみ編集できます。",
                 systemImage: "lock.fill",
                 tint: .secondary
             )
-        } else if let timeValidationMessage {
+        } else if let message {
             PlanEditorStatusLabel(
-                text: timeValidationMessage,
+                text: message,
                 systemImage: "exclamationmark.triangle.fill",
                 tint: .orange
             )
-        } else if !canPlaceSchedule {
+        } else if !canPlace {
             PlanEditorStatusLabel(
                 text: "予定は明日以降の日付にだけ追加できます。",
                 systemImage: "lock.fill",
@@ -467,21 +598,6 @@ struct PlanCreateSheet: View {
 
     private var selectedTint: Color {
         selectedCategory?.displayColor ?? LiminalTheme.accent
-    }
-
-    private var canSave: Bool {
-        if snapshotEditor != nil { return draftSnapshot.hasValidTime }
-        if isScheduleLocked {
-            return true
-        }
-        let timeOK: Bool
-        if isAllDay {
-            let calendar = Calendar.current
-            timeOK = calendar.startOfDay(for: allDayEndDate) >= calendar.startOfDay(for: startTime)
-        } else {
-            timeOK = endTime > startTime
-        }
-        return timeOK && canPlaceSchedule
     }
 
     private var planTitlePlaceholder: String {
@@ -516,7 +632,7 @@ struct PlanCreateSheet: View {
             }
         } else if endTime <= startTime {
             return "終了時刻は開始時刻より後にしてください。"
-        } else if store.hasTimedPlanOverlap(startTime: startTime, endTime: endTime, excluding: editingPlan?.id) {
+        } else if !isMemo && editingPlan?.isMemo != true && store.hasTimedPlanOverlap(startTime: startTime, endTime: endTime, excluding: editingPlan?.id) {
             return "既存の予定と時間が重なっています。"
         }
         return nil
@@ -524,24 +640,6 @@ struct PlanCreateSheet: View {
 
     private var isScheduleLocked: Bool {
         editingPlan.map { store.isPlanScheduleLocked($0) } ?? false
-    }
-
-    private var canPlaceSchedule: Bool {
-        if snapshotEditor != nil { return draftSnapshot.hasValidTime }
-        return store.canCreatePlan(
-            startTime: startTime,
-            endTime: resolvedEndTime,
-            isAllDay: isAllDay,
-            excluding: editingPlan?.id
-        )
-    }
-
-    private var resolvedEndTime: Date {
-        guard isAllDay else { return endTime }
-        let calendar = Calendar.current
-        let dayStart = calendar.startOfDay(for: startTime)
-        let inclusiveEndDay = max(calendar.startOfDay(for: allDayEndDate), dayStart)
-        return calendar.date(byAdding: .day, value: 1, to: inclusiveEndDay) ?? dayStart.addingTimeInterval(24 * 60 * 60)
     }
 
     private func resetAudienceToCategoryDefault() {
@@ -570,9 +668,12 @@ struct PlanCreateSheet: View {
         title = snapshot.title
         selectedCategory = category(for: preset)
         note = snapshot.note ?? ""
+        isMemo = snapshot.isMemo
         isAllDay = snapshot.isAllDay
         isImportant = snapshot.isImportant
         isPublic = snapshot.isPublic
+        reminderMinutesBefore = snapshot.reminderMinutesBefore
+        reminderDate = nil
 
         if snapshotEditor != nil {
             if snapshot.isAllDay {
@@ -656,7 +757,9 @@ struct PlanCreateSheet: View {
             isAllDay: isAllDay,
             isImportant: isImportant,
             note: note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : note,
-            isPublic: isPublic
+            isPublic: isPublic,
+            reminderMinutesBefore: PlanReminderTiming.templateMinutes(minutes: reminderMinutesBefore, date: reminderDate, start: startTime, isAllDay: isAllDay),
+            isMemo: isMemo
         )
         return snapshot.hasValidTime ? snapshot : nil
     }
@@ -678,7 +781,7 @@ struct PlanCreateSheet: View {
         return calendar.date(from: components)
     }
 
-    private func save() {
+    private func save(approvedPromotion: [PlanMemoPromotionChange]? = nil, promotionMode: PlanMemoPromotionMode = .keepRemainders) {
         errorTitle = "保存できませんでした"
         if let snapshotEditor {
             guard draftSnapshot.hasValidTime else {
@@ -694,6 +797,16 @@ struct PlanCreateSheet: View {
             dismiss()
             return
         }
+        if let editingPlan, editingPlan.isMemo, !isMemo, !isAllDay, approvedPromotion == nil {
+            guard let changes = store.memoPromotionPreview(start: startTime, end: endTime, excluding: editingPlan.id) else {
+                saveError = "この時間にはメイン予定へ切り替えられません。日時を変更するか、予定メモのまま保存してください。"
+                return
+            }
+            if !changes.isEmpty {
+                memoPromotion = PlanMemoPromotionRequest(changes: changes)
+                return
+            }
+        }
         let planTitle = resolvedPlanTitle
         let calendar = Calendar.current
         let resolvedStart: Date
@@ -707,6 +820,12 @@ struct PlanCreateSheet: View {
             resolvedStart = startTime
             resolvedEnd = endTime
         }
+        let configure: (PlanBlock) -> Bool = { plan in
+            plan.reminderMinutesBefore = reminderDate == nil ? reminderMinutesBefore : nil
+            plan.reminderDate = reminderDate
+            if let recurrenceRule { return store.registerRecurrence(plan, rule: recurrenceRule) }
+            return true
+        }
         let didSave: Bool
         if let editingPlan {
             didSave = store.savePlanBlock(
@@ -716,27 +835,33 @@ struct PlanCreateSheet: View {
                 startTime: resolvedStart,
                 endTime: resolvedEnd,
                 isAllDay: isAllDay,
+                isMemo: isMemo,
                 isImportant: isImportant,
                 note: note,
                 isPublic: isPublic,
                 audienceFriendIDs: audienceFriendIDs,
                 audienceSource: audienceSource,
-                hasAudienceSnapshot: shouldSaveAudienceSnapshot
+                hasAudienceSnapshot: shouldSaveAudienceSnapshot,
+                approvedPromotion: approvedPromotion,
+                promotionMode: promotionMode,
+                beforeSave: configure
             )
         } else {
-            didSave = store.addPlanBlock(
+            didSave = store.createPlanBlock(
                 category: selectedCategory,
                 title: planTitle,
                 startTime: resolvedStart,
                 endTime: resolvedEnd,
                 isAllDay: isAllDay,
+                isMemo: isMemo,
                 isImportant: isImportant,
                 note: note,
                 isPublic: isPublic,
                 audienceFriendIDs: audienceFriendIDs,
                 audienceSource: audienceSource,
-                hasAudienceSnapshot: shouldSaveAudienceSnapshot
-            )
+                hasAudienceSnapshot: shouldSaveAudienceSnapshot,
+                beforeSave: configure
+            ) != nil
         }
         if didSave {
             LiminalHaptics.commit()
@@ -782,7 +907,10 @@ struct PlanCreateSheet: View {
             isAllDay: isAllDay,
             isImportant: isImportant,
             note: note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : note,
-            isPublic: isPublic
+            isPublic: isPublic,
+            reminderMinutesBefore: reminderMinutesBefore,
+            templateItemID: snapshotEditor?.initial.templateItemID,
+            isMemo: isMemo
         )
     }
 
@@ -996,26 +1124,30 @@ struct CategoryPreviewIcon: View {
     }
 }
 
-private struct CategoryGridPickCell: View {
+struct CategoryGridPickCell: View {
     let index: Int?
     let category: Category?
     let isSelected: Bool
+    /// 予定編集のその場のテーブル用。ホームと同じ並びのまま高さを詰める。
+    var compact = false
+
+    private var circleSize: CGFloat { compact ? 30 : 42 }
 
     var body: some View {
-        VStack(spacing: 7) {
+        VStack(spacing: compact ? 4 : 7) {
             ZStack(alignment: .topTrailing) {
                 Circle()
                     .fill(fillColor)
-                    .frame(width: 42, height: 42)
+                    .frame(width: circleSize, height: circleSize)
 
                 Image(systemName: category?.icon ?? "plus")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.system(size: compact ? 13 : 18, weight: .semibold))
                     .foregroundStyle(category?.displayColor ?? LiminalTheme.tertiaryText)
-                    .frame(width: 42, height: 42)
+                    .frame(width: circleSize, height: circleSize)
 
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 15, weight: .bold))
+                        .font(.system(size: compact ? 12 : 15, weight: .bold))
                         .foregroundStyle(.white, category?.displayColor ?? LiminalTheme.accent)
                         .offset(x: 4, y: -4)
                 }
@@ -1028,7 +1160,7 @@ private struct CategoryGridPickCell: View {
                 .minimumScaleFactor(0.72)
         }
         .frame(maxWidth: .infinity)
-        .frame(height: 86)
+        .frame(height: compact ? 58 : 86)
         .padding(.horizontal, 4)
         .background(
             RoundedRectangle(cornerRadius: 10)

@@ -52,9 +52,7 @@ struct ThemePickerView: View {
                     )
                 }
             } header: {
-                Text("標準テーマ")
-            } footer: {
-                Text("標準テーマは常に選べます。システム追従だけが端末のライト/ダークに合わせて切り替わります。")
+                SettingsSectionHeader(title: "標準テーマ", explanation: "標準テーマは常に選べます。システム追従だけが端末のライト/ダークに合わせて切り替わります。")
             }
 
             Section {

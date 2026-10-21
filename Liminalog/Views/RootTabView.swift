@@ -17,6 +17,7 @@ struct RootTabView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Query(sort: \UserSettings.createdAt) private var settingsList: [UserSettings]
     @Query(sort: \UnlockItem.sortOrder) private var unlockItems: [UnlockItem]
+    @State private var schedulingTask: Task<Void, Never>?
     @State private var appStores: AppStores?
     @State private var selectedTab: RootTab
     @State private var pendingFriendInviteURL: URL?
@@ -41,6 +42,15 @@ struct RootTabView: View {
     }
 
     /// 選択中テーマ（UserSettings.themeName を流用。"default" はシステム追従）。
+    private func refreshPlanScheduling() {
+        schedulingTask?.cancel()
+        schedulingTask = Task { @MainActor in
+            guard let appStores, !Task.isCancelled else { return }
+            appStores.chapterStore.refreshRecurringPlans(force: true)
+            await appStores.planReminderStore.refresh()
+        }
+    }
+
     private var selectedThemeID: String {
         ProfileDecorationUnlocks(
             unlockItems: unlockItems,
@@ -124,7 +134,9 @@ struct RootTabView: View {
                     initializedStore.seedDevSampleChaptersIfNeeded()
                 }
                 #endif
+                initializedStore.refreshRecurringPlans()
                 appStores = initializedStores
+                await initializedStores.planReminderStore.refresh()
                 #if DEBUG
                 if ProcessInfo.processInfo.arguments.contains("-LiminalogDebugOpenDayPresetEditor") {
                     seedDebugPlanPresetsIfNeeded(using: initializedStores.planPresetStore)
@@ -162,7 +174,9 @@ struct RootTabView: View {
             }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active {
+                    appStores?.chapterStore.invalidateCategoryUsageRanking()
                     consumePendingShortcutRoute()
+                    refreshPlanScheduling()
                     if let appStores {
                         let purchaseRuntimePolicy = PurchaseStoreRuntimePolicy.current()
                         if purchaseRuntimePolicy.shouldRefreshEntitlementsOnSceneActivation {
@@ -184,6 +198,13 @@ struct RootTabView: View {
                     persistAppState(reason: "\(phase)")
                 }
             }
+            .onReceive(NotificationCenter.default.publisher(for: Notification.Name("Liminalog.openPlanReminder"))) { _ in
+                consumePendingShortcutRoute()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .planSchedulingChanged)
+                .debounce(for: .milliseconds(250), scheduler: DispatchQueue.main)) { _ in
+                refreshPlanScheduling()
+            }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
                 if appStores != nil, pendingRemoteChangeRequiresFullMerge {
                     runCloudDuplicateMerge(reason: "did enter background", includeTimelineRecords: true)
@@ -192,6 +213,10 @@ struct RootTabView: View {
             }
             // CloudKitインポートが届いても、ユーザー操作中に全件統合を割り込ませない。
             // active中は表示に出やすい小さな重複だけ遅延回収し、履歴全体の統合はbackground/長いidleへ逃がす。
+            .onReceive(NotificationCenter.default.publisher(for: .NSPersistentStoreRemoteChange)
+                .receive(on: DispatchQueue.main)) { _ in
+                appStores?.chapterStore.invalidateCategoryUsageRanking()
+            }
             .onReceive(
                 NotificationCenter.default
                     .publisher(for: .NSPersistentStoreRemoteChange)
@@ -199,6 +224,7 @@ struct RootTabView: View {
             ) { _ in
                 guard appStores != nil else { return }
                 pendingRemoteChangeRequiresFullMerge = true
+                refreshPlanScheduling()
                 scheduleRemoteChangeDuplicateMerge(
                     reason: "remote change",
                     activeDelay: 45,
@@ -362,6 +388,8 @@ struct RootTabView: View {
             pendingRemoteChangeRequiresFullMerge = false
         }
         if merged > 0 {
+            appStores?.chapterStore.invalidateCategoryUsageRanking()
+            refreshPlanScheduling()
             CloudFriendShareRefreshCoordinator.postSharedRecordsDidChange()
         }
         let elapsed = Date().timeIntervalSince(startedAt)

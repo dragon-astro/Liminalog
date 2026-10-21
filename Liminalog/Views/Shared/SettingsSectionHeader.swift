@@ -18,7 +18,7 @@ struct SettingsSectionHeader: View {
                         isPresented: $showingExplanation,
                         attachmentAnchor: .rect(.bounds)
                     ) {
-                        explanationPopover
+                        InformationPopoverContent(title: title, explanation: explanation)
                             // iPhoneでもシートに変換せず、アイコンから吹き出す。
                             .presentationCompactAdaptation(.popover)
                             .presentationBackground(LiminalTheme.plainSheetBackground)
@@ -34,27 +34,52 @@ struct SettingsSectionHeader: View {
         .accessibilityHint("説明を表示します")
     }
 
-    private var explanationPopover: some View {
+}
+
+/// Optional help uses an anchored bubble throughout the app, including compact iPhone layouts.
+struct InformationButton: View {
+    let title: String
+    let explanation: String
+    @State private var isPresented = false
+
+    var body: some View {
+        Button { isPresented = true } label: {
+            Image(systemName: "info.circle")
+                .font(.system(size: 16))
+                .frame(width: 36, height: 36)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(LiminalTheme.secondaryText)
+        .accessibilityLabel("\(title)について")
+        .popover(isPresented: $isPresented, attachmentAnchor: .rect(.bounds)) {
+            InformationPopoverContent(title: title, explanation: explanation)
+                .presentationCompactAdaptation(.popover)
+                .presentationBackground(LiminalTheme.plainSheetBackground)
+        }
+    }
+}
+
+private struct InformationPopoverContent: View {
+    let title: String
+    let explanation: String
+
+    var body: some View {
         ViewThatFits(in: .vertical) {
             explanationContent
-            ScrollView {
-                explanationContent
-            }
-            .scrollBounceBehavior(.basedOnSize)
+            ScrollView { explanationContent }
+                .scrollBounceBehavior(.basedOnSize)
         }
         .frame(idealWidth: 280, maxWidth: 320)
         .padding(16)
         .textCase(nil)
+        .accessibilityIdentifier("information-popover")
     }
 
     private var explanationContent: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.headline)
-                .accessibilityAddTraits(.isHeader)
-            Text(explanation)
-                .font(.subheadline)
-                .fixedSize(horizontal: false, vertical: true)
+            Text(title).font(.headline).accessibilityAddTraits(.isHeader)
+            Text(explanation).font(.subheadline).fixedSize(horizontal: false, vertical: true)
         }
         .foregroundStyle(.primary)
     }

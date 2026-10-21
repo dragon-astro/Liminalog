@@ -119,7 +119,7 @@ enum CloudFriendShareSnapshotBuilder {
         nonOverlapping(
             plans.sorted(by: chronologicalOrder),
             includes: { $0.isAllDay || $0.endTime > $0.startTime },
-            overlaps: { !$0.isAllDay && !$1.isAllDay && $0.startTime < $1.endTime && $0.endTime > $1.startTime }
+            overlaps: { !$0.isAllDay && !$0.isMemo && !$1.isAllDay && !$1.isMemo && $0.startTime < $1.endTime && $0.endTime > $1.startTime }
         )
     }
 

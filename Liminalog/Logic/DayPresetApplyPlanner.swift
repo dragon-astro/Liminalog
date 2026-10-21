@@ -6,6 +6,7 @@ enum DayPresetApplyPlanner {
         let start: Date
         let end: Date
         let isAllDay: Bool
+        var isMemo: Bool = false
     }
 
     enum ItemVerdict: Equatable, Sendable {
@@ -38,16 +39,16 @@ enum DayPresetApplyPlanner {
             guard let interval = intervals[index] else {
                 return .invalidTime
             }
-            if !item.isAllDay, targetDayStart <= todayStart {
+            if !item.isAllDay && !item.isMemo, targetDayStart <= todayStart {
                 return .lockedDay
             }
-            guard !item.isAllDay else {
+            guard !item.isAllDay && !item.isMemo else {
                 return .insertable
             }
 
             let conflictingItemIndices = items.indices.filter { otherIndex in
                 guard otherIndex != index,
-                      !items[otherIndex].isAllDay,
+                      !items[otherIndex].isAllDay, !items[otherIndex].isMemo,
                       intervals[otherIndex] != nil
                 else { return false }
                 return overlapsWithinTemplateDay(item, items[otherIndex])
@@ -57,7 +58,7 @@ enum DayPresetApplyPlanner {
             }
 
             let conflictingExistingIDs = existing.compactMap { candidate -> UUID? in
-                guard !candidate.isAllDay,
+                guard !candidate.isAllDay, !candidate.isMemo,
                       candidate.start < candidate.end,
                       candidate.start < interval.end,
                       candidate.end > interval.start
@@ -77,7 +78,7 @@ enum DayPresetApplyPlanner {
     ) -> Bool {
         items.indices.contains { index in
             let item = items[index]
-            guard item.hasValidTime, !item.isAllDay else { return false }
+            guard item.hasValidTime, !item.isAllDay, !item.isMemo else { return false }
             return items.indices.contains { otherIndex in
                 guard otherIndex != index else { return false }
                 return overlapsWithinTemplateDay(item, items[otherIndex])
@@ -99,7 +100,7 @@ enum DayPresetApplyPlanner {
     private static func minuteSegments(
         for item: PlanTemplateSnapshot
     ) -> [Range<Int>] {
-        guard item.hasValidTime, !item.isAllDay else { return [] }
+        guard item.hasValidTime, !item.isAllDay, !item.isMemo else { return [] }
         let dayEnd = 24 * 60
         if item.endMinute <= dayEnd {
             return [item.startMinute..<item.endMinute]

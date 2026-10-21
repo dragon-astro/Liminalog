@@ -14,6 +14,7 @@ final class FriendSharedPlanRecord {
     var title: String = ""
     var startTime: Date = Date()
     var endTime: Date = Date()
+    var isMemo: Bool = false
     var isAllDay: Bool = false
     var isImportant: Bool = false
     var categoryID: UUID?
@@ -35,6 +36,7 @@ final class FriendSharedPlanRecord {
         title = snapshot.title
         startTime = snapshot.startTime
         endTime = snapshot.endTime
+        isMemo = snapshot.isMemo
         isAllDay = snapshot.isAllDay
         isImportant = snapshot.isImportant
         categoryID = snapshot.categoryID
@@ -52,6 +54,7 @@ final class FriendSharedPlanRecord {
             startTime: startTime,
             endTime: endTime,
             isAllDay: isAllDay,
+            isMemo: isMemo,
             isImportant: isImportant,
             categoryTitle: categoryTitle,
             categoryIconName: categoryIconName,

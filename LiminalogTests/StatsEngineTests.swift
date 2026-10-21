@@ -3,6 +3,50 @@ import Testing
 @testable import Liminalog
 
 struct StatsEngineTests {
+    @Test("日別バケット集計は日跨ぎ・うるう日・DST・部分日でも従来の全フィールドと一致する",
+          arguments: ["Asia/Tokyo", "America/Los_Angeles"])
+    func bucketedScoresMatchReference(timeZone: String) throws {
+        var calendar = Calendar.liminalogTest
+        calendar.timeZone = try #require(TimeZone(identifier: timeZone))
+        let start = try #require(calendar.date(from: DateComponents(year: 2024, month: 2, day: 20, hour: 12)))
+        let end = try #require(calendar.date(byAdding: .day, value: 35, to: start))
+        let interval = DateInterval(start: start, end: end)
+        let category = Category(name: "制作", colorHex: "#2F80ED", icon: "hammer.fill")
+        var plans: [PlanBlock] = []
+        var chapters: [Chapter] = []
+        for index in 0..<100 {
+            let time = start.addingTimeInterval(Double(index - 4) * 8 * 3600)
+            plans.append(PlanBlock(category: index % 3 == 0 ? nil : category, title: "予定", startTime: time,
+                                   endTime: time.addingTimeInterval(index % 4 == 0 ? 100_000 : 7200),
+                                   isAllDay: index % 7 == 0))
+            let chapter = Chapter(category: category, startTime: time.addingTimeInterval(-300))
+            if index % 3 == 0 { chapter.category = nil }
+            chapter.endTime = index == 99 ? nil : time.addingTimeInterval(index % 6 == 0 ? 10 : 7500)
+            chapters.append(chapter)
+        }
+        let actual = StatsEngine.dailyScoreSummaries(in: interval, chapters: chapters, plans: plans, now: end, calendar: calendar)
+        var day = DayBoundary.dayStart(for: start, calendar: calendar)
+        var expected: [ScoreSummary] = []
+        while day < end {
+            let boundary = DayBoundary(date: day, calendar: calendar)
+            expected.append(ScoreCalculator.summary(date: day,
+                plans: plans.filter { $0.startTime < boundary.dayEnd && $0.endTime > boundary.dayStart },
+                chapters: chapters.filter { $0.startTime < boundary.dayEnd && ($0.endTime ?? end) > boundary.dayStart },
+                calendar: calendar, now: end))
+            day = try #require(calendar.date(byAdding: .day, value: 1, to: day))
+        }
+        #expect(actual.count == expected.count)
+        for (lhs, rhs) in zip(actual, expected) {
+            #expect(lhs.date == rhs.date)
+            #expect(lhs.totalScore == rhs.totalScore)
+            #expect(lhs.categoryScore == rhs.categoryScore)
+            #expect(lhs.timelineScore == rhs.timelineScore)
+            #expect(lhs.plannedDuration == rhs.plannedDuration)
+            #expect(lhs.recordedDuration == rhs.recordedDuration)
+            #expect(lhs.matchedDuration == rhs.matchedDuration)
+        }
+    }
+
     @Test("StatsEngine はデイリーカード検出器をロジック層から返す")
     func dailyCardPatternExcludesRestThroughSharedEngine() throws {
         let calendar = Calendar.liminalogTest

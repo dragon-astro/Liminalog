@@ -18,8 +18,8 @@ struct VisibilityPresetSettingsView: View {
                     }
                 }
                 .onMove(perform: movePresets)
-            } footer: {
-                Text("ここで決めた見え方は、そのプリセットを割り当てた友達に適用されます。公開相手に含まれていても、オフの友達には共有されません。")
+            } header: {
+                SettingsSectionHeader(title: "見え方プリセット", explanation: "ここで決めた見え方は、そのプリセットを割り当てた友達に適用されます。公開相手に含まれていても、オフの友達には共有されません。")
             }
         }
         .navigationTitle("見え方プリセット")
@@ -179,9 +179,7 @@ private struct VisibilityPresetEditView: View {
                 Toggle("場所を隠す", isOn: boolBinding(\.hideLocation))
                 Toggle("写真を隠す", isOn: boolBinding(\.hidePhoto))
             } header: {
-                Text("隠す項目")
-            } footer: {
-                Text("カテゴリごとの公開相手は変えず、この友達に見える詳しさだけを調整します。")
+                SettingsSectionHeader(title: "隠す項目", explanation: "カテゴリごとの公開相手は変えず、この友達に見える詳しさだけを調整します。")
             }
             .disabled(preset.publishMode == .none)
 

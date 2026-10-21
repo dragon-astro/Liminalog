@@ -52,6 +52,7 @@ enum CalendarDayScoreCache {
         for plan in plans {
             hasher.combine(plan.id)
             hasher.combine(plan.isAllDay)
+            hasher.combine(plan.isMemo)
             hasher.combine(plan.category?.id)
             hasher.combine(plan.startTime)
             hasher.combine(plan.endTime)

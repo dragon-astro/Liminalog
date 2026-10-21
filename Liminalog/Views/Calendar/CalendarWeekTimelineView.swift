@@ -17,6 +17,7 @@ private struct WeekTimelinePlanSignature: Hashable {
     let endTime: Date
     let createdAt: Date
     let isAllDay: Bool
+    let isMemo: Bool
     let categoryID: UUID?
 }
 
@@ -72,6 +73,7 @@ private final class WeekTimelineInteractionScratch {
     var didWarnDuringScheduleGesture = false
     var lastMoveFeedbackStep: WeekMoveFeedbackStep?
     var lastMoveRequest: WeekMoveRequest?
+    var moveBaseline: WeekTimedPlanSegment?
     var lastResizeFeedbackMinute: Int?
     var lastResizeRequest: WeekResizeRequest?
     var lastPresetFeedbackDayIndex: Int?
@@ -98,6 +100,7 @@ private final class WeekTimelineInteractionScratch {
         didWarnDuringScheduleGesture = false
         lastMoveFeedbackStep = nil
         lastMoveRequest = nil
+        moveBaseline = nil
         lastResizeFeedbackMinute = nil
         lastResizeRequest = nil
         lastPresetFeedbackDayIndex = nil
@@ -124,6 +127,8 @@ struct CalendarWeekTimelineView: View {
     let presetExternalCoordinateSpaceName: String?
     private let presetDrawerPresentation: Binding<Bool>?
     private let onPresetDrawerDismiss: () -> Void
+    private let presetDayConfiguration: TimelineDayPresetConfiguration?
+    private let onPresetManage: (() -> Void)?
     @Binding var visibleHour: Int
     @Binding var selectedCategoryID: UUID?
     @Binding var isScheduleInteractionActive: Bool
@@ -133,6 +138,8 @@ struct CalendarWeekTimelineView: View {
     private let renderCacheKey: WeekTimelineRenderCacheKey
 
     @State private var selectedPlanID: UUID?
+    @State private var gesturePlanID: UUID?
+    @State private var dragTargetDayIndex: Int?
     @AppStorage(TimelineSnapPrecision.userDefaultsKey)
     private var storedSnapPrecisionMinutes = TimelineSnapPrecision.quarterHour.minutes
     @State private var creationDraft: WeekPlanCreationDraft?
@@ -152,6 +159,7 @@ struct CalendarWeekTimelineView: View {
     @State private var zoomAnchorMinute: CGFloat?
     @State private var zoomGestureIsActive = false
     @State private var timelineScrollPosition = ScrollPosition()
+    @State private var initialVisibleHour: Int?
     @State private var presetDragIsActive = false
     @State private var presetPlacementDraft: WeekPresetPlacementDraft?
     @State private var presetWindowFrame: CGRect?
@@ -223,6 +231,8 @@ struct CalendarWeekTimelineView: View {
         presetExternalCoordinateSpaceName: String? = nil,
         presetDrawerPresentation: Binding<Bool>? = nil,
         onPresetDrawerDismiss: @escaping () -> Void = {},
+        presetDayConfiguration: TimelineDayPresetConfiguration? = nil,
+        onPresetManage: (() -> Void)? = nil,
         visibleHour: Binding<Int>,
         selectedCategoryID: Binding<UUID?>,
         isScheduleInteractionActive: Binding<Bool>,
@@ -244,7 +254,10 @@ struct CalendarWeekTimelineView: View {
         self.presetExternalCoordinateSpaceName = presetExternalCoordinateSpaceName
         self.presetDrawerPresentation = presetDrawerPresentation
         self.onPresetDrawerDismiss = onPresetDrawerDismiss
+        self.presetDayConfiguration = presetDayConfiguration
+        self.onPresetManage = onPresetManage
         self._visibleHour = visibleHour
+        self._initialVisibleHour = State(initialValue: visibleHour.wrappedValue)
         self._selectedCategoryID = selectedCategoryID
         self._isScheduleInteractionActive = isScheduleInteractionActive
         self.onOpenPlan = onOpenPlan
@@ -260,6 +273,7 @@ struct CalendarWeekTimelineView: View {
                     endTime: $0.endTime,
                     createdAt: $0.createdAt,
                     isAllDay: $0.isAllDay,
+                    isMemo: $0.isMemo,
                     categoryID: $0.category?.id
                 )
             }
@@ -278,12 +292,10 @@ struct CalendarWeekTimelineView: View {
                 VStack(spacing: 0) {
                     weekHeader(dayWidth: dayWidth, totalWidth: totalWidth, snapshot: snapshot)
 
-                    ScrollViewReader { scrollProxy in
-                        ScrollView(.vertical) {
+                    ScrollView(.vertical) {
                         VStack(spacing: 0) {
                             ZStack(alignment: .topLeading) {
                                 timelineGridLayer(dayWidth: dayWidth, totalWidth: totalWidth, snapshot: snapshot)
-                                hourScrollTargets
 
                                 if isInteractionEnabled, let creationDraft {
                                     creationDraftView(draft: creationDraft, dayWidth: dayWidth)
@@ -291,7 +303,7 @@ struct CalendarWeekTimelineView: View {
                                 }
 
                                 ForEach(snapshot.timedSegments) { segment in
-                                    timedPlanBlock(segment: segment, dayWidth: dayWidth)
+                                    timedPlanBlock(segment: segment, dayWidth: dayWidth, globalMinX: proxy.frame(in: .global).minX)
                                 }
 
                                 if isInteractionEnabled {
@@ -318,22 +330,24 @@ struct CalendarWeekTimelineView: View {
                         }
                     }
                     .scrollPosition($timelineScrollPosition)
+                    .defaultScrollAnchor(initialScrollAnchor(viewportHeight: timelineViewportHeight), for: .initialOffset)
                     .frame(width: totalWidth, height: timelineViewportHeight)
                     .scrollDisabled(shouldDisableTimelineScroll || isPageSwipeActive)
                     .scrollIndicators(.visible)
                     .background(timelineBackground)
                     .onAppear {
                         normalizeStoredHourScale()
-                        scrollToVisibleHour(with: scrollProxy)
+                        scrollToVisibleHour()
                     }
-                    .onChange(of: visibleHour) { _, _ in
+                    .onChange(of: visibleHour) { _, newHour in
                         guard !isInteractionEnabled else { return }
-                        scrollToVisibleHour(with: scrollProxy)
+                        if initialVisibleHour != nil { initialVisibleHour = newHour }
+                        scrollToVisibleHour()
                     }
                     .onScrollGeometryChange(for: CGFloat.self) { geometry in
                         -max(0, geometry.contentOffset.y + geometry.contentInsets.top)
                     } action: { _, minY in
-                        updateVisibleHour(fromScrollMinY: minY)
+                        updateVisibleHour(fromScrollMinY: minY, viewportHeight: timelineViewportHeight)
                     }
                     .onScrollPhaseChange { _, newPhase in
                         handleTimelineScrollPhaseChange(newPhase)
@@ -341,7 +355,8 @@ struct CalendarWeekTimelineView: View {
                     .onChange(of: anchorDate) { _, _ in
                         cancelZoomGesture()
                         resetInteractionState()
-                        scrollToVisibleHour(with: scrollProxy)
+                        initialVisibleHour = visibleHour
+                        scrollToVisibleHour()
                     }
                     .onChange(of: snapshot.visibleTimedPlanIDs) { _, visiblePlanIDs in
                         resetSelectionIfHidden(visiblePlanIDs: visiblePlanIDs)
@@ -349,8 +364,8 @@ struct CalendarWeekTimelineView: View {
                     .simultaneousGesture(
                         weekTimelineZoomGesture(viewportHeight: timelineViewportHeight)
                     )
-                        .accessibilityValue(zoomAccessibilityValue)
-                    }
+                    .accessibilityIdentifier("week-timeline")
+                    .accessibilityValue(zoomAccessibilityValue)
                 }
                 .frame(width: totalWidth, height: proxy.size.height, alignment: .top)
                 .background(timelineBackground)
@@ -376,7 +391,7 @@ struct CalendarWeekTimelineView: View {
                     .zIndex(90)
                 }
 
-                if isInteractionEnabled, !planPresets.isEmpty {
+                if isInteractionEnabled {
                     TimelinePlanPresetLibrary(
                         presets: planPresets,
                         categories: categories,
@@ -429,6 +444,8 @@ struct CalendarWeekTimelineView: View {
                         },
                         launcherPlacement: .externalControl,
                         isPresented: presetDrawerPresentation,
+                        dayPresets: presetDayConfiguration,
+                        onManage: onPresetManage,
                         onDismiss: onPresetDrawerDismiss
                     )
                     .frame(
@@ -595,27 +612,29 @@ struct CalendarWeekTimelineView: View {
         )
     }
 
-    private var hourScrollTargets: some View {
-        ForEach(0...23, id: \.self) { hour in
-            Color.clear
-                .frame(width: 1, height: 1)
-                .id(hour)
-                .offset(x: hourColumnWidth, y: yOffset(for: hour * 60))
-                .allowsHitTesting(false)
-        }
-    }
-
-    private func scrollToVisibleHour(with proxy: ScrollViewProxy) {
-        let targetHour = min(23, max(0, visibleHour))
+    private func scrollToVisibleHour() {
+        let targetHour = min(23, max(0, initialVisibleHour ?? visibleHour))
         var transaction = Transaction()
         transaction.disablesAnimations = true
         withTransaction(transaction) {
-            proxy.scrollTo(targetHour, anchor: .top)
+            timelineScrollPosition.scrollTo(y: yOffset(for: targetHour * 60))
         }
     }
 
-    private func updateVisibleHour(fromScrollMinY minY: CGFloat) {
+    private func initialScrollAnchor(viewportHeight: CGFloat) -> UnitPoint? {
+        guard let hour = initialVisibleHour else { return nil }
+        let maximumY = max(0, timelineHeight + bottomScrollPadding - viewportHeight)
+        return UnitPoint(x: 0, y: maximumY > 0 ? min(1, yOffset(for: min(23, max(0, hour)) * 60) / maximumY) : 0)
+    }
+
+    private func updateVisibleHour(fromScrollMinY minY: CGFloat, viewportHeight: CGFloat) {
         interactionScratch.latestScrollMinY = minY
+        if let hour = initialVisibleHour {
+            let targetY = min(max(0, timelineHeight + bottomScrollPadding - viewportHeight),
+                              yOffset(for: min(23, max(0, hour)) * 60))
+            guard abs(max(0, -minY) - targetY) <= 1 else { return }
+            initialVisibleHour = nil
+        }
         guard isInteractionEnabled,
               !isPageSwipeActive,
               !shouldDisableTimelineScroll
@@ -632,6 +651,7 @@ struct CalendarWeekTimelineView: View {
     }
 
     private func handleTimelineScrollPhaseChange(_ phase: ScrollPhase) {
+        if phase == .tracking || phase == .interacting { initialVisibleHour = nil }
         interactionScratch.timelineScrollIsActive = phase != .idle
         guard phase == .idle,
               let pendingVisibleHour = interactionScratch.pendingVisibleHour
@@ -810,6 +830,7 @@ struct CalendarWeekTimelineView: View {
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(day.japaneseMonthDayShortWeekday)
+                    .accessibilityIdentifier("week-day-\(DailyCardSnapshot.dayIdentifier(for: day, calendar: calendar))")
                 }
             }
             .frame(height: 46)
@@ -970,14 +991,14 @@ struct CalendarWeekTimelineView: View {
     }
 
     @ViewBuilder
-    private func timedPlanBlock(segment: WeekTimedPlanSegment, dayWidth: CGFloat) -> some View {
+    private func timedPlanBlock(segment: WeekTimedPlanSegment, dayWidth: CGFloat, globalMinX: CGFloat) -> some View {
         let color = planColor(segment.plan)
         let blockHeight = height(startMinute: segment.startMinute, endMinute: segment.endMinute)
         let isSelected = selectedPlanID == segment.plan.id
         let isLocked = store.isPlanScheduleLocked(segment.plan)
         let overflow = WeekTimedPlanBlockMetrics.verticalOverflow
         let title = displayTitle(for: segment.plan)
-        let cardWidth = max(1, dayWidth - blockInset * 2)
+        let cardWidth = segmentFrame(segment, dayWidth: dayWidth).width
 
         let block = ZStack(alignment: .top) {
             weekPlanCard(
@@ -987,12 +1008,12 @@ struct CalendarWeekTimelineView: View {
                 color: color,
                 isSelected: isSelected,
                 isLocked: isLocked,
-                activeResizeEdge: isSelected ? activeResizeEdge : nil
+                activeResizeEdge: isSelected ? activeResizeEdge : nil,
+                globalMinX: globalMinX
             )
-                .onTapGesture {
-                    handleSegmentTap(segment)
-                }
-                .simultaneousGesture(deleteLongPressGesture(for: segment))
+                .gesture(TimelinePlanLongPressGesture { state, _ in
+                    handlePlanLongPress(segment, state: state)
+                })
                 .offset(y: overflow)
 
             if isSelected && !isLocked {
@@ -1016,18 +1037,25 @@ struct CalendarWeekTimelineView: View {
             height: blockHeight + overflow * 2,
             alignment: .top
         )
+        .contentShape(Rectangle())
+        .onTapGesture {
+            handleSegmentTap(segment)
+        }
         .offset(
-            x: dayX(segment.dayIndex, dayWidth: dayWidth) + blockInset,
+            x: segmentFrame(segment, dayWidth: dayWidth).minX,
             y: yOffset(for: segment.startMinute) - overflow
         )
-        .zIndex(isSelected ? 10 : 1)
+        .zIndex(isSelected ? 3 : 1)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(title)、\(timeRangeText(segment))")
+        .accessibilityValue("メイン予定")
+        .accessibilityIdentifier("week-plan-\(segment.id)")
         .accessibilityAddTraits(.isButton)
         .accessibilityAction {
             handleSegmentTap(segment)
         }
         .accessibilityAction(named: Text("詳細を編集")) {
+            guard gesturePlanID == nil else { return }
             onOpenPlan(segment.plan)
         }
 
@@ -1063,25 +1091,30 @@ struct CalendarWeekTimelineView: View {
         }
     }
 
+    private func updateDragDay(_ value: DragGesture.Value, segment: WeekTimedPlanSegment, dayWidth: CGFloat, globalMinX: CGFloat) {
+        let localX = value.location.x - globalMinX
+        dragTargetDayIndex = dayIndex(forX: max(hourColumnWidth, min(localX, dayX(6, dayWidth: dayWidth) + dayWidth - 1)), dayWidth: dayWidth) ?? segment.dayIndex
+    }
+
+    private func handlePlanLongPress(_ segment: WeekTimedPlanSegment, state: UIGestureRecognizer.State) {
+        guard state == .began, isInteractionEnabled, !zoomGestureIsActive,
+              gesturePlanID == nil, !creationGestureIsActive else { return }
+        if selectedPlanID == segment.plan.id {
+            requestDeletePlan(segment.plan)
+        } else {
+            selectedPlanID = segment.plan.id
+            LiminalHaptics.selection()
+        }
+    }
+
     private func handleSegmentTap(_ segment: WeekTimedPlanSegment) {
-        guard !zoomGestureIsActive else { return }
+        guard gesturePlanID == nil, !zoomGestureIsActive else { return }
         guard planPendingDeletion?.id != segment.plan.id else { return }
         if selectedPlanID == segment.plan.id {
             onOpenPlan(segment.plan)
         } else {
             LiminalHaptics.selection()
             selectedPlanID = segment.plan.id
-        }
-    }
-
-    private func deleteLongPressGesture(for segment: WeekTimedPlanSegment) -> some Gesture {
-        LongPressGesture(
-            minimumDuration: WeekTimedPlanBlockMetrics.deleteLongPressDuration,
-            maximumDistance: WeekTimedPlanBlockMetrics.deleteLongPressMaximumDistance
-        )
-        .onEnded { completed in
-            guard completed else { return }
-            requestDeletePlan(segment.plan)
         }
     }
 
@@ -1093,7 +1126,8 @@ struct CalendarWeekTimelineView: View {
         color: Color,
         isSelected: Bool,
         isLocked: Bool,
-        activeResizeEdge: WeekResizeEdge?
+        activeResizeEdge: WeekResizeEdge?,
+        globalMinX: CGFloat
     ) -> some View {
         let title = displayTitle(for: segment.plan)
         let showsTitle = blockHeight >= 38
@@ -1124,14 +1158,14 @@ struct CalendarWeekTimelineView: View {
         .background(color.opacity(isLocked ? 0.40 : 0.72), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 5, style: .continuous)
-                .strokeBorder(isSelected ? .white.opacity(activeResizeEdge == nil ? 0.92 : 0.98) : color.opacity(0.62), lineWidth: isSelected ? (activeResizeEdge == nil ? 1.6 : 2.2) : 1)
+                .strokeBorder(isSelected ? .white.opacity(0.92) : color.opacity(0.62), lineWidth: isSelected ? 2 : 1)
         )
         .shadow(color: .clear, radius: 0)
         .contentShape(Rectangle())
         .accessibilityHidden(true)
 
         if isSelected && !isLocked && activeResizeEdge == nil {
-            card.highPriorityGesture(moveGesture(for: segment, dayWidth: dayWidth))
+            card.highPriorityGesture(moveGesture(for: segment, dayWidth: dayWidth, globalMinX: globalMinX))
         } else {
             card
         }
@@ -1195,7 +1229,7 @@ struct CalendarWeekTimelineView: View {
 
     private func creationDraftView(draft: WeekPlanCreationDraft, dayWidth: CGFloat) -> some View {
         let color = selectedCategory?.displayColor ?? LiminalTheme.accent
-        let blockHeight = height(startMinute: draft.startMinute, endMinute: draft.endMinute)
+        let blockHeight = max(1, height(startMinute: draft.startMinute, endMinute: draft.endMinute))
         let showsTitle = blockHeight >= 38
         return VStack(alignment: .leading, spacing: 1) {
             Text(timeText(draft.startMinute))
@@ -1221,6 +1255,7 @@ struct CalendarWeekTimelineView: View {
             RoundedRectangle(cornerRadius: 5, style: .continuous)
                 .stroke(color.opacity(0.92), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
         )
+        .clipped()
         .offset(x: dayX(draft.dayIndex, dayWidth: dayWidth) + blockInset, y: yOffset(for: draft.startMinute))
         .allowsHitTesting(false)
     }
@@ -1257,7 +1292,7 @@ struct CalendarWeekTimelineView: View {
             height: blockHeight,
             alignment: .topLeading
         )
-        .background(color.opacity(0.84), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+        .background(color.opacity(0.86), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 5, style: .continuous)
                 .strokeBorder(.white.opacity(0.94), lineWidth: 1.6)
@@ -1346,6 +1381,8 @@ struct CalendarWeekTimelineView: View {
         dayWidth: CGFloat,
         timedSegments: [WeekTimedPlanSegment]
     ) {
+        guard gesturePlanID == nil else { return }
+
         guard !zoomGestureIsActive else { return }
         guard isCreationDragDirection(startLocation: startLocation, location: location) else {
             cancelCreationGesture()
@@ -1363,6 +1400,8 @@ struct CalendarWeekTimelineView: View {
         dayWidth: CGFloat,
         timedSegments: [WeekTimedPlanSegment]
     ) {
+        guard gesturePlanID == nil else { return }
+
         guard !zoomGestureIsActive else { return }
         defer {
             creationDraft = nil
@@ -1370,7 +1409,7 @@ struct CalendarWeekTimelineView: View {
         }
         guard completed,
               isCreationDragDirection(startLocation: startLocation, location: location),
-              updateCreationDraft(startLocation: startLocation, location: location, dayWidth: dayWidth, timedSegments: timedSegments)
+              updateCreationDraft(startLocation: startLocation, location: location, dayWidth: dayWidth, timedSegments: timedSegments, isFinal: true)
         else { return }
         commitCreationDraft()
     }
@@ -1380,8 +1419,11 @@ struct CalendarWeekTimelineView: View {
         startLocation: CGPoint,
         location: CGPoint,
         dayWidth: CGFloat,
-        timedSegments: [WeekTimedPlanSegment]
+        timedSegments: [WeekTimedPlanSegment],
+        isFinal: Bool = false
     ) -> Bool {
+        guard gesturePlanID == nil else { return false }
+
         guard let dayIndex = dayIndex(forX: startLocation.x, dayWidth: dayWidth),
               canCreatePlan(onDayIndex: dayIndex)
         else {
@@ -1397,7 +1439,8 @@ struct CalendarWeekTimelineView: View {
         guard let range = clampedCreationRange(
             anchorMinute: start,
             currentMinute: current,
-            intervals: creationCollisionIntervals(onDayIndex: dayIndex)
+            intervals: creationCollisionIntervals(onDayIndex: dayIndex),
+            isFinal: isFinal
         ) else {
             creationDraft = nil
             return false
@@ -1427,37 +1470,12 @@ struct CalendarWeekTimelineView: View {
     }
 
     private func clampedCreationRange(
-        anchorMinute: Int,
-        currentMinute: Int,
-        intervals: [PlanTimelineInterval]
+        anchorMinute: Int, currentMinute: Int, intervals: [PlanTimelineInterval], isFinal: Bool
     ) -> (start: Int, end: Int)? {
-        let minimumDuration = minimumDurationMinutes
-        guard !intervals.contains(where: { $0.startMinute < anchorMinute && anchorMinute < $0.endMinute }) else {
-            return nil
-        }
-
-        if currentMinute >= anchorMinute {
-            let desiredEnd = min(
-                PlanTimelineRescheduler.dayEndMinute,
-                max(currentMinute, anchorMinute + minimumDuration)
-            )
-            let nextBlockedStart = intervals
-                .filter { $0.startMinute >= anchorMinute }
-                .map(\.startMinute)
-                .min() ?? PlanTimelineRescheduler.dayEndMinute
-            let end = min(desiredEnd, nextBlockedStart)
-            guard end - anchorMinute >= minimumDuration else { return nil }
-            return (anchorMinute, end)
-        } else {
-            let desiredStart = max(0, min(currentMinute, anchorMinute - minimumDuration))
-            let previousBlockedEnd = intervals
-                .filter { $0.endMinute <= anchorMinute }
-                .map(\.endMinute)
-                .max() ?? 0
-            let start = max(desiredStart, previousBlockedEnd)
-            guard anchorMinute - start >= minimumDuration else { return nil }
-            return (start, anchorMinute)
-        }
+        guard let range = PlanTimelineCreationPolicy.range(anchorMinute: anchorMinute, currentMinute: currentMinute,
+            minimumDuration: minimumDurationMinutes, intervals: intervals, enforcesMinimumDuration: isFinal)
+        else { return nil }
+        return (range.start, range.end)
     }
 
     private func creationCollisionIntervals(onDayIndex dayIndex: Int) -> [PlanTimelineInterval] {
@@ -1466,7 +1484,7 @@ struct CalendarWeekTimelineView: View {
         guard let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) else { return [] }
 
         return sortedPlans
-            .filter { !$0.isAllDay }
+            .filter { !$0.isAllDay && !$0.isMemo }
             .compactMap { plan -> PlanTimelineInterval? in
                 guard plan.startTime < dayEnd, plan.endTime > dayStart else { return nil }
                 let clippedStart = max(plan.startTime, dayStart)
@@ -1475,7 +1493,7 @@ struct CalendarWeekTimelineView: View {
                 return PlanTimelineInterval(
                     id: plan.id,
                     startMinute: minute(from: clippedStart, dayStart: dayStart),
-                    endMinute: minute(from: clippedEnd, dayStart: dayStart)
+                    endMinute: minute(from: clippedEnd, dayStart: dayStart), isMemo: plan.isMemo
                 )
             }
     }
@@ -1514,7 +1532,15 @@ struct CalendarWeekTimelineView: View {
         onScheduleChanged()
     }
 
+    private var memoPresetMessage: String {
+        "予定メモは日表示のプリセットから追加できます。"
+    }
+
     private func addFixedTimePreset(_ preset: PlanPreset) {
+        guard !preset.isMemo else {
+            operationError = memoPresetMessage
+            return
+        }
         // 週表示でタップ配置する日は、ページの基準日（現在週なら今日）に固定する。
         // 任意の曜日へ置く長さ指定プリセットは、カードをその列へドラッグする。
         let targetDay = days.first { calendar.isDate($0, inSameDayAs: anchorDate) } ?? days[0]
@@ -1536,6 +1562,10 @@ struct CalendarWeekTimelineView: View {
         allDayLaneHeight: CGFloat,
         viewportSize: CGSize
     ) {
+        guard !preset.isMemo else {
+            presetPlacementDraft = nil
+            return
+        }
         guard let location,
               location.x >= 0,
               location.x <= min(totalWidth, viewportSize.width),
@@ -1573,16 +1603,17 @@ struct CalendarWeekTimelineView: View {
             0,
             TimelineAxisMap.minutesPerDay - preset.snapshot.durationMinutes
         )
-        guard let snapshot = preset.snapshot.placed(
-            at: min(maximumStartMinute, max(0, minute))
-        ) else {
+        guard let snapshot = preset.placementMode == .fixedTime ? preset.snapshot
+            : preset.snapshot.placed(at: min(maximumStartMinute, max(0, minute))) else {
             return
         }
         let blockHeight = height(
             startMinute: snapshot.startMinute,
             endMinute: snapshot.endMinute
         )
-        let visualStartY = TimelinePlanPresetPlacementGeometry.previewTopY(
+        let visualStartY = preset.placementMode == .fixedTime
+            ? contentFrame.minY - viewportFrame.minY + yOffset(for: snapshot.startMinute)
+            : TimelinePlanPresetPlacementGeometry.previewTopY(
             fingerY: location.y,
             cardHeight: blockHeight,
             viewportHeight: viewportSize.height,
@@ -1595,7 +1626,7 @@ struct CalendarWeekTimelineView: View {
             interactionScratch.lastPresetFeedbackMinute = snapshot.startMinute
             LiminalHaptics.selection()
         }
-        if presetPlacementDraft?.snapshot.startMinute != snapshot.startMinute
+        if presetPlacementDraft?.snapshot != snapshot
             || presetPlacementDraft?.dayIndex != dayIndex
             || presetPlacementDraft?.preset.id != preset.id
             || abs((presetPlacementDraft?.visualStartY ?? -.infinity) - visualStartY) > 0.25 {
@@ -1616,6 +1647,7 @@ struct CalendarWeekTimelineView: View {
         allDayLaneHeight: CGFloat,
         viewportSize: CGSize
     ) -> String? {
+        guard !preset.isMemo else { return memoPresetMessage }
         updateDurationPresetPreview(
             preset,
             at: location,
@@ -1648,11 +1680,12 @@ struct CalendarWeekTimelineView: View {
         interval: DateInterval
     ) -> String? {
         let source = snapshot ?? preset.snapshot
-        guard store.canCreatePlan(startTime: interval.start, isAllDay: source.isAllDay) else {
+        guard !source.isMemo else { return memoPresetMessage }
+        guard store.canCreatePlan(startTime: interval.start, isAllDay: source.isAllDay, isMemo: source.isMemo) else {
             return "この日には予定を追加できません。"
         }
         let category = categories.first { $0.id == source.categoryID }
-        if !source.isAllDay && store.hasTimedPlanOverlap(startTime: interval.start, endTime: interval.end) {
+        if !source.isAllDay && !source.isMemo && store.hasTimedPlanOverlap(startTime: interval.start, endTime: interval.end) {
             presetApplyRequest = PlanTemplateApplyRequest(
                 applications: [.init(snapshot: source, resolvedCategory: category)], targetDate: interval.start,
                 onApplied: {
@@ -1667,9 +1700,11 @@ struct CalendarWeekTimelineView: View {
             startTime: interval.start,
             endTime: interval.end,
             isAllDay: source.isAllDay,
+            isMemo: source.isMemo,
             isImportant: source.isImportant,
             note: source.note,
-            isPublic: source.isPublic
+            isPublic: source.isPublic,
+            beforeSave: { $0.reminderMinutesBefore = source.reminderMinutesBefore; return true }
         ) else {
             return "予定を追加できませんでした。"
         }
@@ -1706,9 +1741,10 @@ struct CalendarWeekTimelineView: View {
 
     private func isExistingSegmentHit(at point: CGPoint, dayWidth: CGFloat, timedSegments: [WeekTimedPlanSegment]) -> Bool {
         timedSegments.contains { segment in
-            let x = dayX(segment.dayIndex, dayWidth: dayWidth) + blockInset
-            let y = yOffset(for: segment.startMinute)
-            let width = max(1, dayWidth - blockInset * 2)
+            let frame = segmentFrame(segment, dayWidth: dayWidth)
+            let x = frame.minX
+            let y = frame.minY
+            let width = frame.width
             let height = height(startMinute: segment.startMinute, endMinute: segment.endMinute)
             let slop = WeekTimedPlanBlockMetrics.creationHitSlop
             return point.x >= x - slop &&
@@ -1726,7 +1762,7 @@ struct CalendarWeekTimelineView: View {
         let timelineMinX = hourColumnWidth
         let timelineMaxX = totalWidth
         let handleWidth = weekResizeHandleWidth(dayWidth: dayWidth, timelineWidth: timelineMaxX - timelineMinX)
-        let centeredX = dayX(segment.dayIndex, dayWidth: dayWidth) + dayWidth / 2 - handleWidth / 2
+        let centeredX = segmentFrame(segment, dayWidth: dayWidth).midX - handleWidth / 2
         let handleX = min(max(centeredX, timelineMinX), max(timelineMinX, timelineMaxX - handleWidth))
         let topY = yOffset(for: segment.startMinute) - WeekTimedPlanBlockMetrics.resizeHitHandleHeight
         let bottomY = yOffset(for: segment.startMinute) + height(startMinute: segment.startMinute, endMinute: segment.endMinute)
@@ -1753,7 +1789,7 @@ struct CalendarWeekTimelineView: View {
     }
 
     private func clearSelectionIfNeeded(at point: CGPoint, dayWidth: CGFloat, timedSegments: [WeekTimedPlanSegment]) {
-        guard selectedPlanID != nil,
+        guard gesturePlanID == nil, selectedPlanID != nil,
               !isExistingSegmentHit(at: point, dayWidth: dayWidth, timedSegments: timedSegments)
         else { return }
         selectedPlanID = nil
@@ -1768,12 +1804,17 @@ struct CalendarWeekTimelineView: View {
             }
     }
 
-    private func moveGesture(for segment: WeekTimedPlanSegment, dayWidth: CGFloat) -> some Gesture {
-        DragGesture(minimumDistance: 2)
+    private func moveGesture(for segment: WeekTimedPlanSegment, dayWidth: CGFloat, globalMinX: CGFloat) -> some Gesture {
+        DragGesture(minimumDistance: 2, coordinateSpace: .global)
             .onChanged { value in
-                guard !zoomGestureIsActive,
+                guard gesturePlanID == nil || gesturePlanID == segment.plan.id,
+                      !zoomGestureIsActive,
                       !store.isPlanScheduleLocked(segment.plan)
                 else { return }
+                gesturePlanID = segment.plan.id
+                if interactionScratch.moveBaseline == nil {
+                    interactionScratch.moveBaseline = segment
+                }
                 markScheduleInteractionActive()
                 if selectedPlanID != segment.plan.id {
                     selectedPlanID = segment.plan.id
@@ -1782,7 +1823,8 @@ struct CalendarWeekTimelineView: View {
                     movingSegmentIdentityDayByPlanID[segment.plan.id] = segment.dayIndex
                 }
                 resizeBaseline = nil
-                if let drafts = moveDrafts(for: segment, translation: dragTranslation(value), dayWidth: dayWidth) {
+                updateDragDay(value, segment: segment, dayWidth: dayWidth, globalMinX: globalMinX)
+                if let drafts = moveDrafts(for: segment, translation: dragTranslation(value), dayWidth: dayWidth, targetDay: dragTargetDayIndex) {
                     updateMovingDrafts(drafts)
                     notifyMoveStepIfNeeded(from: drafts, planID: segment.plan.id, fallbackDayIndex: segment.dayIndex)
                 } else {
@@ -1790,9 +1832,10 @@ struct CalendarWeekTimelineView: View {
                 }
             }
             .onEnded { value in
+                guard gesturePlanID == segment.plan.id else { return }
                 guard !zoomGestureIsActive,
                       !store.isPlanScheduleLocked(segment.plan),
-                      let drafts = moveDrafts(for: segment, translation: dragTranslation(value), dayWidth: dayWidth)
+                      let drafts = moveDrafts(for: segment, translation: dragTranslation(value), dayWidth: dayWidth, targetDay: dragTargetDayIndex)
                 else {
                     if !movingDrafts.isEmpty {
                         finishScheduleDrafts(
@@ -1812,10 +1855,12 @@ struct CalendarWeekTimelineView: View {
         DragGesture(minimumDistance: 0, coordinateSpace: .global)
             .onChanged { value in
                 let baseline = currentResizeBaseline(for: segment)
-                guard !zoomGestureIsActive,
+                guard gesturePlanID == nil || gesturePlanID == segment.plan.id,
+                      !zoomGestureIsActive,
                       selectedPlanID == segment.plan.id,
                       !store.isPlanScheduleLocked(segment.plan)
                 else { return }
+                gesturePlanID = segment.plan.id
                 markScheduleInteractionActive()
                 if resizeBaseline == nil {
                     resizeBaseline = baseline
@@ -1845,10 +1890,12 @@ struct CalendarWeekTimelineView: View {
         DragGesture(minimumDistance: 0, coordinateSpace: .global)
             .onChanged { value in
                 let baseline = currentResizeBaseline(for: segment)
-                guard !zoomGestureIsActive,
+                guard gesturePlanID == nil || gesturePlanID == segment.plan.id,
+                      !zoomGestureIsActive,
                       selectedPlanID == segment.plan.id,
                       !store.isPlanScheduleLocked(segment.plan)
                 else { return }
+                gesturePlanID = segment.plan.id
                 markScheduleInteractionActive()
                 if resizeBaseline == nil {
                     resizeBaseline = baseline
@@ -1875,6 +1922,7 @@ struct CalendarWeekTimelineView: View {
     }
 
     private func finishResize(segment: WeekTimedPlanSegment, edge: WeekResizeEdge, translationY: CGFloat) {
+        guard gesturePlanID == segment.plan.id else { return }
         let baseline = currentResizeBaseline(for: segment)
         guard let drafts = resizeDrafts(
             for: segment.plan,
@@ -1946,7 +1994,7 @@ struct CalendarWeekTimelineView: View {
             let handleWidth = activeResizeEdge == nil
                 ? weekResizeHandleWidth(dayWidth: dayWidth, timelineWidth: timelineMaxX - timelineMinX)
                 : timelineMaxX - timelineMinX
-            let centeredX = dayX(baseline.dayIndex, dayWidth: dayWidth) + dayWidth / 2 - handleWidth / 2
+            let centeredX = segmentFrame(segment, dayWidth: dayWidth).midX - handleWidth / 2
             let handleX = min(max(centeredX, timelineMinX), max(timelineMinX, timelineMaxX - handleWidth))
             let topY = yOffset(for: baseline.startMinute) - WeekTimedPlanBlockMetrics.resizeHitHandleHeight
             let bottomY = yOffset(for: baseline.startMinute) + height(startMinute: baseline.startMinute, endMinute: baseline.endMinute)
@@ -2106,7 +2154,9 @@ struct CalendarWeekTimelineView: View {
 
     private func makeRenderCache(for key: WeekTimelineRenderCacheKey) -> WeekTimelineRenderCache {
         let days = days
-        let sortedPlans = plans.sorted {
+        // Hidden memos must not create hit targets, stretch the time axis, or enter
+        // weekly selection/drag calculations. They remain available in day views.
+        let sortedPlans = plans.filter { !$0.isMemo }.sorted {
             if $0.startTime == $1.startTime {
                 return $0.createdAt < $1.createdAt
             }
@@ -2176,6 +2226,12 @@ struct CalendarWeekTimelineView: View {
             allDayPlansByDay: cache.snapshot.allDayPlansByDay,
             allDayLaneHeight: cache.snapshot.allDayLaneHeight
         )
+    }
+
+    private func segmentFrame(_ segment: WeekTimedPlanSegment, dayWidth: CGFloat) -> CGRect {
+        CGRect(x: dayX(segment.dayIndex, dayWidth: dayWidth) + blockInset,
+               y: yOffset(for: segment.startMinute), width: max(1, dayWidth - blockInset * 2),
+               height: height(startMinute: segment.startMinute, endMinute: segment.endMinute))
     }
 
     private func timedSegments(
@@ -2253,7 +2309,7 @@ struct CalendarWeekTimelineView: View {
     }
 
     private var shouldDisableTimelineScroll: Bool {
-        zoomGestureIsActive ||
+        gesturePlanID != nil || zoomGestureIsActive ||
             presetDragIsActive ||
             creationGestureIsActive ||
             creationDraft != nil ||
@@ -2388,12 +2444,15 @@ struct CalendarWeekTimelineView: View {
         return store.canCreatePlan(startTime: days[dayIndex], isAllDay: false)
     }
 
-    private func moveDrafts(for segment: WeekTimedPlanSegment, translation: CGSize, dayWidth: CGFloat) -> [UUID: WeekPlanMoveDraft]? {
-        let originalDayIndex = segment.dayIndex
+    private func moveDrafts(for segment: WeekTimedPlanSegment, translation: CGSize, dayWidth: CGFloat, targetDay: Int? = nil) -> [UUID: WeekPlanMoveDraft]? {
+        // SwiftUI refreshes the segment as its preview moves. Translation is cumulative,
+        // so always apply it to the original segment, never the previous preview.
+        let original = interactionScratch.moveBaseline ?? segment
+        let originalDayIndex = original.dayIndex
         let duration = max(60.0, segment.plan.endTime.timeIntervalSince(segment.plan.startTime))
         let dayDelta = Int((translation.width / max(1, dayWidth + daySpacing)).rounded())
-        let targetDayIndex = max(0, min(days.count - 1, originalDayIndex + dayDelta))
-        let originalMinute = segment.startMinute
+        let targetDayIndex = targetDay ?? max(0, min(days.count - 1, originalDayIndex + dayDelta))
+        let originalMinute = original.startMinute
         let durationMinutes = max(1, Int((duration / 60).rounded()))
         let relativeDelta = snappedMinuteDelta(translation.height, from: originalMinute)
         let proposedMinute = TimelineSnapPolicy.alignedMinute(
@@ -2550,22 +2609,16 @@ struct CalendarWeekTimelineView: View {
                 id: editingPlan.id,
                 startMinute: proposedStartMinute,
                 endMinute: proposedEndMinute,
-                isLocked: store.isPlanScheduleLocked(editingPlan) || !isPlanVisible(editingPlan)
+                isLocked: store.isPlanScheduleLocked(editingPlan) || !isPlanVisible(editingPlan), isMemo: editingPlan.isMemo
             )
         )
 
         let effectiveMinimumDuration = adjustment == .move
             ? max(1, proposedEndMinute - proposedStartMinute)
             : minimumDurationMinutes
-        guard let resolved = PlanTimelineRescheduler.resolveClamped(
-            items: intervals,
-            editingID: editingPlan.id,
-            proposedStartMinute: proposedStartMinute,
-            proposedEndMinute: proposedEndMinute,
-            pushDirection: direction,
-            adjustment: adjustment,
-            minimumDuration: effectiveMinimumDuration
-        ) else {
+        guard let resolved = PlanTimelineRescheduler.resolveClamped(items: intervals, editingID: editingPlan.id,
+            proposedStartMinute: proposedStartMinute, proposedEndMinute: proposedEndMinute, pushDirection: direction,
+            adjustment: adjustment, minimumDuration: effectiveMinimumDuration) else {
             return nil
         }
 
@@ -2607,7 +2660,7 @@ struct CalendarWeekTimelineView: View {
             let original = PlanTimelineInterval(
                 id: plan.id,
                 startMinute: minute(from: clippedStart, dayStart: dayStart),
-                endMinute: minute(from: clippedEnd, dayStart: dayStart)
+                endMinute: minute(from: clippedEnd, dayStart: dayStart), isMemo: plan.isMemo
             )
             originalsByID[plan.id] = original
             collisionIntervals.append(
@@ -2615,7 +2668,7 @@ struct CalendarWeekTimelineView: View {
                     id: original.id,
                     startMinute: original.startMinute,
                     endMinute: original.endMinute,
-                    isLocked: store.isPlanScheduleLocked(plan) || !isPlanVisible(plan)
+                    isLocked: store.isPlanScheduleLocked(plan) || !isPlanVisible(plan), isMemo: plan.isMemo
                 )
             )
         }
@@ -2660,6 +2713,8 @@ struct CalendarWeekTimelineView: View {
     private func resetScheduleGestureState() {
         creationGestureIsActive = false
         movingDrafts = [:]
+        gesturePlanID = nil
+        dragTargetDayIndex = nil
         movingSegmentIdentityDayByPlanID = [:]
         resizeBaseline = nil
         activeResizeEdge = nil
@@ -2886,8 +2941,6 @@ private enum WeekTimedPlanBlockMetrics {
     static let resizeHandleHorizontalSlop: CGFloat = 12
     static let minimumResizeHandleWidth: CGFloat = 72
     static let visibleResizeHandleWidth: CGFloat = 34
-    static let deleteLongPressDuration = 0.65
-    static let deleteLongPressMaximumDistance: CGFloat = 8
 }
 
 #Preview("Week Timeline") {

@@ -1,0 +1,1412 @@
+{
+  "description": "Local design comparison renders; kept on disk, excluded from Git. Text notes and generators remain versioned.",
+  "checkpoint": "2026-10-21",
+  "backup": "artifacts/device-cleanup-20261021/untracked-before.tar.gz",
+  "files": [
+    {
+      "path": "design/app-navigation-review-20261005/01-home-today.png",
+      "bytes": 321230,
+      "sha256": "b3bb14aaa713d5b9fe944797c41b0c2ad17f754f278e1a9304008068404ea7fe"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/02-home-header-overlap.png",
+      "bytes": 270578,
+      "sha256": "5146af6f66f16597da61363a7bd054e4e5cfd039e0b07134094cfed04dbfbad0"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/03-home-yesterday-header-overlap.png",
+      "bytes": 401636,
+      "sha256": "287479c861f89f0b7b9336ecda714afa8bf3766d1fc673ada6155320a092e882"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/04-home-tomorrow.png",
+      "bytes": 218460,
+      "sha256": "9c6fbd113ecff620a8c229b823c0b17d857c90c32f21e671e7a8901f3d33843f"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/05-calendar-month.png",
+      "bytes": 180895,
+      "sha256": "a048c40b9ddb46fbf9cced23bdbdfbb104f0957db297f3410219336738939aae"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/06-calendar-mode-menu.png",
+      "bytes": 190704,
+      "sha256": "36189eae965140f775937916ec1fcb75bf0796b549a05f33d12fd1cb4e546340"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/07-calendar-week.png",
+      "bytes": 242411,
+      "sha256": "abbe4f07e7902b7011800f6cb52bebcddedcb6f3994511115ce4c4e132554748"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/07b-calendar-week-header.png",
+      "bytes": 242629,
+      "sha256": "275c2339c71fbaf2eee3f21da1c350e056abd56ff9ba2fff0da7e4822e5c9711"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/08-calendar-drawer.png",
+      "bytes": 168658,
+      "sha256": "9fd4b8623dd4e0af84ad55ca6c845cf7dc78ad922aca7edd5ff031eac019b83b"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/09-calendar-expanded-timeline.png",
+      "bytes": 94457,
+      "sha256": "2bb86e8974999266de6bbf02c9ac15ceefae53c4345de32771b8840cd9b42c46"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/10-future-day-summary.png",
+      "bytes": 233343,
+      "sha256": "366597d929045bea3eb77032679694b52457fbe9cf293dd334b53bf1597f3f98"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/11-plan-editor.png",
+      "bytes": 176231,
+      "sha256": "e3a2cbb8e622ecb8b55eede1262c14d9372729027b2454a9627cd46d92640f1f"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/12-plan-editor-audience-menu.png",
+      "bytes": 201875,
+      "sha256": "d8cae8d1a5104bbde8c64d7bfb6aba522c1c1a4f57872296f1ef0f852bcf07ec"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/13-friends.png",
+      "bytes": 235071,
+      "sha256": "922dda772ce2203d292072790d6e86bbec132824fc98a5eac6ca04c688f99015"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/14-friend-detail-visibility.png",
+      "bytes": 216815,
+      "sha256": "7d7ac899b130b59bb95dc55f38001b4526476825e7c0efbba13baafe094e49d0"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/15-profile.png",
+      "bytes": 349415,
+      "sha256": "cecdef23d988fc1718fb5c46f16f92d6113f2abfa22cb863ff4819012ed217a6"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/16-settings.png",
+      "bytes": 98804,
+      "sha256": "293d998c1466543375ec383b9bd9b5f81546faaed6841c4f21e787f453f58a83"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/17-category-settings.png",
+      "bytes": 125430,
+      "sha256": "aac103e1e0ce689d86000b4f0440fa2cd03ca761971bb4ccf5bbb4263727faab"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/18-stats.png",
+      "bytes": 215054,
+      "sha256": "a0e8275ff824d92474860e28d4133fc6d05ac1dfe2672fcbc3a1cc3e64c716d5"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/after-A/01-home-today.png",
+      "bytes": 321703,
+      "sha256": "ec85f5c11a22d397670fe6d58936b2d1be49286e469d08c6d9ef38767ee30e5b"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/after-A/02-home-header-overlap.png",
+      "bytes": 305227,
+      "sha256": "815cd8b4db48f6adebbe816a9da082ad185492af5c50e4bd264ea30381bcb1d5"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/after-A/03-home-yesterday-header-overlap.png",
+      "bytes": 410795,
+      "sha256": "0a14fb9ab4203e03f60f7bde08a58a909a2881b3f96c25bb44601992992212e2"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/after-A/06-calendar-mode-menu.png",
+      "bytes": 191435,
+      "sha256": "eadc54857403437436f76b6da8fd9a659180cedf4897cc15de01511f4fadd230"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/after-A/07-calendar-week.png",
+      "bytes": 237114,
+      "sha256": "28a8e4680faaea57f74c55e3878e0573d6593d65a373bcde6304129de23c27ae"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/after-A/10-future-day-summary.png",
+      "bytes": 203189,
+      "sha256": "46ade050be2ccdfbf7d453646c760b21681728e4cf2bea01a06ea243517eb993"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/after-A/10b-today-summary.png",
+      "bytes": 234678,
+      "sha256": "096d14f81d9c7c3bd0fa08cb993f9f3c4b9fad19143137628485c7ca0ef7d47c"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/after-A/15-profile.png",
+      "bytes": 348017,
+      "sha256": "5c790531ee4ed6f29c692131df234d79a262c6459cd622570289f21a88c6fa56"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/after-B/11-plan-editor-top.png",
+      "bytes": 209357,
+      "sha256": "2759b9a93b26498262bb43b470390f142d4ad8cd2b4efb337872746325666261"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/after-B/11-plan-editor.png",
+      "bytes": 200110,
+      "sha256": "41fb8a7635de3fc081f2a5c9baf2be5a877f6b178924d737e82d84c40b758af9"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/after-B/12-audience-sheet-custom.png",
+      "bytes": 86414,
+      "sha256": "25828ad349a0ea3ffa0cd2236df9a8cdb266dd6b953533b9f285787e5e33a803"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/after-B/12-audience-sheet-default.png",
+      "bytes": 91060,
+      "sha256": "7ed395afbfa258442e1c45e0ad59b289f7370b0d82984f97ca384615e5f0f3e9"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/after-B/14-friend-detail-visibility-off.png",
+      "bytes": 258401,
+      "sha256": "bab4dff2f75dca8c98d111d0e013b4163d56ff427f661f5094a9ea366828cb9e"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/after-B/14-friend-detail-visibility.png",
+      "bytes": 260594,
+      "sha256": "e18f441433c3c7b11742f71d9193e1d568e47d3b2e0c361fb633c97f093e8263"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/after-B/b1-1v2-category-collapsed.png",
+      "bytes": 186736,
+      "sha256": "c63523bca1457524933a6e40275aad14f9d44cf28f21577b8467d84e97b0351f"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/after-B/b1-1v2-category-expanded.png",
+      "bytes": 187575,
+      "sha256": "cdbbdaa18ec9de386d5e79a2a247e0bc90ff778f8d1c13a16294760240de1992"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/after-B/b1-1v2-category-other-selected.png",
+      "bytes": 188418,
+      "sha256": "04a00be634a48a7c11a31856f52563bbc0c98dee7d873fc75e6f7b349b492321"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/after-B/b1-3-trial-reverted.png",
+      "bytes": 204489,
+      "sha256": "35ec7547078ff1860e1f34f1499e95d1b50f96837dd8228764ee9db418408ccf"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/after-C/expanded-drawer-day.png",
+      "bytes": 99047,
+      "sha256": "d8c4c9a1bb7860d406ebc8b43300f59e6fb374e8f73d6abc3634396b215f2e66"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/after-C/home-tomorrow.png",
+      "bytes": 205710,
+      "sha256": "849a98cb716774a90f909fcadf07054b72a0c3cb9aeab3f9405cb4bd6522c42a"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/after-C/month.png",
+      "bytes": 169352,
+      "sha256": "848bf6c4f8acd147e5983aed85cd4eaf203844c1fbf65be638617fe1470134b9"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/after-C/monthly-ordinal-recurrence.png",
+      "bytes": 162963,
+      "sha256": "2bfee221460d27a37946b242997b7452fc309f6658e6618d9caa960adca5adef"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/after-C/title-sheet.png",
+      "bytes": 200413,
+      "sha256": "ec396a515fb66a19332a499bcbf5136fb94a017bed033b08f6d98bfe7a971f28"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/after-C/week-memo-marker-rejected.png",
+      "bytes": 152049,
+      "sha256": "ff9960ad8bc16ffe901dd34b18fd247ab9c93cd1c3a4a523efb32142f869e0d6"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/after-C/week-memo-marker-zoom-rejected.png",
+      "bytes": 32667,
+      "sha256": "bb1f9c615f2741bbf56bb8081e0fe060910c054a88f0dda9a6194aa7d67a0794"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/after-C/week-memos-now.png",
+      "bytes": 153481,
+      "sha256": "44d3b645289f425251de728e35e260043ea3541509c4128e227a486678b60f4a"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/after-C/week-memos-zoom.png",
+      "bytes": 43188,
+      "sha256": "823bce55fdbc185e83bf8eea084d4f938adb6bf419f3b67a37e1895d737eec60"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/after-C/week-no-memos.png",
+      "bytes": 151031,
+      "sha256": "a89e44d0d3ef641801f282cc1ae089e04562e0cf1522cac9876af052f77a4a99"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/c-proposals/before-cal_day.png",
+      "bytes": 1530990,
+      "sha256": "80988e60d92b233ccbf94e79c1cfc3f77259122a65b3ffaa8827527d13a19f25"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/c-proposals/before-cal_month.png",
+      "bytes": 1063750,
+      "sha256": "b5e8f2884e7843e02288e783ef049c01f1bfba66ae45361fbe5465da7ac1d498"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/c-proposals/before-cal_week.png",
+      "bytes": 1230808,
+      "sha256": "cc65ab6bdeb9d5d8948362e23c378d26036d17b15ed8def749c9f7421092c426"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/c-proposals/before-day-preset-sheet.png",
+      "bytes": 1294464,
+      "sha256": "4e05194edc0d45326f7a1247020980fbc5b8d8416f43bdf140feebca4d8f04e1"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/c-proposals/before-expanded.png",
+      "bytes": 919218,
+      "sha256": "0478a06da8f5ba8adeb8cf8c6c11ea5ab2d1285758efd61a178f914ead7eac54"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/c-proposals/before-home_tomorrow.png",
+      "bytes": 1581037,
+      "sha256": "6e1ea2b9eb0a42604aaa5ccd61ddca5f6e96bdcd30a027a747e45cf56552ee3b"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/c-proposals/before-plan-drawer.png",
+      "bytes": 1321115,
+      "sha256": "8ab029978e0ad38abc452adba01288cfb5d30162a318481a8f294d02d668b44e"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/c-proposals/before-title-sheet.png",
+      "bytes": 1177895,
+      "sha256": "1cfbaffa93ae2705f93bcf6b30d3ceef6e7bf4313a23a9be0ee1e68d2a5847aa"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/c-proposals/c1-calendar-day.png",
+      "bytes": 1549711,
+      "sha256": "6ddc2b02a7686137a335713f928adb8d2f542e113a04465abd07730d6d0c19ab"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/c-proposals/c1-calendar-week.png",
+      "bytes": 1241512,
+      "sha256": "c0d95572c663996fa88aac074ec888d129449e50b2ec5a4a825ce0dfb0057c80"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/c-proposals/c1-expanded-timeline.png",
+      "bytes": 927673,
+      "sha256": "e2ab07ba4e7f055237bf2f57d8555714cda47530d5aedddd3dd45b966e638e0f"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/c-proposals/c1-home-tomorrow.png",
+      "bytes": 1554506,
+      "sha256": "5d82e417671718e26c0472ac94854e9b842ce34febdfc8534d536f3da1bda6e0"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/c-proposals/c2a-month-today.png",
+      "bytes": 1053461,
+      "sha256": "9ebc04a0c3e2595a8e3c45a4037e2fd1b26faea2999cc540475424fc4beaec18"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/c-proposals/c2b-month-slim.png",
+      "bytes": 1055506,
+      "sha256": "99bdcc3d82b3103b5fc6e33c71125af7382acf152fe261173a2060f89da738cd"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/c-proposals/c2c-month-header.png",
+      "bytes": 949229,
+      "sha256": "ff63f374f13cf7113498c1e72e00218d5d7e1a32e7bcdf1af688b06f9b2d975f"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/c-proposals/c2c-title-sheet.png",
+      "bytes": 751087,
+      "sha256": "5571e1df469b36e029f31909af2b32e14112fceb100d7f9d2bc710121a014a70"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/c-proposals/c2c-week-header.png",
+      "bytes": 1239923,
+      "sha256": "8e742d5209a04c4e1da3c7cdb07ef3cf09efd4d27cb8081aedce186b482830a1"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/c-proposals/v3-drawer-day.png",
+      "bytes": 1286255,
+      "sha256": "08e300bde61034f206e61e7a7a538f470bd9a84f4e2d89445ac7e2bc3ac0d8d2"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/c-proposals/v3-drawer-plan.png",
+      "bytes": 1300033,
+      "sha256": "df12762456090fefa08825091d454d9d33689780ff39ad6775d8d3aaf709356a"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/c-proposals/v3-home-tomorrow.png",
+      "bytes": 1560666,
+      "sha256": "84cf47b4d3357ce406ac11555c2b30eedf9395fa16d2b5e722a60e7bd8d15bb8"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/c-proposals/v3-month.png",
+      "bytes": 951326,
+      "sha256": "2b62273790b4365ff3bda1b9c7a3ee8f8711e5f45e80c10a488156e3b10c3ad5"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/c-proposals/v3-title-sheet.png",
+      "bytes": 735126,
+      "sha256": "5e4d6f138dd0d431fb8ed618f2fcb511b67bf83e46a3b6154eb0e48278f6efad"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/c-proposals/v3-week.png",
+      "bytes": 1241762,
+      "sha256": "d966b0284efc22516d261caebc6d3b3953daec1c83224ebdff4ae8b5353be8cc"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/compare-A1A2-calendar-mode.png",
+      "bytes": 717207,
+      "sha256": "e6b7cbf34c4b68105c5d1de7a7e9fa37aa04b19d28713013573c0dae8e7f1668"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/compare-A3-home-top-fade-reverted.png",
+      "bytes": 1370012,
+      "sha256": "6ee981cf58ff271fd33818750724a574bbdd6c389734557c26d072936f16f0ad"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/compare-A4-icons.png",
+      "bytes": 1320103,
+      "sha256": "3d7941b2faba068efa3a40936037dafeb4b100e5130c6db9c888ba29523c6f01"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/compare-A5-future-day.png",
+      "bytes": 626284,
+      "sha256": "a2b20312868503065c18dcc1bc725ebd157bce6496f1a2869cc4eee827860536"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/compare-B1-plan-editor.png",
+      "bytes": 608571,
+      "sha256": "6ecf0e4a4f57b91346dbe4f622d65925b4dc1cab83d95a2dff9c9bd183d6c005"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/compare-B2-friend-visibility.png",
+      "bytes": 582075,
+      "sha256": "94baadf12be15aed0e0ba4cf4574a28a4e8eed8ca0b6eb019f7d998bfa2882e0"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/compare-C-implemented.png",
+      "bytes": 700012,
+      "sha256": "66e7debff2f0e1870663a9dc0f74b80021d14bd3d0eddba5dc47fde788067e2c"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/compare-C-v3-calendar.png",
+      "bytes": 542015,
+      "sha256": "f4942d05134727d033cd30d7e07aa8c7a21d8e00e8cdb8b1b4c4f1bdd32d992a"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/compare-C-v3-preset-drawer.png",
+      "bytes": 437412,
+      "sha256": "061db8631114e6845ebf7326b056c2d81eee52320acf5ddb0f0f1a7fd87656af"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/compare-C1-home-expanded.png",
+      "bytes": 524337,
+      "sha256": "544c5dd54faa7c9d9cc8d9678ddd28656adf5409d2fa8735d952631cce0000d5"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/compare-C1-week-day.png",
+      "bytes": 559256,
+      "sha256": "f46798dcf69b5905b2d00c7c854b11065d8102e2e3e4bb00cd60475b92b2fecc"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/compare-C2-month.png",
+      "bytes": 373877,
+      "sha256": "d1f62909cdb13f569179fd62310722c4f660c36f3e38dd5ce6692ce2af4d94f9"
+    },
+    {
+      "path": "design/app-navigation-review-20261005/compare-C2C-header.png",
+      "bytes": 679603,
+      "sha256": "7410324a529b1a59bcc4fa0826fae064735aab2c6568168f954c98155171b184"
+    },
+    {
+      "path": "design/calendar-button-study-20260929/01-month.png",
+      "bytes": 990332,
+      "sha256": "c647fdb05d2c1ba9f74b9a0565db0eabf685e61433a67e6482ceff268ebbff32"
+    },
+    {
+      "path": "design/calendar-button-study-20260929/02-drawer.png",
+      "bytes": 935391,
+      "sha256": "b94a8c77c4c7bf7f9764f3e43c18e52440cd76de1b9c607cf66209e9a590ef74"
+    },
+    {
+      "path": "design/calendar-button-study-20260929/03-preset.png",
+      "bytes": 1097533,
+      "sha256": "145712e2a5ef8b8c5666ede576b52c51509160af787764ff9632676ff66d12e1"
+    },
+    {
+      "path": "design/calendar-compact-header-20260929/01-header-and-drawer.png",
+      "bytes": 645631,
+      "sha256": "87649db15cd3ed7a85bffbd4d1d9fea6cd6a0d48579b18fdf7c437b84d2c2bfe"
+    },
+    {
+      "path": "design/calendar-compact-header-20260929/02-accessibility-text.png",
+      "bytes": 648593,
+      "sha256": "89373d1407dbfbf34eeae6f9e39541c9f6d532d3ea0b02cda6ad724678992e7e"
+    },
+    {
+      "path": "design/calendar-compact-header-20260929/03-utility-menu.png",
+      "bytes": 676492,
+      "sha256": "77f3b4cb905b17e3603b635248a59b20a77eecf39368cefbaa084e1ba176debd"
+    },
+    {
+      "path": "design/calendar-header-rollback-20260929/01-restored-header.png",
+      "bytes": 785862,
+      "sha256": "64a29bfd553cd676400bb9dae9607d9630d095af100ebb641b3c439a1b82a062"
+    },
+    {
+      "path": "design/calendar-refinement-20260928/concepts/01-list-to-timeline.png",
+      "bytes": 1163206,
+      "sha256": "ad8955eff616d121f0ad9380d3ccd688195e74ce40c164c587aa9870bbff34df"
+    },
+    {
+      "path": "design/calendar-refinement-20260928/concepts/02-day-workspace.png",
+      "bytes": 1180529,
+      "sha256": "51bd719d9eb5dc39703863ce28d53ad4dcd30f7c979c9798dac0fd752952349e"
+    },
+    {
+      "path": "design/calendar-refinement-20260928/concepts/03-bottom-tools.png",
+      "bytes": 1162372,
+      "sha256": "1e7e6215f6f061097d44b812beeca0d8fa974b0a24c30c1876e8923ff670360a"
+    },
+    {
+      "path": "design/calendar-refinement-20260928/grouped-header/01-before.png",
+      "bytes": 665503,
+      "sha256": "fe157c26f1ce955ca66d1ee2925a7db089422fb45821b945fb685d06d96c1a0f"
+    },
+    {
+      "path": "design/calendar-refinement-20260928/grouped-header/02-after.png",
+      "bytes": 669493,
+      "sha256": "ed5b0dc018284c1b07ece239f1c62c1aa2e3a11454bb2c392201ba2b6c173afc"
+    },
+    {
+      "path": "design/calendar-refinement-20260928/grouped-header/03-accessibility-text.png",
+      "bytes": 658594,
+      "sha256": "a3932b9cfd7f3e02c69fa5296ca45da2dba086e8331b944ded726c884450bcbd"
+    },
+    {
+      "path": "design/calendar-refinement-20260928/grouped-header/04-device.png",
+      "bytes": 606277,
+      "sha256": "ba73baf858fe197d1af56d29e87ddcf64ff43eee11e01728eb5df73364d2a966"
+    },
+    {
+      "path": "design/calendar-refinement-20260928/grouped-header/05-device-accessibility-text.png",
+      "bytes": 595703,
+      "sha256": "c6823583e3b8bd1dbe153ac879cf4983cf0401e39f9dd1564ab138d1e981245e"
+    },
+    {
+      "path": "design/calendar-refinement-20260928/implementation/01-drawer.png",
+      "bytes": 665036,
+      "sha256": "999b708781c60d2b02b118c1d2c60186fd1f6dfcb600c9ccdcfd8a9ec27d50d1"
+    },
+    {
+      "path": "design/calendar-refinement-20260928/implementation/02-summary.png",
+      "bytes": 1796381,
+      "sha256": "8a4cf12df5c7bf25bd038dedc65c39adc3b1ff178de516db5dcac980462afc06"
+    },
+    {
+      "path": "design/calendar-refinement-20260928/implementation/03-timeline.png",
+      "bytes": 433731,
+      "sha256": "80f66b50e9c7100b65fc60ba3a4deab1bc146cedc8db9e0e1272bc6bca319a98"
+    },
+    {
+      "path": "design/calendar-refinement-20260928/implementation/04-accessibility-text.png",
+      "bytes": 654427,
+      "sha256": "addedd56680127cca61ba96f589e290007ac184b9111265f64b64625eb6aaed6"
+    },
+    {
+      "path": "design/calendar-refinement-20260928/implementation/05-device-drawer.png",
+      "bytes": 602835,
+      "sha256": "0364b3369a9750cdd8e667eea24e9f0481bd48b6adbb25915de445cf1663d83a"
+    },
+    {
+      "path": "design/calendar-refinement-20260928/implementation/06-device-timeline.png",
+      "bytes": 341693,
+      "sha256": "ace425597aec98afafdc9d3c1c513f09788f03038a4782e611f41a26f5b8a97e"
+    },
+    {
+      "path": "design/calendar-refinement-20260928/preset-pair-right-add/01-before.png",
+      "bytes": 668920,
+      "sha256": "4ccadf52e78a45188de948ac729670056c918ec94cb83f0bc3a30f15493592fb"
+    },
+    {
+      "path": "design/calendar-refinement-20260928/preset-pair-right-add/02-after.png",
+      "bytes": 666999,
+      "sha256": "976f9d05bb79a2de8b37cd1d0be4a74b9e7bb65697a75ae876b42ba69aad445d"
+    },
+    {
+      "path": "design/calendar-refinement-20260928/references/01-current-month.png",
+      "bytes": 1015481,
+      "sha256": "8056589548d1a67017311623e231d9452d09aa4fb404118763ada4dc1ffee251"
+    },
+    {
+      "path": "design/calendar-refinement-20260928/references/02-current-day.png",
+      "bytes": 1010843,
+      "sha256": "77ba62614e32309ccb944db4de2a786a20246a6f37100270fb1cad24d56b4523"
+    },
+    {
+      "path": "design/calendar-refinement-20260928/references/03-current-preset-library.png",
+      "bytes": 998231,
+      "sha256": "92c2d4e7da59c593bae838c452a9e58ca267323ebc845bdfb8422f36a1f1a9b4"
+    },
+    {
+      "path": "design/calendar-refinement-20260929/01-preset-bar-and-drawer.png",
+      "bytes": 783976,
+      "sha256": "10760257dad39e046d4a7ff18b23be59f3db13e519142e7e5e1a698e43408149"
+    },
+    {
+      "path": "design/calendar-refinement-20260929/02-accessibility-text.png",
+      "bytes": 786724,
+      "sha256": "c3532e1663101a7840a2ce278d9dc5a616e1e419baa6e6ed93a92d19629dfd46"
+    },
+    {
+      "path": "design/calendar-refinement-20260929/03-preset-target-date.png",
+      "bytes": 777784,
+      "sha256": "5b842e33e1047e53654188424389bd05132c77d6e4bc0e093be046913b7dc7c9"
+    },
+    {
+      "path": "design/calendar-refinement-20260929/04-day-preset-new-date.png",
+      "bytes": 918371,
+      "sha256": "cfdfcf304ff4cc7b7f3e557026b06d6b6f51ff3c19c363526d8a4df851ed88f2"
+    },
+    {
+      "path": "design/calendar-refinement-20260929/05-direct-drop-result.png",
+      "bytes": 742486,
+      "sha256": "3e7b05f5bb430e4e87616f35b156d0b6f94fa27680aa0defc77b2ca8494819c4"
+    },
+    {
+      "path": "design/profile-collection-review-20261005/01-profile.png",
+      "bytes": 2988560,
+      "sha256": "69624d1754ddc078b262ab4227a6102e83a45eca51f63d01bb7be12171fda1f7"
+    },
+    {
+      "path": "design/profile-collection-review-20261005/02-collection-cards.png",
+      "bytes": 2711424,
+      "sha256": "f1bc229de31407f9720958af694d0741b1a7d0ba97acb48c0a15dc46116c5e8c"
+    },
+    {
+      "path": "design/profile-collection-review-20261005/03-calendar.png",
+      "bytes": 1019582,
+      "sha256": "cb3af03e7099da5f888c40dc8169fee7e49175c66af491d0744fbb17c3cc8b90"
+    },
+    {
+      "path": "design/profile-rendering-study-20261002/renders/botanical-card.png",
+      "bytes": 3141389,
+      "sha256": "8fdb58fff3f3c96c3d81aee36f67ee3c220500b5093f2b22fd363d7808e6599c"
+    },
+    {
+      "path": "design/profile-rendering-study-20261002/renders/botanical-frame-1024.png",
+      "bytes": 311471,
+      "sha256": "077e189bd672159b663c19ad625ce86d47d276f50f61a7549569f66867f4b9af"
+    },
+    {
+      "path": "design/profile-rendering-study-20261002/renders/botanical-frame-2048.png",
+      "bytes": 972144,
+      "sha256": "8eaa28bc67e97796c6609718b36b6db457e1fd5caa0e327842ca1d9a9d5d2a1b"
+    },
+    {
+      "path": "design/profile-rendering-study-20261002/renders/botanical-hero.png",
+      "bytes": 888396,
+      "sha256": "ee371b5c38752bc7c3abf0a63b6c3d660ee0817afac4d41300dfc9dbad9d4a27"
+    },
+    {
+      "path": "design/profile-rendering-study-20261002/renders/celestial-card.png",
+      "bytes": 2952433,
+      "sha256": "1d0e5836ca81149effaa6334744631d3fd34d3b7af57e8fd315ef52aa65f45a1"
+    },
+    {
+      "path": "design/profile-rendering-study-20261002/renders/celestial-frame-1024.png",
+      "bytes": 306990,
+      "sha256": "7e981ec87f6bd395a200887c43c360e4ab05dcb980879081ba32df26848c9362"
+    },
+    {
+      "path": "design/profile-rendering-study-20261002/renders/celestial-frame-2048.png",
+      "bytes": 921874,
+      "sha256": "2856437ce2db96be06b21a08f862b67783905cf8d6e79eabb6d3319c14badc1a"
+    },
+    {
+      "path": "design/profile-rendering-study-20261002/renders/celestial-hero.png",
+      "bytes": 830443,
+      "sha256": "cdf329ae620b032f3a236924d3fd67563597c9b102fb603fb1f7a783386efa88"
+    },
+    {
+      "path": "design/profile-rendering-study-20261002/renders/comparison.png",
+      "bytes": 3758456,
+      "sha256": "52146bac15ac01a9d24d3425cddfef1c1a54e0e9b92622585c479f28bf18497e"
+    },
+    {
+      "path": "design/profile-rendering-study-20261002/renders/ios-dark.png",
+      "bytes": 2130390,
+      "sha256": "9d23da522ea5bf7367971dfdc0b611b97a7b7223c74b01c37f0094879f23279b"
+    },
+    {
+      "path": "design/profile-rendering-study-20261002/renders/ios-light-accessibility-celestial.png",
+      "bytes": 1992794,
+      "sha256": "ab276a9f9bb56603d933ceaf004a328547c4d7704746d37ffd47982465ba082d"
+    },
+    {
+      "path": "design/profile-rendering-study-20261002/renders/ios-light-accessibility.png",
+      "bytes": 2033258,
+      "sha256": "6a6ed24769d71d116f1070e018a45c2fd1c27ed60aa7a57b49092501d1a4d430"
+    },
+    {
+      "path": "design/profile-rendering-study-20261002/renders/stress-dark.png",
+      "bytes": 1393431,
+      "sha256": "6ba2b19c868773ee52b532c2a9c14ae9d9d1a599b61d1a26b14a69f0d9ae1993"
+    },
+    {
+      "path": "design/profile-rendering-study-20261002/renders/stress-light.png",
+      "bytes": 1391165,
+      "sha256": "61bc6dc5f3aee8c3751f46639b28586f9374174e38a23679d0724af14e7fb349"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/compare-grid-1.png",
+      "bytes": 4855700,
+      "sha256": "ee67789c3137981a60216f50e301962b0a13f1ff65efdeffdafbe6eaa3dc68a6"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/compare-grid-2.png",
+      "bytes": 4845281,
+      "sha256": "22b9b1a54477c19d983fcc91776fcc53b85a9f289fe3ce2059209e80a03ed338"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/gallery-daybreak.png",
+      "bytes": 3767028,
+      "sha256": "5e116523295834b011be81aec75e31b735aa062f84e4490f74e623ac6edd20bd"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/gallery-dusk.png",
+      "bytes": 3769279,
+      "sha256": "c81752d4c255c3ebb6949c487fb215d7c15b56b0931355e580b52d47ca0b3b94"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/ios/sim-detail-ax1-daybreak.png",
+      "bytes": 1918138,
+      "sha256": "e4b60f631c66e7230cd6d58602b5449646ec10133fe5a6a3b80dbd1821d0766b"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/ios/sim-detail-ax1-dusk.png",
+      "bytes": 2160279,
+      "sha256": "4c778e42890dca4e5d0dc87e8150c0178151e52c438af273aa4fadada2d8cbc4"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/ios/sim-gallery-daybreak.png",
+      "bytes": 954380,
+      "sha256": "26ec28aa224601f24979d07fb3d3d2b6cf7f7f816c4a8dccca4704400be7aa47"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/ios/sim-gallery-dusk.png",
+      "bytes": 1001460,
+      "sha256": "92e296da37244eace3b5b6e1255f3163dac0b3bba1f84e5db260dd730df52eb4"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/ios/sim-profiles-ax1-daybreak.png",
+      "bytes": 2177963,
+      "sha256": "be09fdf15a24405769788e3d78290bffcd75450f774226a2cd0f41ce8e542953"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/ios/sim-profiles-daybreak-1.png",
+      "bytes": 2305586,
+      "sha256": "74895d7226b655aa76ed607d27632db877a2b0cd0a40a5d857e63af06cb7081d"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/ios/sim-profiles-daybreak-2.png",
+      "bytes": 2431324,
+      "sha256": "5aa3671318469b662e89b2fa650a751428093e2e30d3d1c8cee81c6fb4bf626d"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/ios/sim-profiles-dusk-1.png",
+      "bytes": 2227570,
+      "sha256": "891c6f73d889a17d70d5bcd910fb0a04d442b25a3401d0ccf11342427a34ee7e"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/ios/sim-profiles-dusk-2.png",
+      "bytes": 2381665,
+      "sha256": "b79be96715abd0d49c0aa1c64d9c570d894caed811b4e3d7e7ad56bcdac09134"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/lineup-daybreak.png",
+      "bytes": 8019993,
+      "sha256": "52c47571e68b3463a45bec16c8f91e40cc4c6adabddd86666f0ae270e22ce81b"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/lineup-dusk.png",
+      "bytes": 8165609,
+      "sha256": "74379f50a562d55cff7a4f4aa40ae60ecbd8f5599adc6b11fa6eb880c7aed444"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/master-card-aurora_trace-daybreak.png",
+      "bytes": 1720081,
+      "sha256": "38543415dfbc55adb00de61b01fa035d8fa4d0b6ff2ae78ab0edeba8f60357ca"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/master-card-aurora_trace-dusk.png",
+      "bytes": 2556965,
+      "sha256": "3be13dc47761fc115af07fdfa97955f3826444a7666cf43dc9eb254c5c885303"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/master-card-ripple_border-daybreak.png",
+      "bytes": 1670305,
+      "sha256": "7f82cbd1b47f4e481c28ea87b3ded94c27519d296c5c8c6a91171185f472051e"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/master-card-ripple_border-dusk.png",
+      "bytes": 2637841,
+      "sha256": "c634be00767182714a46571f33d171c2b63c1ac41b8ddc4492c30bebd7040a00"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/master-frame-aurora_trace-daybreak.png",
+      "bytes": 171265,
+      "sha256": "98163603d6177c093274849bf356ca96ace3cb95f8066e1c04e35ac3a0e84d30"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/master-frame-aurora_trace-dusk.png",
+      "bytes": 184708,
+      "sha256": "1abcfe97be1f161710743d1ec43f40b98c14f2b4ebea06f2842c92821f7db94c"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/master-frame-ripple_border-daybreak.png",
+      "bytes": 425934,
+      "sha256": "80c1d6a714e2f541a4a523dd49e40c2cda23ac29e64fb3d39ca7f51d9a631360"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/master-frame-ripple_border-dusk.png",
+      "bytes": 499806,
+      "sha256": "0f2d09662047a8661351325eff40ba267c821b06134c330d915a86ff38a1614c"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/motif-aurora_trace.png",
+      "bytes": 3910204,
+      "sha256": "f479e7652180e38d67370104d2810eef1b10737919b4ec658b9c7c1a7622caae"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/motif-candle.png",
+      "bytes": 3889957,
+      "sha256": "d12276a9311b52368f8e61fc65fb7566a88ea906b1447d7bb9b601f7f1acc225"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/motif-cloud_veil.png",
+      "bytes": 3879174,
+      "sha256": "2efc85dd1463373d14441b2f60450f9b0328b7dc37a6992e494f6deacde6b5d1"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/motif-constellation.png",
+      "bytes": 4189271,
+      "sha256": "c94793548d12e35bde5e24d0d6611e95e6e6a27fe0c6fe9b92b0724a1ce4ff16"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/motif-dawn_horizon.png",
+      "bytes": 3815684,
+      "sha256": "7f315ee6a264e2943bb8983639a484e1dc566c3c51a6d0ba3d2a68c0c6a99646"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/motif-frost_edge.png",
+      "bytes": 4225370,
+      "sha256": "ea141d0fd43b485bd0aaeaf4b2853e57cf477e648b06a968e6256db15036c50f"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/motif-glass_bead.png",
+      "bytes": 4068188,
+      "sha256": "037e9697b3214605f811038c31c344555c72bc8825b78640cab267c8751c6748"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/motif-ink.png",
+      "bytes": 3989429,
+      "sha256": "eeb3a3f1ef7c8980198f52a50668f21ef9b653231ea13f6a4e3db992417ef667"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/motif-leaf_corner.png",
+      "bytes": 4379234,
+      "sha256": "2cc23394d0c7b27583bf147478e317a47a221092a439aadadd2dc22711ffe9d1"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/motif-linen_stitch.png",
+      "bytes": 4474841,
+      "sha256": "3c48aaa4ec79bba0064ff44173cff03ac444009889f6ef2e060fbd758b973cd1"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/motif-mist.png",
+      "bytes": 3943861,
+      "sha256": "8faf0a385cfe5710b0e686ce8233a361040608b17a9d42dc71025ebd549958b3"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/motif-night_bloom.png",
+      "bytes": 4075631,
+      "sha256": "e36eaac7caf70099d67f6f6dee9d0485aa9bc0f2d87cf6621065b403dcc720ed"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/motif-orbit_grid.png",
+      "bytes": 4047311,
+      "sha256": "73ca333f692d54754db889228fdccea3363fc6105935d7ffb4477617be21080b"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/motif-petal_corner.png",
+      "bytes": 3898587,
+      "sha256": "eb1b9cbe53c332cf5da8a04ae3800c8f53d30ce3e6240d28608ea3aabfb85569"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/motif-rain.png",
+      "bytes": 4019143,
+      "sha256": "1f5a1214fb7cad67b6e3f7ea331c400c0bed0b72992647732eb4fcc9eae0ff1e"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/motif-ripple_border.png",
+      "bytes": 4168014,
+      "sha256": "e03531154a6b2738254f10d94401ff9d176a153252ab2e3cc9879cb6924b500c"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/motif-stone_path.png",
+      "bytes": 4071799,
+      "sha256": "e375f2feb34b72c0daaaeabf6b180e8dccd9dfad86bbd9029afe3fdfeaa46ed7"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/motif-sunline.png",
+      "bytes": 3900002,
+      "sha256": "a31189470b84d8e72357d1436ad56bee8eb7cd0e4c55cb52b2fbade46ca8abf1"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/motif-thread_border.png",
+      "bytes": 4423920,
+      "sha256": "4f199ad21d8349e7ff52a3b960f9529dc6e463ddfe76a7c50b071543e804a972"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/motif-wave.png",
+      "bytes": 4311578,
+      "sha256": "3e34d1e0b99197dfca5eed9cd797a54c55d4cd37bf73f688cd1a4ba382e83fb0"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/card-aurora_trace-daybreak.png",
+      "bytes": 741974,
+      "sha256": "f9e8c49fccaaa6a87769a83a37595edc887e46c9eae8440ad8069900e9f1c195"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/card-aurora_trace-dusk.png",
+      "bytes": 718824,
+      "sha256": "60ec23674767f77436acb8fd25cdd435c4eea5ea4d5a6be08ff482aff9741cd2"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/card-candle-daybreak.png",
+      "bytes": 651301,
+      "sha256": "3f67414e0de7419a85f607d203a193dbeed10cd09ab92a1a6cbb4cddc3a86408"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/card-candle-dusk.png",
+      "bytes": 709166,
+      "sha256": "6e7951a7b8c28e1aaee877c8812c029c5fdd9d5f72cc1fd7ab5ea71999bc9ce4"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/card-cloud_veil-daybreak.png",
+      "bytes": 719665,
+      "sha256": "d474719219e3c3486c725b6a4d8dd4dfa2fb5b7c7f7a38d24af3afb9525d9edc"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/card-cloud_veil-dusk.png",
+      "bytes": 725130,
+      "sha256": "430c907e49fe641a150836930ad52f795794cf7c3a2032938169eec3973d4ab3"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/card-constellation-daybreak.png",
+      "bytes": 793317,
+      "sha256": "65a9e354e76ababc63706aa66480d0ffa93826555b26527d170f319359c29f30"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/card-constellation-dusk.png",
+      "bytes": 758913,
+      "sha256": "77832269db58210700e1359ff69d6b22d17b720379e84545bf5f858a9fa1a8cc"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/card-dawn_horizon-daybreak.png",
+      "bytes": 665108,
+      "sha256": "67543940347de108d68e68bbf48c5799852f85c2892b9b5fc4c1dd195cac1efa"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/card-dawn_horizon-dusk.png",
+      "bytes": 723510,
+      "sha256": "bf0feb9710a046ce1d7be09b840fd41dd2368e04dd9887fed7029a0a263d4b2f"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/card-frost_edge-daybreak.png",
+      "bytes": 741580,
+      "sha256": "7a510dda646d86056a017e8751437c0e9ebe6e360421acc10ea4476e6298d31c"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/card-frost_edge-dusk.png",
+      "bytes": 773836,
+      "sha256": "01336ce5e4d59fc7716f73194b831b8e27fe9cd818666897f12a6dfdddc9cb3e"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/card-glass_bead-daybreak.png",
+      "bytes": 756720,
+      "sha256": "d6ff01252da0a578ac1f007dc0ba363a7688d79d0b6810d5a71a526c2a90c2c7"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/card-glass_bead-dusk.png",
+      "bytes": 744314,
+      "sha256": "705b8f53dffb58defd38efb1be6d1d7387bb9e7da61da96ab4cebc8e834690c8"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/card-ink-daybreak.png",
+      "bytes": 714196,
+      "sha256": "35ebbadf487efe348de3c7eead80f53f99ddce5d08f1b253e245e800fe0ff11e"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/card-ink-dusk.png",
+      "bytes": 708426,
+      "sha256": "8df1ba02e2010c32fcccaa9faca8982e000ab797702b877b70f6737c9a157e83"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/card-leaf_corner-daybreak.png",
+      "bytes": 806173,
+      "sha256": "5ad73882e9bc71521a8f1a6c44371601e30212f1cb50c61c5db372e24384968e"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/card-leaf_corner-dusk.png",
+      "bytes": 801186,
+      "sha256": "ad6f8a236b1c576240609871c476809a363a0b3f0b4070380a5b6b344ff985de"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/card-linen_stitch-daybreak.png",
+      "bytes": 894680,
+      "sha256": "b47c4889db8f62fa90da93aa9b5fc2df6946a81d10e9a78dfd3e1e4e2d1b998d"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/card-linen_stitch-dusk.png",
+      "bytes": 883305,
+      "sha256": "1e0b456441c4640a014e4915efba0e04d78b30a46beeb517ca410dee9fb7f673"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/card-mist-daybreak.png",
+      "bytes": 720046,
+      "sha256": "c80466d0642b86c245f1f308b3126e58da5d8d4737e34779141b5b22f133fd11"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/card-mist-dusk.png",
+      "bytes": 744524,
+      "sha256": "accca986a824350eea8b87a462ce74649895e238a2c72b1b594f6e86f2d7a40b"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/card-night_bloom-daybreak.png",
+      "bytes": 718794,
+      "sha256": "c47b2a7e6b80affae81c54cc5dfcc2385346bdfd67a1afe45d27b82ee609be67"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/card-night_bloom-dusk.png",
+      "bytes": 746008,
+      "sha256": "0642be9c80c3eb3e6b2be1bcb5b9460bf352b8e91a026267a8af1f007ca98d6a"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/card-orbit_grid-daybreak.png",
+      "bytes": 737026,
+      "sha256": "cb82e234555011f0c26af75b8889d4a266fbdb1444f69a9b7e99e6857f893a5a"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/card-orbit_grid-dusk.png",
+      "bytes": 742565,
+      "sha256": "293cf83ba4d553f4ce845d60492cdf5dba769232a5c702cf961f7d159434b65c"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/card-petal_corner-daybreak.png",
+      "bytes": 715064,
+      "sha256": "8179a9397a5bfe972cb1822447f422b6cef06b0837faeef8d388f9ed4b2d24d5"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/card-petal_corner-dusk.png",
+      "bytes": 724551,
+      "sha256": "190ba2a90fd72fc64b20bc32361eadfdd45c77405cfc9fafe8cd095f43552871"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/card-rain-daybreak.png",
+      "bytes": 747475,
+      "sha256": "5660014f4e656f2e02e97371b8955a7d0d33b373051b65f5e43a620ec2b235d3"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/card-rain-dusk.png",
+      "bytes": 742018,
+      "sha256": "3439cf297be1eb90e1600c66b8ec322e080e6fe479ce8cd4c64f60e78a962cb2"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/card-ripple_border-daybreak.png",
+      "bytes": 758035,
+      "sha256": "2f22f7d19c4c030d309264971a7b18949b7bf3b20aa4e02b972348fa2c572ba1"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/card-ripple_border-dusk.png",
+      "bytes": 758970,
+      "sha256": "0fc1e5552e62c956f40bd084046a15763a37820f4fb4e58e1ce0bce7b744253f"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/card-stone_path-daybreak.png",
+      "bytes": 743065,
+      "sha256": "0d08518f128e5f7700f768f256336d10d98ed1bbbdd26a3ce9707853d2c0faa9"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/card-stone_path-dusk.png",
+      "bytes": 729222,
+      "sha256": "a67c41b9a047b14fe4102d9d1adda19d653e1af84070657abb4cb6ae5c19f437"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/card-sunline-daybreak.png",
+      "bytes": 661865,
+      "sha256": "7435dcef3350e9516def451eba006294e1e59641f81220d635616cc7b86fb7c2"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/card-sunline-dusk.png",
+      "bytes": 726422,
+      "sha256": "463bc88d7acfefd3a5c1f8b3b802b5811ca174488f04c549dcb9df30ff191880"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/card-thread_border-daybreak.png",
+      "bytes": 822976,
+      "sha256": "ae4cef0c02b65dbf55a1181af18d7e7b16b01a0c7a527ccc1d5c29e043495f6a"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/card-thread_border-dusk.png",
+      "bytes": 808653,
+      "sha256": "53de37a3b21c81df13da7784237c18e0d736e5a9d818fa7b27c9a8305a2d4f49"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/card-wave-daybreak.png",
+      "bytes": 826517,
+      "sha256": "43ca51e92bd685e840c0517d8ccb3dc0c20ca7724f97909adac7a5a44b6e432e"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/card-wave-dusk.png",
+      "bytes": 816280,
+      "sha256": "ec618d0a7db3210f960b86e0385a272dcfc2923fc453226c4ef4bc26d7337eaa"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/frame-aurora_trace-daybreak.png",
+      "bytes": 286384,
+      "sha256": "e57351e45160805a24013d9216cc6278eae6c8a57cb706d369533c75b85eef78"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/frame-aurora_trace-dusk.png",
+      "bytes": 298294,
+      "sha256": "14eb4fc4acb89c83ae9e65dea3da571ad765280ebe4d573852496a481d111211"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/frame-candle-daybreak.png",
+      "bytes": 185861,
+      "sha256": "c3791489195ae8454d181a479eed3c2370e05bda384a34de6236f34898e4f02d"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/frame-candle-dusk.png",
+      "bytes": 390760,
+      "sha256": "1a4ecd3eec5ff061a8b529e8e303a9008bb77d674fca5f96e122dfe4f7e6653e"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/frame-cloud_veil-daybreak.png",
+      "bytes": 245352,
+      "sha256": "cdfea47f21e89ca787fd7b4f4b1dd60f9b20fb837d82a6e3d44b67d9851e3b06"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/frame-cloud_veil-dusk.png",
+      "bytes": 241214,
+      "sha256": "88ae8ae4307f7e823279011444eefab48f8d55ebc0ad8a932bebce379f8e213b"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/frame-constellation-daybreak.png",
+      "bytes": 570713,
+      "sha256": "8e785e409bab1332999db377dee97867e6219e5716100535573d6dea810d1917"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/frame-constellation-dusk.png",
+      "bytes": 563979,
+      "sha256": "3fa3d43fe29a93e7a90e06e189b2975e7010d5087199c4394c68637cff884ed7"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/frame-dawn_horizon-daybreak.png",
+      "bytes": 186511,
+      "sha256": "fc064b883cf56603d77fd89634ecae09714d209869002a06ab103bf464b05911"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/frame-dawn_horizon-dusk.png",
+      "bytes": 183001,
+      "sha256": "fca42435712809fa12df64fbb87fbd7a00a12ce717a1f44dab8df416dfdd5f94"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/frame-frost_edge-daybreak.png",
+      "bytes": 264698,
+      "sha256": "db0c486d88db95de0e58a10b5b19f2ad15e745e858743d02342df0fb30b5dfed"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/frame-frost_edge-dusk.png",
+      "bytes": 279868,
+      "sha256": "e1ce67d9be69378067fcd47661a76f86111e0c83e2f067fd781b3bb3d0bacfd7"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/frame-glass_bead-daybreak.png",
+      "bytes": 248125,
+      "sha256": "5546f76faaa70dd3116f25cd3aca59cb7920ba82411e1adf7292357c8c8893a9"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/frame-glass_bead-dusk.png",
+      "bytes": 409509,
+      "sha256": "1ab206f24feb714e0415488a8c146e42c55102ab7e682d214d196d390a879f90"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/frame-ink-daybreak.png",
+      "bytes": 229259,
+      "sha256": "c23ecc61821ee1b010868c1b2efa5bf1c5ff01aafd6a96dfad1f0274b66f24dc"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/frame-ink-dusk.png",
+      "bytes": 224835,
+      "sha256": "60bf04df091af0d20d376864674b81fb40222e478b1906f0560832e07b6e98f0"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/frame-leaf_corner-daybreak.png",
+      "bytes": 401376,
+      "sha256": "828313020448f1144ff87b477b7912a01019e596ab3d05682e0e65507cbeaa9c"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/frame-leaf_corner-dusk.png",
+      "bytes": 398232,
+      "sha256": "a9c6d52393820edd06339200b73c81480389e7b0275ee62b6e39b952ad796b5a"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/frame-linen_stitch-daybreak.png",
+      "bytes": 309367,
+      "sha256": "d869c4e0bf7952dbb58174abfe0b1ba8cca1b5548056c5f0de66602ae4ca523e"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/frame-linen_stitch-dusk.png",
+      "bytes": 321682,
+      "sha256": "d78baa4fb219338c6bc5ca119553365b26bd7db86c5669263026854aee8e7436"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/frame-mist-daybreak.png",
+      "bytes": 286825,
+      "sha256": "c66fc236be4bbad21c5ff212d8b3744d08c1b1a71d0e499622c89baf31b95c01"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/frame-mist-dusk.png",
+      "bytes": 401399,
+      "sha256": "5f71f17854b4c5497b81f599da38cb03dc69111987954a0f475f584eb631468b"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/frame-night_bloom-daybreak.png",
+      "bytes": 138377,
+      "sha256": "6616a9cf66cc672b73461ca5623943ecdc8154f18d2383d6770ca71b54fd0aa0"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/frame-night_bloom-dusk.png",
+      "bytes": 225265,
+      "sha256": "ea08b8387afc1e37e179becf3d2151100db1417fd30ce201c63ef9412365d5f2"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/frame-orbit_grid-daybreak.png",
+      "bytes": 386019,
+      "sha256": "92057602fad911ded4fe9b394f03b3f07b31e3581cf7ef122d91012d5a9ac520"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/frame-orbit_grid-dusk.png",
+      "bytes": 421736,
+      "sha256": "f2207ddd26de140862cd5a18e8485f4d02876caadae0449602414851214639f5"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/frame-petal_corner-daybreak.png",
+      "bytes": 145992,
+      "sha256": "2e63c087b71171803466623ee00e824e643a41829360e96c4c6bd8fbd2897252"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/frame-petal_corner-dusk.png",
+      "bytes": 119817,
+      "sha256": "9574b2e1f3e13ca4c8bd0d98d0d546841c588b8edbc55626fbdcea0803e38356"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/frame-rain-daybreak.png",
+      "bytes": 197545,
+      "sha256": "e3567df9c4b45e78f1d55f9195fefe31e6e3844f67c526227c68435734787044"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/frame-rain-dusk.png",
+      "bytes": 196965,
+      "sha256": "ac37757d8a0bc199513ea0c21465ecff1f077171300e6f63f28812688f54bdfe"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/frame-ripple_border-daybreak.png",
+      "bytes": 613519,
+      "sha256": "86f90352ad8e6a0c63dd61de07cc5a7c5e64efd9d42fbbeebd3a57fe443fd1d7"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/frame-ripple_border-dusk.png",
+      "bytes": 668418,
+      "sha256": "e94a93e2850aee2289521b25bb5b346e1fa1933fc175ac830d557fe2e468423e"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/frame-stone_path-daybreak.png",
+      "bytes": 261284,
+      "sha256": "1d93ea58c32445d3e5d0144440eaa4f83b637ad74e093a0f684fe8328ecc0ee4"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/frame-stone_path-dusk.png",
+      "bytes": 256542,
+      "sha256": "e308777f0a698a8ade7fcd40a307d550b258a401624d2ba693ef611871db8994"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/frame-sunline-daybreak.png",
+      "bytes": 158188,
+      "sha256": "511394bec7826b149b898608b624558df7752cbc4e4793f33d21f88657819d55"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/frame-sunline-dusk.png",
+      "bytes": 151385,
+      "sha256": "01cec8cbeaea58947e6a89807d5a5a29a25b9f6478d3bfeb12204de4441720da"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/frame-thread_border-daybreak.png",
+      "bytes": 321882,
+      "sha256": "986885fb5eaac7420a22eafa86aa9e88f38e2ad3d0803d2219b1e07d5124a308"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/frame-thread_border-dusk.png",
+      "bytes": 311448,
+      "sha256": "bbae64021383f1edd7e89683619300a85be36d76b1a57a63096f412fc67869bf"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/frame-wave-daybreak.png",
+      "bytes": 289100,
+      "sha256": "8d9b9c4f086155721826a4e446ee2790aebca05265c0d720e39e95040b30d417"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/kit/renders/plain/frame-wave-dusk.png",
+      "bytes": 291291,
+      "sha256": "70179b6aa5f8547a30f2cfc8c48823e25fdd1d3a35d398dcc7114a1a07535b73"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/renders/avatar-sizes-leaf.png",
+      "bytes": 1862728,
+      "sha256": "cd6b134111eedb443b307be53ecc084095e59fe42bbaa7dee4bff95655e6606e"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/renders/avatar-sizes-star.png",
+      "bytes": 1901861,
+      "sha256": "bcd034d0d73ea9d10424464dfde3352f0f1dcf02125703938ef10a4a792ede6a"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/renders/code-leaf-card-2048.png",
+      "bytes": 2927059,
+      "sha256": "74b04f3d81b32e9e9b38d45b5e1dd5ac86c45a7b233d3d5317afd9dc8bb961c7"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/renders/code-leaf-frame-1024.png",
+      "bytes": 401360,
+      "sha256": "f97ae2fb68a5008bbabe6c3314b9ad7306ee6bd7921407d056c787dadf1dab06"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/renders/code-star-card-2048.png",
+      "bytes": 2799592,
+      "sha256": "422de77d198b33eadc6cc38017179551cf90b10a9ae0504e3eb0d65279df69a2"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/renders/code-star-frame-1024.png",
+      "bytes": 565646,
+      "sha256": "17cff02e6ee7ccf9b7ef7d556a43af1e3b6d677b2155c06f2f1be7d7579d9614"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/renders/compare-3way-leaf.png",
+      "bytes": 8394443,
+      "sha256": "5678a18e1d5dcf1b7ed80c9a8b38701c218e2359bd20828788860955b8a1910d"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/renders/compare-3way-star.png",
+      "bytes": 7934686,
+      "sha256": "171b33c87e2e167a5b30eced0bb42f8fe19bac305819b0e4fb02959ab07bfec8"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/renders/compare-master-leaf.png",
+      "bytes": 1706359,
+      "sha256": "059bae7a6e305f7697fa1a7a9ce295c8ace5fa5cbca14e013accbcc841d7e9e3"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/renders/compare-master-star.png",
+      "bytes": 1682238,
+      "sha256": "a5880724688e7e4517aa15078fe20c58d7284c7d9703d5b13574940845767737"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/renders/ios/sim-leaf-bigtext.png",
+      "bytes": 3184837,
+      "sha256": "1dee801d11a79078be5f5925ea9a06ac5ea31762caf0ff9c6b8bdec28c3b3402"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/renders/ios/sim-leaf-dark.png",
+      "bytes": 3329317,
+      "sha256": "685be2b72da8fc9cba60ac4dc7c57de56175362bbbc2ffe0193a72fb2a63afe3"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/renders/ios/sim-leaf-light.png",
+      "bytes": 3331303,
+      "sha256": "dc6c6695c7bb388f7b172c24ed69cb8bf48a73511a895887b8f086d2cab5e070"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/renders/ios/sim-leaf-sizes.png",
+      "bytes": 1789632,
+      "sha256": "c9da2b03f84edd689bc63b0527ccce9f4d75842a007e4a4d08a76bdb00aef7a2"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/renders/ios/sim-star-bigtext.png",
+      "bytes": 2990058,
+      "sha256": "5b1ea1cf5789ec601971b8a17f64875f0a225732f93799f77072102388724104"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/renders/ios/sim-star-dark.png",
+      "bytes": 3132252,
+      "sha256": "975e1d226c377d8737d25a6c98ed12b24439b0a69572c83dc9c09dbf254fc1e1"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/renders/ios/sim-star-light.png",
+      "bytes": 3125563,
+      "sha256": "314b41a2ebdb5eb7154edf5ca9afd8521d097ac5a6ceef486c483b1b41ff87a1"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/renders/ios/sim-star-sizes.png",
+      "bytes": 1495629,
+      "sha256": "344df955a5d86059b0219f8fba4ef462d28d1527118691c1ed4e05bf5f19eea1"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/renders/list-leaf.png",
+      "bytes": 1019288,
+      "sha256": "1de32aac05cce4ce5986617f7e758b23fad26ffed5bf8e134c5c388466780baf"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/renders/list-star.png",
+      "bytes": 970046,
+      "sha256": "1759fd5527d94f77b67aa9744af3c6e3ae98a10c434e939433a14d9158d2e9af"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/renders/overview.png",
+      "bytes": 3488161,
+      "sha256": "94b29f303d4f87d4859c5627358e8c4eff2373ecb51ce000d40204b48067934b"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/renders/plain-card-code-leaf.png",
+      "bytes": 1006220,
+      "sha256": "73e50e9e71e6e6962d42483a87db35453cc06d41583ce8396110675d0e3acbc8"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/renders/plain-card-code-star.png",
+      "bytes": 987490,
+      "sha256": "757a74d6e4a521bb815f4ceb67276ab216ba3c1f101ef208000cf6e8ff7d5c88"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/renders/plain-card-original-leaf.png",
+      "bytes": 1180020,
+      "sha256": "0374865288223b49ebebf8d5b80cdd5469181d77ea5197daf021afaf258b8ace"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/renders/plain-card-original-star.png",
+      "bytes": 1079294,
+      "sha256": "0a324f841405e7ef7b97e35088a63074763b2c0da0e16b3c3100e2647767c905"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/renders/profile-leaf.png",
+      "bytes": 12475639,
+      "sha256": "78c078d266ad628b5bd26de744ef09c64cd570ca1bfc1bd9f574b61c7ea974ee"
+    },
+    {
+      "path": "design/profile-rendering-study-claude-20261002/renders/profile-star.png",
+      "bytes": 11651825,
+      "sha256": "6b3481674817b2322f4234d413f2489eeb1a88343c2dd7245151a8c0326dcba9"
+    }
+  ]
+}

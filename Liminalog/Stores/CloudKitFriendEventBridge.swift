@@ -1,5 +1,6 @@
 import CloudKit
 import UIKit
+import UserNotifications
 
 enum CloudKitFriendEventBridge {
     enum Event: Equatable {
@@ -33,7 +34,22 @@ enum CloudKitFriendEventBridge {
     }
 }
 
-final class LiminalogAppDelegate: NSObject, UIApplicationDelegate {
+final class LiminalogAppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+    func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        UNUserNotificationCenter.current().delegate = self
+        return true
+    }
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
+        guard response.notification.request.identifier.hasPrefix("plan-reminder-") else { return }
+        LiminalogShortcutRoute.request(.calendar)
+        NotificationCenter.default.post(name: Notification.Name("Liminalog.openPlanReminder"), object: nil)
+    }
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {
+        [.banner, .sound, .list]
+    }
+
     var cloudFriendRemoteNotificationHandler: ((CloudKitFriendEventBridge.Event) async -> Void)?
 
     func application(

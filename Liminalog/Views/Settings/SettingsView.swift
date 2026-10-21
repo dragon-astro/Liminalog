@@ -409,9 +409,7 @@ private struct NotificationSettingsSection: View {
                 applyStreakReminder(enabled: newValue)
             }
         } header: {
-            Text("通知")
-        } footer: {
-            Text("その日のスコアが伸びずストリークが途切れそうな夜に、1件だけそっと知らせます。")
+            SettingsSectionHeader(title: "通知", explanation: "その日のスコアが伸びずストリークが途切れそうな夜に、1件だけ知らせます。")
         }
         .alert("通知が許可されていません", isPresented: $showPermissionDeniedAlert) {
             Button("設定を開く") { openSystemSettings() }

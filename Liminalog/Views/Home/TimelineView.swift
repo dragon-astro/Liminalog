@@ -109,6 +109,8 @@ struct TimelineView: View {
     var focusedPlanID: UUID?
     /// true のとき、24時間バーとタイムライン(タブ+リスト)を別々のカードに分離する。
     var splitCards = true
+    /// 未来日など実績が存在しない日。リストは予定に固定し、保存済みのタブ選択（ホームと共有）は書き換えない。
+    var plansOnly = false
     @Binding var editingChapter: Chapter?
 
     // バーの現在時刻表示は粗くてよい（1分≒1px未満）。毎秒だとタイムライン全体の
@@ -135,7 +137,8 @@ struct TimelineView: View {
         allowsChapterCreation: Bool = true,
         allowsPlanCreation: Bool = true,
         focusedPlanID: UUID? = nil,
-        splitCards: Bool = true
+        splitCards: Bool = true,
+        plansOnly: Bool = false
     ) {
         self.date = date
         self.title = title
@@ -144,6 +147,7 @@ struct TimelineView: View {
         self.allowsPlanCreation = allowsPlanCreation
         self.focusedPlanID = focusedPlanID
         self.splitCards = splitCards
+        self.plansOnly = plansOnly
         self._editingChapter = editingChapter
 
         let boundary = DayBoundary(date: date, calendar: .japanese)
@@ -165,7 +169,8 @@ struct TimelineView: View {
     }
 
     private var selectedTab: TimelineTab {
-        TimelineTab(rawValue: selectedTabRawValue) ?? .actual
+        if plansOnly { return .plan }
+        return TimelineTab(rawValue: selectedTabRawValue) ?? .actual
     }
 
     private var selectedEntries: [TimelineEntry] {
@@ -196,7 +201,7 @@ struct TimelineView: View {
     private var timelinePlans: [PlanBlock] {
         queriedPlans
             .filter { plan in
-                !plan.isAllDay && plan.startTime < dayEnd && plan.endTime > dayStart
+                !plan.isAllDay && !plan.isMemo && plan.startTime < dayEnd && plan.endTime > dayStart
             }
             .sorted { $0.startTime < $1.startTime }
     }
@@ -230,7 +235,10 @@ struct TimelineView: View {
 
                 timelineSectionDivider
 
-                TimelineTabInlineToggle(selectedTabRawValue: $selectedTabRawValue)
+                TimelineTabInlineToggle(
+                    selectedTabRawValue: $selectedTabRawValue,
+                    lockedTab: plansOnly ? .plan : nil
+                )
 
                 TimelineEntryList(
                     entries: selected,
@@ -286,7 +294,10 @@ struct TimelineView: View {
 
             timelineHeader
 
-            TimelineTabInlineToggle(selectedTabRawValue: $selectedTabRawValue)
+            TimelineTabInlineToggle(
+                selectedTabRawValue: $selectedTabRawValue,
+                lockedTab: plansOnly ? .plan : nil
+            )
 
             TimelineEntryList(
                 entries: selected,
@@ -320,7 +331,9 @@ struct TimelineView: View {
     }
 
     private func focusEntry(_ entry: TimelineEntry) {
-        selectedTabRawValue = entry.kind.tab.rawValue
+        if !plansOnly {
+            selectedTabRawValue = entry.kind.tab.rawValue
+        }
         highlightedEntryID = entry.id
         quickDetailEntry = entry
 
@@ -910,15 +923,23 @@ private struct DayOverviewBar: View {
 
 private struct TimelineTabInlineToggle: View {
     @Binding var selectedTabRawValue: String
+    /// 指定時はこのタブに固定し、他のタブは薄く押せない状態で残す（日送りで行の形を変えないため）。
+    var lockedTab: TimelineTab? = nil
 
     private var selectedTab: TimelineTab {
-        TimelineTab(rawValue: selectedTabRawValue) ?? .actual
+        lockedTab ?? TimelineTab(rawValue: selectedTabRawValue) ?? .actual
+    }
+
+    private func isUnavailable(_ tab: TimelineTab) -> Bool {
+        lockedTab != nil && lockedTab != tab
     }
 
     var body: some View {
         HStack(spacing: 28) {
             ForEach(TimelineTab.allCases) { tab in
                 Button {
+                    // 固定中は表示だけの切替なので、ホームと共有する保存値を書き換えない。
+                    guard lockedTab == nil else { return }
                     selectedTabRawValue = tab.rawValue
                 } label: {
                     VStack(spacing: 5) {
@@ -928,7 +949,11 @@ private struct TimelineTabInlineToggle: View {
                             Text(tab.label)
                                 .font(.subheadline.weight(selectedTab == tab ? .bold : .semibold))
                         }
-                        .foregroundStyle(selectedTab == tab ? LiminalTheme.text : LiminalTheme.secondaryText.opacity(0.76))
+                        .foregroundStyle(
+                            selectedTab == tab
+                                ? LiminalTheme.text
+                                : LiminalTheme.secondaryText.opacity(isUnavailable(tab) ? 0.36 : 0.76)
+                        )
 
                         Capsule()
                             .fill(selectedTab == tab ? LiminalTheme.accent : Color.clear)
@@ -939,8 +964,10 @@ private struct TimelineTabInlineToggle: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .disabled(isUnavailable(tab))
                 .accessibilityLabel(tab.label)
                 .accessibilityValue(selectedTab == tab ? "選択中" : "")
+                .accessibilityHint(isUnavailable(tab) ? "まだ来ていない日は実績がありません" : "")
             }
         }
         .frame(maxWidth: .infinity, alignment: .center)

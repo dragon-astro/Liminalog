@@ -11,11 +11,14 @@ enum PlanTimelineCreationPolicy {
         anchorMinute: Int,
         currentMinute: Int,
         minimumDuration: Int,
-        intervals: [PlanTimelineInterval]
+        intervals: [PlanTimelineInterval],
+        enforcesMinimumDuration: Bool = true
     ) -> MinuteRange? {
+        let intervals = intervals.filter { !$0.isMemo }
         guard (0...1440).contains(anchorMinute), minimumDuration > 0,
               !intervals.contains(where: { $0.startMinute < anchorMinute && anchorMinute < $0.endMinute })
         else { return nil }
+        let minimumDuration = enforcesMinimumDuration ? minimumDuration : 0
         if currentMinute >= anchorMinute {
             let desiredEnd = min(1440, max(currentMinute, anchorMinute + minimumDuration))
             let nextStart = intervals.filter { $0.startMinute >= anchorMinute }.map(\.startMinute).min() ?? 1440

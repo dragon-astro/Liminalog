@@ -47,9 +47,10 @@ final class PlanPresetStore {
     func createPlanPreset(
         name: String,
         snapshot: PlanTemplateSnapshot,
-        placementMode: PlanPresetPlacementMode = .duration
+        placementMode: PlanPresetPlacementMode = .duration,
+        recurrence: PlanRecurrenceRule?? = nil
     ) -> PlanPreset? {
-        guard isValid(snapshot),
+        guard recurrence.flatMap({ $0 }).map(\.isValid) ?? true, isValid(snapshot),
               let presets = planPresetsIfAvailable()
         else { return nil }
         let preset = PlanPreset(
@@ -66,6 +67,9 @@ final class PlanPresetStore {
             sortOrder: (presets.map(\.sortOrder).max() ?? -1) + 1,
             now: clock.now
         )
+        preset.isMemo = snapshot.isMemo
+        preset.reminderMinutesBefore = snapshot.reminderMinutesBefore
+        if let recurrence { preset.recurrenceData = recurrence?.data }
         modelContext.insert(preset)
         return saveChanges("plan preset add") ? preset : nil
     }
@@ -75,9 +79,13 @@ final class PlanPresetStore {
         _ preset: PlanPreset,
         name: String,
         snapshot: PlanTemplateSnapshot,
-        placementMode: PlanPresetPlacementMode = .duration
+        placementMode: PlanPresetPlacementMode = .duration,
+        recurrence: PlanRecurrenceRule?? = nil
     ) -> Bool {
-        guard isValid(snapshot) else { return false }
+        guard recurrence.flatMap({ $0 }).map(\.isValid) ?? true, isValid(snapshot) else { return false }
+        preset.isMemo = snapshot.isMemo
+        preset.reminderMinutesBefore = snapshot.reminderMinutesBefore
+        if let recurrence { preset.recurrenceData = recurrence?.data }
         preset.name = normalizedPlanPresetName(name, title: snapshot.title)
         preset.title = snapshot.title
         preset.categoryID = snapshot.categoryID
@@ -113,6 +121,7 @@ final class PlanPresetStore {
 
     @discardableResult
     func markUsed(_ preset: PlanPreset) -> Bool {
+        guard preset.modelContext != nil else { return true }
         preset.lastUsedAt = clock.now
         preset.useCount += 1
         preset.updatedAt = clock.now
@@ -137,9 +146,10 @@ final class PlanPresetStore {
         name: String,
         items: [PlanTemplateSnapshot],
         colorHex: String = "#2F80ED",
-        icon: String = "calendar"
+        icon: String = "calendar",
+        recurrence: PlanRecurrenceRule?? = nil
     ) -> DayPreset? {
-        guard isValidDayPresetItems(items),
+        guard recurrence.flatMap({ $0 }).map(\.isValid) ?? true, isValidDayPresetItems(items),
               let presets = dayPresetsIfAvailable(),
               let data = try? DayPresetItemsCodec.encode(items)
         else { return nil }
@@ -153,6 +163,7 @@ final class PlanPresetStore {
             sortOrder: nextOrder,
             now: clock.now
         )
+        if let recurrence { preset.recurrenceData = recurrence?.data }
         modelContext.insert(preset)
         return saveChanges("day preset add") ? preset : nil
     }
@@ -163,11 +174,13 @@ final class PlanPresetStore {
         name: String,
         items: [PlanTemplateSnapshot],
         colorHex: String? = nil,
-        icon: String? = nil
+        icon: String? = nil,
+        recurrence: PlanRecurrenceRule?? = nil
     ) -> Bool {
-        guard isValidDayPresetItems(items),
+        guard recurrence.flatMap({ $0 }).map(\.isValid) ?? true, isValidDayPresetItems(items),
               let data = try? DayPresetItemsCodec.encode(items)
         else { return false }
+        if let recurrence { preset.recurrenceData = recurrence?.data }
         preset.name = normalizedDayPresetName(name, fallbackIndex: preset.sortOrder + 1)
         preset.itemsData = data
         preset.itemCount = items.count
@@ -214,7 +227,7 @@ final class PlanPresetStore {
         var excludedItemCount = 0
 
         for plan in plans.sorted(by: { $0.startTime < $1.startTime }) {
-            guard let snapshot = snapshot(
+            guard let snapshot = Self.snapshot(
                 from: plan,
                 boundary: boundary,
                 calendar: calendar
@@ -232,7 +245,11 @@ final class PlanPresetStore {
         )
     }
 
-    private func snapshot(
+    static func snapshot(from plan: PlanBlock, calendar: Calendar = .current) -> PlanTemplateSnapshot? {
+        snapshot(from: plan, boundary: DayBoundary(date: plan.startTime, calendar: calendar), calendar: calendar)
+    }
+
+    private static func snapshot(
         from plan: PlanBlock,
         boundary: DayBoundary,
         calendar: Calendar
@@ -254,7 +271,9 @@ final class PlanPresetStore {
                 isAllDay: true,
                 isImportant: plan.isImportant,
                 note: plan.note,
-                isPublic: plan.isPublic
+                isPublic: plan.isPublic,
+                reminderMinutesBefore: PlanReminderTiming.templateMinutes(minutes: plan.reminderMinutesBefore, date: plan.reminderDate, start: plan.startTime, isAllDay: plan.isAllDay, calendar: calendar),
+                isMemo: plan.isMemo
             )
         }
 
@@ -276,12 +295,14 @@ final class PlanPresetStore {
             isAllDay: false,
             isImportant: plan.isImportant,
             note: plan.note,
-            isPublic: plan.isPublic
+            isPublic: plan.isPublic,
+                reminderMinutesBefore: PlanReminderTiming.templateMinutes(minutes: plan.reminderMinutesBefore, date: plan.reminderDate, start: plan.startTime, isAllDay: plan.isAllDay, calendar: calendar),
+                isMemo: plan.isMemo
         )
         return result.hasValidTime ? result : nil
     }
 
-    private func wallClockMinute(
+    private static func wallClockMinute(
         for date: Date,
         relativeTo dayStart: Date,
         calendar: Calendar
@@ -332,6 +353,7 @@ final class PlanPresetStore {
     private func saveChanges(_ action: String) -> Bool {
         do {
             try modelContext.save()
+            NotificationCenter.default.post(name: .planSchedulingChanged, object: nil)
             return true
         } catch {
             NSLog("Liminalog: failed to save \(action): \(String(describing: error))")

@@ -11,6 +11,7 @@ final class AppStores {
     let scoreStore: ScoreStore
     let unlockStore: UnlockStore
     let purchaseStore: PurchaseStore
+    let planReminderStore: PlanReminderStore
     let streakNotificationStore: StreakNotificationStore
     let liveActivityCoordinator: LiveActivityCoordinator
     let chapterStore: ChapterStore
@@ -48,6 +49,7 @@ final class AppStores {
             chapterStore: chapterStore
         )
 
+        self.planReminderStore = PlanReminderStore(modelContext: modelContext)
         self.categoryStore = categoryStore
         self.categorySetStore = categorySetStore
         self.planStore = planStore

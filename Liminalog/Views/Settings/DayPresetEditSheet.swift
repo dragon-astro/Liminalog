@@ -6,8 +6,9 @@ private struct DayPresetEditorItem: Identifiable, Equatable {
     var snapshot: PlanTemplateSnapshot
 
     init(id: UUID = UUID(), snapshot: PlanTemplateSnapshot) {
-        self.id = id
+        self.id = snapshot.templateItemID ?? id
         self.snapshot = snapshot
+        self.snapshot.templateItemID = self.id
     }
 }
 
@@ -32,6 +33,8 @@ struct DayPresetEditSheet: View {
 
     private let preset: DayPreset?
 
+    @State private var recurrenceRule: PlanRecurrenceRule?
+    @State private var showingRecurrence = false
     @State private var name: String
     @State private var presetColor: Color
     @State private var presetIcon: String
@@ -82,6 +85,7 @@ struct DayPresetEditSheet: View {
         } else {
             decoded = []
         }
+        _recurrenceRule = State(initialValue: PlanRecurrenceRule.decode(preset?.recurrenceData))
         _name = State(initialValue: preset?.name ?? "")
         _presetColor = State(initialValue: Color(hex: preset?.colorHex ?? "#2F80ED"))
         _presetIcon = State(initialValue: preset?.icon ?? "calendar")
@@ -97,6 +101,11 @@ struct DayPresetEditSheet: View {
                 ZStack(alignment: .bottomTrailing) {
                     VStack(spacing: 0) {
                         categoryPalette
+                        Button { showingRecurrence = true } label: {
+                            Label(recurrenceRule?.summary ?? "繰り返しを設定", systemImage: "repeat")
+                                .font(.subheadline).frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 16).padding(.vertical, 8)
+                        }
+                        .accessibilityIdentifier("day-preset-recurrence")
                         VStack(spacing: 0) {
                             nameField
                             if !allDayItems.isEmpty {
@@ -116,24 +125,22 @@ struct DayPresetEditSheet: View {
                         .padding(.bottom, CalendarTimelineCardMetrics.bottomPadding)
                     }
 
-                    if !planPresets.isEmpty {
-                        TimelinePlanPresetLibrary(
-                            presets: planPresets,
-                            categories: categories,
-                            onFixedTimeTap: addFixedPreset,
-                            onDurationDragChanged: updateDurationPresetPreview,
-                            onDurationDrop: finishDurationPresetDrop,
-                            onDraggingChanged: { active in
-                                if !active {
-                                    libraryDrag = nil
-                                    lastPresetFeedbackMinute = nil
-                                }
-                            },
-                            launcherPlacement: .externalControl,
-                            isPresented: $isLibraryPresented
-                        )
-                        .zIndex(80)
-                    }
+                    TimelinePlanPresetLibrary(
+                        presets: planPresets,
+                        categories: categories,
+                        onFixedTimeTap: addFixedPreset,
+                        onDurationDragChanged: updateDurationPresetPreview,
+                        onDurationDrop: finishDurationPresetDrop,
+                        onDraggingChanged: { active in
+                            if !active {
+                                libraryDrag = nil
+                                lastPresetFeedbackMinute = nil
+                            }
+                        },
+                        launcherPlacement: .externalControl,
+                        isPresented: $isLibraryPresented
+                    )
+                    .zIndex(80)
                 }
                 .coordinateSpace(name: coordinateSpaceName)
                 .background(LiminalTheme.canvasGradient.ignoresSafeArea())
@@ -167,6 +174,14 @@ struct DayPresetEditSheet: View {
                     selectedCategoryID = category.id
                 }
             }
+            .sheet(isPresented: $showingRecurrence) {
+                NavigationStack {
+                    Form { PlanRecurrenceControls(rule: $recurrenceRule) }
+                        .navigationTitle("一日プリセットの繰り返し")
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbar { ToolbarItem(placement: .confirmationAction) { Button("完了") { showingRecurrence = false } } }
+                }.presentationDetents([.fraction(0.75), .large])
+            }
             .sheet(isPresented: $showingAppearance) {
                 DayPresetAppearanceSheet(color: $presetColor, icon: $presetIcon)
             }
@@ -191,19 +206,17 @@ struct DayPresetEditSheet: View {
     private var categoryPalette: some View {
         ScrollView(.horizontal) {
             HStack(spacing: 8) {
-                if !planPresets.isEmpty {
-                    Button {
-                        LiminalHaptics.openSheet()
-                        isLibraryPresented = true
-                    } label: {
-                        TimelineCategoryStatusChip(
-                            title: "予定プリセット",
-                            systemImage: "bookmark.fill",
-                            accessibilityLabel: "予定プリセットを開く"
-                        )
-                    }
-                    .buttonStyle(.plain)
+                Button {
+                    LiminalHaptics.openSheet()
+                    isLibraryPresented = true
+                } label: {
+                    TimelineCategoryStatusChip(
+                        title: "予定プリセット",
+                        systemImage: "bookmark.fill",
+                        accessibilityLabel: "予定プリセットを開く"
+                    )
                 }
+                .buttonStyle(.plain)
                 ForEach(categories) { category in
                     Button {
                         selectedCategoryID = category.id
@@ -288,8 +301,9 @@ struct DayPresetEditSheet: View {
                             )
                         }
 
+                    let slots = timelineSlots
                     ForEach(timedItems) { item in
-                        timelineBlock(item, width: proxy.size.width)
+                        timelineBlock(item, width: proxy.size.width, slot: slots[item.id] ?? PlanTimelineLayoutSlot(column: 0, columnCount: 1))
                     }
 
                     if let creationDraft {
@@ -356,7 +370,7 @@ struct DayPresetEditSheet: View {
         else { creationDraft = nil; return }
         let anchor = creationMinute(at: start.y)
         let current = creationMinute(at: point.y)
-        let intervals = timedItems.flatMap { item -> [PlanTimelineInterval] in
+        let intervals = timedItems.filter { !$0.snapshot.isMemo }.flatMap { item -> [PlanTimelineInterval] in
             let snapshot = item.snapshot
             var parts = [PlanTimelineInterval(id: item.id, startMinute: snapshot.startMinute,
                                              endMinute: min(1440, snapshot.endMinute))]
@@ -435,21 +449,30 @@ struct DayPresetEditSheet: View {
         .allowsHitTesting(false)
     }
 
-    private func timelineBlock(_ item: DayPresetEditorItem, width: CGFloat) -> some View {
+    private var timelineSlots: [UUID: PlanTimelineLayoutSlot] {
+        PlanTimelineLayoutSlot.makeSlots(for: timedItems.map {
+            PlanTimelineInterval(id: $0.id, startMinute: $0.snapshot.startMinute,
+                endMinute: $0.snapshot.endMinute, isMemo: $0.snapshot.isMemo)
+        })
+    }
+
+    private func timelineBlock(_ item: DayPresetEditorItem, width: CGFloat, slot: PlanTimelineLayoutSlot) -> some View {
         let snapshot = item.snapshot
         let category = category(for: snapshot.categoryID)
         let start = min(1440, max(0, snapshot.startMinute))
         let end = min(1440, max(start + 1, snapshot.endMinute))
         let y = timelineTopInset + axisMap.y(forMinute: start)
         let height = max(minimumBlockHeight, axisMap.height(startMinute: start, endMinute: end))
-        let blockWidth = max(1, width - TimelineHourAxisMetrics.columnWidth - blockSideInset * 2)
+        let available = max(1, width - TimelineHourAxisMetrics.columnWidth - blockSideInset * 2)
+
+        let blockWidth = snapshot.isMemo ? max(1, (available * 0.48 - CGFloat(slot.columnCount - 1) * 2) / CGFloat(slot.columnCount)) : available
         let isSelected = selectedItemID == item.id
         let overflow = EditablePlanBlockMetrics.verticalOverflow
 
         return ZStack(alignment: .topLeading) {
             EditablePlanBlock(
                 title: snapshot.title.isEmpty ? category?.name ?? "予定" : snapshot.title,
-                interval: PlanTimelineInterval(id: item.id, startMinute: start, endMinute: snapshot.endMinute),
+                interval: PlanTimelineInterval(id: item.id, startMinute: start, endMinute: snapshot.endMinute, isMemo: snapshot.isMemo),
                 color: category?.displayColor ?? LiminalTheme.accent,
                 isSelected: isSelected,
                 isLocked: false,
@@ -464,7 +487,7 @@ struct DayPresetEditSheet: View {
                         LiminalHaptics.selection()
                     }
                 },
-                onDelete: { deletionItem = item },
+                onLongPress: { state, _ in if state == .began { deletionItem = item } },
                 moveGesture: moveGesture(for: item)
             )
             .withBlockHeight(height)
@@ -479,8 +502,8 @@ struct DayPresetEditSheet: View {
             }
         }
         .frame(width: blockWidth, height: height, alignment: .topLeading)
-        .offset(x: TimelineHourAxisMetrics.columnWidth + blockSideInset, y: y)
-        .zIndex(isSelected ? 10 : 1)
+        .offset(x: TimelineHourAxisMetrics.columnWidth + blockSideInset + (snapshot.isMemo ? available * 0.52 + CGFloat(slot.column) * (blockWidth + 2) : 0), y: y)
+        .zIndex(snapshot.isMemo ? (isSelected ? 10 : 5) : (isSelected ? 3 : 1))
     }
 
     private func resizeHitTarget(edge: EditablePlanResizeEdge, item: DayPresetEditorItem, width: CGFloat) -> some View {
@@ -705,7 +728,7 @@ struct DayPresetEditSheet: View {
             planTitleBold: planTitleBold,
             activeResizeEdge: nil,
             onSelect: {},
-            onDelete: {},
+            onLongPress: { _, _ in },
             moveGesture: DragGesture()
         )
         .withBlockHeight(height)
@@ -886,15 +909,19 @@ struct DayPresetEditSheet: View {
     }
 
     private func save() {
-        let snapshots = items.map(\.snapshot).sorted {
+        let snapshots = items.map { item in
+            var snapshot = item.snapshot
+            snapshot.templateItemID = item.id
+            return snapshot
+        }.sorted {
             if $0.isAllDay != $1.isAllDay { return $0.isAllDay }
             return $0.startMinute < $1.startMinute
         }
         let didSave: Bool
         if let preset {
-            didSave = presetStore.updateDayPreset(preset, name: name, items: snapshots, colorHex: presetColor.hexString, icon: presetIcon)
+            didSave = presetStore.updateDayPreset(preset, name: name, items: snapshots, colorHex: presetColor.hexString, icon: presetIcon, recurrence: .some(recurrenceRule))
         } else {
-            didSave = presetStore.createDayPreset(name: name, items: snapshots, colorHex: presetColor.hexString, icon: presetIcon) != nil
+            didSave = presetStore.createDayPreset(name: name, items: snapshots, colorHex: presetColor.hexString, icon: presetIcon, recurrence: .some(recurrenceRule)) != nil
         }
         guard didSave else {
             operationError = "内容を確認して、もう一度保存してください。"
