@@ -2305,13 +2305,13 @@ struct CalendarFilterSheet: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                Picker("表示対象", selection: $selectedTab) {
-                    ForEach(CalendarFilterTab.allCases) { tab in
-                        Label(tab.title, systemImage: tab.systemImage)
-                            .tag(tab)
-                    }
-                }
-                .pickerStyle(.segmented)
+                LiminalUnderlineTabs(
+                    items: CalendarFilterTab.allCases.map {
+                        .init(value: $0, title: $0.title, accessibilityIdentifier: "calendar-filter-tab-\($0.rawValue)")
+                    }, selection: selectedTab
+                ) { selectedTab = $0 }
+                .accessibilityElement(children: .contain)
+                .accessibilityLabel("表示対象")
                 .onChange(of: selectedTab) { oldTab, newTab in
                     guard oldTab != newTab else { return }
                     LiminalHaptics.selection()
@@ -2370,15 +2370,6 @@ private enum CalendarFilterTab: String, CaseIterable, Identifiable {
             "カテゴリ"
         case .friends:
             "友達"
-        }
-    }
-
-    var systemImage: String {
-        switch self {
-        case .categories:
-            "square.grid.2x2"
-        case .friends:
-            "person.2"
         }
     }
 }
@@ -3006,29 +2997,12 @@ struct CalendarMonthPickerSheet: View {
 
     /// ホームの昨日/今日/明日、統計の週間/月間/年間と同じ下線のタブ。
     private var modeTabs: some View {
-        HStack(spacing: 36) {
-            ForEach(Array(modeTitles.enumerated()), id: \.offset) { index, title in
-                let isSelected = index == selectedModeIndex
-                Button {
-                    LiminalHaptics.selection()
-                    onSelectMode?(index)
-                } label: {
-                    VStack(spacing: 5) {
-                        Text(title)
-                            .font(.subheadline.weight(isSelected ? .bold : .semibold))
-                            .foregroundStyle(isSelected ? LiminalTheme.text : LiminalTheme.secondaryText.opacity(0.76))
-                        Capsule()
-                            .fill(isSelected ? LiminalTheme.accent : Color.clear)
-                            .frame(width: 24, height: 2)
-                    }
-                    .frame(minWidth: 52, minHeight: 44)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(title)
-                .accessibilityValue(isSelected ? "選択中" : "")
-                .accessibilityAddTraits(isSelected ? .isSelected : [])
-            }
+        LiminalUnderlineTabs(
+            items: modeTitles.indices.map { .init(value: $0, title: modeTitles[$0]) },
+            selection: selectedModeIndex, spacing: 36, labelSpacing: 5, minimumWidth: 52
+        ) {
+            LiminalHaptics.selection()
+            onSelectMode?($0)
         }
         .frame(maxWidth: .infinity)
     }

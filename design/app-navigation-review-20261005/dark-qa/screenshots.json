@@ -810,5 +810,229 @@
     "test": "CalendarMonthDrawerUITests/testWeeklyRecurrenceKeepsAdvancedControlsCollapsedAndPreservesChoices()",
     "attachments": "/private/tmp/liminalog-polish-20261021/review-weekly-light-final-attachments",
     "original": "ADA2D277-0320-4FF4-BD34-E15C443AAABD.png"
+  },
+  "20-recurrence-ending-count-dark.png": {
+    "phase": "after",
+    "appearance": "dark",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "fbd25aa891b05f6d29933a0cdbfdd6dddd568a75555688163b7f90dbdaae8829",
+    "bytes": 897413,
+    "test": "CalendarMonthDrawerUITests/testCaptureRecurrenceRows()",
+    "attachments": "/private/tmp/liminalog-polish-20261021/tabs-dark-final-attachments",
+    "original": "4239DF0C-DB92-4FC9-A067-D55E92BA3B57.png"
+  },
+  "20-recurrence-ending-count-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "456f7c92dbdcc39a64a06495c68070f3abff341a10005258d024cc7c63fe40e0",
+    "bytes": 1030261,
+    "test": "CalendarMonthDrawerUITests/testCaptureRecurrenceRows()",
+    "attachments": "/private/tmp/liminalog-polish-20261021/tabs-light-recurrence-final-attachments",
+    "original": "8E9FB9D4-EE5B-4142-A9B0-7456621D1AC2.png"
+  },
+  "20-recurrence-monthly-date-dark.png": {
+    "phase": "after",
+    "appearance": "dark",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "d358ee9d88e77fd6fb3c6f6e84adf27d6ff2b3273a43d0d8fd3ced742ab69fb6",
+    "bytes": 918070,
+    "test": "CalendarMonthDrawerUITests/testCaptureRecurrenceRows()",
+    "attachments": "/private/tmp/liminalog-polish-20261021/tabs-dark-final-attachments",
+    "original": "0DA3B9D7-1B28-446E-8DF2-031DB581EC6D.png"
+  },
+  "20-recurrence-monthly-date-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "ed7d1434471476720a0e06cf54148e2173e598a581cd9b76b04c7b9f51a8df3a",
+    "bytes": 1048963,
+    "test": "CalendarMonthDrawerUITests/testCaptureRecurrenceRows()",
+    "attachments": "/private/tmp/liminalog-polish-20261021/tabs-light-recurrence-final-attachments",
+    "original": "83FB5643-3667-4AF3-B755-8B8B77320F70.png"
+  },
+  "20-recurrence-monthly-weekday-dark.png": {
+    "phase": "after",
+    "appearance": "dark",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "53dcd8e6a31c98c5478b2c073b2e7c443a639865fa10bf934bdcd450fbf772fc",
+    "bytes": 893080,
+    "test": "CalendarMonthDrawerUITests/testCaptureRecurrenceRows()",
+    "attachments": "/private/tmp/liminalog-polish-20261021/tabs-dark-final-attachments",
+    "original": "06CE67E6-6985-4124-B366-64AC94128FDC.png"
+  },
+  "20-recurrence-monthly-weekday-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "ab93d0f4ef17012587b0bebab150ee7c681111ecc4b4f3215a1a9cabab4425be",
+    "bytes": 1007447,
+    "test": "CalendarMonthDrawerUITests/testCaptureRecurrenceRows()",
+    "attachments": "/private/tmp/liminalog-polish-20261021/tabs-light-recurrence-final-attachments",
+    "original": "CF4220BC-B0FA-4DBC-8392-E44A99A0097D.png"
+  },
+  "20-recurrence-weekly-dark.png": {
+    "phase": "after",
+    "appearance": "dark",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "dfa5c48d1a3e8c4050cdd1b1609a946e967bf7f14f2c52b8a888567da81857ce",
+    "bytes": 1028049,
+    "test": "CalendarMonthDrawerUITests/testCaptureRecurrenceRows()",
+    "attachments": "/private/tmp/liminalog-polish-20261021/tabs-dark-final-attachments",
+    "original": "0611B93D-992D-4A54-BBCF-E08BC8D7C06A.png"
+  },
+  "20-recurrence-weekly-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "2d5751d587ef604206ec32047012c2bef9c434c0e6faa372a9b8538e467edb7f",
+    "bytes": 1192869,
+    "test": "CalendarMonthDrawerUITests/testCaptureRecurrenceRows()",
+    "attachments": "/private/tmp/liminalog-polish-20261021/tabs-light-recurrence-final-attachments",
+    "original": "ECC8FE53-AC00-4941-A54A-5657035A34D3.png"
+  },
+  "20-recurrence-yearly-dark.png": {
+    "phase": "after",
+    "appearance": "dark",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "51f505764d2c9731b1eaaa7ebad561db1e320f170f4cf932d8ebb9a40fac9bd3",
+    "bytes": 1025230,
+    "test": "CalendarMonthDrawerUITests/testCaptureRecurrenceRows()",
+    "attachments": "/private/tmp/liminalog-polish-20261021/tabs-dark-final-attachments",
+    "original": "53B4D054-B80E-4093-9D67-0425CF22A035.png"
+  },
+  "20-recurrence-yearly-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "52ecbfbe6dde9b73490408911fd3a4f826eb247546bd13ca7525096f4bbc66aa",
+    "bytes": 1190593,
+    "test": "CalendarMonthDrawerUITests/testCaptureRecurrenceRows()",
+    "attachments": "/private/tmp/liminalog-polish-20261021/tabs-light-recurrence-final-attachments",
+    "original": "6F1C29A0-C5DC-41A2-977F-C811D11D9973.png"
+  },
+  "21-underline-tabs-filter-dark.png": {
+    "phase": "after",
+    "appearance": "dark",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "ee36148bf80ace5470c448b4c2cf9e32377af707b1e251e8dbc3413a657da3a5",
+    "bytes": 694156,
+    "test": "CalendarMonthDrawerUITests/testCaptureUnderlineFilterPreservesSelections()",
+    "attachments": "/private/tmp/liminalog-polish-20261021/tabs-dark-final-attachments",
+    "original": "E9BEBD6B-4B11-4375-B22F-A183AE794074.png"
+  },
+  "21-underline-tabs-filter-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "a4585173a94d8d0083aa7319df33c2aa2f77a7069b25725c53e21c17eae86400",
+    "bytes": 937399,
+    "test": "CalendarMonthDrawerUITests/testCaptureUnderlineFilterPreservesSelections()",
+    "attachments": "/private/tmp/liminalog-polish-20261021/tabs-light-final-attachments",
+    "original": "1E096182-AC28-4E2D-A033-F414F5133006.png"
+  },
+  "21-underline-tabs-profile-dark.png": {
+    "phase": "after",
+    "appearance": "dark",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "17ece8288f52c100f9a56f608efbe324dd54eb3d3c7913cfe5b4b8349c9169e4",
+    "bytes": 1691244,
+    "test": "CalendarMonthDrawerUITests/testCaptureUnderlineProfilePreservesDraftAndSaves()",
+    "attachments": "/private/tmp/liminalog-polish-20261021/tabs-dark-final-attachments",
+    "original": "82BA6694-8FA8-4F15-B46B-C69EB6156299.png"
+  },
+  "21-underline-tabs-profile-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "926a0dbe15207dc19bf7c60094da0dd5e6cdcf9ea55ea765caab26d45f5b10f9",
+    "bytes": 1802752,
+    "test": "CalendarMonthDrawerUITests/testCaptureUnderlineProfilePreservesDraftAndSaves()",
+    "attachments": "/private/tmp/liminalog-polish-20261021/tabs-light-final-attachments",
+    "original": "8491B2A3-2705-435F-8993-5D45732831F0.png"
+  },
+  "21-underline-tabs-ranking-dark.png": {
+    "phase": "after",
+    "appearance": "dark",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "14da97c610c75fc02b90f3b27b4ad937414f20b5234e944bd527cbe615a4c2a7",
+    "bytes": 1641422,
+    "test": "CalendarMonthDrawerUITests/testCaptureUnderlineRankingChangesPeriodAndDatePicker()",
+    "attachments": "/private/tmp/liminalog-polish-20261021/tabs-dark-final-attachments",
+    "original": "5C70099F-DF07-40CC-BD17-C0C7B3B53E2A.png"
+  },
+  "21-underline-tabs-ranking-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "054b5682f281ed4d5f12b6290765f5f2a7c479aedbaa9d363084abfe6ae596df",
+    "bytes": 1871816,
+    "test": "CalendarMonthDrawerUITests/testCaptureUnderlineRankingChangesPeriodAndDatePicker()",
+    "attachments": "/private/tmp/liminalog-polish-20261021/tabs-light-final-attachments",
+    "original": "F91903FD-0D40-4B28-A78B-8D4302D87AC5.png"
   }
 }

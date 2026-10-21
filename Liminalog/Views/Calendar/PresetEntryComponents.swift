@@ -85,43 +85,21 @@ struct PresetEntryDivider: View {
 /// 「予定｜一日」の切替。実績/予定の切替と同じ下線のタブ。
 struct PresetKindTabs: View {
     @Binding var selection: PresetDrawerKind
-    /// ナビゲーションバーの中央に置く時は、左右のボタンに押されないよう文字だけにする。
+    /// ナビゲーションバーの中央では文字だけにする。
     var compact = false
 
     var body: some View {
-        HStack(spacing: compact ? 18 : 22) {
-            ForEach(PresetDrawerKind.allCases) { kind in
-                let isSelected = kind == selection
-                Button {
-                    guard !isSelected else { return }
-                    LiminalHaptics.selection()
-                    selection = kind
-                } label: {
-                    VStack(spacing: 4) {
-                        HStack(spacing: 5) {
-                            if !compact {
-                                Image(systemName: kind.systemImage)
-                                    .font(.caption.weight(.semibold))
-                            }
-                            Text(kind.title)
-                                .font(.subheadline.weight(isSelected ? .bold : .semibold))
-                                .fixedSize()
-                        }
-                        .foregroundStyle(isSelected ? LiminalTheme.text : LiminalTheme.secondaryText.opacity(0.76))
-
-                        Capsule()
-                            .fill(isSelected ? LiminalTheme.accent : Color.clear)
-                            .frame(width: 24, height: 2)
-                    }
-                    .frame(minWidth: compact ? 36 : 52, minHeight: 36)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("\(kind.title)プリセット")
-                .accessibilityValue(isSelected ? "選択中" : "")
-                .accessibilityAddTraits(isSelected ? .isSelected : [])
-                .accessibilityIdentifier("preset-kind-\(kind.rawValue)")
-            }
+        LiminalUnderlineTabs(
+            items: PresetDrawerKind.allCases.map {
+                .init(value: $0, title: $0.title, symbol: compact ? nil : $0.systemImage,
+                      accessibilityLabel: "\($0.title)プリセット", accessibilityIdentifier: "preset-kind-\($0.rawValue)")
+            },
+            selection: selection, spacing: compact ? 18 : 22,
+            minimumWidth: compact ? 36 : 52, minimumHeight: 36
+        ) {
+            guard selection != $0 else { return }
+            LiminalHaptics.selection()
+            selection = $0
         }
     }
 }

@@ -4129,12 +4129,13 @@ private struct FriendRankingListSheet: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 12) {
-                Picker("期間", selection: $period) {
-                    ForEach(FriendScorePeriod.detailCases) { period in
-                        Text(period.label).tag(period)
-                    }
-                }
-                .pickerStyle(.segmented)
+                LiminalUnderlineTabs(
+                    items: FriendScorePeriod.detailCases.map {
+                        .init(value: $0, title: $0.label, accessibilityIdentifier: "friend-ranking-period-\($0.rawValue)")
+                    }, selection: period
+                ) { period = $0 }
+                .accessibilityElement(children: .contain)
+                .accessibilityLabel("期間")
                 .padding(.horizontal, 18)
                 .padding(.top, 12)
 
@@ -4154,6 +4155,7 @@ private struct FriendRankingListSheet: View {
                     .background(Capsule().fill(LiminalTheme.surface))
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier("friend-ranking-date")
 
                 ScrollView {
                     LazyVStack(spacing: 10) {

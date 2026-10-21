@@ -1,0 +1,339 @@
+{
+  "date": "2026-10-21",
+  "baseline": "6905731",
+  "branch": "codex/ui-polish-dark-qa",
+  "scope": "docs/37 §12",
+  "device": {
+    "name": "Liminalog-Internals-QA-20261016",
+    "id": "5DA1E432-0D01-42A6-8259-B59A9CEC7854",
+    "model": "iPhone 17",
+    "os": "iOS 26.5",
+    "configuration": "Debug",
+    "physicalDeviceTested": false
+  },
+  "buildLog": "/private/tmp/liminalog-polish-20261021/tabs-final-build.log",
+  "latestDistinctCases": 14,
+  "latestPassed": 14,
+  "cases": {
+    "CalendarMonthDrawerUITests/testCaptureRecurrenceRows": {
+      "status": "passed",
+      "seconds": 44.36,
+      "run": "tabs-light-recurrence-final"
+    },
+    "CalendarMonthDrawerUITests/testCaptureUnderlineFilterPreservesSelections": {
+      "status": "passed",
+      "seconds": 21.196,
+      "run": "tabs-dark-final"
+    },
+    "CalendarMonthDrawerUITests/testCaptureUnderlineProfilePreservesDraftAndSaves": {
+      "status": "passed",
+      "seconds": 23.181,
+      "run": "tabs-dark-final"
+    },
+    "CalendarMonthDrawerUITests/testCaptureUnderlineRankingChangesPeriodAndDatePicker": {
+      "status": "passed",
+      "seconds": 17.586,
+      "run": "tabs-dark-final"
+    },
+    "CalendarMonthDrawerUITests/testDayPresetCanSaveAutomaticRecurrence": {
+      "status": "passed",
+      "seconds": 27.878,
+      "run": "tabs-light-fixed"
+    },
+    "CalendarMonthDrawerUITests/testMonthlyOrdinalWeekdayRecurrenceShowsSummaryAndSaves": {
+      "status": "passed",
+      "seconds": 37.147,
+      "run": "tabs-light-final"
+    },
+    "CalendarMonthDrawerUITests/testPlanEditorRegistersRecurrenceAndReminderAndKeepsMasterSeparate": {
+      "status": "passed",
+      "seconds": 34.557,
+      "run": "tabs-light-fixed"
+    },
+    "CalendarMonthDrawerUITests/testRecurrenceStaysEnabledAfterIdleScrollAndHelp": {
+      "status": "passed",
+      "seconds": 83.249,
+      "run": "tabs-light-fixed"
+    },
+    "CalendarMonthDrawerUITests/testRecurrenceYearCountAndInfoAreSavedInMaster": {
+      "status": "passed",
+      "seconds": 72.124,
+      "run": "tabs-light-final"
+    },
+    "CalendarMonthDrawerUITests/testWeeklyRecurrenceKeepsAdvancedControlsCollapsedAndPreservesChoices": {
+      "status": "passed",
+      "seconds": 52.209,
+      "run": "tabs-light-final"
+    },
+    "CalendarMonthDrawerUITests/testDayPresetFromTomorrowReplacesAndClosesDrawer": {
+      "status": "passed",
+      "seconds": 26.989,
+      "run": "tabs-dark-final"
+    },
+    "CalendarMonthDrawerUITests/testDrawerHeaderOpensExplicitDestinationsRegardlessOfLegacyPreference": {
+      "status": "passed",
+      "seconds": 60.834,
+      "run": "tabs-dark-final"
+    },
+    "TimelineInitialPositionUITests/testTomorrowOpensAtSevenAndRetainsUserScroll": {
+      "status": "passed",
+      "seconds": 14.709,
+      "run": "tabs-dark-final"
+    },
+    "TimelineInitialPositionUITests/testWeekStartsAtSevenAndDaySwitchKeepsUserPosition": {
+      "status": "passed",
+      "seconds": 16.382,
+      "run": "tabs-dark-final"
+    }
+  },
+  "runs": {
+    "tabs-light": {
+      "result": "Failed",
+      "passed": 1,
+      "failed": 3,
+      "skipped": 0,
+      "cases": [
+        {
+          "test": "CalendarMonthDrawerUITests/testCaptureRecurrenceRows",
+          "status": "failed",
+          "seconds": 24.406,
+          "run": "tabs-light"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testCaptureUnderlineFilterPreservesSelections",
+          "status": "failed",
+          "seconds": 13.155,
+          "run": "tabs-light"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testCaptureUnderlineProfilePreservesDraftAndSaves",
+          "status": "passed",
+          "seconds": 21.105,
+          "run": "tabs-light"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testCaptureUnderlineRankingChangesPeriodAndDatePicker",
+          "status": "failed",
+          "seconds": 18.782,
+          "run": "tabs-light"
+        }
+      ]
+    },
+    "tabs-light-fixed": {
+      "result": "Failed",
+      "passed": 6,
+      "failed": 3,
+      "skipped": 0,
+      "cases": [
+        {
+          "test": "CalendarMonthDrawerUITests/testCaptureRecurrenceRows",
+          "status": "failed",
+          "seconds": 35.88,
+          "run": "tabs-light-fixed"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testCaptureUnderlineFilterPreservesSelections",
+          "status": "passed",
+          "seconds": 20.489,
+          "run": "tabs-light-fixed"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testCaptureUnderlineRankingChangesPeriodAndDatePicker",
+          "status": "passed",
+          "seconds": 16.858,
+          "run": "tabs-light-fixed"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testDayPresetCanSaveAutomaticRecurrence",
+          "status": "passed",
+          "seconds": 27.878,
+          "run": "tabs-light-fixed"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testMonthlyOrdinalWeekdayRecurrenceShowsSummaryAndSaves",
+          "status": "failed",
+          "seconds": 38.168,
+          "run": "tabs-light-fixed"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testPlanEditorRegistersRecurrenceAndReminderAndKeepsMasterSeparate",
+          "status": "passed",
+          "seconds": 34.557,
+          "run": "tabs-light-fixed"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testRecurrenceStaysEnabledAfterIdleScrollAndHelp",
+          "status": "passed",
+          "seconds": 83.249,
+          "run": "tabs-light-fixed"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testRecurrenceYearCountAndInfoAreSavedInMaster",
+          "status": "passed",
+          "seconds": 64.464,
+          "run": "tabs-light-fixed"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testWeeklyRecurrenceKeepsAdvancedControlsCollapsedAndPreservesChoices",
+          "status": "failed",
+          "seconds": 30.354,
+          "run": "tabs-light-fixed"
+        }
+      ]
+    },
+    "tabs-light-final": {
+      "result": "Failed",
+      "passed": 6,
+      "failed": 1,
+      "skipped": 0,
+      "cases": [
+        {
+          "test": "CalendarMonthDrawerUITests/testCaptureRecurrenceRows",
+          "status": "failed",
+          "seconds": 39.869,
+          "run": "tabs-light-final"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testCaptureUnderlineFilterPreservesSelections",
+          "status": "passed",
+          "seconds": 21.056,
+          "run": "tabs-light-final"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testCaptureUnderlineProfilePreservesDraftAndSaves",
+          "status": "passed",
+          "seconds": 21.302,
+          "run": "tabs-light-final"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testCaptureUnderlineRankingChangesPeriodAndDatePicker",
+          "status": "passed",
+          "seconds": 17.277,
+          "run": "tabs-light-final"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testMonthlyOrdinalWeekdayRecurrenceShowsSummaryAndSaves",
+          "status": "passed",
+          "seconds": 37.147,
+          "run": "tabs-light-final"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testRecurrenceYearCountAndInfoAreSavedInMaster",
+          "status": "passed",
+          "seconds": 72.124,
+          "run": "tabs-light-final"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testWeeklyRecurrenceKeepsAdvancedControlsCollapsedAndPreservesChoices",
+          "status": "passed",
+          "seconds": 52.209,
+          "run": "tabs-light-final"
+        }
+      ]
+    },
+    "tabs-dark-final": {
+      "result": "Passed",
+      "passed": 8,
+      "failed": 0,
+      "skipped": 0,
+      "cases": [
+        {
+          "test": "CalendarMonthDrawerUITests/testCaptureRecurrenceRows",
+          "status": "passed",
+          "seconds": 43.788,
+          "run": "tabs-dark-final"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testCaptureUnderlineFilterPreservesSelections",
+          "status": "passed",
+          "seconds": 21.196,
+          "run": "tabs-dark-final"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testCaptureUnderlineProfilePreservesDraftAndSaves",
+          "status": "passed",
+          "seconds": 23.181,
+          "run": "tabs-dark-final"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testCaptureUnderlineRankingChangesPeriodAndDatePicker",
+          "status": "passed",
+          "seconds": 17.586,
+          "run": "tabs-dark-final"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testDayPresetFromTomorrowReplacesAndClosesDrawer",
+          "status": "passed",
+          "seconds": 26.989,
+          "run": "tabs-dark-final"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testDrawerHeaderOpensExplicitDestinationsRegardlessOfLegacyPreference",
+          "status": "passed",
+          "seconds": 60.834,
+          "run": "tabs-dark-final"
+        },
+        {
+          "test": "TimelineInitialPositionUITests/testTomorrowOpensAtSevenAndRetainsUserScroll",
+          "status": "passed",
+          "seconds": 14.709,
+          "run": "tabs-dark-final"
+        },
+        {
+          "test": "TimelineInitialPositionUITests/testWeekStartsAtSevenAndDaySwitchKeepsUserPosition",
+          "status": "passed",
+          "seconds": 16.382,
+          "run": "tabs-dark-final"
+        }
+      ]
+    },
+    "tabs-light-recurrence-final": {
+      "result": "Passed",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "cases": [
+        {
+          "test": "CalendarMonthDrawerUITests/testCaptureRecurrenceRows",
+          "status": "passed",
+          "seconds": 44.36,
+          "run": "tabs-light-recurrence-final"
+        }
+      ]
+    }
+  },
+  "screenshots": {
+    "total": 74,
+    "added": 16,
+    "files": [
+      "20-recurrence-ending-count-dark.png",
+      "20-recurrence-ending-count-light.png",
+      "20-recurrence-monthly-date-dark.png",
+      "20-recurrence-monthly-date-light.png",
+      "20-recurrence-monthly-weekday-dark.png",
+      "20-recurrence-monthly-weekday-light.png",
+      "20-recurrence-weekly-dark.png",
+      "20-recurrence-weekly-light.png",
+      "20-recurrence-yearly-dark.png",
+      "20-recurrence-yearly-light.png",
+      "21-underline-tabs-filter-dark.png",
+      "21-underline-tabs-filter-light.png",
+      "21-underline-tabs-profile-dark.png",
+      "21-underline-tabs-profile-light.png",
+      "21-underline-tabs-ranking-dark.png",
+      "21-underline-tabs-ranking-light.png"
+    ],
+    "dimensions": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256Verified": true
+  },
+  "notes": [
+    "Initial monthly option accessibility grouping lost button identifiers and selected traits; corrected in the button itself and verified by UI tests.",
+    "Filter capture originally forced the UserDefaults category-filter flag via launch arguments; removed that override for filter interaction tests. Period picker assertion now uses the existing visible heading and wheel count.",
+    "Known first launch after installation can ignore debug arguments and open the normal app without fixtures. Initial failures remain in result bundles; successful rerun does not constitute a fix for initial routing.",
+    "Added capture delay to record settled underlines/arrows. No changes to recurrence storage, occurrence calculation or generation."
+  ]
+}

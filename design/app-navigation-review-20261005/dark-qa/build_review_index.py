@@ -23,6 +23,14 @@ labels = {
  '17-category-chevron-closed': 'カテゴリ矢印・閉じた状態',
  '18-recurrence-weekly': '繰り返し・普段の毎週設定',
  '18-recurrence-monthly-collapsed': '繰り返し・毎月の詳細を閉じた状態',
+ '20-recurrence-weekly': '繰り返し・毎週',
+ '20-recurrence-monthly-date': '繰り返し・毎月10日',
+ '20-recurrence-monthly-weekday': '繰り返し・毎月第2／第4水曜',
+ '20-recurrence-yearly': '繰り返し・毎年',
+ '20-recurrence-ending-count': '繰り返し・間隔／開始日／終了を開く',
+ '21-underline-tabs-filter': '下線タブ・カレンダー表示フィルタ',
+ '21-underline-tabs-profile': '下線タブ・プロフィール編集',
+ '21-underline-tabs-ranking': '下線タブ・ランキングの期間',
 }
 body = []
 for stem, label in labels.items():
@@ -40,7 +48,7 @@ for stem, label in labels.items():
 page = '''<!doctype html><html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Liminalog 画面証跡 — 2026-10-21</title><style>
 body{margin:24px auto;padding:0 24px;max-width:1320px;background:#eeeeef;color:#222;font:16px/1.7 system-ui,sans-serif}h1{font-size:24px}h2{font-size:19px;margin-top:36px}.pairs{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;align-items:start}figure{margin:0}figcaption{margin:0 0 8px}img{width:100%;height:auto;border:1px solid #bbb;border-radius:12px;background:#fff}section{border-top:1px solid #ccc;margin-top:28px}p{max-width:900px}a{color:inherit}
-</style><h1>ライト／ダーク画面の確認</h1><p>docs/37 §7 — iPhone 17 / iOS 26.5 / Debug。システム追従テーマ。原寸1206×2622px（3x）、PNGの加工なし。クリックで原寸。10・12・13は変更前後、その他は指定状態の画面記録です。15〜18はClaudeの画像レビュー後の修正と、繰り返し設定の階層整理です。</p>
+</style><h1>ライト／ダーク画面の確認</h1><p>docs/37 §7・§12 — iPhone 17 / iOS 26.5 / Debug。システム追従テーマ。原寸1206×2622px（3x）、PNGの加工なし。クリックで原寸。10・12・13は変更前後、その他は指定状態の画面記録です。15〜18は前回の整理、20は最新の繰り返し欄、21は表示切替を下線タブに統一した3画面です。</p>
 '''
 (root / 'index.html').write_text(page + '\n'.join(body) + '</html>\n')
 print(f'Indexed {len(images)} screenshots')

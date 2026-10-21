@@ -202,13 +202,16 @@ struct ProfileEditSheet: View {
     }
 
     private var categoryTabBar: some View {
-        Picker("", selection: $activeTab) {
-            ForEach(EditTab.allCases) { tab in
-                Text(tab.title).tag(tab)
-            }
+        ScrollView(.horizontal, showsIndicators: false) {
+            LiminalUnderlineTabs(
+                items: EditTab.allCases.map {
+                    .init(value: $0, title: $0.title, accessibilityIdentifier: "profile-edit-tab-\($0.rawValue)")
+                }, selection: activeTab, spacing: 18
+            ) { activeTab = $0 }
+            .padding(.horizontal, 16)
         }
-        .pickerStyle(.segmented)
-        .padding(.horizontal, 16)
+        .fixedSize(horizontal: false, vertical: true)
+        .scrollBounceBehavior(.basedOnSize)
         .padding(.top, 10)
         .padding(.bottom, 12)
         .background(LiminalTheme.canvasGradient)

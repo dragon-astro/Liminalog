@@ -232,41 +232,14 @@ private struct DashboardPeriodSnapshot {
 
 private struct DashboardPeriodTextTabs: View {
     @Binding var period: DashboardPeriod
-    @Namespace private var underlineNamespace
 
     var body: some View {
-        HStack(spacing: 24) {
-            ForEach(DashboardPeriod.allCases) { item in
-                Button {
-                    withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
-                        period = item
-                    }
-                } label: {
-                    VStack(spacing: 4) {
-                        Text(item.title)
-                            .font(.headline.weight(period == item ? .bold : .semibold))
-                            .foregroundStyle(period == item ? LiminalTheme.text : LiminalTheme.secondaryText.opacity(0.68))
-                            .lineLimit(1)
-
-                        ZStack {
-                            Capsule()
-                                .fill(Color.clear)
-                                .frame(width: 22, height: 3)
-                            if period == item {
-                                Capsule()
-                                    .fill(LiminalTheme.accent)
-                                    .matchedGeometryEffect(id: "dashboard-period-underline", in: underlineNamespace)
-                                    .frame(width: 22, height: 3)
-                            }
-                        }
-                    }
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(item.title)
-                .accessibilityAddTraits(period == item ? .isSelected : [])
-            }
-        }
+        LiminalUnderlineTabs(
+            items: DashboardPeriod.allCases.map { .init(value: $0, title: $0.title) },
+            selection: period, font: .headline, inactiveOpacity: 0.68,
+            underlineWidth: 22, underlineHeight: 3, minimumHeight: nil,
+            animation: .spring(response: 0.28, dampingFraction: 0.82)
+        ) { period = $0 }
         .frame(maxWidth: 240)
     }
 }

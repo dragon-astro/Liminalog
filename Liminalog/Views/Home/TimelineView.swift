@@ -935,40 +935,16 @@ private struct TimelineTabInlineToggle: View {
     }
 
     var body: some View {
-        HStack(spacing: 28) {
-            ForEach(TimelineTab.allCases) { tab in
-                Button {
-                    // 固定中は表示だけの切替なので、ホームと共有する保存値を書き換えない。
-                    guard lockedTab == nil else { return }
-                    selectedTabRawValue = tab.rawValue
-                } label: {
-                    VStack(spacing: 5) {
-                        HStack(spacing: 5) {
-                            Image(systemName: tab.systemImage)
-                                .font(.caption.weight(.semibold))
-                            Text(tab.label)
-                                .font(.subheadline.weight(selectedTab == tab ? .bold : .semibold))
-                        }
-                        .foregroundStyle(
-                            selectedTab == tab
-                                ? LiminalTheme.text
-                                : LiminalTheme.secondaryText.opacity(isUnavailable(tab) ? 0.36 : 0.76)
-                        )
-
-                        Capsule()
-                            .fill(selectedTab == tab ? LiminalTheme.accent : Color.clear)
-                            .frame(height: 2)
-                    }
-                    .fixedSize()
-                    .frame(minWidth: 64)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .disabled(isUnavailable(tab))
-                .accessibilityLabel(tab.label)
-                .accessibilityValue(selectedTab == tab ? "選択中" : "")
-                .accessibilityHint(isUnavailable(tab) ? "まだ来ていない日は実績がありません" : "")
-            }
+        LiminalUnderlineTabs(
+            items: TimelineTab.allCases.map {
+                .init(value: $0, title: $0.label, symbol: $0.systemImage,
+                      isEnabled: !isUnavailable($0), hint: isUnavailable($0) ? "まだ来ていない日は実績がありません" : "")
+            },
+            selection: selectedTab, spacing: 28, labelSpacing: 5,
+            underlineWidth: nil, minimumWidth: 64, minimumHeight: nil
+        ) {
+            guard lockedTab == nil else { return }
+            selectedTabRawValue = $0.rawValue
         }
         .frame(maxWidth: .infinity, alignment: .center)
         .accessibilityElement(children: .contain)

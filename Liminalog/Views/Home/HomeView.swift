@@ -390,57 +390,16 @@ private struct TodayPageTextTabs: View {
     @Binding var selection: TodayPage
     let showsTomorrowIndicator: Bool
     let isActive: Bool
-    @Namespace private var underlineNamespace
 
     var body: some View {
-        HStack(spacing: 28) {
-            ForEach(TodayPage.allCases) { page in
-                Button {
-                    withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
-                        selection = page
-                    }
-                } label: {
-                    VStack(spacing: 4) {
-                        ZStack(alignment: .topTrailing) {
-                            Text(page.title)
-                                .font(.headline.weight(selection == page ? .bold : .semibold))
-                                .foregroundStyle(selection == page ? LiminalTheme.text : LiminalTheme.secondaryText.opacity(0.68))
-                                .lineLimit(1)
-
-                            if page == .tomorrow, showsTomorrowIndicator {
-                                Circle()
-                                    .fill(LiminalTheme.reward)
-                                    .frame(width: 6, height: 6)
-                                    .offset(x: 8, y: -1)
-                                    .accessibilityHidden(true)
-                            }
-                        }
-
-                        ZStack {
-                            Capsule()
-                                .fill(Color.clear)
-                                .frame(width: 22, height: 3)
-                            if selection == page {
-                                Capsule()
-                                    .fill(LiminalTheme.accent)
-                                    .matchedGeometryEffect(id: "today-page-underline", in: underlineNamespace)
-                                    .frame(width: 22, height: 3)
-                            }
-                        }
-                    }
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(page.accessibilityLabel)
-                .accessibilityAddTraits(selection == page ? .isSelected : [])
-            }
-        }
+        LiminalUnderlineTabs(
+            items: TodayPage.allCases.map { .init(value: $0, title: $0.title, accessibilityLabel: $0.accessibilityLabel, showsIndicator: $0 == .tomorrow && showsTomorrowIndicator) },
+            selection: selection, spacing: 28, font: .headline, inactiveOpacity: 0.68,
+            underlineWidth: 22, underlineHeight: 3, minimumHeight: nil,
+            animation: .spring(response: 0.28, dampingFraction: 0.82)
+        ) { selection = $0 }
         .frame(maxWidth: 220)
-        .transaction { transaction in
-            if !isActive {
-                transaction.animation = nil
-            }
-        }
+        .transaction { if !isActive { $0.animation = nil } }
     }
 }
 
