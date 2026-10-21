@@ -642,5 +642,173 @@
     "test": "CalendarMonthDrawerUITests/testCapturePolishSummaryPresets()",
     "attachments": "/private/tmp/liminalog-polish-20261021/after-light-images",
     "original": "07120F71-CA8D-4BFD-AAE4-2311699E6717.png"
+  },
+  "15-recurrence-selection-dark.png": {
+    "phase": "after",
+    "appearance": "dark",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "7b46694d8980bd65196248bc67715e31d73c768fbdcb9b96e56ecded17d41283",
+    "bytes": 948099,
+    "test": "CalendarMonthDrawerUITests/testCapturePolishMonthlyRecurrence()",
+    "attachments": "/private/tmp/liminalog-polish-20261021/review-dark-final-attachments",
+    "original": "C11D6D7A-C9C6-4CC0-9AC1-0A78D49CCA24.png"
+  },
+  "15-recurrence-selection-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "b09a047f9680946ea576f3acdd8f64b9be923a470c438a514edfe7ed76c9466c",
+    "bytes": 1113287,
+    "test": "CalendarMonthDrawerUITests/testCapturePolishMonthlyRecurrence()",
+    "attachments": "/private/tmp/liminalog-polish-20261021/review-light-final-attachments",
+    "original": "03518891-0308-47A6-8100-4D0CE1223558.png"
+  },
+  "16-friend-off-dark.png": {
+    "phase": "after",
+    "appearance": "dark",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "9b0a74866fab524df5be1aee287344cc2044371201a48fc45b61a6728c10842c",
+    "bytes": 1206672,
+    "test": "CalendarMonthDrawerUITests/testCapturePolishFriendVisibility()",
+    "attachments": "/private/tmp/liminalog-polish-20261021/review-dark-final-attachments",
+    "original": "79B77EAB-E4C0-41FF-B70D-1A01AD06A661.png"
+  },
+  "16-friend-off-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "7e31cd8b67d1e8b6986f06e084ce51ab9f11ba7c33c5a8be4847f102b2350a5a",
+    "bytes": 1469324,
+    "test": "CalendarMonthDrawerUITests/testCapturePolishFriendVisibility()",
+    "attachments": "/private/tmp/liminalog-polish-20261021/review-light-attachments",
+    "original": "FB7B0D1B-D132-47CF-95F5-6E7523C86B77.png"
+  },
+  "17-category-chevron-closed-dark.png": {
+    "phase": "after",
+    "appearance": "dark",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "b7fc7272a63d0501f3ddf7122e5602f185c677e7cd7ce7673035e33472fbee57",
+    "bytes": 983243,
+    "test": "CalendarMonthDrawerUITests/testCapturePolishEditorAndTimeline()",
+    "attachments": "/private/tmp/liminalog-polish-20261021/review-dark-final-attachments",
+    "original": "CE1EF4CA-B32F-4C28-A30F-160E86BB6B99.png"
+  },
+  "17-category-chevron-closed-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "cf0d69a1b3496ef8428c7ab8a57be036684de50a5be55aaf5d488880f642ba3d",
+    "bytes": 1106442,
+    "test": "CalendarMonthDrawerUITests/testCapturePolishEditorAndTimeline()",
+    "attachments": "/private/tmp/liminalog-polish-20261021/review-light-final-attachments",
+    "original": "9A51AAC6-668F-4ED3-9F92-8A96A737F9E0.png"
+  },
+  "17-category-chevron-open-dark.png": {
+    "phase": "after",
+    "appearance": "dark",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "f6d271418192291c56a0520727919d142425dbee33a0f917de2dcaad86808027",
+    "bytes": 922729,
+    "test": "CalendarMonthDrawerUITests/testCapturePolishEditorAndTimeline()",
+    "attachments": "/private/tmp/liminalog-polish-20261021/review-dark-final-attachments",
+    "original": "A0BC7AD1-D89D-40C0-BE86-F29EE4EE4E27.png"
+  },
+  "17-category-chevron-open-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "1948cc893de8026dd58081b2ba4dc0efb815ef465e3b22ffecdec49f24daa663",
+    "bytes": 1010684,
+    "test": "CalendarMonthDrawerUITests/testCapturePolishEditorAndTimeline()",
+    "attachments": "/private/tmp/liminalog-polish-20261021/review-light-final-attachments",
+    "original": "40CA372F-7BC0-4761-89AC-3B2FBB1232A4.png"
+  },
+  "18-recurrence-monthly-collapsed-dark.png": {
+    "phase": "after",
+    "appearance": "dark",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "6936880ce0d0045169f53d839b996de4b3275c5dfababd98a9d247014da19b61",
+    "bytes": 1013625,
+    "test": "CalendarMonthDrawerUITests/testWeeklyRecurrenceKeepsAdvancedControlsCollapsedAndPreservesChoices()",
+    "attachments": "/private/tmp/liminalog-polish-20261021/review-dark-final-attachments",
+    "original": "D90D713E-406B-4EF8-A0DD-681E4A34BF11.png"
+  },
+  "18-recurrence-monthly-collapsed-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "3df6df427b11ba616c0429d14c102e707068ef0308c352c9a33625b4c87dd9a4",
+    "bytes": 1170798,
+    "test": "CalendarMonthDrawerUITests/testWeeklyRecurrenceKeepsAdvancedControlsCollapsedAndPreservesChoices()",
+    "attachments": "/private/tmp/liminalog-polish-20261021/review-weekly-light-final-attachments",
+    "original": "7B2DC795-19B3-4C3E-8EFE-8BE542B69FAC.png"
+  },
+  "18-recurrence-weekly-dark.png": {
+    "phase": "after",
+    "appearance": "dark",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "4068203bb220582cc55c8aa1f7fc4e0be4934e16216db1221c567cf3550f09dd",
+    "bytes": 1023757,
+    "test": "CalendarMonthDrawerUITests/testWeeklyRecurrenceKeepsAdvancedControlsCollapsedAndPreservesChoices()",
+    "attachments": "/private/tmp/liminalog-polish-20261021/review-dark-final-attachments",
+    "original": "572F3082-BAE0-4671-A94D-18D04E8B905D.png"
+  },
+  "18-recurrence-weekly-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "52fb92071593678ab71892c4063bca95beb739bb383f47c827ab142597c5df81",
+    "bytes": 1177226,
+    "test": "CalendarMonthDrawerUITests/testWeeklyRecurrenceKeepsAdvancedControlsCollapsedAndPreservesChoices()",
+    "attachments": "/private/tmp/liminalog-polish-20261021/review-weekly-light-final-attachments",
+    "original": "ADA2D277-0320-4FF4-BD34-E15C443AAABD.png"
   }
 }

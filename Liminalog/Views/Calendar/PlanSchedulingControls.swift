@@ -6,6 +6,8 @@ struct PlanRecurrenceControls: View {
     var initialDate: Date = Date()
     @State private var isEnabled: Bool
     @State private var expanded = false
+    @State private var monthlyExpanded = false
+    @State private var scheduleExpanded = false
     @State private var occurrenceCountText = "10"
     @FocusState private var countIsFocused: Bool
 
@@ -48,61 +50,23 @@ struct PlanRecurrenceControls: View {
                         }
                         .pickerStyle(.segmented)
                         .accessibilityIdentifier("plan-recurrence-frequency")
-                        Stepper(value.wrappedValue.cadence, value: value.interval, in: 1...365)
-                            .accessibilityIdentifier("plan-recurrence-interval")
                         if value.wrappedValue.frequency == .weekly { weekdayButtons }
-                        if value.wrappedValue.frequency == .monthly { monthlyControls }
-                        HStack {
-                            DatePicker("開始日", selection: value.startDate, displayedComponents: .date)
-                            InformationButton(title: "繰り返す日付", explanation: "毎月の「日付で」と毎年は、開始日と同じ日付に追加します。31日や2月29日など、存在しない日付はスキップします。毎月の「曜日で」は、選んだ週がない月（第5など）は飛ばし、「最終」はその月の最後の曜日です。")
-                        }
-                        HStack {
-                            Text("終了条件").font(.subheadline.weight(.medium))
-                            Spacer()
-                            InformationButton(title: "繰り返しの終了", explanation: "回数は開始日から数え、一日プリセットは一日分で1回です。削除した日や重複で追加を見送った日も含みます。日時指定では、その日時までに始まる予定を用意します。")
-                        }
-                        Picker("終了", selection: ending) {
-                            Text("しない").tag(0)
-                            Text("日時").tag(1)
-                            Text("回数").tag(2)
-                        }
-                        .pickerStyle(.segmented)
-                        .accessibilityIdentifier("plan-recurrence-ending")
-                        if ending.wrappedValue == 1 {
-                            DatePicker("終了日時", selection: Binding(get: {
-                                guard let end = value.wrappedValue.endDate else { return initialDate }
-                                if value.wrappedValue.endDateIncludesTime == true { return end }
-                                return Calendar.current.date(bySettingHour: 23, minute: 59, second: 0, of: end) ?? end
-                            }, set: { value.wrappedValue.endDate = $0; value.wrappedValue.endDateIncludesTime = true }),
-                            in: Calendar.current.startOfDay(for: value.wrappedValue.startDate)...,
-                            displayedComponents: [.date, .hourAndMinute])
-                            .accessibilityIdentifier("plan-recurrence-end-date")
-                        } else if ending.wrappedValue == 2 {
-                            HStack {
-                                Text("繰り返す回数")
-                                Spacer()
-                                TextField("回数", text: $occurrenceCountText)
-                                    .keyboardType(.numberPad).multilineTextAlignment(.trailing).frame(width: 75)
-                                    .focused($countIsFocused)
-                                    .onAppear { occurrenceCountText = String(value.wrappedValue.occurrenceLimit ?? 10) }
-                                    .onChange(of: occurrenceCountText) { _, text in
-                                        let digits = String(text.filter(\.isNumber).prefix(5))
-                                        if text != digits { occurrenceCountText = digits }
-                                        if let count = Int(digits), count > 0 {
-                                            value.wrappedValue.occurrenceLimit = min(10_000, count)
-                                        }
-                                    }
-                                    .onChange(of: countIsFocused) { _, focused in
-                                        if !focused { occurrenceCountText = String(value.wrappedValue.occurrenceLimit ?? 10) }
-                                    }
-                                    .accessibilityIdentifier("plan-recurrence-count")
-                                Text("回")
+                        if value.wrappedValue.frequency == .monthly {
+                            DisclosureGroup(isExpanded: $monthlyExpanded) {
+                                monthlyControls.padding(.top, 8)
+                            } label: {
+                                Text("繰り返す日").font(.subheadline.weight(.medium))
+                                    .accessibilityIdentifier("plan-recurrence-monthly-details")
                             }
                         }
-                        HStack {
-                            Text("元の設定の変更について").font(.caption).foregroundStyle(.secondary)
-                            Spacer()
-                            InformationButton(title: "元の繰り返しを変更", explanation: "変更は、まだ調整していない今後の予定だけに反映します。繰り返しをオフにすると、未調整の今後の予定を取り消します。")
+                        DisclosureGroup(isExpanded: $scheduleExpanded) {
+                            scheduleControls.padding(.top, 8)
+                        } label: {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("間隔・開始・終了").font(.subheadline.weight(.medium))
+                                Text(scheduleSummary).font(.caption).foregroundStyle(.secondary)
+                            }
+                            .accessibilityIdentifier("plan-recurrence-schedule-details")
                         }
                     }.padding(.top, 10)
                 } label: {
@@ -129,6 +93,71 @@ struct PlanRecurrenceControls: View {
         }
     }
 
+    private var scheduleSummary: String {
+        let rule = value.wrappedValue
+        let start = rule.startDate.formatted(.dateTime.locale(Locale(identifier: "ja_JP")).year().month().day())
+        return "\(rule.cadence) · \(start)から · \(rule.endingSummary)"
+    }
+
+    private var scheduleControls: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Stepper(value.wrappedValue.cadence, value: value.interval, in: 1...365)
+                .accessibilityIdentifier("plan-recurrence-interval")
+            HStack {
+                DatePicker("開始日", selection: value.startDate, displayedComponents: .date)
+                InformationButton(title: "繰り返す日付", explanation: "毎月の「日付で」と毎年は、開始日と同じ日付に追加します。31日や2月29日など、存在しない日付はスキップします。")
+            }
+            HStack {
+                Text("終了条件").font(.subheadline.weight(.medium))
+                Spacer()
+                InformationButton(title: "繰り返しの終了", explanation: "回数は開始日から数え、一日プリセットは一日分で1回です。削除した日や重複で追加を見送った日も含みます。日時指定では、その日時までに始まる予定を用意します。")
+            }
+            Picker("終了", selection: ending) {
+                Text("しない").tag(0)
+                Text("日時").tag(1)
+                Text("回数").tag(2)
+            }
+            .pickerStyle(.segmented)
+            .accessibilityIdentifier("plan-recurrence-ending")
+            if ending.wrappedValue == 1 {
+                DatePicker("終了日時", selection: Binding(get: {
+                    guard let end = value.wrappedValue.endDate else { return initialDate }
+                    if value.wrappedValue.endDateIncludesTime == true { return end }
+                    return Calendar.current.date(bySettingHour: 23, minute: 59, second: 0, of: end) ?? end
+                }, set: { value.wrappedValue.endDate = $0; value.wrappedValue.endDateIncludesTime = true }),
+                in: Calendar.current.startOfDay(for: value.wrappedValue.startDate)...,
+                displayedComponents: [.date, .hourAndMinute])
+                .accessibilityIdentifier("plan-recurrence-end-date")
+            } else if ending.wrappedValue == 2 {
+                HStack {
+                    Text("繰り返す回数")
+                    Spacer()
+                    TextField("回数", text: $occurrenceCountText)
+                        .keyboardType(.numberPad).multilineTextAlignment(.trailing).frame(width: 75)
+                        .focused($countIsFocused)
+                        .onAppear { occurrenceCountText = String(value.wrappedValue.occurrenceLimit ?? 10) }
+                        .onChange(of: occurrenceCountText) { _, text in
+                            let digits = String(text.filter(\.isNumber).prefix(5))
+                            if text != digits { occurrenceCountText = digits }
+                            if let count = Int(digits), count > 0 {
+                                value.wrappedValue.occurrenceLimit = min(10_000, count)
+                            }
+                        }
+                        .onChange(of: countIsFocused) { _, focused in
+                            if !focused { occurrenceCountText = String(value.wrappedValue.occurrenceLimit ?? 10) }
+                        }
+                        .accessibilityIdentifier("plan-recurrence-count")
+                    Text("回")
+                }
+            }
+            HStack {
+                Text("元の設定の変更について").font(.caption).foregroundStyle(.secondary)
+                Spacer()
+                InformationButton(title: "元の繰り返しを変更", explanation: "変更は、まだ調整していない今後の予定だけに反映します。繰り返しをオフにすると、未調整の今後の予定を取り消します。")
+            }
+        }
+    }
+
     private var weekdayButtons: some View {
         HStack(spacing: 6) {
             ForEach(1...7, id: \.self) { weekday in
@@ -140,8 +169,8 @@ struct PlanRecurrenceControls: View {
                     value.wrappedValue.weekdays = days.sorted()
                 } label: {
                     Text(["日", "月", "火", "水", "木", "金", "土"][weekday - 1])
-                        .font(.subheadline.weight(.semibold)).frame(maxWidth: .infinity, minHeight: 38)
-                        .background(selected ? Color.accentColor.opacity(0.22) : Color.secondary.opacity(0.08), in: Circle())
+                        .frame(maxWidth: .infinity, minHeight: 38)
+                        .modifier(RecurrenceChoiceStyle(selected: selected, shape: Circle()))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("\(["日", "月", "火", "水", "木", "金", "土"][weekday - 1])曜日")
@@ -161,6 +190,11 @@ struct PlanRecurrenceControls: View {
             .accessibilityIdentifier("plan-recurrence-monthly-mode")
 
             if value.wrappedValue.monthlyMode == .ordinalWeekday {
+                HStack {
+                    Text("第何曜日").font(.caption).foregroundStyle(.secondary)
+                    Spacer()
+                    InformationButton(title: "第何曜日", explanation: "第2・第4のように複数選べます。「最終」はその月の最後の曜日です。")
+                }
                 ordinalButtons
                 monthlyWeekdayButtons
             }
@@ -179,13 +213,9 @@ struct PlanRecurrenceControls: View {
                     value.wrappedValue.monthlyOrdinals = PlanRecurrenceRule.MonthlyOrdinal.allCases.filter { ordinals.contains($0) }
                 } label: {
                     Text(ordinal.title)
-                        .font(.subheadline.weight(.semibold))
                         .lineLimit(1)
                         .frame(maxWidth: .infinity, minHeight: 34)
-                        .background(
-                            selected ? Color.accentColor.opacity(0.22) : Color.secondary.opacity(0.08),
-                            in: Capsule()
-                        )
+                        .modifier(RecurrenceChoiceStyle(selected: selected, shape: Capsule()))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(ordinal == .last ? "最終週" : "\(ordinal.title)週")
@@ -205,8 +235,8 @@ struct PlanRecurrenceControls: View {
                     value.wrappedValue.monthlyWeekday = weekday
                 } label: {
                     Text(["日", "月", "火", "水", "木", "金", "土"][weekday - 1])
-                        .font(.subheadline.weight(.semibold)).frame(maxWidth: .infinity, minHeight: 38)
-                        .background(selected ? Color.accentColor.opacity(0.22) : Color.secondary.opacity(0.08), in: Circle())
+                        .frame(maxWidth: .infinity, minHeight: 38)
+                        .modifier(RecurrenceChoiceStyle(selected: selected, shape: Circle()))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("\(["日", "月", "火", "水", "木", "金", "土"][weekday - 1])曜日")
@@ -219,6 +249,25 @@ struct PlanRecurrenceControls: View {
     private var selectedWeekdays: [Int] {
         let days = value.wrappedValue.weekdays
         return days.isEmpty ? [Calendar.current.component(.weekday, from: value.wrappedValue.startDate)] : days
+    }
+}
+
+private struct RecurrenceChoiceStyle<S: InsettableShape>: ViewModifier {
+    @Environment(\.colorScheme) private var colorScheme
+    let selected: Bool
+    let shape: S
+
+    func body(content: Content) -> some View {
+        content
+            .font(.subheadline.weight(selected ? .bold : .semibold))
+            .foregroundStyle(selected ? LiminalTheme.accent : LiminalTheme.text)
+            .background(selected ? LiminalTheme.accent.opacity(colorScheme == .dark ? 0.30 : 0.18) : LiminalTheme.elevated, in: shape)
+            .overlay {
+                shape.strokeBorder(
+                    selected ? LiminalTheme.accent.opacity(0.75) : LiminalTheme.divider.opacity(0.7),
+                    lineWidth: selected ? 1.5 : 1
+                )
+            }
     }
 }
 

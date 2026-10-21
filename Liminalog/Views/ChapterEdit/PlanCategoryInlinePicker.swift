@@ -71,7 +71,8 @@ struct PlanCategoryInlinePicker: View {
                     .foregroundStyle(LiminalTheme.text)
                 Spacer(minLength: 8)
                 selectedPill
-                Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                Image(systemName: "chevron.down")
+                    .rotationEffect(.degrees(isExpanded ? 180 : 0))
                     .font(.caption.weight(.bold))
                     .foregroundStyle(LiminalTheme.secondaryText)
                     .frame(width: 20)

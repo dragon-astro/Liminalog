@@ -1,0 +1,149 @@
+{
+  "date": "2026-10-21",
+  "baseline": "99184f9",
+  "branch": "codex/ui-polish-dark-qa",
+  "device": {
+    "name": "Liminalog-Internals-QA-20261016",
+    "model": "iPhone 17",
+    "os": "iOS 26.5",
+    "configuration": "Debug",
+    "physicalDeviceTested": false
+  },
+  "buildLog": "/private/tmp/liminalog-polish-20261021/review-build-capture.log",
+  "functionalRegression": {
+    "distinctCases": 8,
+    "latestPassed": 8,
+    "cases": {
+      "testDayPresetCanSaveAutomaticRecurrence": {
+        "status": "passed",
+        "seconds": 26.882,
+        "run": "review-light-fixed"
+      },
+      "testMonthlyOrdinalWeekdayRecurrenceShowsSummaryAndSaves": {
+        "status": "passed",
+        "seconds": 31.628,
+        "run": "review-light-fixed"
+      },
+      "testPlanEditorCategoryOpenRoundTrips": {
+        "status": "passed",
+        "seconds": 24.123,
+        "run": "review-light-fixed"
+      },
+      "testPlanEditorRegistersRecurrenceAndReminderAndKeepsMasterSeparate": {
+        "status": "passed",
+        "seconds": 34.727,
+        "run": "review-light-fixed"
+      },
+      "testPresetInlineCategorySavesChoiceAndSharesExpansionPreference": {
+        "status": "passed",
+        "seconds": 38.092,
+        "run": "review-light-fixed"
+      },
+      "testRecurrenceStaysEnabledAfterIdleScrollAndHelp": {
+        "status": "passed",
+        "seconds": 83.825,
+        "run": "review-light-fixed"
+      },
+      "testRecurrenceYearCountAndInfoAreSavedInMaster": {
+        "status": "passed",
+        "seconds": 56.139,
+        "run": "review-light-final"
+      },
+      "testWeeklyRecurrenceKeepsAdvancedControlsCollapsedAndPreservesChoices": {
+        "status": "passed",
+        "seconds": 44.926,
+        "run": "review-weekly-light-final"
+      }
+    }
+  },
+  "captureCases": {
+    "testCapturePolishEditorAndTimeline": {
+      "status": "passed",
+      "seconds": 32.307,
+      "run": "review-dark-final"
+    },
+    "testCapturePolishFriendVisibility": {
+      "status": "passed",
+      "seconds": 20.384,
+      "run": "review-dark-final"
+    },
+    "testCapturePolishMonthlyRecurrence": {
+      "status": "passed",
+      "seconds": 27.271,
+      "run": "review-dark-final"
+    }
+  },
+  "runs": {
+    "review-light": {
+      "result": "Failed",
+      "totalTestCount": 5,
+      "passedTests": 3,
+      "failedTests": 2,
+      "skippedTests": 0
+    },
+    "review-light-fixed": {
+      "result": "Failed",
+      "totalTestCount": 9,
+      "passedTests": 6,
+      "failedTests": 3,
+      "skippedTests": 0
+    },
+    "review-light-final": {
+      "result": "Passed",
+      "totalTestCount": 4,
+      "passedTests": 4,
+      "failedTests": 0,
+      "skippedTests": 0
+    },
+    "review-dark-final": {
+      "result": "Passed",
+      "totalTestCount": 4,
+      "passedTests": 4,
+      "failedTests": 0,
+      "skippedTests": 0
+    },
+    "review-weekly-light-final": {
+      "result": "Passed",
+      "totalTestCount": 1,
+      "passedTests": 1,
+      "failedTests": 0,
+      "skippedTests": 0
+    }
+  },
+  "screenshots": {
+    "newCount": 12,
+    "totalCount": 58,
+    "filenames": [
+      "15-recurrence-selection-dark.png",
+      "15-recurrence-selection-light.png",
+      "16-friend-off-dark.png",
+      "16-friend-off-light.png",
+      "17-category-chevron-closed-dark.png",
+      "17-category-chevron-closed-light.png",
+      "17-category-chevron-open-dark.png",
+      "17-category-chevron-open-light.png",
+      "18-recurrence-monthly-collapsed-dark.png",
+      "18-recurrence-monthly-collapsed-light.png",
+      "18-recurrence-weekly-dark.png",
+      "18-recurrence-weekly-light.png"
+    ],
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "theme": "default (system)",
+    "archive": "artifacts/ui-polish-dark-qa-20261021/review-followup.tar.gz"
+  },
+  "binarySHA256": "af2d3b2a4e3947195b581fa724eee75f8c051d95df0cf148aa83563a431bad66",
+  "scope": "docs/37 section 9 plus user-requested recurrence disclosure hierarchy; no recurrence storage or materialization changes",
+  "corrections": [
+    "Disclosure identifiers scoped to labels so child identifiers remain intact.",
+    "Tests match the combined identifier for the two-line schedule label.",
+    "Category capture waits for the chevron rotation to settle."
+  ],
+  "remaining": [
+    "Known initial debug launch routing missed once in review-light-fixed; not fixed by this batch.",
+    "No new physical-device or performance verification."
+  ]
+}

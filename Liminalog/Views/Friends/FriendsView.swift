@@ -1907,6 +1907,7 @@ private struct FriendCardBackground: View {
 }
 
 private struct FriendDetailView: View {
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
@@ -2436,7 +2437,7 @@ private struct FriendDetailView: View {
                             .buttonStyle(.plain)
                         }
                     }
-                    .opacity(isSharingOff ? 0.45 : 1)
+                    .opacity(isSharingOff ? (colorScheme == .dark ? 0.6 : 0.45) : 1)
                     .disabled(isSharingOff)
 
                     if isSharingOff {
