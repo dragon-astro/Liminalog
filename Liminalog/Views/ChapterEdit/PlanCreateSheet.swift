@@ -362,19 +362,12 @@ struct PlanCreateSheet: View {
                         .foregroundStyle(LiminalTheme.secondaryText)
                         .accessibilityIdentifier("plan-editor-kind")
                     Spacer(minLength: 0)
-                    if !planPresets.isEmpty, !isScheduleLocked {
-                        Button { showingPresetChoices = true } label: {
-                            Image(systemName: "bookmark")
-                                .frame(width: 44, height: 44)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("予定プリセットを選ぶ")
-                    }
                     PlanImportanceButton(isImportant: $isImportant)
                     PlanMemoButton(isMemo: $isMemo).disabled(isScheduleLocked)
                 }
-                HStack(spacing: 10) {
+                HStack(alignment: .top, spacing: 10) {
                     CategoryPreviewIcon(category: selectedCategory, size: 36)
+                        .frame(height: 44)
                     TextField(planTitlePlaceholder, text: $title, axis: .vertical)
                         .font(.headline)
                         .foregroundStyle(LiminalTheme.text)
@@ -382,6 +375,15 @@ struct PlanCreateSheet: View {
                         .frame(minHeight: 44)
                         .disabled(isScheduleLocked)
                         .accessibilityLabel("予定名")
+                    if !planPresets.isEmpty, !isScheduleLocked {
+                        Button { showingPresetChoices = true } label: {
+                            Image(systemName: "bookmark")
+                                .foregroundStyle(LiminalTheme.secondaryText)
+                                .frame(width: 44, height: 44)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("予定プリセットを選ぶ")
+                    }
                 }
             }
             .foregroundStyle(selectedTint)

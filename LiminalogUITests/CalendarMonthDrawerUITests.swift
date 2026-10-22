@@ -695,11 +695,18 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         }
         revealPager()
         let switcher = app.buttons["plan-category-set-switcher"]
+        let others = element(app, "plan-category-others")
+        let otherLabels = others.buttons.allElementsBoundByIndex.map(\.label)
+        XCTAssertEqual(otherLabels.filter { $0.hasSuffix("を選択") }, ["用事を選択"])
+        let otherHeight = others.frame.height
         XCTAssertEqual(switcher.value as? String, "平日")
         pager.swipeLeft()
         XCTAssertEqual(switcher.value as? String, "休日")
+        XCTAssertEqual(others.buttons.allElementsBoundByIndex.map(\.label), otherLabels)
+        XCTAssertEqual(others.frame.height, otherHeight, accuracy: 1)
         pager.swipeLeft()
         XCTAssertEqual(switcher.value as? String, "からだと暮らし")
+        XCTAssertEqual(others.buttons.allElementsBoundByIndex.map(\.label), otherLabels)
         pager.buttons.matching(NSPredicate(format: "label CONTAINS '運動'")).firstMatch.tap()
         XCTAssertEqual(category.value as? String, "運動")
         keepScreenshot(app, name: app.frame.width < 390 ? "23-editor-se-category-paging" : "23-editor-category-paging")
@@ -721,6 +728,92 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         app.buttons["当日の予定を閉じる"].tap()
         app.tabBars.buttons["ホーム"].tap()
         XCTAssertEqual(app.buttons["category-set-switcher"].value as? String, "平日", "編集用のページはホームの選択と独立")
+    }
+
+    private func positionEditorContent(_ target: XCUIElement, in app: XCUIApplication, scroll: XCUIElement) {
+        for _ in 0..<6 {
+            let top = app.navigationBars.allElementsBoundByIndex.first { $0.isHittable }!.frame.maxY + 24
+            let delta = top - target.frame.minY
+            if abs(delta) < 8 { break }
+            let start = scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.97, dy: 0.6))
+            start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: max(-180, min(180, delta)))),
+                        withVelocity: .slow, thenHoldForDuration: 0.2)
+        }
+    }
+
+    func testCaptureEditorPolish() throws {
+        try requirePolishCapture()
+        let app = launch(planMemos: true, editingSamples: true)
+        openEditor(app, planID: sourceID)
+        let small = app.frame.width < 390
+        let prefix = small ? "25-editor-polish-se-" : "25-editor-polish-"
+        let scroll = app.scrollViews["plan-editor-scroll"]
+        let category = app.buttons["plan-category-picker"]
+        let pager = app.scrollViews["plan-category-board-pager"]
+        if pager.exists { category.tap() }
+        app.buttons["plan-memo-toggle"].tap()
+        let bookmark = app.buttons["予定プリセットを選ぶ"]
+        let title = element(app, "予定名")
+        XCTAssertTrue(bookmark.isHittable)
+        XCTAssertEqual(bookmark.frame.minY, title.frame.minY, accuracy: 2)
+        XCTAssertGreaterThan(bookmark.frame.minY, app.buttons["plan-important"].frame.minY)
+        keepScreenshot(app, name: prefix + "memo")
+        if !small {
+            category.tap()
+            positionEditorContent(category, in: app, scroll: scroll)
+            let others = element(app, "plan-category-others")
+            let before = others.buttons.allElementsBoundByIndex.map(\.label)
+            XCTAssertEqual(before.filter { $0.hasSuffix("を選択") }, ["用事を選択"])
+            keepScreenshot(app, name: prefix + "category-before")
+            pager.swipeLeft()
+            XCTAssertEqual(app.buttons["plan-category-set-switcher"].value as? String, "休日")
+            XCTAssertEqual(others.buttons.allElementsBoundByIndex.map(\.label), before)
+            keepScreenshot(app, name: prefix + "category-after")
+            category.tap()
+            positionEditorContent(app.buttons["plan-memo-toggle"], in: app, scroll: scroll)
+        }
+        bookmark.tap()
+        XCTAssertTrue(app.navigationBars["予定プリセット"].waitForExistence(timeout: 5))
+        app.buttons["通勤"].tap()
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+        XCTAssertEqual(title.value as? String, "通勤")
+        let reminder = app.buttons["plan-reminder-picker"]
+        for _ in 0..<5 where !reminder.isHittable { scroll.swipeUp() }
+        reminder.tap(); app.buttons["15分前"].tap()
+        let toggle = app.switches["plan-recurrence-enabled"]
+        for _ in 0..<5 where !toggle.isHittable || toggle.frame.maxY > app.frame.maxY - 100 { scroll.swipeUp() }
+        toggle.tap()
+        selectRecurrenceEnding("回数", in: app, scroll: scroll)
+        positionEditorContent(reminder, in: app, scroll: scroll)
+        XCTAssertTrue(reminder.isHittable && app.textFields["plan-recurrence-count"].isHittable)
+        XCTAssertTrue(app.staticTexts["15分前"].exists)
+        XCTAssertEqual(app.textFields["plan-recurrence-count"].value as? String, "10")
+        keepScreenshot(app, name: prefix + "values")
+    }
+
+    func testPresetCustomReminderStoresOffset() {
+        let app = launch(templateReplacement: true)
+        openFixturePresetEditor(app)
+        let scroll = app.scrollViews.containing(.button, identifier: "plan-category-picker").firstMatch
+        let reminder = app.buttons["plan-reminder-picker"]
+        for _ in 0..<5 where !reminder.isHittable { scroll.swipeUp() }
+        reminder.tap(); app.buttons["時間を指定…"].tap()
+        let minutes = app.textFields["plan-reminder-custom-minutes"]
+        positionEditorContent(reminder, in: app, scroll: scroll)
+        XCTAssertEqual(minutes.value as? String, "90")
+        let direction = app.buttons["plan-reminder-custom-direction"]
+        XCTAssertEqual(direction.value as? String, "分前")
+        keepScreenshot(app, name: "25-editor-polish-custom-reminder")
+        minutes.coordinate(withNormalizedOffset: CGVector(dx: 0.98, dy: 0.5)).tap()
+        minutes.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 2) + "240")
+        direction.tap(); app.buttons["分後"].tap()
+        XCTAssertEqual(direction.value as? String, "分後")
+        app.navigationBars["プリセットを編集"].buttons["保存"].tap()
+        XCTAssertTrue(app.navigationBars["予定プリセット"].waitForExistence(timeout: 5))
+        app.staticTexts["休憩を編集"].firstMatch.tap()
+        for _ in 0..<5 where !minutes.isHittable { scroll.swipeUp() }
+        XCTAssertEqual(minutes.value as? String, "240")
+        XCTAssertEqual(direction.value as? String, "分後")
     }
 
     func testCaptureEditorKindsAndSampleLibraries() throws {

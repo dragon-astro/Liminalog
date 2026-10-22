@@ -1,0 +1,334 @@
+{
+  "date": "2026-10-22",
+  "baseline": "12955dd",
+  "branch": "codex/ui-polish-dark-qa",
+  "scope": "docs/37 §18; editor polish and outstanding editing sample unit tests",
+  "builds": {
+    "Debug": "passed",
+    "Release": "passed",
+    "logs": [
+      "editor-polish-final-build.log",
+      "editor-polish-release-final.log"
+    ]
+  },
+  "uiDevices": [
+    "iPhone 17 / iOS 26.5",
+    "iPhone SE (3rd generation) / iOS 26.5"
+  ],
+  "physicalDeviceTested": false,
+  "latestDistinctCases": 7,
+  "latestPassed": 7,
+  "cases": {
+    "CalendarMonthDrawerUITests/testCaptureEditorPolish": {
+      "test": "CalendarMonthDrawerUITests/testCaptureEditorPolish",
+      "status": "passed",
+      "seconds": 84.041,
+      "run": "editor-polish-dark"
+    },
+    "CalendarMonthDrawerUITests/testEditorCategoryPagesSwipeAndPreserveSelection": {
+      "test": "CalendarMonthDrawerUITests/testEditorCategoryPagesSwipeAndPreserveSelection",
+      "status": "passed",
+      "seconds": 40.639,
+      "run": "editor-polish-light-final"
+    },
+    "CalendarMonthDrawerUITests/testEditorPrioritizesTimeAndStoresCustomReminder": {
+      "test": "CalendarMonthDrawerUITests/testEditorPrioritizesTimeAndStoresCustomReminder",
+      "status": "passed",
+      "seconds": 45.946,
+      "run": "editor-polish-light"
+    },
+    "CalendarMonthDrawerUITests/testMainAndMemoSwitchPreservesTimeAndPersists": {
+      "test": "CalendarMonthDrawerUITests/testMainAndMemoSwitchPreservesTimeAndPersists",
+      "status": "passed",
+      "seconds": 26.994,
+      "run": "editor-polish-light"
+    },
+    "CalendarMonthDrawerUITests/testPresetCustomReminderStoresOffset": {
+      "test": "CalendarMonthDrawerUITests/testPresetCustomReminderStoresOffset",
+      "status": "passed",
+      "seconds": 55.18,
+      "run": "editor-polish-dark"
+    },
+    "CalendarMonthDrawerUITests/testPresetInlineCategorySavesChoiceAndSharesExpansionPreference": {
+      "test": "CalendarMonthDrawerUITests/testPresetInlineCategorySavesChoiceAndSharesExpansionPreference",
+      "status": "passed",
+      "seconds": 38.825,
+      "run": "editor-polish-light"
+    },
+    "CalendarMonthDrawerUITests/testRecurrenceYearCountAndInfoAreSavedInMaster": {
+      "test": "CalendarMonthDrawerUITests/testRecurrenceYearCountAndInfoAreSavedInMaster",
+      "status": "passed",
+      "seconds": 86.206,
+      "run": "editor-polish-dark"
+    }
+  },
+  "runs": [
+    {
+      "name": "editor-polish-light",
+      "completed": false,
+      "interrupted": false,
+      "attempts": [
+        {
+          "test": "CalendarMonthDrawerUITests/testCaptureEditorPolish",
+          "status": "failed",
+          "seconds": 38.554,
+          "run": "editor-polish-light"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testCaptureEditorPolish",
+          "status": "failed",
+          "seconds": 33.826,
+          "run": "editor-polish-light"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testEditorCategoryPagesSwipeAndPreserveSelection",
+          "status": "failed",
+          "seconds": 16.416,
+          "run": "editor-polish-light"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testEditorCategoryPagesSwipeAndPreserveSelection",
+          "status": "failed",
+          "seconds": 16.687,
+          "run": "editor-polish-light"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testEditorPrioritizesTimeAndStoresCustomReminder",
+          "status": "passed",
+          "seconds": 45.946,
+          "run": "editor-polish-light"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testMainAndMemoSwitchPreservesTimeAndPersists",
+          "status": "passed",
+          "seconds": 26.994,
+          "run": "editor-polish-light"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testPresetCustomReminderStoresOffset",
+          "status": "failed",
+          "seconds": 61.343,
+          "run": "editor-polish-light"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testPresetCustomReminderStoresOffset",
+          "status": "failed",
+          "seconds": 71.595,
+          "run": "editor-polish-light"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testPresetInlineCategorySavesChoiceAndSharesExpansionPreference",
+          "status": "passed",
+          "seconds": 38.825,
+          "run": "editor-polish-light"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testRecurrenceYearCountAndInfoAreSavedInMaster",
+          "status": "passed",
+          "seconds": 85.539,
+          "run": "editor-polish-light"
+        }
+      ],
+      "errors": [
+        "/Users/ryu/Documents/X-code/Liminalog/LiminalogUITests/CalendarMonthDrawerUITests.swift:766: error: -[LiminalogUITests.CalendarMonthDrawerUITests testCaptureEditorPolish] : XCTAssertEqual failed: (\"[]\") is not equal to (\"[\"用事を選択\"]\")",
+        "/Users/ryu/Documents/X-code/Liminalog/LiminalogUITests/CalendarMonthDrawerUITests.swift:766: error: -[LiminalogUITests.CalendarMonthDrawerUITests testCaptureEditorPolish] : XCTAssertEqual failed: (\"[]\") is not equal to (\"[\"用事を選択\"]\")",
+        "/Users/ryu/Documents/X-code/Liminalog/LiminalogUITests/CalendarMonthDrawerUITests.swift:700: error: -[LiminalogUITests.CalendarMonthDrawerUITests testEditorCategoryPagesSwipeAndPreserveSelection] : XCTAssertEqual failed: (\"[]\") is not equal to (\"[\"用事を選択\"]\")",
+        "/Users/ryu/Documents/X-code/Liminalog/LiminalogUITests/CalendarMonthDrawerUITests.swift:700: error: -[LiminalogUITests.CalendarMonthDrawerUITests testEditorCategoryPagesSwipeAndPreserveSelection] : XCTAssertEqual failed: (\"[]\") is not equal to (\"[\"用事を選択\"]\")",
+        "/Users/ryu/Documents/X-code/Liminalog/LiminalogUITests/CalendarMonthDrawerUITests.swift:815: error: -[LiminalogUITests.CalendarMonthDrawerUITests testPresetCustomReminderStoresOffset] : XCTAssertEqual failed: (\"Optional(\"24,090\")\") is not equal to (\"Optional(\"240\")\")",
+        "/Users/ryu/Documents/X-code/Liminalog/LiminalogUITests/CalendarMonthDrawerUITests.swift:815: error: -[LiminalogUITests.CalendarMonthDrawerUITests testPresetCustomReminderStoresOffset] : XCTAssertEqual failed: (\"Optional(\"24,090\")\") is not equal to (\"Optional(\"240\")\")"
+      ],
+      "resultBundle": "/private/tmp/liminalog-polish-20261021/editor-polish-light.xcresult"
+    },
+    {
+      "name": "editor-polish-light-fixed",
+      "completed": false,
+      "interrupted": false,
+      "attempts": [
+        {
+          "test": "CalendarMonthDrawerUITests/testCaptureEditorPolish",
+          "status": "failed",
+          "seconds": 32.698,
+          "run": "editor-polish-light-fixed"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testCaptureEditorPolish",
+          "status": "failed",
+          "seconds": 34.64,
+          "run": "editor-polish-light-fixed"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testEditorCategoryPagesSwipeAndPreserveSelection",
+          "status": "failed",
+          "seconds": 16.899,
+          "run": "editor-polish-light-fixed"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testEditorCategoryPagesSwipeAndPreserveSelection",
+          "status": "failed",
+          "seconds": 16.747,
+          "run": "editor-polish-light-fixed"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testPresetCustomReminderStoresOffset",
+          "status": "failed",
+          "seconds": 59.486,
+          "run": "editor-polish-light-fixed"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testPresetCustomReminderStoresOffset",
+          "status": "failed",
+          "seconds": 57.48,
+          "run": "editor-polish-light-fixed"
+        }
+      ],
+      "errors": [
+        "/Users/ryu/Documents/X-code/Liminalog/LiminalogUITests/CalendarMonthDrawerUITests.swift:766: error: -[LiminalogUITests.CalendarMonthDrawerUITests testCaptureEditorPolish] : XCTAssertEqual failed: (\"[\"用事を選択\", \"\"]\") is not equal to (\"[\"用事を選択\"]\")",
+        "/Users/ryu/Documents/X-code/Liminalog/LiminalogUITests/CalendarMonthDrawerUITests.swift:766: error: -[LiminalogUITests.CalendarMonthDrawerUITests testCaptureEditorPolish] : XCTAssertEqual failed: (\"[\"用事を選択\", \"\"]\") is not equal to (\"[\"用事を選択\"]\")",
+        "/Users/ryu/Documents/X-code/Liminalog/LiminalogUITests/CalendarMonthDrawerUITests.swift:700: error: -[LiminalogUITests.CalendarMonthDrawerUITests testEditorCategoryPagesSwipeAndPreserveSelection] : XCTAssertEqual failed: (\"[\"用事を選択\", \"\"]\") is not equal to (\"[\"用事を選択\"]\")",
+        "/Users/ryu/Documents/X-code/Liminalog/LiminalogUITests/CalendarMonthDrawerUITests.swift:700: error: -[LiminalogUITests.CalendarMonthDrawerUITests testEditorCategoryPagesSwipeAndPreserveSelection] : XCTAssertEqual failed: (\"[\"用事を選択\", \"\"]\") is not equal to (\"[\"用事を選択\"]\")",
+        "/Users/ryu/Documents/X-code/Liminalog/LiminalogUITests/CalendarMonthDrawerUITests.swift:808: error: -[LiminalogUITests.CalendarMonthDrawerUITests testPresetCustomReminderStoresOffset] : Failed to synthesize event: Neither element nor any descendant has keyboard focus. Event dispatch snapshot: TextField, {{192.0, 430.0}, {99.0, 36.0}}, identifier: 'plan-reminder-custom-minutes', placeholderValue: '分数', value: 90",
+        "/Users/ryu/Documents/X-code/Liminalog/LiminalogUITests/CalendarMonthDrawerUITests.swift:808: error: -[LiminalogUITests.CalendarMonthDrawerUITests testPresetCustomReminderStoresOffset] : Failed to synthesize event: Neither element nor any descendant has keyboard focus. Event dispatch snapshot: TextField, {{192.0, 430.0}, {99.0, 36.0}}, identifier: 'plan-reminder-custom-minutes', placeholderValue: '分数', value: 90"
+      ],
+      "resultBundle": "/private/tmp/liminalog-polish-20261021/editor-polish-light-fixed.xcresult"
+    },
+    {
+      "name": "editor-polish-se-light",
+      "completed": false,
+      "interrupted": false,
+      "attempts": [
+        {
+          "test": "CalendarMonthDrawerUITests/testCaptureEditorPolish",
+          "status": "passed",
+          "seconds": 56.304,
+          "run": "editor-polish-se-light"
+        }
+      ],
+      "errors": [],
+      "resultBundle": "/private/tmp/liminalog-polish-20261021/editor-polish-se-light.xcresult"
+    },
+    {
+      "name": "editor-polish-light-final",
+      "completed": false,
+      "interrupted": false,
+      "attempts": [
+        {
+          "test": "CalendarMonthDrawerUITests/testCaptureEditorPolish",
+          "status": "passed",
+          "seconds": 85.046,
+          "run": "editor-polish-light-final"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testEditorCategoryPagesSwipeAndPreserveSelection",
+          "status": "passed",
+          "seconds": 40.639,
+          "run": "editor-polish-light-final"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testPresetCustomReminderStoresOffset",
+          "status": "passed",
+          "seconds": 62.291,
+          "run": "editor-polish-light-final"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testRecurrenceYearCountAndInfoAreSavedInMaster",
+          "status": "failed",
+          "seconds": 26.099,
+          "run": "editor-polish-light-final"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testRecurrenceYearCountAndInfoAreSavedInMaster",
+          "status": "passed",
+          "seconds": 89.807,
+          "run": "editor-polish-light-final"
+        }
+      ],
+      "errors": [
+        "/Users/ryu/Documents/X-code/Liminalog/LiminalogUITests/CalendarMonthDrawerUITests.swift:626: error: -[LiminalogUITests.CalendarMonthDrawerUITests testRecurrenceYearCountAndInfoAreSavedInMaster] : XCTAssertTrue failed"
+      ],
+      "resultBundle": "/private/tmp/liminalog-polish-20261021/editor-polish-light-final.xcresult"
+    },
+    {
+      "name": "editor-polish-se-final",
+      "completed": false,
+      "interrupted": false,
+      "attempts": [
+        {
+          "test": "CalendarMonthDrawerUITests/testCaptureEditorPolish",
+          "status": "passed",
+          "seconds": 54.393,
+          "run": "editor-polish-se-final"
+        }
+      ],
+      "errors": [],
+      "resultBundle": "/private/tmp/liminalog-polish-20261021/editor-polish-se-final.xcresult"
+    },
+    {
+      "name": "editor-polish-dark",
+      "completed": false,
+      "interrupted": false,
+      "attempts": [
+        {
+          "test": "CalendarMonthDrawerUITests/testCaptureEditorPolish",
+          "status": "passed",
+          "seconds": 84.041,
+          "run": "editor-polish-dark"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testPresetCustomReminderStoresOffset",
+          "status": "passed",
+          "seconds": 55.18,
+          "run": "editor-polish-dark"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testRecurrenceYearCountAndInfoAreSavedInMaster",
+          "status": "passed",
+          "seconds": 86.206,
+          "run": "editor-polish-dark"
+        }
+      ],
+      "errors": [],
+      "resultBundle": "/private/tmp/liminalog-polish-20261021/editor-polish-dark.xcresult"
+    }
+  ],
+  "unitTests": {
+    "passed": 2,
+    "failed": 0,
+    "configuration": "Debug; default debug dylib setting",
+    "device": "iPhone 17 / iOS 27.0",
+    "resultBundle": "/private/tmp/liminalog-polish-20261021/editor-polish-unit-standard.xcresult",
+    "earlierAttempts": [
+      {
+        "run": "editor-polish-unit-no-debug-dylib",
+        "result": "host stopped before XCTest connection; 0 executed",
+        "sample": "editor-polish-unit-startup.sample.txt"
+      },
+      {
+        "run": "editor-polish-unit-isolated",
+        "result": "2 passed after unit-host UI isolation; ENABLE_DEBUG_DYLIB=NO"
+      }
+    ]
+  },
+  "screenshots": {
+    "added": 12,
+    "total": 115,
+    "names": [
+      "25-editor-polish-category-after-dark.png",
+      "25-editor-polish-category-after-light.png",
+      "25-editor-polish-category-before-dark.png",
+      "25-editor-polish-category-before-light.png",
+      "25-editor-polish-custom-reminder-dark.png",
+      "25-editor-polish-custom-reminder-light.png",
+      "25-editor-polish-memo-dark.png",
+      "25-editor-polish-memo-light.png",
+      "25-editor-polish-se-memo-light.png",
+      "25-editor-polish-se-values-light.png",
+      "25-editor-polish-values-dark.png",
+      "25-editor-polish-values-light.png"
+    ]
+  },
+  "knownLimitations": [
+    "One yearly frequency tap in editor-polish-light-final did not update selection; unchanged retry passed. Root cause undetermined.",
+    "UI initial-launch routing issue from prior runs remains unproven; not marked fixed.",
+    "No physical-device checks or full unit suite in this change."
+  ]
+}

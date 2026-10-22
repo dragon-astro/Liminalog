@@ -23,7 +23,7 @@ struct PlanMemoButton: View {
             LiminalHaptics.selection()
             isMemo.toggle()
         } label: {
-            Image(systemName: "note.text")
+            Image(systemName: "rectangle.dashed")
                 .font(.title3)
                 .foregroundStyle(isMemo ? LiminalTheme.accent : LiminalTheme.secondaryText)
                 .frame(width: 44, height: 44)

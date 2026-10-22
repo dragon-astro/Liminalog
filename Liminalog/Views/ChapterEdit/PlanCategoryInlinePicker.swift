@@ -48,6 +48,8 @@ struct PlanCategoryInlinePicker: View {
                 }
                 if !otherCategories.isEmpty {
                     otherSection
+                        .accessibilityElement(children: .contain)
+                        .accessibilityIdentifier("plan-category-others")
                 }
             }
         }
@@ -281,7 +283,7 @@ struct PlanCategoryInlinePicker: View {
     }
 
     private var otherCategories: [Category] {
-        let tableIDs = Set(currentTable?.assignedIDs ?? [])
+        let tableIDs = Set(categorySets.flatMap(\.assignedIDs))
         let others = categories.filter { !tableIDs.contains($0.id) }
         switch otherOrder {
         case .usage:

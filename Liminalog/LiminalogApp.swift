@@ -32,84 +32,90 @@ struct LiminalogApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootTabView { reason in
-                await refreshIncomingFriendSharesWhenReady(reason: reason)
+            if LiminalogRuntime.isRunningUnitTests && !LiminalogRuntime.isRunningUITests {
+                // Hosted unit tests construct their own stores. Do not start UI,
+                // CloudKit or notification tasks while XCTest connects to the host.
+                Color.clear
+            } else {
+                RootTabView { reason in
+                    await refreshIncomingFriendSharesWhenReady(reason: reason)
+                }
+                    .task {
+                        guard !LiminalogRuntime.isRunningUITests else { return }
+                        guard cloudFriendShareRefreshCoordinator == nil else { return }
+                        await waitForModelStoreReadiness(reason: "app launch")
+                        let coordinator = CloudFriendShareRefreshCoordinator(modelContainer: modelContainer)
+                        cloudFriendShareRefreshCoordinator = coordinator
+                        if let pendingIncomingRefreshRequest {
+                            coordinator.scheduleIncomingRefresh(
+                                reason: pendingIncomingRefreshRequest.reason,
+                                friendIDs: pendingIncomingRefreshRequest.incomingFriendIDs,
+                                delay: pendingIncomingRefreshRequest.isTargetedIncomingRefresh ? 0 : 1.5
+                            )
+                            self.pendingIncomingRefreshRequest = nil
+                        }
+                        lastLifecycleOutgoingShareRefreshAt = Self.storedLifecycleOutgoingShareRefreshAt()
+                        appDelegate.cloudFriendRemoteNotificationHandler = { event in
+                            await coordinator.handleRemoteNotificationEvent(
+                                event,
+                                reason: "remote notification"
+                            )
+                        }
+                        registerForRemoteNotificationsIfCloudFriendsEnabled()
+                        scheduleLifecycleCloudMaintenance(reason: "app launch", delay: 25)
+                    }
+                    .onChange(of: scenePhase) { _, phase in
+                        guard phase == .active else { return }
+                        registerForRemoteNotificationsIfCloudFriendsEnabled()
+                        scheduleLifecycleCloudMaintenance(reason: "scene active", delay: 20)
+                    }
+                    .onReceive(NotificationCenter.default.publisher(for: CloudFriendShareRefreshCoordinator.refreshRequested)) { notification in
+                        let reason = notification.userInfo?[CloudFriendShareRefreshCoordinator.refreshReasonKey] as? String ?? "unknown"
+                        let changedPlanSourceIDs = Self.uuidSet(
+                            from: notification.userInfo?[CloudFriendShareRefreshCoordinator.changedPlanSourceIDsKey]
+                        )
+                        let changedChapterSourceIDs = Self.uuidSet(
+                            from: notification.userInfo?[CloudFriendShareRefreshCoordinator.changedChapterSourceIDsKey]
+                        )
+                        let changedScoreDayStarts = Self.dateSet(
+                            from: notification.userInfo?[CloudFriendShareRefreshCoordinator.changedScoreDayStartsKey]
+                        )
+                        let requiresFullPublish = notification.userInfo?[CloudFriendShareRefreshCoordinator.requiresFullPublishKey] as? Bool ?? true
+                        let resetsPublishedItemState = notification.userInfo?[CloudFriendShareRefreshCoordinator.resetsPublishedItemStateKey] as? Bool ?? false
+                        cloudFriendShareRefreshCoordinator?.scheduleRefresh(
+                            reason: reason,
+                            changedPlanSourceIDs: changedPlanSourceIDs,
+                            changedChapterSourceIDs: changedChapterSourceIDs,
+                            changedScoreDayStarts: changedScoreDayStarts,
+                            requiresFullPublish: requiresFullPublish,
+                            resetsPublishedItemState: resetsPublishedItemState
+                        )
+                    }
+                    .onReceive(NotificationCenter.default.publisher(for: CloudFriendShareRefreshCoordinator.incomingRefreshRequested)) { notification in
+                        let reason = notification.userInfo?[CloudFriendShareRefreshCoordinator.refreshReasonKey] as? String ?? "friend calendar"
+                        let incomingFriendIDs = Self.uuidSet(
+                            from: notification.userInfo?[CloudFriendShareRefreshCoordinator.incomingFriendIDsKey]
+                        )
+                        if let coordinator = cloudFriendShareRefreshCoordinator {
+                            coordinator.scheduleIncomingRefresh(
+                                reason: reason,
+                                friendIDs: incomingFriendIDs,
+                                delay: incomingFriendIDs.isEmpty ? 1.5 : 0
+                            )
+                        } else {
+                            pendingIncomingRefreshRequest = CloudFriendShareRefreshRequest(
+                                reason: reason,
+                                incomingFriendIDs: incomingFriendIDs
+                            )
+                        }
+                    }
+                    .onReceive(NotificationCenter.default.publisher(for: CloudKitFriendEventBridge.friendShareDidChange)) { _ in
+                        scheduleLifecycleCloudMaintenance(reason: "friend share push", delay: 10)
+                    }
+                    .onReceive(NotificationCenter.default.publisher(for: CloudKitFriendEventBridge.friendConsentDidChange)) { _ in
+                        scheduleLifecycleCloudMaintenance(reason: "friend consent push", delay: 10)
+                    }
             }
-                .task {
-                    guard !LiminalogRuntime.isRunningUITests else { return }
-                    guard cloudFriendShareRefreshCoordinator == nil else { return }
-                    await waitForModelStoreReadiness(reason: "app launch")
-                    let coordinator = CloudFriendShareRefreshCoordinator(modelContainer: modelContainer)
-                    cloudFriendShareRefreshCoordinator = coordinator
-                    if let pendingIncomingRefreshRequest {
-                        coordinator.scheduleIncomingRefresh(
-                            reason: pendingIncomingRefreshRequest.reason,
-                            friendIDs: pendingIncomingRefreshRequest.incomingFriendIDs,
-                            delay: pendingIncomingRefreshRequest.isTargetedIncomingRefresh ? 0 : 1.5
-                        )
-                        self.pendingIncomingRefreshRequest = nil
-                    }
-                    lastLifecycleOutgoingShareRefreshAt = Self.storedLifecycleOutgoingShareRefreshAt()
-                    appDelegate.cloudFriendRemoteNotificationHandler = { event in
-                        await coordinator.handleRemoteNotificationEvent(
-                            event,
-                            reason: "remote notification"
-                        )
-                    }
-                    registerForRemoteNotificationsIfCloudFriendsEnabled()
-                    scheduleLifecycleCloudMaintenance(reason: "app launch", delay: 25)
-                }
-                .onChange(of: scenePhase) { _, phase in
-                    guard phase == .active else { return }
-                    registerForRemoteNotificationsIfCloudFriendsEnabled()
-                    scheduleLifecycleCloudMaintenance(reason: "scene active", delay: 20)
-                }
-                .onReceive(NotificationCenter.default.publisher(for: CloudFriendShareRefreshCoordinator.refreshRequested)) { notification in
-                    let reason = notification.userInfo?[CloudFriendShareRefreshCoordinator.refreshReasonKey] as? String ?? "unknown"
-                    let changedPlanSourceIDs = Self.uuidSet(
-                        from: notification.userInfo?[CloudFriendShareRefreshCoordinator.changedPlanSourceIDsKey]
-                    )
-                    let changedChapterSourceIDs = Self.uuidSet(
-                        from: notification.userInfo?[CloudFriendShareRefreshCoordinator.changedChapterSourceIDsKey]
-                    )
-                    let changedScoreDayStarts = Self.dateSet(
-                        from: notification.userInfo?[CloudFriendShareRefreshCoordinator.changedScoreDayStartsKey]
-                    )
-                    let requiresFullPublish = notification.userInfo?[CloudFriendShareRefreshCoordinator.requiresFullPublishKey] as? Bool ?? true
-                    let resetsPublishedItemState = notification.userInfo?[CloudFriendShareRefreshCoordinator.resetsPublishedItemStateKey] as? Bool ?? false
-                    cloudFriendShareRefreshCoordinator?.scheduleRefresh(
-                        reason: reason,
-                        changedPlanSourceIDs: changedPlanSourceIDs,
-                        changedChapterSourceIDs: changedChapterSourceIDs,
-                        changedScoreDayStarts: changedScoreDayStarts,
-                        requiresFullPublish: requiresFullPublish,
-                        resetsPublishedItemState: resetsPublishedItemState
-                    )
-                }
-                .onReceive(NotificationCenter.default.publisher(for: CloudFriendShareRefreshCoordinator.incomingRefreshRequested)) { notification in
-                    let reason = notification.userInfo?[CloudFriendShareRefreshCoordinator.refreshReasonKey] as? String ?? "friend calendar"
-                    let incomingFriendIDs = Self.uuidSet(
-                        from: notification.userInfo?[CloudFriendShareRefreshCoordinator.incomingFriendIDsKey]
-                    )
-                    if let coordinator = cloudFriendShareRefreshCoordinator {
-                        coordinator.scheduleIncomingRefresh(
-                            reason: reason,
-                            friendIDs: incomingFriendIDs,
-                            delay: incomingFriendIDs.isEmpty ? 1.5 : 0
-                        )
-                    } else {
-                        pendingIncomingRefreshRequest = CloudFriendShareRefreshRequest(
-                            reason: reason,
-                            incomingFriendIDs: incomingFriendIDs
-                        )
-                    }
-                }
-                .onReceive(NotificationCenter.default.publisher(for: CloudKitFriendEventBridge.friendShareDidChange)) { _ in
-                    scheduleLifecycleCloudMaintenance(reason: "friend share push", delay: 10)
-                }
-                .onReceive(NotificationCenter.default.publisher(for: CloudKitFriendEventBridge.friendConsentDidChange)) { _ in
-                    scheduleLifecycleCloudMaintenance(reason: "friend consent push", delay: 10)
-                }
         }
         .modelContainer(modelContainer)
     }

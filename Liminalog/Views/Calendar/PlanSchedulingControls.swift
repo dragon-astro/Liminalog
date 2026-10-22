@@ -1,6 +1,27 @@
 import SwiftUI
 import UserNotifications
 
+/// Inline stored values share the compact date picker's neutral treatment.
+private struct PlanValueCapsule: ViewModifier {
+    var isMenu = false
+
+    func body(content: Content) -> some View {
+        HStack(spacing: 5) {
+            content
+            if isMenu {
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.caption2)
+                    .foregroundStyle(LiminalTheme.secondaryText)
+            }
+        }
+        .font(.body)
+        .foregroundStyle(LiminalTheme.text)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 7)
+        .background(Color(.tertiarySystemFill), in: Capsule())
+    }
+}
+
 struct PlanRecurrenceControls: View {
     @Binding var rule: PlanRecurrenceRule?
     var initialDate: Date = Date()
@@ -91,8 +112,10 @@ struct PlanRecurrenceControls: View {
                     Text(intervalLabel).foregroundStyle(LiminalTheme.secondaryText)
                 }
             }
+            .frame(minHeight: 44)
             .accessibilityIdentifier("plan-recurrence-interval")
             DatePicker("開始日", selection: value.startDate, displayedComponents: .date)
+                .frame(minHeight: 44)
             HStack {
                 Text("終了")
                 InformationButton(title: "繰り返しの終了", explanation: "回数は開始日から数え、一日プリセットは一日分で1回です。削除した日や重複で追加を見送った日も含みます。日時指定では、その日時までに始まる予定を用意します。")
@@ -104,18 +127,15 @@ struct PlanRecurrenceControls: View {
                         Text("回数").tag(2)
                     }
                 } label: {
-                    HStack(spacing: 5) {
-                        Text(["しない", "日時", "回数"][ending.wrappedValue])
-                        Image(systemName: "chevron.up.chevron.down").font(.caption2)
-                    }
-                    .font(.subheadline)
-                    .foregroundStyle(LiminalTheme.text)
-                    .frame(minHeight: 44)
+                    Text(["しない", "日時", "回数"][ending.wrappedValue])
+                        .modifier(PlanValueCapsule(isMenu: true))
+                        .frame(minHeight: 44)
                 }
                 .accessibilityLabel("終了")
                 .accessibilityValue(["しない", "日時", "回数"][ending.wrappedValue])
                 .accessibilityIdentifier("plan-recurrence-ending")
             }
+            .frame(minHeight: 44)
             if ending.wrappedValue == 1 {
                 DatePicker("終了日時", selection: Binding(get: {
                     guard let end = value.wrappedValue.endDate else { return initialDate }
@@ -124,28 +144,35 @@ struct PlanRecurrenceControls: View {
                 }, set: { value.wrappedValue.endDate = $0; value.wrappedValue.endDateIncludesTime = true }),
                 in: Calendar.current.startOfDay(for: value.wrappedValue.startDate)...,
                 displayedComponents: [.date, .hourAndMinute])
+                .frame(minHeight: 44)
                 .accessibilityIdentifier("plan-recurrence-end-date")
             } else if ending.wrappedValue == 2 {
                 HStack {
                     Text("繰り返す回数")
                     Spacer()
-                    TextField("回数", text: $occurrenceCountText)
-                        .keyboardType(.numberPad).multilineTextAlignment(.trailing).frame(width: 75)
-                        .focused($countIsFocused)
-                        .onAppear { occurrenceCountText = String(value.wrappedValue.occurrenceLimit ?? 10) }
-                        .onChange(of: occurrenceCountText) { _, text in
-                            let digits = String(text.filter(\.isNumber).prefix(5))
-                            if text != digits { occurrenceCountText = digits }
-                            if let count = Int(digits), count > 0 {
-                                value.wrappedValue.occurrenceLimit = min(10_000, count)
+                    HStack(spacing: 5) {
+                        TextField("回数", text: $occurrenceCountText)
+                            .keyboardType(.numberPad).multilineTextAlignment(.trailing).frame(width: 55)
+                            .focused($countIsFocused)
+                            .onAppear { occurrenceCountText = String(value.wrappedValue.occurrenceLimit ?? 10) }
+                            .onChange(of: occurrenceCountText) { _, text in
+                                let digits = String(text.filter(\.isNumber).prefix(5))
+                                if text != digits { occurrenceCountText = digits }
+                                if let count = Int(digits), count > 0 {
+                                    value.wrappedValue.occurrenceLimit = min(10_000, count)
+                                }
                             }
-                        }
-                        .onChange(of: countIsFocused) { _, focused in
-                            if !focused { occurrenceCountText = String(value.wrappedValue.occurrenceLimit ?? 10) }
-                        }
-                        .accessibilityIdentifier("plan-recurrence-count")
-                    Text("回")
+                            .onChange(of: countIsFocused) { _, focused in
+                                if !focused { occurrenceCountText = String(value.wrappedValue.occurrenceLimit ?? 10) }
+                            }
+                            .accessibilityIdentifier("plan-recurrence-count")
+                        Text("回")
+                    }
+                    .modifier(PlanValueCapsule())
+                    .contentShape(Capsule())
+                    .onTapGesture { countIsFocused = true }
                 }
+                .frame(minHeight: 44)
             }
         }
     }
@@ -286,6 +313,7 @@ struct PlanReminderControls: View {
     var startDate: Date? = nil
     @State private var denied = false
     @State private var customOffset = false
+    @FocusState private var customMinutesIsFocused: Bool
     @Environment(\.openURL) private var openURL
 
     var body: some View {
@@ -309,10 +337,9 @@ struct PlanReminderControls: View {
                         Button("時間を指定…") { customOffset = true; if minutesBefore == nil { minutesBefore = 90 } }
                     }
                 } label: {
-                    HStack(spacing: 5) {
-                        Text(PlanReminderTiming.label(minutes: minutesBefore, date: absoluteDate.wrappedValue, isAllDay: isAllDay))
-                        Image(systemName: "chevron.up.chevron.down").font(.caption2)
-                    }.font(.subheadline)
+                    Text(PlanReminderTiming.label(minutes: minutesBefore, date: absoluteDate.wrappedValue, isAllDay: isAllDay))
+                        .modifier(PlanValueCapsule(isMenu: true))
+                        .frame(minHeight: 44)
                 }
                 .accessibilityLabel("通知のタイミング")
                 .accessibilityIdentifier("plan-reminder-picker")
@@ -326,14 +353,29 @@ struct PlanReminderControls: View {
             } else if customOffset || (minutesBefore.map { !PlanReminderTiming.presets.contains($0) } ?? false) {
                 HStack {
                     Text("開始の")
+                    Spacer()
                     TextField("分数", value: Binding(get: { abs(minutesBefore ?? 90) }, set: {
                         minutesBefore = min(5_256_000, max(0, $0)) * ((minutesBefore ?? 0) < 0 ? -1 : 1)
                     }), format: .number)
                         .keyboardType(.numberPad).multilineTextAlignment(.trailing)
+                        .focused($customMinutesIsFocused)
+                        .frame(width: 75)
+                        .modifier(PlanValueCapsule())
+                        .contentShape(Capsule())
+                        .onTapGesture { customMinutesIsFocused = true }
                         .accessibilityIdentifier("plan-reminder-custom-minutes")
-                    Picker("前後", selection: Binding(get: { (minutesBefore ?? 0) < 0 }, set: {
-                        minutesBefore = abs(minutesBefore ?? 90) * ($0 ? -1 : 1)
-                    })) { Text("分前").tag(false); Text("分後").tag(true) }
+                    Menu {
+                        Picker("前後", selection: Binding(get: { (minutesBefore ?? 0) < 0 }, set: {
+                            minutesBefore = abs(minutesBefore ?? 90) * ($0 ? -1 : 1)
+                        })) { Text("分前").tag(false); Text("分後").tag(true) }
+                    } label: {
+                        Text((minutesBefore ?? 0) < 0 ? "分後" : "分前")
+                            .modifier(PlanValueCapsule(isMenu: true))
+                            .frame(minHeight: 44)
+                    }
+                    .accessibilityLabel("前後")
+                    .accessibilityValue((minutesBefore ?? 0) < 0 ? "分後" : "分前")
+                    .accessibilityIdentifier("plan-reminder-custom-direction")
                 }
             }
             if denied && (minutesBefore != nil || absoluteDate.wrappedValue != nil) {
