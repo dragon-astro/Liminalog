@@ -48,6 +48,8 @@ enum PreviewSupport {
         context.insert(CategorySet(name: "平日", sortOrder: 0, slots: weekdaySlots, isDefault: true))
         context.insert(CategorySet(name: "休日", sortOrder: 1, slots: holidayLayout, isDefault: true))
 
+        seedEditingSamplesIfNeeded(in: context, defaults: nil)
+
         let settings = UserSettings()
         settings.profileDisplayName = "Ryu"
         settings.profileBio = "切り替わる瞬間を記録中"

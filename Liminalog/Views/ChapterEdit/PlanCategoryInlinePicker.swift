@@ -29,6 +29,7 @@ struct PlanCategoryInlinePicker: View {
     @Binding var selectedCategory: Category?
 
     @State private var tableID: UUID?
+    @State private var scrolledTableID: UUID?
     @State private var usageCounts: [UUID: Int] = [:]
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 4)
@@ -42,14 +43,28 @@ struct PlanCategoryInlinePicker: View {
                     if categorySets.count > 1 {
                         tableSwitcher
                     }
-                    tableGrid
+                    tablePages
+                    if categorySets.count > 1 { pageIndicator }
                 }
                 if !otherCategories.isEmpty {
                     otherSection
                 }
             }
         }
-        .onAppear(perform: resolveInitialTable)
+        .onAppear {
+            resolveInitialTable()
+            scrolledTableID = tableID
+        }
+        .onChange(of: categorySets.map(\.id)) { _, ids in
+            if let tableID, ids.contains(tableID) { return }
+            tableID = nil
+            resolveInitialTable()
+            scrolledTableID = tableID
+        }
+        .onChange(of: scrolledTableID) { _, id in
+            guard let id, id != tableID else { return }
+            tableID = id
+        }
         .task(id: usageLoadKey) {
             guard usageLoadKey != nil else { return }
             loadUsageCounts()
@@ -119,6 +134,7 @@ struct PlanCategoryInlinePicker: View {
                 Button {
                     LiminalHaptics.selection()
                     tableID = set.id
+                    withAnimation(.easeInOut(duration: 0.22)) { scrolledTableID = set.id }
                 } label: {
                     if set.id == currentTable?.id {
                         Label(set.name, systemImage: "checkmark")
@@ -142,21 +158,47 @@ struct PlanCategoryInlinePicker: View {
         .buttonStyle(.plain)
         .accessibilityLabel("カテゴリテーブルを切り替え")
         .accessibilityValue(currentTable?.name ?? "")
+        .accessibilityIdentifier("plan-category-set-switcher")
     }
 
-    private var tableGrid: some View {
-        LazyVGrid(columns: columns, spacing: 8) {
-            ForEach(Array(tableSlots.enumerated()), id: \.offset) { index, category in
+    private var tablePages: some View {
+        let lookup = Dictionary(categories.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        return ScrollViewReader { proxy in
+            ScrollView(.horizontal) {
+                HStack(spacing: 0) {
+                    ForEach(categorySets) { set in
+                        tableGrid(set: set, lookup: lookup)
+                            .padding(2)
+                            .containerRelativeFrame(.horizontal)
+                            .id(set.id)
+                            .accessibilityHidden(set.id != tableID)
+                    }
+                }
+                .scrollTargetLayout()
+            }
+            .scrollTargetBehavior(.paging)
+            .scrollPosition(id: $scrolledTableID, anchor: .center)
+            .scrollIndicators(.hidden)
+            .frame(height: 128)
+            .accessibilityIdentifier("plan-category-board-pager")
+            .onAppear {
+                // A non-first page needs its laid-out offset on editor reopen.
+                // Do not reassert this position during the user's swipe.
+                DispatchQueue.main.async {
+                    if let tableID { proxy.scrollTo(tableID, anchor: .center) }
+                }
+            }
+        }
+    }
+
+    private func tableGrid(set: CategorySet, lookup: [UUID: Category]) -> some View {
+        let slots = CategorySet.normalize(set.slots).map { $0.flatMap { lookup[$0] } }
+        return LazyVGrid(columns: columns, spacing: 8) {
+            ForEach(Array(slots.enumerated()), id: \.offset) { index, category in
                 if let category {
-                    Button {
-                        select(category)
-                    } label: {
-                        CategoryGridPickCell(
-                            index: index,
-                            category: category,
-                            isSelected: category.id == selectedCategory?.id,
-                            compact: true
-                        )
+                    Button { select(category) } label: {
+                        CategoryGridPickCell(index: index, category: category,
+                            isSelected: category.id == selectedCategory?.id, compact: true)
                     }
                     .buttonStyle(.plain)
                 } else {
@@ -165,6 +207,20 @@ struct PlanCategoryInlinePicker: View {
                 }
             }
         }
+    }
+
+    private var pageIndicator: some View {
+        HStack(spacing: 7) {
+            ForEach(categorySets) { set in
+                Circle()
+                    .fill(set.id == tableID ? LiminalTheme.text : LiminalTheme.text.opacity(0.25))
+                    .frame(width: set.id == tableID ? 7 : 6, height: set.id == tableID ? 7 : 6)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("カテゴリテーブル")
+        .accessibilityValue("\((categorySets.firstIndex { $0.id == tableID } ?? 0) + 1)/\(categorySets.count)")
     }
 
     // MARK: - Others
@@ -222,12 +278,6 @@ struct PlanCategoryInlinePicker: View {
     private var currentTable: CategorySet? {
         guard let tableID else { return nil }
         return categorySets.first { $0.id == tableID }
-    }
-
-    private var tableSlots: [Category?] {
-        guard let currentTable else { return [] }
-        let categoryByID = Dictionary(categories.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-        return CategorySet.normalize(currentTable.slots).map { id in id.flatMap { categoryByID[$0] } }
     }
 
     private var otherCategories: [Category] {

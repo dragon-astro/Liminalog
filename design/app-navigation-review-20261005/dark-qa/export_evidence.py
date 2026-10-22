@@ -34,7 +34,7 @@ for test in json.loads((source / 'manifest.json').read_text()):
         output = destination / f'{name}{suffix}-{appearance}.png'
         data = original.read_bytes()
         width, height = struct.unpack('>II', data[16:24])
-        is_se = name.startswith('22-recurrence-rows-se-')
+        is_se = '-se-' in name
         expected_pixels, scale = ((750, 1334), 2) if is_se else ((1206, 2622), 3)
         assert (width, height) == expected_pixels, (output.name, width, height)
         shutil.copy2(original, output)

@@ -120,9 +120,6 @@ struct PlanCreateSheet: View {
                 VStack(spacing: 10) {
                     planTitleCard
                     timeCard(validationMessage: validationMessage, canPlace: canPlace)
-                    PlanEditorCard(tint: selectedTint) {
-                        PlanKindPicker(isMemo: $isMemo).disabled(isScheduleLocked)
-                    }
                     categoryCard
                     PlanEditorCard(tint: selectedTint) {
                         PlanReminderControls(minutesBefore: $reminderMinutesBefore, absoluteDate: $reminderDate,
@@ -357,24 +354,34 @@ struct PlanCreateSheet: View {
     }
 
     private var planTitleCard: some View {
-        PlanEditorCard(tint: selectedTint) {
-            HStack(spacing: 10) {
-                CategoryPreviewIcon(category: selectedCategory, size: 36)
-                TextField(planTitlePlaceholder, text: $title, axis: .vertical)
-                    .font(.headline)
-                    .foregroundStyle(LiminalTheme.text)
-                    .lineLimit(1...3)
-                    .frame(minHeight: 44)
-                    .disabled(isScheduleLocked)
-                    .accessibilityLabel("予定名")
-                PlanImportanceButton(isImportant: $isImportant)
-                if !planPresets.isEmpty, !isScheduleLocked {
-                    Button { showingPresetChoices = true } label: {
-                        Image(systemName: "bookmark")
-                            .frame(width: 44, height: 44)
+        PlanEditorCard(tint: selectedTint, planIsMemo: isMemo) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 4) {
+                    Text(isMemo ? "予定メモ" : "メイン予定")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(LiminalTheme.secondaryText)
+                        .accessibilityIdentifier("plan-editor-kind")
+                    Spacer(minLength: 0)
+                    if !planPresets.isEmpty, !isScheduleLocked {
+                        Button { showingPresetChoices = true } label: {
+                            Image(systemName: "bookmark")
+                                .frame(width: 44, height: 44)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("予定プリセットを選ぶ")
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("予定プリセットを選ぶ")
+                    PlanImportanceButton(isImportant: $isImportant)
+                    PlanMemoButton(isMemo: $isMemo).disabled(isScheduleLocked)
+                }
+                HStack(spacing: 10) {
+                    CategoryPreviewIcon(category: selectedCategory, size: 36)
+                    TextField(planTitlePlaceholder, text: $title, axis: .vertical)
+                        .font(.headline)
+                        .foregroundStyle(LiminalTheme.text)
+                        .lineLimit(1...3)
+                        .frame(minHeight: 44)
+                        .disabled(isScheduleLocked)
+                        .accessibilityLabel("予定名")
                 }
             }
             .foregroundStyle(selectedTint)
@@ -927,10 +934,12 @@ struct PlanCreateSheet: View {
 
 struct PlanEditorCard<Content: View>: View {
     let tint: Color
+    var planIsMemo: Bool?
     let content: Content
 
-    init(tint: Color, @ViewBuilder content: () -> Content) {
+    init(tint: Color, planIsMemo: Bool? = nil, @ViewBuilder content: () -> Content) {
         self.tint = tint
+        self.planIsMemo = planIsMemo
         self.content = content()
     }
 
@@ -938,10 +947,19 @@ struct PlanEditorCard<Content: View>: View {
         content
             .padding(16)
             .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(LiminalTheme.surface))
-            .overlay(
+            .overlay {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(tint.opacity(0.1), lineWidth: 1)
-            )
+                    .strokeBorder(tint.opacity(planIsMemo == nil ? 0.1 : 0.55),
+                                  style: StrokeStyle(lineWidth: 1, dash: planIsMemo == true ? [5, 4] : []))
+            }
+            .overlay(alignment: .leading) {
+                if planIsMemo == false {
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(tint)
+                        .frame(width: 3)
+                        .padding(.vertical, 12)
+                }
+            }
     }
 }
 

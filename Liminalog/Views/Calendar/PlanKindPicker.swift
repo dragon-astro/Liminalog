@@ -16,15 +16,26 @@ struct TimelineKindDragHint: View {
     }
 }
 
-struct PlanKindPicker: View {
+struct PlanMemoButton: View {
     @Binding var isMemo: Bool
     var body: some View {
-        Picker("予定の種類", selection: $isMemo) {
-            Text("メイン予定").tag(false)
-            Text("予定メモ").tag(true)
+        Button {
+            LiminalHaptics.selection()
+            isMemo.toggle()
+        } label: {
+            Image(systemName: "note.text")
+                .font(.title3)
+                .foregroundStyle(isMemo ? LiminalTheme.accent : LiminalTheme.secondaryText)
+                .frame(width: 44, height: 44)
+                .background(isMemo ? LiminalTheme.accent.opacity(0.15) : .clear, in: RoundedRectangle(cornerRadius: 8))
+                .contentShape(Rectangle())
         }
-        .pickerStyle(.segmented)
-        .accessibilityIdentifier("plan-kind-picker")
+        .buttonStyle(.plain)
+        .accessibilityLabel("予定メモ")
+        .accessibilityValue(isMemo ? "オン" : "オフ")
+        .accessibilityHint(isMemo ? "メイン予定に切り替え" : "予定メモに切り替え")
+        .accessibilityAddTraits(isMemo ? .isSelected : [])
+        .accessibilityIdentifier("plan-memo-toggle")
     }
 }
 

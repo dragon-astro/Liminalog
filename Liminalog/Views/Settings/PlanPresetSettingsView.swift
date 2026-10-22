@@ -538,9 +538,6 @@ struct PlanPresetEditSheet: View {
                 VStack(spacing: 14) {
                     identityCard
                     timeCard
-                    PlanEditorCard(tint: selectedCategory?.displayColor ?? LiminalTheme.accent) {
-                        PlanKindPicker(isMemo: $isMemo)
-                    }
                     categoryCard
                     PlanEditorCard(tint: selectedCategory?.displayColor ?? LiminalTheme.accent) {
                         PlanRecurrenceControls(rule: $recurrenceRule)
@@ -663,12 +660,16 @@ struct PlanPresetEditSheet: View {
     }
 
     private var identityCard: some View {
-        PlanEditorCard(tint: selectedTint) {
+        PlanEditorCard(tint: selectedTint, planIsMemo: isMemo) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    PlanEditorSectionHeader(title: "予定名", systemImage: "text.cursor", tint: selectedTint)
+                    Text(isMemo ? "予定メモ" : "メイン予定")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(LiminalTheme.secondaryText)
+                        .accessibilityIdentifier("plan-editor-kind")
                     Spacer()
                     PlanImportanceButton(isImportant: $isImportant)
+                    PlanMemoButton(isMemo: $isMemo)
                 }
 
                 TextField("予定名", text: $title)

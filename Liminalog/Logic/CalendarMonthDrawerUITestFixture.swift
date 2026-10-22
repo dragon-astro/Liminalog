@@ -104,6 +104,11 @@ enum CalendarMonthDrawerUITestFixture {
                 context.insert(plan)
             }
         }
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-LiminalogUITestEditingSamples") {
+            PreviewSupport.seedEditingSamplesIfNeeded(in: context, defaults: nil)
+        }
+        #endif
         try! context.save()
     }
 }

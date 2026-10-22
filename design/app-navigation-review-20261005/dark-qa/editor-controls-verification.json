@@ -1,0 +1,297 @@
+{
+  "date": "2026-10-22",
+  "baseline": "53b4b56",
+  "branch": "codex/ui-polish-dark-qa",
+  "scope": "docs/37 §17; user requested development samples, category paging and memo toggle",
+  "builds": {
+    "Debug": "passed",
+    "Release": "passed",
+    "logs": [
+      "editor-pager-build.log",
+      "editor-release-build.log"
+    ]
+  },
+  "uiDevices": [
+    "iPhone 17 / iOS 26.5",
+    "iPhone SE (3rd generation) / iOS 26.5"
+  ],
+  "physicalDeviceTested": false,
+  "latestDistinctCases": 6,
+  "latestPassed": 6,
+  "cases": {
+    "CalendarMonthDrawerUITests/testCaptureEditorKindsAndSampleLibraries": {
+      "test": "CalendarMonthDrawerUITests/testCaptureEditorKindsAndSampleLibraries",
+      "status": "passed",
+      "seconds": 33.366,
+      "run": "editor-dark"
+    },
+    "CalendarMonthDrawerUITests/testEditorCategoryPagesSwipeAndPreserveSelection": {
+      "test": "CalendarMonthDrawerUITests/testEditorCategoryPagesSwipeAndPreserveSelection",
+      "status": "passed",
+      "seconds": 39.832,
+      "run": "editor-dark"
+    },
+    "CalendarMonthDrawerUITests/testEditorPrioritizesTimeAndStoresCustomReminder": {
+      "test": "CalendarMonthDrawerUITests/testEditorPrioritizesTimeAndStoresCustomReminder",
+      "status": "passed",
+      "seconds": 42.265,
+      "run": "editor-light"
+    },
+    "CalendarMonthDrawerUITests/testMainAndMemoSwitchPreservesTimeAndPersists": {
+      "test": "CalendarMonthDrawerUITests/testMainAndMemoSwitchPreservesTimeAndPersists",
+      "status": "passed",
+      "seconds": 22.955,
+      "run": "editor-light"
+    },
+    "CalendarMonthDrawerUITests/testMemoPromotionCancelPreservesMemoAndApplyKeepsMainRemainders": {
+      "test": "CalendarMonthDrawerUITests/testMemoPromotionCancelPreservesMemoAndApplyKeepsMainRemainders",
+      "status": "passed",
+      "seconds": 30.737,
+      "run": "editor-light"
+    },
+    "CalendarMonthDrawerUITests/testPresetInlineCategorySavesChoiceAndSharesExpansionPreference": {
+      "test": "CalendarMonthDrawerUITests/testPresetInlineCategorySavesChoiceAndSharesExpansionPreference",
+      "status": "passed",
+      "seconds": 37.792,
+      "run": "editor-light"
+    }
+  },
+  "runs": {
+    "editor-se-light": {
+      "testResult": "Failed",
+      "passedTests": 0,
+      "failedTests": 2,
+      "skippedTests": 0,
+      "attempts": [
+        {
+          "test": "CalendarMonthDrawerUITests/testCaptureEditorKindsAndSampleLibraries",
+          "status": "failed",
+          "seconds": 31.566,
+          "run": "editor-se-light"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testCaptureEditorKindsAndSampleLibraries",
+          "status": "failed",
+          "seconds": 30.852,
+          "run": "editor-se-light"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testEditorCategoryPagesSwipeAndPreserveSelection",
+          "status": "failed",
+          "seconds": 18.612,
+          "run": "editor-se-light"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testEditorCategoryPagesSwipeAndPreserveSelection",
+          "status": "failed",
+          "seconds": 20.247,
+          "run": "editor-se-light"
+        }
+      ]
+    },
+    "editor-se-light-fixed": {
+      "testResult": "Failed",
+      "passedTests": 1,
+      "failedTests": 1,
+      "skippedTests": 0,
+      "attempts": [
+        {
+          "test": "CalendarMonthDrawerUITests/testCaptureEditorKindsAndSampleLibraries",
+          "status": "passed",
+          "seconds": 32.401,
+          "run": "editor-se-light-fixed"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testEditorCategoryPagesSwipeAndPreserveSelection",
+          "status": "failed",
+          "seconds": 35.888,
+          "run": "editor-se-light-fixed"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testEditorCategoryPagesSwipeAndPreserveSelection",
+          "status": "failed",
+          "seconds": 46.418,
+          "run": "editor-se-light-fixed"
+        }
+      ]
+    },
+    "editor-light": {
+      "testResult": "Failed",
+      "passedTests": 5,
+      "failedTests": 1,
+      "skippedTests": 0,
+      "attempts": [
+        {
+          "test": "CalendarMonthDrawerUITests/testCaptureEditorKindsAndSampleLibraries",
+          "status": "failed",
+          "seconds": 36.366,
+          "run": "editor-light"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testCaptureEditorKindsAndSampleLibraries",
+          "status": "passed",
+          "seconds": 42.328,
+          "run": "editor-light"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testEditorCategoryPagesSwipeAndPreserveSelection",
+          "status": "failed",
+          "seconds": 46.836,
+          "run": "editor-light"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testEditorCategoryPagesSwipeAndPreserveSelection",
+          "status": "failed",
+          "seconds": 40.394,
+          "run": "editor-light"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testEditorPrioritizesTimeAndStoresCustomReminder",
+          "status": "passed",
+          "seconds": 42.265,
+          "run": "editor-light"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testMainAndMemoSwitchPreservesTimeAndPersists",
+          "status": "passed",
+          "seconds": 22.955,
+          "run": "editor-light"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testMemoPromotionCancelPreservesMemoAndApplyKeepsMainRemainders",
+          "status": "passed",
+          "seconds": 30.737,
+          "run": "editor-light"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testPresetInlineCategorySavesChoiceAndSharesExpansionPreference",
+          "status": "passed",
+          "seconds": 37.792,
+          "run": "editor-light"
+        }
+      ]
+    },
+    "editor-se-light-final": {
+      "testResult": "Passed",
+      "passedTests": 2,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "attempts": [
+        {
+          "test": "CalendarMonthDrawerUITests/testCaptureEditorKindsAndSampleLibraries",
+          "status": "passed",
+          "seconds": 35.244,
+          "run": "editor-se-light-final"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testEditorCategoryPagesSwipeAndPreserveSelection",
+          "status": "passed",
+          "seconds": 40.724,
+          "run": "editor-se-light-final"
+        }
+      ]
+    },
+    "editor-se-dark": {
+      "testResult": "Passed",
+      "passedTests": 2,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "attempts": [
+        {
+          "test": "CalendarMonthDrawerUITests/testCaptureEditorKindsAndSampleLibraries",
+          "status": "passed",
+          "seconds": 33.41,
+          "run": "editor-se-dark"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testEditorCategoryPagesSwipeAndPreserveSelection",
+          "status": "passed",
+          "seconds": 40.955,
+          "run": "editor-se-dark"
+        }
+      ]
+    },
+    "editor-dark": {
+      "testResult": "Passed",
+      "passedTests": 2,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "attempts": [
+        {
+          "test": "CalendarMonthDrawerUITests/testCaptureEditorKindsAndSampleLibraries",
+          "status": "failed",
+          "seconds": 36.532,
+          "run": "editor-dark"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testCaptureEditorKindsAndSampleLibraries",
+          "status": "passed",
+          "seconds": 33.366,
+          "run": "editor-dark"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testEditorCategoryPagesSwipeAndPreserveSelection",
+          "status": "passed",
+          "seconds": 39.832,
+          "run": "editor-dark"
+        }
+      ]
+    }
+  },
+  "unitTests": {
+    "suite": "PreviewEditingSamplesTests",
+    "added": 2,
+    "executed": 0,
+    "status": "blocked_before_test_execution",
+    "reason": "Xcode test-host bootstrapping did not establish a connection. Dedicated Simulator reboot, fresh DerivedData, fresh iOS 27 Simulator and temporary injection/environment settings did not recover execution; stalled runs were stopped. No pass claim.",
+    "logs": [
+      "editor-unit-clean.log",
+      "editor-unit-environment.log",
+      "editor-unit-fresh.log",
+      "editor-unit-inject-fixed.log",
+      "editor-unit-inject.log",
+      "editor-unit-reboot.log",
+      "editor-unit-retry.log",
+      "editor-unit-sample.log",
+      "editor-unit.log"
+    ]
+  },
+  "knownIssues": [
+    "First UI launch sometimes ignores fixture arguments; editor-light and editor-dark capture passed on retry. Still unresolved."
+  ],
+  "fixedDuringVerification": [
+    "Reopening a non-first category table showed the correct name but first-page cells; added scroll alignment after layout and passed on both sizes.",
+    "SE test swiped after scrolling the category table under the navigation bar; test now reveals the whole table.",
+    "Day presets are selected through a picker menu in this route; corrected the test query."
+  ],
+  "images": {
+    "newCount": 20,
+    "totalCount": 103,
+    "allDimensionsAndHashesVerified": true,
+    "newImagesVisuallyChecked": true,
+    "files": [
+      "23-editor-category-paging-dark.png",
+      "23-editor-category-paging-light.png",
+      "23-editor-main-dark.png",
+      "23-editor-main-light.png",
+      "23-editor-memo-dark.png",
+      "23-editor-memo-light.png",
+      "23-editor-se-category-paging-dark.png",
+      "23-editor-se-category-paging-light.png",
+      "23-editor-se-main-dark.png",
+      "23-editor-se-main-light.png",
+      "23-editor-se-memo-dark.png",
+      "23-editor-se-memo-light.png",
+      "24-sample-day-presets-dark.png",
+      "24-sample-day-presets-light.png",
+      "24-sample-plan-presets-dark.png",
+      "24-sample-plan-presets-light.png",
+      "24-sample-se-day-presets-dark.png",
+      "24-sample-se-day-presets-light.png",
+      "24-sample-se-plan-presets-dark.png",
+      "24-sample-se-plan-presets-light.png"
+    ]
+  },
+  "evidenceRoot": "/private/tmp/liminalog-polish-20261021",
+  "archive": "artifacts/ui-polish-dark-qa-20261022/editor-controls-followup.tar.gz"
+}

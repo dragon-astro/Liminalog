@@ -178,7 +178,7 @@ struct SettingsView: View {
             } header: {
                 Text("デバッグ")
             } footer: {
-                Text("DEBUGビルド限定です。ダミーデータはデモ由来の予定と実績だけを追加・削除します。課金状態とPro制限は表示確認用で、実際の購入状態は保存しません。ユーザーIDリセットは開発中のCloudKit登録を消して、同じApple IDでID作成をやり直すための操作です。")
+                Text("DEBUGビルド限定です。デモ由来の予定と実績を追加・削除します。カテゴリとプリセットのサンプルは初回だけ追加し、その後の編集・削除は保持します。課金状態とPro制限は表示確認用で、実際の購入状態は保存しません。ユーザーIDリセットは開発中のCloudKit登録を消して、同じApple IDでID作成をやり直すための操作です。")
             }
             .confirmationDialog("CloudKitユーザーIDをリセットしますか？", isPresented: $showCloudUserIDResetConfirmation, titleVisibility: .visible) {
                 Button("リセットする", role: .destructive) {
@@ -222,7 +222,8 @@ struct SettingsView: View {
         if isEnabled {
             let didSeedPlans = PreviewSupport.seedPreviewPlansIfNeeded(in: modelContext)
             let didSeedChapters = PreviewSupport.seedDevSampleChaptersIfNeeded(in: modelContext)
-            debugStatusText = (didSeedPlans || didSeedChapters)
+            let didSeedEditing = PreviewSupport.seedEditingSamplesIfNeeded(in: modelContext)
+            debugStatusText = (didSeedPlans || didSeedChapters || didSeedEditing)
                 ? "ダミーデータを追加しました。"
                 : "ダミーデータはすでに最新です。"
         } else {

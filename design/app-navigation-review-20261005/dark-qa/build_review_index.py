@@ -36,6 +36,16 @@ labels = {
  '22-recurrence-rows-count': '繰り返し・回数で終了',
  '22-recurrence-rows-date': '繰り返し・日時で終了',
  '22-recurrence-rows-se-date': 'iPhone SE・12か月ごと／日時で終了',
+ '23-editor-main': '予定編集・メイン予定',
+ '23-editor-memo': '予定編集・メモと重要の切替',
+ '23-editor-category-paging': '予定編集・カテゴリテーブルの横移動',
+ '24-sample-plan-presets': '開発サンプル・予定プリセット',
+ '24-sample-day-presets': '開発サンプル・一日プリセットの選択',
+ '23-editor-se-main': 'iPhone SE・メイン予定',
+ '23-editor-se-memo': 'iPhone SE・予定メモ',
+ '23-editor-se-category-paging': 'iPhone SE・カテゴリの横移動',
+ '24-sample-se-plan-presets': 'iPhone SE・予定プリセット',
+ '24-sample-se-day-presets': 'iPhone SE・一日プリセットの選択',
 }
 body = []
 for stem, label in labels.items():
@@ -54,7 +64,7 @@ for stem, label in labels.items():
 page = '''<!doctype html><html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Liminalog 画面証跡 — 2026-10-22</title><style>
 body{margin:24px auto;padding:0 24px;max-width:1320px;background:#eeeeef;color:#222;font:16px/1.7 system-ui,sans-serif}h1{font-size:24px}h2{font-size:19px;margin-top:36px}.pairs{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;align-items:start}figure{margin:0}figcaption{margin:0 0 8px}img{width:100%;height:auto;border:1px solid #bbb;border-radius:12px;background:#fff}section{border-top:1px solid #ccc;margin-top:28px}p{max-width:900px}a{color:inherit}
-</style><h1>ライト／ダーク画面の確認</h1><p>docs/37 §7・§12・§15 — iOS 26.5 / Debug。システム追従テーマ。iPhone 17は原寸1206×2622px（3x）、SEは750×1334px（2x）。PNGの加工なし。クリックで原寸。10・12・13は変更前後、その他は指定状態の画面記録です。15〜20はこれまでの繰り返し欄、21は下線タブ、22は間隔・開始日・終了を常時表示する最新の構成です。</p>
+</style><h1>ライト／ダーク画面の確認</h1><p>docs/37 §7・§12・§15・§17 — iOS 26.5 / Debug。システム追従テーマ。iPhone 17は原寸1206×2622px（3x）、SEは750×1334px（2x）。PNGの加工なし。クリックで原寸。10・12・13は変更前後、その他は指定状態の画面記録です。15〜20はこれまでの繰り返し欄、21は下線タブ、22は間隔・開始日・終了を常時表示する最新の構成です。23は編集画面のメモ切替とカテゴリ横移動、24は開発・検証用のサンプルです。</p>
 '''
 (root / 'index.html').write_text(page + '\n'.join(body) + '</html>\n')
 print(f'Indexed {len(images)} screenshots')

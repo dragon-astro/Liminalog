@@ -129,6 +129,7 @@ struct RootTabView: View {
                 let seedRequest = PreviewSupport.runtimeSeedRequest()
                 if !LiminalogRuntime.isRunningUITests, seedRequest.shouldSeedPreviewPlans {
                     initializedStore.seedPreviewPlansIfNeeded()
+                    PreviewSupport.seedEditingSamplesIfNeeded(in: modelContext)
                 }
                 if !LiminalogRuntime.isRunningUITests, seedRequest.shouldSeedDevData {
                     initializedStore.seedDevSampleChaptersIfNeeded()
@@ -139,7 +140,7 @@ struct RootTabView: View {
                 await initializedStores.planReminderStore.refresh()
                 #if DEBUG
                 if ProcessInfo.processInfo.arguments.contains("-LiminalogDebugOpenDayPresetEditor") {
-                    seedDebugPlanPresetsIfNeeded(using: initializedStores.planPresetStore)
+                    PreviewSupport.seedEditingSamplesIfNeeded(in: modelContext)
                     isShowingDebugDayPresetEditor = true
                 }
                 #endif
@@ -253,37 +254,6 @@ struct RootTabView: View {
             }
         }
     }
-
-    #if DEBUG
-    private func seedDebugPlanPresetsIfNeeded(using presetStore: PlanPresetStore) {
-        guard presetStore.planPresetsIfAvailable()?.isEmpty == true else { return }
-        let categories = (try? modelContext.fetch(FetchDescriptor<Category>(
-            sortBy: [SortDescriptor(\.sortOrder)]
-        ))) ?? []
-        let samples: [(String, Int, Int, PlanPresetPlacementMode, Category?)] = [
-            ("通勤", 8 * 60, 9 * 60, .fixedTime, categories.first),
-            ("仕事", 9 * 60, 12 * 60, .fixedTime, categories.dropFirst().first),
-            ("ジム", 18 * 60, 19 * 60 + 30, .duration, categories.dropFirst(2).first),
-            ("読書", 20 * 60, 21 * 60, .duration, categories.dropFirst(3).first)
-        ]
-        for sample in samples {
-            _ = presetStore.createPlanPreset(
-                name: sample.0,
-                snapshot: PlanTemplateSnapshot(
-                    title: sample.0,
-                    categoryID: sample.4?.id,
-                    startMinute: sample.1,
-                    endMinute: sample.2,
-                    isAllDay: false,
-                    isImportant: false,
-                    note: nil,
-                    isPublic: true
-                ),
-                placementMode: sample.3
-            )
-        }
-    }
-    #endif
 
     /// 保存先がフォールバックしている（iCloud同期や永続化が縮退している）ことを起動時に告知する。
     private var storageFallbackTitle: String {

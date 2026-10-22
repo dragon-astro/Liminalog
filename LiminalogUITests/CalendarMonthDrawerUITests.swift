@@ -15,12 +15,13 @@ final class CalendarMonthDrawerUITests: XCTestCase {
     private func element(_ app: XCUIApplication, _ id: String) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: id).firstMatch
     }
-    private func launch(longNote: Bool = false, previewSource: Bool = false, measureDrop: Bool = false, overlap: Bool = false, templateReplacement: Bool = false, expandedMode: String? = "summary", measureExpansion: Bool = false, planMemos: Bool = false, contentSize: String? = nil, useCalendarTab: Bool = false) -> XCUIApplication {
+    private func launch(longNote: Bool = false, previewSource: Bool = false, measureDrop: Bool = false, overlap: Bool = false, templateReplacement: Bool = false, expandedMode: String? = "summary", measureExpansion: Bool = false, planMemos: Bool = false, contentSize: String? = nil, useCalendarTab: Bool = false, editingSamples: Bool = false) -> XCUIApplication {
         continueAfterFailure = false
         let app = XCUIApplication()
         app.launchArguments = ["-LiminalogMonthDrawerUITests", "-LiminalogInitialRootTab", "calendar",
                                "-LiminalogInitialCalendarMode", "month", "-calendar.filter.usesCustomCategories", "NO"]
         if planMemos { app.launchArguments.append("-LiminalogUITestPlanMemos") }
+        if editingSamples { app.launchArguments.append("-LiminalogUITestEditingSamples") }
         if longNote { app.launchArguments.append("-LiminalogUITestLongNote") }
         if previewSource { app.launchArguments.append("-LiminalogUITestPreviewSource") }
         if measureDrop { app.launchArguments.append("-LiminalogMeasureMonthDrop") }
@@ -47,7 +48,7 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         element(app, "calendar-drawer-plan-\(planID)").tap()
         XCTAssertTrue(app.buttons["calendar-drawer-edit"].waitForExistence(timeout: 5))
         app.buttons["calendar-drawer-edit"].tap()
-        XCTAssertTrue(app.segmentedControls["plan-kind-picker"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["plan-memo-toggle"].waitForExistence(timeout: 5))
     }
 
     private func dragAcrossDay(_ app: XCUIApplication, plan: XCUIElement, fraction: CGFloat) {
@@ -145,7 +146,7 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         let app = launch(planMemos: true)
         let memoID = "00000000-0000-0000-0000-000000000102"
         openEditor(app, planID: memoID)
-        app.segmentedControls["plan-kind-picker"].buttons["メイン予定"].tap()
+        app.buttons["plan-memo-toggle"].tap()
         app.buttons["保存"].tap()
         let whole = app.buttons["replacement-option-replaceWholePlans"]
         XCTAssertTrue(whole.waitForExistence(timeout: 5))
@@ -301,14 +302,14 @@ final class CalendarMonthDrawerUITests: XCTestCase {
     func testEditorPrioritizesTimeAndStoresCustomReminder() {
         let app = launch(planMemos: true)
         openEditor(app, planID: sourceID)
-        XCTAssertLessThan(app.staticTexts["開始"].firstMatch.frame.minY, app.segmentedControls["plan-kind-picker"].frame.minY)
+        XCTAssertLessThan(app.buttons["plan-memo-toggle"].frame.minY, app.staticTexts["開始"].firstMatch.frame.minY)
         let important = app.buttons["plan-important"]
         XCTAssertTrue(important.exists)
         for _ in 0..<3 where !important.isHittable { app.scrollViews["plan-editor-scroll"].swipeUp() }
         important.tap()
         XCTAssertEqual(important.value as? String, "オン")
         XCTAssertLessThan(important.frame.minY, app.staticTexts["開始"].firstMatch.frame.minY)
-        keepScreenshot(app, name: "予定名の横の星ボタンと時間、シンプルな種類切替")
+        keepScreenshot(app, name: "上部の星とメモボタン、その直下に時間")
         let reminder = app.buttons["plan-reminder-picker"]
         for _ in 0..<4 where !reminder.isHittable { app.scrollViews["plan-editor-scroll"].swipeUp() }
         reminder.tap(); app.buttons["数日・数週間前"].tap(); app.buttons["2週間前"].tap()
@@ -674,19 +675,96 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         XCTAssertTrue(yearly.isSelected)
     }
 
+    func testEditorCategoryPagesSwipeAndPreserveSelection() {
+        let app = launch(planMemos: true, editingSamples: true)
+        openEditor(app, planID: sourceID)
+        let category = app.buttons["plan-category-picker"]
+        if !app.scrollViews["plan-category-board-pager"].exists { category.tap() }
+        let scroll = app.scrollViews["plan-editor-scroll"]
+        let pager = app.scrollViews["plan-category-board-pager"]
+        func revealPager() {
+            for _ in 0..<5 {
+                let top = app.navigationBars["予定を編集"].frame.maxY + 20
+                let frame = pager.frame
+                if frame.minY >= top && frame.maxY < app.frame.maxY - 30 { break }
+                let delta = max(-180, min(180, top + 24 - frame.minY))
+                let start = scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.96, dy: 0.6))
+                start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: delta)),
+                            withVelocity: .slow, thenHoldForDuration: 0.2)
+            }
+        }
+        revealPager()
+        let switcher = app.buttons["plan-category-set-switcher"]
+        XCTAssertEqual(switcher.value as? String, "平日")
+        pager.swipeLeft()
+        XCTAssertEqual(switcher.value as? String, "休日")
+        pager.swipeLeft()
+        XCTAssertEqual(switcher.value as? String, "からだと暮らし")
+        pager.buttons.matching(NSPredicate(format: "label CONTAINS '運動'")).firstMatch.tap()
+        XCTAssertEqual(category.value as? String, "運動")
+        keepScreenshot(app, name: app.frame.width < 390 ? "23-editor-se-category-paging" : "23-editor-category-paging")
+        pager.swipeLeft()
+        XCTAssertEqual(switcher.value as? String, "学びと創作")
+        XCTAssertEqual(category.value as? String, "運動", "ページ移動だけではカテゴリを変更しない")
+        switcher.tap()
+        app.buttons["平日"].tap()
+        XCTAssertEqual(switcher.value as? String, "平日")
+        XCTAssertTrue(pager.buttons.matching(NSPredicate(format: "label CONTAINS '仕事'")).firstMatch.isHittable)
+        app.buttons["保存"].tap()
+        XCTAssertTrue(app.buttons["calendar-drawer-edit"].waitForExistence(timeout: 5))
+        app.buttons["calendar-drawer-edit"].tap()
+        revealPager()
+        XCTAssertEqual(category.value as? String, "運動")
+        XCTAssertEqual(switcher.value as? String, "からだと暮らし")
+        XCTAssertTrue(pager.buttons.matching(NSPredicate(format: "label CONTAINS '運動'")).firstMatch.isHittable)
+        app.buttons["キャンセル"].tap()
+        app.buttons["当日の予定を閉じる"].tap()
+        app.tabBars.buttons["ホーム"].tap()
+        XCTAssertEqual(app.buttons["category-set-switcher"].value as? String, "平日", "編集用のページはホームの選択と独立")
+    }
+
+    func testCaptureEditorKindsAndSampleLibraries() throws {
+        try requirePolishCapture()
+        let app = launch(planMemos: true, editingSamples: true)
+        openEditor(app, planID: sourceID)
+        let memo = app.buttons["plan-memo-toggle"]
+        XCTAssertEqual(memo.value as? String, "オフ")
+        XCTAssertEqual(app.staticTexts["plan-editor-kind"].label, "メイン予定")
+        keepScreenshot(app, name: app.frame.width < 390 ? "23-editor-se-main" : "23-editor-main")
+        memo.tap()
+        XCTAssertEqual(memo.value as? String, "オン")
+        XCTAssertEqual(app.staticTexts["plan-editor-kind"].label, "予定メモ")
+        app.buttons["plan-important"].tap()
+        XCTAssertEqual(app.buttons["plan-important"].value as? String, "オン")
+        XCTAssertEqual(memo.value as? String, "オン")
+        keepScreenshot(app, name: app.frame.width < 390 ? "23-editor-se-memo" : "23-editor-memo")
+        app.buttons["キャンセル"].tap()
+        app.buttons["当日の予定を閉じる"].tap()
+        openPresets(app, entry: "calendar-open-presets", kind: "plan")
+        keepScreenshot(app, name: app.frame.width < 390 ? "24-sample-se-plan-presets" : "24-sample-plan-presets")
+        app.buttons["preset-kind-day"].tap()
+        let dayPicker = app.buttons.matching(NSPredicate(format: "label == %@ AND identifier != %@", "一日プリセット", "preset-kind-day")).firstMatch
+        XCTAssertTrue(dayPicker.waitForExistence(timeout: 5), app.debugDescription)
+        dayPicker.tap()
+        XCTAssertTrue(app.buttons["平日のルーティン"].waitForExistence(timeout: 5), app.debugDescription)
+        keepScreenshot(app, name: app.frame.width < 390 ? "24-sample-se-day-presets" : "24-sample-day-presets")
+        app.buttons["平日のルーティン"].tap()
+        XCTAssertTrue(app.staticTexts["朝の準備"].waitForExistence(timeout: 5), app.debugDescription)
+    }
+
     func testMainAndMemoSwitchPreservesTimeAndPersists() {
         let app = launch(planMemos: true)
         openEditor(app, planID: sourceID)
-        let kind = app.segmentedControls["plan-kind-picker"]
-        kind.buttons["予定メモ"].tap()
+        let kind = app.buttons["plan-memo-toggle"]
+        kind.tap()
         keepScreenshot(app, name: "予定の種類を編集画面で切り替え")
         app.buttons["保存"].tap()
         XCTAssertTrue(app.buttons["calendar-drawer-edit"].waitForExistence(timeout: 5))
         XCTAssertTrue(element(app, "calendar-drawer-plan-\(sourceID)").label.contains("予定メモ"))
         app.buttons["calendar-drawer-edit"].tap()
         XCTAssertTrue(kind.waitForExistence(timeout: 5))
-        XCTAssertTrue(kind.buttons["予定メモ"].isSelected)
-        kind.buttons["メイン予定"].tap()
+        XCTAssertEqual(kind.value as? String, "オン")
+        kind.tap()
         app.buttons["保存"].tap()
         XCTAssertTrue(app.buttons["calendar-drawer-edit"].waitForExistence(timeout: 5))
         let row = element(app, "calendar-drawer-plan-\(sourceID)")
@@ -698,8 +776,8 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         let app = launch(planMemos: true)
         let memoID = "00000000-0000-0000-0000-000000000102"
         openEditor(app, planID: memoID)
-        let kind = app.segmentedControls["plan-kind-picker"]
-        kind.buttons["メイン予定"].tap()
+        let kind = app.buttons["plan-memo-toggle"]
+        kind.tap()
         app.buttons["保存"].tap()
         let apply = app.buttons["memo-promotion-apply"]
         XCTAssertTrue(apply.waitForExistence(timeout: 5), app.debugDescription)
@@ -711,8 +789,8 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         XCTAssertTrue(element(app, "calendar-drawer-plan-\(memoID)").label.contains("予定メモ"))
         app.buttons["calendar-drawer-edit"].tap()
         XCTAssertTrue(kind.waitForExistence(timeout: 5))
-        XCTAssertTrue(kind.buttons["予定メモ"].isSelected)
-        kind.buttons["メイン予定"].tap()
+        XCTAssertEqual(kind.value as? String, "オン")
+        kind.tap()
         app.buttons["保存"].tap()
         XCTAssertTrue(apply.waitForExistence(timeout: 5))
         apply.tap()
@@ -802,9 +880,9 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         XCTAssertEqual(memo.value as? String, "予定メモ")
         memo.tap()
         memo.tap()
-        let kind = app.segmentedControls["plan-kind-picker"]
+        let kind = app.buttons["plan-memo-toggle"]
         XCTAssertTrue(kind.waitForExistence(timeout: 5))
-        XCTAssertTrue(kind.buttons["予定メモ"].isSelected)
+        XCTAssertEqual(kind.value as? String, "オン")
         keepScreenshot(app, name: "日付を開くとメモを編集できる")
     }
 
@@ -1113,7 +1191,7 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         XCTAssertTrue(create.waitForExistence(timeout: 5))
         XCTAssertGreaterThanOrEqual(create.frame.height, 40, create.debugDescription)
         create.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.9)).tap()
-        XCTAssertTrue(app.segmentedControls["plan-kind-picker"].waitForExistence(timeout: 5), "予定追加の44pt領域の下端が反応する")
+        XCTAssertTrue(app.buttons["plan-memo-toggle"].waitForExistence(timeout: 5), "予定追加の44pt領域の下端が反応する")
     }
 
     func testDrawerHeaderOpensExplicitDestinationsRegardlessOfLegacyPreference() {
@@ -1380,7 +1458,7 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         app.buttons["calendar-drawer-date"].tap()
         XCTAssertTrue(app.buttons["summary-open-presets"].waitForExistence(timeout: 5))
         app.buttons["予定を追加"].tap()
-        XCTAssertTrue(app.segmentedControls["plan-kind-picker"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["plan-memo-toggle"].waitForExistence(timeout: 5))
         app.buttons["キャンセル"].tap()
         // Move to the following day before opening the sheet: the preset must
         // use the visible page, not CalendarDayPagerSheet.initialDate.
@@ -1541,6 +1619,10 @@ final class CalendarMonthDrawerUITests: XCTestCase {
     func testPresetInlineCategorySavesChoiceAndSharesExpansionPreference() {
         let app = launch(templateReplacement: true)
         openFixturePresetEditor(app)
+        let memo = app.buttons["plan-memo-toggle"]
+        XCTAssertEqual(memo.value as? String, "オフ")
+        memo.tap()
+        XCTAssertEqual(app.staticTexts["plan-editor-kind"].label, "予定メモ")
         let category = app.buttons["plan-category-picker"]
         XCTAssertTrue(category.waitForExistence(timeout: 5))
         if !app.buttons["その他の並び順"].exists { category.tap() }
@@ -1557,6 +1639,8 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         XCTAssertTrue(category.waitForExistence(timeout: 5))
         XCTAssertEqual(category.value as? String, "仕事")
         XCTAssertFalse(app.buttons["その他の並び順"].exists)
+        XCTAssertEqual(memo.value as? String, "オン")
+        XCTAssertEqual(app.staticTexts["plan-editor-kind"].label, "予定メモ")
         let editor = launch(planMemos: true)
         openEditor(editor, planID: sourceID)
         XCTAssertTrue(editor.buttons["plan-category-picker"].exists)
