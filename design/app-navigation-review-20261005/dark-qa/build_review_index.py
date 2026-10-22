@@ -31,6 +31,11 @@ labels = {
  '21-underline-tabs-filter': '下線タブ・カレンダー表示フィルタ',
  '21-underline-tabs-profile': '下線タブ・プロフィール編集',
  '21-underline-tabs-ranking': '下線タブ・ランキングの期間',
+ '22-recurrence-rows-weekly': '繰り返し・毎週／終了しない',
+ '22-recurrence-rows-monthly-weekday': '繰り返し・毎月第2／第4水曜と設定行',
+ '22-recurrence-rows-count': '繰り返し・回数で終了',
+ '22-recurrence-rows-date': '繰り返し・日時で終了',
+ '22-recurrence-rows-se-date': 'iPhone SE・12か月ごと／日時で終了',
 }
 body = []
 for stem, label in labels.items():
@@ -42,13 +47,14 @@ for stem, label in labels.items():
                 continue
             caption = f'{"変更前・" if phase == "before" else ""}{title}'
             escaped = html.escape(name)
-            figures.append(f'<figure><figcaption>{caption}</figcaption><a href="{escaped}"><img loading="lazy" width="1206" height="2622" src="{escaped}" alt="{html.escape(label)}・{caption}"></a></figure>')
+            width, height = images[name]['pixels']
+            figures.append(f'<figure><figcaption>{caption}</figcaption><a href="{escaped}"><img loading="lazy" width="{width}" height="{height}" src="{escaped}" alt="{html.escape(label)}・{caption}"></a></figure>')
     if figures:
         body.append(f'<section id="{stem}"><h2>{stem[:2]} {label}</h2><div class="pairs">{"".join(figures)}</div></section>')
 page = '''<!doctype html><html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Liminalog 画面証跡 — 2026-10-21</title><style>
+<title>Liminalog 画面証跡 — 2026-10-22</title><style>
 body{margin:24px auto;padding:0 24px;max-width:1320px;background:#eeeeef;color:#222;font:16px/1.7 system-ui,sans-serif}h1{font-size:24px}h2{font-size:19px;margin-top:36px}.pairs{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;align-items:start}figure{margin:0}figcaption{margin:0 0 8px}img{width:100%;height:auto;border:1px solid #bbb;border-radius:12px;background:#fff}section{border-top:1px solid #ccc;margin-top:28px}p{max-width:900px}a{color:inherit}
-</style><h1>ライト／ダーク画面の確認</h1><p>docs/37 §7・§12 — iPhone 17 / iOS 26.5 / Debug。システム追従テーマ。原寸1206×2622px（3x）、PNGの加工なし。クリックで原寸。10・12・13は変更前後、その他は指定状態の画面記録です。15〜18は前回の整理、20は最新の繰り返し欄、21は表示切替を下線タブに統一した3画面です。</p>
+</style><h1>ライト／ダーク画面の確認</h1><p>docs/37 §7・§12・§15 — iOS 26.5 / Debug。システム追従テーマ。iPhone 17は原寸1206×2622px（3x）、SEは750×1334px（2x）。PNGの加工なし。クリックで原寸。10・12・13は変更前後、その他は指定状態の画面記録です。15〜20はこれまでの繰り返し欄、21は下線タブ、22は間隔・開始日・終了を常時表示する最新の構成です。</p>
 '''
 (root / 'index.html').write_text(page + '\n'.join(body) + '</html>\n')
 print(f'Indexed {len(images)} screenshots')

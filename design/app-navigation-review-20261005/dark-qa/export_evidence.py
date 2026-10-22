@@ -32,12 +32,14 @@ for test in json.loads((source / 'manifest.json').read_text()):
             continue
         suffix = '-before' if phase == 'before' and name.startswith(('10-', '12-', '13-')) else ''
         output = destination / f'{name}{suffix}-{appearance}.png'
-        shutil.copy2(original, output)
-        data = output.read_bytes()
+        data = original.read_bytes()
         width, height = struct.unpack('>II', data[16:24])
-        assert (width, height) == (1206, 2622), (output.name, width, height)
+        is_se = name.startswith('22-recurrence-rows-se-')
+        expected_pixels, scale = ((750, 1334), 2) if is_se else ((1206, 2622), 3)
+        assert (width, height) == expected_pixels, (output.name, width, height)
+        shutil.copy2(original, output)
         index[output.name] = dict(
-            phase=phase, appearance=appearance, pixels=[width, height], scale=3,
+            phase=phase, appearance=appearance, pixels=[width, height], scale=scale,
             sha256=hashlib.sha256(data).hexdigest(), bytes=len(data),
             test=test['testIdentifier'], attachments=str(source),
             original=attachment['exportedFileName'],

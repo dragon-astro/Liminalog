@@ -1,0 +1,214 @@
+{
+  "date": "2026-10-22",
+  "baseline": "c8d2dc3",
+  "branch": "codex/ui-polish-dark-qa",
+  "scope": "docs/37 §15",
+  "devices": [
+    {
+      "name": "Liminalog-Internals-QA-20261016",
+      "id": "5DA1E432-0D01-42A6-8259-B59A9CEC7854",
+      "model": "iPhone 17"
+    },
+    {
+      "name": "Liminalog-Handoff-Small-20261021",
+      "id": "88A12ABD-256C-47B9-A314-88B3C80EC01B",
+      "model": "iPhone SE (3rd generation)"
+    }
+  ],
+  "os": "iOS 26.5",
+  "configuration": "Debug",
+  "physicalDeviceTested": false,
+  "buildLog": "/private/tmp/liminalog-polish-20261021/rows-build.log",
+  "latestDistinctCases": 8,
+  "latestPassed": 8,
+  "cases": {
+    "CalendarMonthDrawerUITests/testCaptureRecurrenceScheduleRows": {
+      "status": "passed",
+      "seconds": 55.602,
+      "run": "rows-dark-capture"
+    },
+    "CalendarMonthDrawerUITests/testDayPresetCanSaveAutomaticRecurrence": {
+      "status": "passed",
+      "seconds": 28.357,
+      "run": "rows-light"
+    },
+    "CalendarMonthDrawerUITests/testMonthlyOrdinalWeekdayRecurrenceShowsRowsAndSaves": {
+      "status": "passed",
+      "seconds": 41.986,
+      "run": "rows-light"
+    },
+    "CalendarMonthDrawerUITests/testPlanEditorRegistersRecurrenceAndReminderAndKeepsMasterSeparate": {
+      "status": "passed",
+      "seconds": 35.279,
+      "run": "rows-light"
+    },
+    "CalendarMonthDrawerUITests/testRecurrenceStaysEnabledAfterIdleScrollAndHelp": {
+      "status": "passed",
+      "seconds": 110.602,
+      "run": "rows-light"
+    },
+    "CalendarMonthDrawerUITests/testRecurrenceYearCountAndInfoAreSavedInMaster": {
+      "status": "passed",
+      "seconds": 91.592,
+      "run": "rows-light-retry"
+    },
+    "CalendarMonthDrawerUITests/testWeeklyRecurrenceShowsScheduleRowsAndPreservesChoices": {
+      "status": "passed",
+      "seconds": 57.883,
+      "run": "rows-light"
+    },
+    "CalendarMonthDrawerUITests/testCaptureRecurrenceScheduleRowsOnSmallScreen": {
+      "status": "passed",
+      "seconds": 41.819,
+      "run": "rows-se-capture"
+    }
+  },
+  "runs": {
+    "rows-light": {
+      "result": "Failed",
+      "passed": 5,
+      "failed": 2,
+      "skipped": 0,
+      "cases": [
+        {
+          "test": "CalendarMonthDrawerUITests/testCaptureRecurrenceScheduleRows",
+          "status": "failed",
+          "seconds": 40.918,
+          "run": "rows-light"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testDayPresetCanSaveAutomaticRecurrence",
+          "status": "passed",
+          "seconds": 28.357,
+          "run": "rows-light"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testMonthlyOrdinalWeekdayRecurrenceShowsRowsAndSaves",
+          "status": "passed",
+          "seconds": 41.986,
+          "run": "rows-light"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testPlanEditorRegistersRecurrenceAndReminderAndKeepsMasterSeparate",
+          "status": "passed",
+          "seconds": 35.279,
+          "run": "rows-light"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testRecurrenceStaysEnabledAfterIdleScrollAndHelp",
+          "status": "passed",
+          "seconds": 110.602,
+          "run": "rows-light"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testRecurrenceYearCountAndInfoAreSavedInMaster",
+          "status": "failed",
+          "seconds": 24.543,
+          "run": "rows-light"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testWeeklyRecurrenceShowsScheduleRowsAndPreservesChoices",
+          "status": "passed",
+          "seconds": 57.883,
+          "run": "rows-light"
+        }
+      ]
+    },
+    "rows-light-retry": {
+      "result": "Failed",
+      "passed": 1,
+      "failed": 1,
+      "skipped": 0,
+      "cases": [
+        {
+          "test": "CalendarMonthDrawerUITests/testCaptureRecurrenceScheduleRows",
+          "status": "failed",
+          "seconds": 39.506,
+          "run": "rows-light-retry"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testRecurrenceYearCountAndInfoAreSavedInMaster",
+          "status": "passed",
+          "seconds": 91.592,
+          "run": "rows-light-retry"
+        }
+      ]
+    },
+    "rows-light-capture": {
+      "result": "Passed",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "cases": [
+        {
+          "test": "CalendarMonthDrawerUITests/testCaptureRecurrenceScheduleRows",
+          "status": "failed",
+          "seconds": 39.534,
+          "run": "rows-light-capture"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testCaptureRecurrenceScheduleRows",
+          "status": "passed",
+          "seconds": 53.693,
+          "run": "rows-light-capture"
+        }
+      ]
+    },
+    "rows-dark-capture": {
+      "result": "Passed",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "cases": [
+        {
+          "test": "CalendarMonthDrawerUITests/testCaptureRecurrenceScheduleRows",
+          "status": "failed",
+          "seconds": 40.069,
+          "run": "rows-dark-capture"
+        },
+        {
+          "test": "CalendarMonthDrawerUITests/testCaptureRecurrenceScheduleRows",
+          "status": "passed",
+          "seconds": 55.602,
+          "run": "rows-dark-capture"
+        }
+      ]
+    },
+    "rows-se-capture": {
+      "result": "Passed",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "cases": [
+        {
+          "test": "CalendarMonthDrawerUITests/testCaptureRecurrenceScheduleRowsOnSmallScreen",
+          "status": "passed",
+          "seconds": 41.819,
+          "run": "rows-se-capture"
+        }
+      ]
+    }
+  },
+  "screenshots": {
+    "total": 83,
+    "added": 9,
+    "files": [
+      "22-recurrence-rows-count-dark.png",
+      "22-recurrence-rows-count-light.png",
+      "22-recurrence-rows-date-dark.png",
+      "22-recurrence-rows-date-light.png",
+      "22-recurrence-rows-monthly-weekday-dark.png",
+      "22-recurrence-rows-monthly-weekday-light.png",
+      "22-recurrence-rows-se-date-light.png",
+      "22-recurrence-rows-weekly-dark.png",
+      "22-recurrence-rows-weekly-light.png"
+    ],
+    "sha256Verified": true
+  },
+  "notes": [
+    "Removed recurrence disclosure and show schedule rows whenever enabled; numeric interval label is local to the view.",
+    "No changes to recurrence storage, cadence summaries, occurrence calculation or generation.",
+    "Known first launch of a test session ignored test arguments and opened the normal app without fixtures. Failed attempts are retained, including retries within a capture run; no launch fix is claimed.",
+    "The first yearly test saw the switch still off immediately after one tap following help dismissal. The same unchanged binary passed on rerun, including count/date persistence. No application change or root-cause fix is claimed."
+  ]
+}

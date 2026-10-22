@@ -5,7 +5,6 @@ struct PlanRecurrenceControls: View {
     @Binding var rule: PlanRecurrenceRule?
     var initialDate: Date = Date()
     @State private var isEnabled: Bool
-    @State private var scheduleExpanded = false
     @State private var occurrenceCountText = "10"
     @FocusState private var countIsFocused: Bool
 
@@ -60,15 +59,14 @@ struct PlanRecurrenceControls: View {
                         .font(.caption).foregroundStyle(LiminalTheme.secondaryText)
                 case .daily: EmptyView()
                 }
-                scheduleHeader
-                if scheduleExpanded { scheduleControls }
+                Rectangle().fill(LiminalTheme.divider).frame(height: 1)
+                scheduleControls
             }
         }
         // Keep the native switch bound to stable Boolean state while its details
         // enter/leave the hierarchy, rather than rebuilding an optional-to-Bool binding.
         .onChange(of: isEnabled) { _, enabled in
             rule = enabled ? (rule ?? PlanRecurrenceRule(startDate: initialDate)) : nil
-            if !enabled { scheduleExpanded = false }
         }
         .onChange(of: rule != nil) { _, enabled in
             if isEnabled != enabled { isEnabled = enabled }
@@ -79,43 +77,9 @@ struct PlanRecurrenceControls: View {
         }
     }
 
-    private var scheduleSummary: String {
+    private var intervalLabel: String {
         let rule = value.wrappedValue
-        return "\(rule.cadence) · \(rule.startDate.japaneseMonthDay)から · \(rule.endingSummary)"
-    }
-
-    private var scheduleHeader: some View {
-        Button {
-            withAnimation(.easeInOut(duration: 0.2)) { scheduleExpanded.toggle() }
-        } label: {
-            HStack(spacing: 8) {
-                ViewThatFits(in: .horizontal) {
-                    HStack {
-                        Text("間隔・開始日・終了").fixedSize()
-                        Spacer(minLength: 12)
-                        Text(scheduleSummary).foregroundStyle(LiminalTheme.secondaryText).fixedSize()
-                    }
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("間隔・開始日・終了")
-                        Text(scheduleSummary).font(.caption).foregroundStyle(LiminalTheme.secondaryText)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .font(.subheadline)
-                .foregroundStyle(LiminalTheme.text)
-                Image(systemName: "chevron.right")
-                    .font(.caption.weight(.semibold))
-                    .rotationEffect(.degrees(scheduleExpanded ? 90 : 0))
-                    .foregroundStyle(LiminalTheme.secondaryText)
-            }
-            .frame(minHeight: 44)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("間隔・開始日・終了")
-        .accessibilityValue(scheduleSummary)
-        .accessibilityHint(scheduleExpanded ? "詳細を閉じる" : "詳細を開く")
-        .accessibilityIdentifier("plan-recurrence-schedule-details")
+        return "\(rule.interval)\(rule.frequency == .monthly ? "か月" : rule.frequency.title)ごと"
     }
 
     private var scheduleControls: some View {
@@ -124,7 +88,7 @@ struct PlanRecurrenceControls: View {
                 HStack {
                     Text("間隔")
                     Spacer()
-                    Text(value.wrappedValue.cadence).foregroundStyle(LiminalTheme.secondaryText)
+                    Text(intervalLabel).foregroundStyle(LiminalTheme.secondaryText)
                 }
             }
             .accessibilityIdentifier("plan-recurrence-interval")

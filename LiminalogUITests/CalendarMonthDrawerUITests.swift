@@ -507,7 +507,7 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         XCTAssertEqual(menu.value as? String, choice)
     }
 
-    func testWeeklyRecurrenceKeepsAdvancedControlsCollapsedAndPreservesChoices() {
+    func testWeeklyRecurrenceShowsScheduleRowsAndPreservesChoices() {
         let app = launch(planMemos: true)
         openEditor(app, planID: sourceID)
         let scroll = app.scrollViews["plan-editor-scroll"]
@@ -519,7 +519,7 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         XCTAssertFalse(app.segmentedControls["plan-recurrence-monthly-mode"].exists)
         XCTAssertFalse(app.buttons["plan-recurrence-monthly-details"].exists)
         XCTAssertFalse(app.segmentedControls["plan-recurrence-ending"].exists)
-        XCTAssertFalse(app.steppers["plan-recurrence-interval"].exists)
+        XCTAssertTrue(app.steppers["plan-recurrence-interval"].exists)
         let monday = app.buttons["月曜日"]
         for _ in 0..<3 where !monday.isHittable { scroll.swipeUp() }
         if !monday.isSelected { monday.tap() }
@@ -528,33 +528,23 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         for day in ["日曜日", "火曜日", "木曜日", "金曜日", "土曜日"] where app.buttons[day].isSelected {
             app.buttons[day].tap()
         }
-        // Keep the full compact recurrence card in the capture, including its detail summary.
         for _ in 0..<3 where toggle.frame.minY > 320 { scroll.swipeUp(velocity: .slow) }
-        keepScreenshot(app, name: "18-recurrence-weekly")
         frequency.buttons["毎月"].tap()
         XCTAssertTrue(app.buttons["plan-recurrence-monthly-mode"].isSelected)
         XCTAssertTrue(app.buttons["plan-recurrence-monthly-weekday-option"].exists)
         XCTAssertFalse(app.segmentedControls["plan-recurrence-monthly-mode"].exists)
         XCTAssertFalse(app.buttons["第2週"].exists)
-        keepScreenshot(app, name: "18-recurrence-monthly-collapsed")
         frequency.buttons["毎週"].tap()
         XCTAssertTrue(monday.isSelected && wednesday.isSelected)
-        let details = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'plan-recurrence-schedule-details'")).firstMatch
-        for _ in 0..<3 where !details.isHittable { scroll.swipeUp() }
-        details.tap()
         let stepper = app.steppers["plan-recurrence-interval"]
         for _ in 0..<3 where !stepper.isHittable { scroll.swipeUp() }
+        XCTAssertTrue(stepper.label.contains("1週ごと"), stepper.debugDescription)
         stepper.buttons.element(boundBy: 1).tap()
+        XCTAssertTrue(stepper.label.contains("2週ごと"), stepper.debugDescription)
         selectRecurrenceEnding("回数", in: app, scroll: scroll)
         let count = app.textFields["plan-recurrence-count"]
         XCTAssertEqual(count.value as? String, "10")
-        for _ in 0..<3 where !details.isHittable { scroll.swipeDown() }
-        details.tap()
-        XCTAssertFalse(count.exists)
-        XCTAssertTrue((details.value as? String ?? "").contains("2週ごと") && (details.value as? String ?? "").contains("10回"))
-        details.tap()
-        for _ in 0..<3 where !count.exists { scroll.swipeUp() }
-        XCTAssertEqual(count.value as? String, "10")
+        XCTAssertEqual(app.buttons["plan-recurrence-ending"].value as? String, "回数")
         XCTAssertEqual(toggle.value as? String, "1")
         app.buttons["保存"].tap()
         XCTAssertTrue(app.buttons["calendar-drawer-edit"].waitForExistence(timeout: 5))
@@ -563,16 +553,15 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         for _ in 0..<5 where !master.isHittable { scroll.swipeUp() }
         master.tap()
         XCTAssertTrue(app.navigationBars["プリセットを編集"].waitForExistence(timeout: 5))
-        let saved = app.buttons["plan-recurrence-schedule-details"]
-        for _ in 0..<5 where !saved.isHittable { app.scrollViews.firstMatch.swipeUp() }
-        XCTAssertTrue((saved.value as? String ?? "").contains("2週ごと"))
-        XCTAssertTrue((saved.value as? String ?? "").contains("10回"))
+        for _ in 0..<5 where !count.isHittable { app.scrollViews.firstMatch.swipeUp() }
+        XCTAssertTrue(stepper.label.contains("2週ごと"), stepper.debugDescription)
+        XCTAssertEqual(count.value as? String, "10")
+        XCTAssertEqual(app.buttons["plan-recurrence-ending"].value as? String, "回数")
         XCTAssertTrue(frequency.buttons["毎週"].isSelected)
         XCTAssertTrue(monday.isSelected && wednesday.isSelected)
-        XCTAssertFalse(count.exists)
     }
 
-    func testMonthlyOrdinalWeekdayRecurrenceShowsSummaryAndSaves() {
+    func testMonthlyOrdinalWeekdayRecurrenceShowsRowsAndSaves() {
         let app = launch(planMemos: true)
         openEditor(app, planID: sourceID)
         let scroll = app.scrollViews["plan-editor-scroll"]
@@ -608,7 +597,7 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         XCTAssertTrue(app.segmentedControls["plan-recurrence-frequency"].buttons["毎月"].isSelected)
         XCTAssertTrue(second.isSelected && fourth.isSelected && app.buttons["水曜日"].isSelected)
         XCTAssertFalse(app.buttons["第1週"].isSelected)
-        XCTAssertFalse(app.steppers["plan-recurrence-interval"].exists)
+        XCTAssertTrue(app.steppers["plan-recurrence-interval"].exists)
     }
 
     func testRecurrenceYearCountAndInfoAreSavedInMaster() {
@@ -633,7 +622,7 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         let yearly = app.segmentedControls["plan-recurrence-frequency"].buttons["毎年"]
         for _ in 0..<4 where !yearly.isHittable { app.scrollViews["plan-editor-scroll"].swipeUp() }
         yearly.tap()
-        app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'plan-recurrence-schedule-details'")).firstMatch.tap()
+        XCTAssertTrue(app.steppers["plan-recurrence-interval"].label.contains("1年ごと"))
         selectRecurrenceEnding("回数", in: app, scroll: app.scrollViews["plan-editor-scroll"])
         let count = app.textFields["plan-recurrence-count"]
         count.coordinate(withNormalizedOffset: CGVector(dx: 0.98, dy: 0.5)).tap()
@@ -658,26 +647,31 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         XCTAssertTrue(important.isHittable, app.debugDescription)
         important.tap()
         XCTAssertEqual(important.value as? String, "オン")
-        let details = app.buttons["plan-recurrence-schedule-details"]
-        for _ in 0..<5 where !details.isHittable { app.scrollViews.firstMatch.swipeUp() }
-        XCTAssertTrue((details.value as? String ?? "").contains("3回で終了"))
+        for _ in 0..<5 where !count.isHittable { app.scrollViews.firstMatch.swipeUp() }
+        XCTAssertEqual(count.value as? String, "3")
+        XCTAssertEqual(app.buttons["plan-recurrence-ending"].value as? String, "回数")
         XCTAssertTrue(yearly.isSelected)
-        XCTAssertFalse(app.textFields["plan-recurrence-count"].exists)
-        keepScreenshot(app, name: "設定済みの繰り返しは周期を直接表示")
-        details.tap()
+        XCTAssertTrue(app.steppers["plan-recurrence-interval"].label.contains("1年ごと"))
+        keepScreenshot(app, name: "設定済みの繰り返しは周期と終了条件を直接表示")
         selectRecurrenceEnding("日時", in: app, scroll: app.scrollViews.firstMatch)
         let endDate = element(app, "plan-recurrence-end-date")
         for _ in 0..<4 where !endDate.isHittable { app.scrollViews.allElementsBoundByIndex.first { $0.isHittable }?.swipeUp() }
         XCTAssertTrue(endDate.isHittable, app.debugDescription)
         XCTAssertFalse(count.exists)
+        let savedEndDate = endDate.value as? String
+        XCTAssertNotNil(savedEndDate)
+        selectRecurrenceEnding("日時", in: app, scroll: app.scrollViews.firstMatch)
+        XCTAssertEqual(endDate.value as? String, savedEndDate)
         keepScreenshot(app, name: "繰り返しを日時で終了する設定")
         app.navigationBars["プリセットを編集"].buttons["保存"].tap()
         XCTAssertTrue(master.waitForExistence(timeout: 5))
         master.tap()
         XCTAssertTrue(app.navigationBars["プリセットを編集"].waitForExistence(timeout: 5))
-        XCTAssertTrue((details.value as? String ?? "").contains("まで"))
-        XCTAssertTrue(yearly.isSelected)
         XCTAssertEqual(stars.allElementsBoundByIndex.first { $0.isHittable }?.value as? String, "オン")
+        for _ in 0..<5 where !endDate.isHittable { app.scrollViews.firstMatch.swipeUp() }
+        XCTAssertEqual(app.buttons["plan-recurrence-ending"].value as? String, "日時")
+        XCTAssertEqual(endDate.value as? String, savedEndDate)
+        XCTAssertTrue(yearly.isSelected)
     }
 
     func testMainAndMemoSwitchPreservesTimeAndPersists() {
@@ -1621,7 +1615,7 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         keepScreenshot(app, name: "15-recurrence-selection")
     }
 
-    func testCaptureRecurrenceRows() throws {
+    func testCaptureRecurrenceScheduleRows() throws {
         try requirePolishCapture()
         let app = launch(planMemos: true, useCalendarTab: true)
         openEditor(app, planID: sourceID)
@@ -1630,37 +1624,59 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         for _ in 0..<5 where !toggle.isHittable || toggle.frame.maxY > app.frame.maxY - 120 { scroll.swipeUp() }
         toggle.tap()
         let frequency = app.segmentedControls["plan-recurrence-frequency"]
-        let details = app.buttons["plan-recurrence-schedule-details"]
-        for _ in 0..<3 where !details.isHittable || details.frame.maxY > app.frame.maxY - 100 { scroll.swipeUp(velocity: .slow) }
+        let ending = app.buttons["plan-recurrence-ending"]
+        for _ in 0..<3 where !ending.isHittable || ending.frame.maxY > app.frame.maxY - 100 { scroll.swipeUp(velocity: .slow) }
         XCTAssertTrue(frequency.buttons["毎週"].isSelected)
-        XCTAssertFalse(app.buttons["plan-recurrence-monthly-mode"].exists)
-        Thread.sleep(forTimeInterval: 0.5) // Record the settled tab underline and disclosure arrow.
-        keepScreenshot(app, name: "20-recurrence-weekly")
+        XCTAssertTrue(app.steppers["plan-recurrence-interval"].label.contains("1週ごと"))
+        XCTAssertEqual(ending.value as? String, "しない")
+        Thread.sleep(forTimeInterval: 0.5)
+        keepScreenshot(app, name: "22-recurrence-rows-weekly")
         frequency.buttons["毎月"].tap()
-        let date = app.buttons["plan-recurrence-monthly-mode"]
-        XCTAssertTrue(date.isSelected)
-        XCTAssertEqual(date.label, "毎月10日")
-        XCTAssertFalse(app.buttons["第2週"].exists)
-        Thread.sleep(forTimeInterval: 0.5) // Record the settled tab underline and disclosure arrow.
-        keepScreenshot(app, name: "20-recurrence-monthly-date")
         app.buttons["plan-recurrence-monthly-weekday-option"].tap()
         app.buttons["第2週"].tap(); app.buttons["第4週"].tap(); app.buttons["第1週"].tap()
         app.buttons["水曜日"].tap()
-        for _ in 0..<3 where !details.isHittable || details.frame.maxY > app.frame.maxY - 100 { scroll.swipeUp(velocity: .slow) }
+        for _ in 0..<3 where !ending.isHittable || ending.frame.maxY > app.frame.maxY - 100 { scroll.swipeUp(velocity: .slow) }
         XCTAssertTrue(app.buttons["第2週"].isSelected && app.buttons["第4週"].isSelected && app.buttons["水曜日"].isSelected)
-        Thread.sleep(forTimeInterval: 0.5) // Record the settled tab underline and disclosure arrow.
-        keepScreenshot(app, name: "20-recurrence-monthly-weekday")
-        frequency.buttons["毎年"].tap()
-        XCTAssertTrue(app.staticTexts["毎年\(Calendar.current.component(.month, from: fixtureDay))月10日（開始日と同じ日）"].exists)
-        Thread.sleep(forTimeInterval: 0.5) // Record the settled tab underline and disclosure arrow.
-        keepScreenshot(app, name: "20-recurrence-yearly")
-        details.tap()
+        XCTAssertTrue(app.steppers["plan-recurrence-interval"].label.contains("1か月ごと"))
+        Thread.sleep(forTimeInterval: 0.5)
+        keepScreenshot(app, name: "22-recurrence-rows-monthly-weekday")
         selectRecurrenceEnding("回数", in: app, scroll: scroll)
         let count = app.textFields["plan-recurrence-count"]
         for _ in 0..<3 where !count.isHittable || count.frame.maxY > app.frame.maxY - 100 { scroll.swipeUp(velocity: .slow) }
         XCTAssertEqual(count.value as? String, "10")
-        Thread.sleep(forTimeInterval: 0.5) // Record the settled tab underline and disclosure arrow.
-        keepScreenshot(app, name: "20-recurrence-ending-count")
+        Thread.sleep(forTimeInterval: 0.5)
+        keepScreenshot(app, name: "22-recurrence-rows-count")
+        selectRecurrenceEnding("日時", in: app, scroll: scroll)
+        let endDate = element(app, "plan-recurrence-end-date")
+        for _ in 0..<3 where !endDate.isHittable || endDate.frame.maxY > app.frame.maxY - 100 { scroll.swipeUp(velocity: .slow) }
+        XCTAssertTrue(endDate.isHittable)
+        XCTAssertFalse(count.exists)
+        Thread.sleep(forTimeInterval: 0.5)
+        keepScreenshot(app, name: "22-recurrence-rows-date")
+    }
+
+    func testCaptureRecurrenceScheduleRowsOnSmallScreen() throws {
+        try requirePolishCapture()
+        let app = launch(planMemos: true)
+        XCTAssertEqual(app.frame.width, 375)
+        openEditor(app, planID: sourceID)
+        let scroll = app.scrollViews["plan-editor-scroll"]
+        let toggle = app.switches["plan-recurrence-enabled"]
+        for _ in 0..<6 where !toggle.isHittable || toggle.frame.maxY > app.frame.maxY - 120 { scroll.swipeUp() }
+        toggle.tap()
+        app.segmentedControls["plan-recurrence-frequency"].buttons["毎月"].tap()
+        let stepper = app.steppers["plan-recurrence-interval"]
+        for _ in 0..<4 where !stepper.isHittable || stepper.frame.maxY > app.frame.maxY - 100 { scroll.swipeUp(velocity: .slow) }
+        for _ in 0..<11 { stepper.buttons.element(boundBy: 1).tap() }
+        XCTAssertTrue(stepper.label.contains("12か月ごと"), stepper.debugDescription)
+        selectRecurrenceEnding("日時", in: app, scroll: scroll)
+        let endDate = element(app, "plan-recurrence-end-date")
+        for _ in 0..<4 where !endDate.isHittable || endDate.frame.maxY > app.frame.maxY - 100 { scroll.swipeUp(velocity: .slow) }
+        XCTAssertTrue(stepper.isHittable && endDate.isHittable)
+        XCTAssertLessThan(stepper.frame.height, 45, "間隔行を折り返さない")
+        XCTAssertLessThan(endDate.frame.height, 45, "終了日時行を折り返さない")
+        Thread.sleep(forTimeInterval: 0.5)
+        keepScreenshot(app, name: "22-recurrence-rows-se-date")
     }
 
     func testCaptureUnderlineFilterPreservesSelections() throws {
@@ -1919,6 +1935,8 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
         XCTAssertTrue(app.buttons["毎日"].waitForExistence(timeout: 5), app.debugDescription)
         app.buttons["毎日"].tap()
+        XCTAssertTrue(app.steppers["plan-recurrence-interval"].label.contains("1日ごと"))
+        XCTAssertEqual(app.buttons["plan-recurrence-ending"].value as? String, "しない")
         keepScreenshot(app, name: "一日プリセットの自動適用設定")
         app.buttons["完了"].tap()
         app.buttons["保存"].tap()
