@@ -60,6 +60,17 @@ enum CalendarMonthDrawerUITestFixture {
             context.insert(PlanBlock(category: nil, title: "UITest 重複予定",
                 startTime: start, endTime: start.addingTimeInterval(2400), isPublic: false))
         }
+        if ProcessInfo.processInfo.arguments.contains("-LiminalogUITestChapters") {
+            let category = Category(name: "読書", colorHex: "#537BC5", icon: "book.fill", sortOrder: -1)
+            context.insert(category)
+            let now = Date()
+            let today = DayBoundary.dayStart(for: now)
+            let elapsed = now.timeIntervalSince(today)
+            let chapter = Chapter(category: category, startTime: today.addingTimeInterval(elapsed / 3))
+            chapter.endTime = today.addingTimeInterval(elapsed / 2)
+            chapter.isPublic = false
+            context.insert(chapter)
+        }
         if ProcessInfo.processInfo.arguments.contains("-LiminalogUITestTemplateReplacement") {
             let work = Category(name: "仕事", colorHex: "#7E57C2", icon: "laptopcomputer")
             let rest = Category(name: "休息", colorHex: "#2E9B71", icon: "cup.and.saucer.fill")

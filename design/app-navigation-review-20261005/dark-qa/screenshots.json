@@ -1608,5 +1608,131 @@
     "test": "CalendarMonthDrawerUITests/testCaptureEditorPolish()",
     "attachments": "/private/tmp/liminalog-polish-20261021/editor-polish-light-final-attachments",
     "original": "04CB79FD-344D-4841-A3DC-A17D8D9FB1E4.png"
+  },
+  "26-chapter-visibility-dark.png": {
+    "phase": "after",
+    "appearance": "dark",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "078a1656764c6fcd1a56d82a469f5e3d4401b0f8980a45814af2a7bfa1e06343",
+    "bytes": 953403,
+    "test": "CalendarMonthDrawerUITests/testCaptureChapterVisibility()",
+    "attachments": "/private/tmp/liminalog-preset-layout-20261023/dark-attachments",
+    "original": "75E964EC-CC29-4D85-900C-A5AF68B6A2D2.png"
+  },
+  "26-chapter-visibility-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "bfc0cdb5598d6be4bf15c9921ace2c328c17b0fc4a537e8959fb82cf8fe143e2",
+    "bytes": 1118902,
+    "test": "CalendarMonthDrawerUITests/testCaptureChapterVisibility()",
+    "attachments": "/private/tmp/liminalog-preset-layout-20261023/light-fixed-attachments",
+    "original": "ACCD15DF-DFF9-454F-BD5A-A2D81DD3F96A.png"
+  },
+  "26-preset-editor-lower-dark.png": {
+    "phase": "after",
+    "appearance": "dark",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "8c6be575b45580e03ca1a31be0780f79216fa827865818e14dfaca198f8378a9",
+    "bytes": 1034307,
+    "test": "CalendarMonthDrawerUITests/testCapturePresetEditorLayout()",
+    "attachments": "/private/tmp/liminalog-preset-layout-20261023/dark-fixed-attachments",
+    "original": "3F9A1C98-2969-4188-BD0D-957D5DE347B5.png"
+  },
+  "26-preset-editor-lower-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "1315904fa60b360ab451b388287dd7961553c148bdabac3667987d37c7926c27",
+    "bytes": 1220287,
+    "test": "CalendarMonthDrawerUITests/testCapturePresetEditorLayout()",
+    "attachments": "/private/tmp/liminalog-preset-layout-20261023/light-attachments",
+    "original": "D20A507C-B061-4060-AECE-FA9F7F4EA8D6.png"
+  },
+  "26-preset-editor-public-dark.png": {
+    "phase": "after",
+    "appearance": "dark",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "679d302d8fcabcce6c0d77a1041d69257226eac7da2c20e158d83764641db4ce",
+    "bytes": 1036009,
+    "test": "CalendarMonthDrawerUITests/testCapturePresetEditorLayout()",
+    "attachments": "/private/tmp/liminalog-preset-layout-20261023/dark-fixed-attachments",
+    "original": "A3688B80-AC2A-48CA-970F-F8393B43E52D.png"
+  },
+  "26-preset-editor-public-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "f2be6d12016d788e26c00769f304f24e7d1afadd68039bcbfb502ada711c5102",
+    "bytes": 1213104,
+    "test": "CalendarMonthDrawerUITests/testCapturePresetEditorLayout()",
+    "attachments": "/private/tmp/liminalog-preset-layout-20261023/light-attachments",
+    "original": "AB45F2F6-03EB-4BC5-818F-D43DF30F29BF.png"
+  },
+  "26-preset-editor-se-lower-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      750,
+      1334
+    ],
+    "scale": 2,
+    "sha256": "11862098bdb4bcf4514528d6ea0606c576024d98df2a1d09e6120f9c01ddf337",
+    "bytes": 453666,
+    "test": "CalendarMonthDrawerUITests/testCapturePresetEditorLayout()",
+    "attachments": "/private/tmp/liminalog-preset-layout-20261023/small-attachments",
+    "original": "0780EDBA-DB24-4E80-B81B-15F8216090DD.png"
+  },
+  "26-preset-editor-upper-dark.png": {
+    "phase": "after",
+    "appearance": "dark",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "8b5350a763c37cd8efd7dfe88ab8882b4b2a193339b158ae553c3450307366ec",
+    "bytes": 917801,
+    "test": "CalendarMonthDrawerUITests/testCapturePresetEditorLayout()",
+    "attachments": "/private/tmp/liminalog-preset-layout-20261023/dark-fixed-attachments",
+    "original": "46E1DEC7-F040-45E1-96E7-8926F1EC7C77.png"
+  },
+  "26-preset-editor-upper-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "c5e1853b7ce2eebe2e5ed87a7a039b6fb0cb6276803613897cb8aeb16975b0f8",
+    "bytes": 1023087,
+    "test": "CalendarMonthDrawerUITests/testCapturePresetEditorLayout()",
+    "attachments": "/private/tmp/liminalog-preset-layout-20261023/light-attachments",
+    "original": "5A60134B-8590-4149-9899-7E4499EB8960.png"
   }
 }

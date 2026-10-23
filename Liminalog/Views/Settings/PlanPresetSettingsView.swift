@@ -539,12 +539,14 @@ struct PlanPresetEditSheet: View {
                     identityCard
                     timeCard
                     categoryCard
-                    PlanEditorCard(tint: selectedCategory?.displayColor ?? LiminalTheme.accent) {
-                        PlanRecurrenceControls(rule: $recurrenceRule)
+                    PlanEditorCard(tint: selectedTint) {
                         PlanReminderControls(minutesBefore: $reminderMinutesBefore, isAllDay: isAllDay)
                     }
-                    noteCard
+                    PlanEditorCard(tint: selectedTint) {
+                        PlanRecurrenceControls(rule: $recurrenceRule)
+                    }
                     visibilityCard
+                    noteCard
                     if preset != nil {
                         deleteCard
                     }
@@ -552,6 +554,7 @@ struct PlanPresetEditSheet: View {
                 .padding(16)
                 .padding(.bottom, 30)
             }
+            .accessibilityIdentifier("preset-editor-scroll")
             .background(LiminalTheme.canvasGradient)
             .navigationTitle(preset == nil ? "プリセットを追加" : "プリセットを編集")
             .navigationBarTitleDisplayMode(.inline)
@@ -822,18 +825,14 @@ struct PlanPresetEditSheet: View {
     private var noteCard: some View {
         PlanEditorCard(tint: selectedTint) {
             VStack(alignment: .leading, spacing: 10) {
-                PlanEditorSectionHeader(
-                    title: "メモ",
-                    systemImage: "note.text",
-                    tint: selectedTint
-                )
-                TextField("メモを追加…", text: $note, axis: .vertical)
-                    .lineLimit(3...6)
-                    .padding(12)
-                    .background(
-                        LiminalTheme.elevated,
-                        in: RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    )
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: "note.text").foregroundStyle(selectedTint).padding(.top, 10)
+                    TextField("メモを追加", text: $note, axis: .vertical)
+                        .lineLimit(1...6)
+                        .frame(minHeight: 44)
+                        .accessibilityLabel("メモ")
+                        .accessibilityIdentifier("preset-note")
+                }
 
                 if note.count > 200 {
                     PlanEditorStatusLabel(
@@ -847,15 +846,12 @@ struct PlanPresetEditSheet: View {
     }
 
     private var visibilityCard: some View {
-        PlanEditorCard(tint: isPublic ? selectedTint : LiminalTheme.secondaryText) {
+        PlanEditorCard(tint: selectedTint) {
             Toggle(isOn: $isPublic) {
-                PlanEditorSectionHeader(
-                    title: isPublic ? "友達に見せる" : "自分だけ",
-                    systemImage: isPublic ? "eye.fill" : "eye.slash.fill",
-                    tint: isPublic ? selectedTint : LiminalTheme.secondaryText
-                )
+                Label("友達に見せる", systemImage: isPublic ? "person.2" : "lock")
             }
-            .tint(selectedTint)
+            .font(.subheadline)
+            .accessibilityIdentifier("preset-visibility")
         }
     }
 

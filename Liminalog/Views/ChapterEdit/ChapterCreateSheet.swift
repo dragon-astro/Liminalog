@@ -72,8 +72,10 @@ struct ChapterCreateSheet: View {
 
                 Section("公開設定") {
                     Toggle(isOn: $isPublic) {
-                        Label(isPublic ? "友達に見せる" : "自分だけ", systemImage: isPublic ? "eye" : "eye.slash")
+                        Label("友達に見せる", systemImage: isPublic ? "person.2" : "lock")
                     }
+                    .font(.subheadline)
+                    .accessibilityIdentifier("chapter-visibility")
                     if isPublic {
                         Button {
                             showingAudiencePicker = true
@@ -95,6 +97,7 @@ struct ChapterCreateSheet: View {
                     }
                 }
             }
+            .accessibilityIdentifier("chapter-create-form")
             .navigationTitle("チャプターを追加")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

@@ -41,6 +41,7 @@ struct ChapterEditSheet: View {
                 .padding(16)
                 .padding(.bottom, 30)
             }
+            .accessibilityIdentifier("chapter-editor-scroll")
             .background(LiminalTheme.canvasGradient)
             .navigationTitle(chapter.isActive ? "記録中のチャプター" : "チャプターを編集")
             .navigationBarTitleDisplayMode(.inline)
@@ -291,13 +292,10 @@ struct ChapterEditSheet: View {
         PlanEditorCard(tint: selectedTint) {
             VStack(alignment: .leading, spacing: 12) {
                 Toggle(isOn: $isPublic) {
-                    PlanEditorSectionHeader(
-                        title: isPublic ? "友達に見せる" : "自分だけ",
-                        systemImage: isPublic ? "eye.fill" : "eye.slash.fill",
-                        tint: isPublic ? LiminalTheme.accent : LiminalTheme.secondaryText
-                    )
+                    Label("友達に見せる", systemImage: isPublic ? "person.2" : "lock")
                 }
-                .tint(selectedTint)
+                .font(.subheadline)
+                .accessibilityIdentifier("chapter-visibility")
 
                 if isPublic {
                     Button {

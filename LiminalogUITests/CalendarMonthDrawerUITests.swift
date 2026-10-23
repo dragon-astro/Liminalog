@@ -15,13 +15,14 @@ final class CalendarMonthDrawerUITests: XCTestCase {
     private func element(_ app: XCUIApplication, _ id: String) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: id).firstMatch
     }
-    private func launch(longNote: Bool = false, previewSource: Bool = false, measureDrop: Bool = false, overlap: Bool = false, templateReplacement: Bool = false, expandedMode: String? = "summary", measureExpansion: Bool = false, planMemos: Bool = false, contentSize: String? = nil, useCalendarTab: Bool = false, editingSamples: Bool = false) -> XCUIApplication {
+    private func launch(longNote: Bool = false, previewSource: Bool = false, measureDrop: Bool = false, overlap: Bool = false, templateReplacement: Bool = false, expandedMode: String? = "summary", measureExpansion: Bool = false, planMemos: Bool = false, contentSize: String? = nil, useCalendarTab: Bool = false, editingSamples: Bool = false, chapters: Bool = false) -> XCUIApplication {
         continueAfterFailure = false
         let app = XCUIApplication()
         app.launchArguments = ["-LiminalogMonthDrawerUITests", "-LiminalogInitialRootTab", "calendar",
                                "-LiminalogInitialCalendarMode", "month", "-calendar.filter.usesCustomCategories", "NO"]
         if planMemos { app.launchArguments.append("-LiminalogUITestPlanMemos") }
         if editingSamples { app.launchArguments.append("-LiminalogUITestEditingSamples") }
+        if chapters { app.launchArguments.append("-LiminalogUITestChapters") }
         if longNote { app.launchArguments.append("-LiminalogUITestLongNote") }
         if previewSource { app.launchArguments.append("-LiminalogUITestPreviewSource") }
         if measureDrop { app.launchArguments.append("-LiminalogMeasureMonthDrop") }
@@ -1776,6 +1777,170 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         openEditor(editor, planID: sourceID)
         XCTAssertTrue(editor.buttons["plan-category-picker"].exists)
         XCTAssertFalse(editor.buttons["その他の並び順"].exists)
+    }
+
+    func testPresetVisibilityAndNotePersistWithStableLabel() {
+        let app = launch(templateReplacement: true)
+        openFixturePresetEditor(app)
+        let scroll = app.scrollViews["preset-editor-scroll"]
+        let visibility = app.switches["preset-visibility"]
+        for _ in 0..<5 where !visibility.isHittable { scroll.swipeUp() }
+        XCTAssertEqual(visibility.label, "友達に見せる")
+        XCTAssertEqual(visibility.value as? String, "0")
+        visibility.tap()
+        XCTAssertEqual(visibility.label, "友達に見せる")
+        XCTAssertEqual(visibility.value as? String, "1")
+        let note = element(app, "preset-note")
+        for _ in 0..<4 where !note.isHittable { scroll.swipeUp() }
+        note.tap()
+        note.typeText(String(repeating: "a", count: 201))
+        let save = app.navigationBars["プリセットを編集"].buttons["保存"]
+        XCTAssertFalse(save.isEnabled)
+        XCTAssertTrue(app.staticTexts["メモは200文字以内にしてください。"].exists)
+        note.typeText(XCUIKeyboardKey.delete.rawValue)
+        XCTAssertTrue(save.isEnabled)
+        XCTAssertFalse(app.staticTexts["メモは200文字以内にしてください。"].exists)
+        save.tap()
+        XCTAssertTrue(app.navigationBars["予定プリセット"].waitForExistence(timeout: 5))
+        app.staticTexts["休憩を編集"].firstMatch.tap()
+        for _ in 0..<5 where !visibility.isHittable { scroll.swipeUp() }
+        XCTAssertEqual(visibility.value as? String, "1")
+        XCTAssertEqual(note.value as? String, String(repeating: "a", count: 200))
+        visibility.tap()
+        XCTAssertEqual(visibility.label, "友達に見せる")
+        save.tap()
+        XCTAssertTrue(app.navigationBars["予定プリセット"].waitForExistence(timeout: 5))
+        app.staticTexts["休憩を編集"].firstMatch.tap()
+        for _ in 0..<5 where !visibility.isHittable { scroll.swipeUp() }
+        XCTAssertEqual(visibility.value as? String, "0")
+        XCTAssertEqual(note.value as? String, String(repeating: "a", count: 200))
+    }
+
+    func testCapturePresetEditorLayout() throws {
+        try requirePolishCapture()
+        let app = launch(templateReplacement: true)
+        openFixturePresetEditor(app)
+        let scroll = app.scrollViews["preset-editor-scroll"]
+        if app.scrollViews["plan-category-board-pager"].exists { app.buttons["plan-category-picker"].tap() }
+        let reminder = app.buttons["plan-reminder-picker"]
+        let recurrence = app.switches["plan-recurrence-enabled"]
+        let visibility = app.switches["preset-visibility"]
+        let note = element(app, "preset-note")
+        let delete = app.buttons["プリセットを削除"]
+        XCTAssertLessThan(reminder.frame.maxY, recurrence.frame.minY)
+        XCTAssertLessThan(recurrence.frame.maxY, visibility.frame.minY)
+        XCTAssertLessThan(visibility.frame.maxY, note.frame.minY)
+        XCTAssertLessThan(note.frame.maxY, delete.frame.minY)
+        let small = app.frame.width < 390
+        if !small {
+            XCTAssertTrue(app.buttons["plan-memo-toggle"].isHittable && reminder.isHittable)
+            keepScreenshot(app, name: "26-preset-editor-upper")
+        }
+        for _ in 0..<6 where !delete.isHittable || delete.frame.maxY > app.frame.maxY - 100 {
+            scroll.swipeUp()
+        }
+        XCTAssertTrue(recurrence.isHittable && delete.isHittable)
+        XCTAssertEqual(visibility.label, "友達に見せる")
+        XCTAssertEqual(visibility.value as? String, "0")
+        XCTAssertLessThanOrEqual(note.frame.height, 50)
+        XCTAssertFalse(app.staticTexts["メモは200文字以内にしてください。"].exists)
+        keepScreenshot(app, name: small ? "26-preset-editor-se-lower" : "26-preset-editor-lower")
+        if !small {
+            visibility.tap()
+            XCTAssertEqual(visibility.label, "友達に見せる")
+            XCTAssertEqual(visibility.value as? String, "1")
+            keepScreenshot(app, name: "26-preset-editor-public")
+        }
+    }
+
+    private func openFixtureChapterTimeline(_ app: XCUIApplication) {
+        app.buttons["当日の予定を閉じる"].tap()
+        app.tabBars.buttons["ホーム"].tap()
+        app.buttons["今日の記録"].tap()
+        let actual = app.buttons["実績"]
+        for _ in 0..<6 where !actual.isHittable { app.swipeUp() }
+        actual.tap()
+    }
+
+    private func openFixtureChapterEditor(_ app: XCUIApplication) {
+        let row = app.buttons.matching(NSPredicate(format: "label BEGINSWITH '読書、'")).firstMatch
+        for _ in 0..<6 where !row.isHittable { app.swipeUp() }
+        XCTAssertTrue(row.isHittable, app.debugDescription)
+        row.tap()
+        XCTAssertTrue(app.navigationBars["チャプターを編集"].waitForExistence(timeout: 5))
+    }
+
+    func testChapterVisibilityKeepsLabelAndPersists() {
+        let app = launch(chapters: true)
+        openFixtureChapterTimeline(app)
+        openFixtureChapterEditor(app)
+        let scroll = app.scrollViews["chapter-editor-scroll"]
+        let visibility = app.switches["chapter-visibility"]
+        for enabled in [true, false] {
+            for _ in 0..<6 where !visibility.isHittable { scroll.swipeUp() }
+            XCTAssertEqual(visibility.label, "友達に見せる")
+            XCTAssertEqual(visibility.value as? String, enabled ? "0" : "1")
+            visibility.tap()
+            XCTAssertEqual(visibility.label, "友達に見せる")
+            XCTAssertEqual(visibility.value as? String, enabled ? "1" : "0")
+            XCTAssertEqual(app.buttons["カテゴリ既定値に戻す"].exists, enabled)
+            app.navigationBars["チャプターを編集"].buttons["保存"].tap()
+            XCTAssertFalse(app.navigationBars["チャプターを編集"].exists)
+            openFixtureChapterEditor(app)
+            for _ in 0..<6 where !visibility.isHittable { scroll.swipeUp() }
+            XCTAssertEqual(visibility.value as? String, enabled ? "1" : "0")
+        }
+    }
+
+    func testChapterCreationVisibilityKeepsLabelAndPersists() {
+        let app = launch(chapters: true)
+        openFixtureChapterTimeline(app)
+        let originalRow = app.buttons.matching(NSPredicate(format: "label BEGINSWITH '読書、'")).firstMatch
+        for _ in 0..<6 where !originalRow.isHittable { app.swipeUp() }
+        XCTAssertTrue(originalRow.isHittable, app.debugDescription)
+        let original = originalRow.label
+        let gap = app.buttons.matching(NSPredicate(format: "label BEGINSWITH '未記録 ' AND label ENDSWITH ' 追加'")).firstMatch
+        for _ in 0..<6 where !gap.isHittable { app.swipeDown() }
+        XCTAssertTrue(gap.isHittable, app.debugDescription)
+        gap.tap()
+        XCTAssertTrue(app.navigationBars["チャプターを追加"].waitForExistence(timeout: 5))
+        let visibility = app.switches["chapter-visibility"]
+        for _ in 0..<6 where !visibility.isHittable || visibility.frame.maxY > app.frame.maxY - 100 {
+            app.swipeUp()
+        }
+        XCTAssertEqual(visibility.label, "友達に見せる")
+        XCTAssertEqual(visibility.value as? String, "1")
+        // Form exposes the whole row as the switch; its blank center is not the control.
+        visibility.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        XCTAssertEqual(visibility.label, "友達に見せる")
+        XCTAssertEqual(visibility.value as? String, "0")
+        XCTAssertFalse(app.buttons["カテゴリ既定値に戻す"].exists)
+        app.navigationBars["チャプターを追加"].buttons["保存"].tap()
+        XCTAssertFalse(app.navigationBars["チャプターを追加"].exists)
+        let added = app.buttons.matching(NSPredicate(format: "label BEGINSWITH '読書、' AND label != %@", original)).firstMatch
+        for _ in 0..<6 where !added.isHittable { app.swipeUp() }
+        XCTAssertTrue(added.isHittable, app.debugDescription)
+        added.tap()
+        XCTAssertTrue(app.navigationBars["チャプターを編集"].waitForExistence(timeout: 5))
+        for _ in 0..<6 where !visibility.isHittable { app.scrollViews["chapter-editor-scroll"].swipeUp() }
+        XCTAssertEqual(visibility.label, "友達に見せる")
+        XCTAssertEqual(visibility.value as? String, "0")
+    }
+
+    func testCaptureChapterVisibility() throws {
+        try requirePolishCapture()
+        let app = launch(chapters: true)
+        openFixtureChapterTimeline(app)
+        openFixtureChapterEditor(app)
+        let scroll = app.scrollViews["chapter-editor-scroll"]
+        let visibility = app.switches["chapter-visibility"]
+        for _ in 0..<6 where !visibility.isHittable || visibility.frame.maxY > app.frame.maxY - 140 {
+            scroll.swipeUp()
+        }
+        XCTAssertTrue(visibility.isHittable, app.debugDescription)
+        XCTAssertEqual(visibility.label, "友達に見せる")
+        XCTAssertEqual(visibility.value as? String, "0")
+        keepScreenshot(app, name: "26-chapter-visibility")
     }
 
     func testCapturePolishEditorAndTimeline() throws {

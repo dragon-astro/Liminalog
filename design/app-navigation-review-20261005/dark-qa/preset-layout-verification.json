@@ -1,0 +1,474 @@
+{
+  "date": "2026-10-23",
+  "scope": "docs/37 section 22; public switch labels and preset editor layout",
+  "baseline": "a0efd6e",
+  "verification_environment": "iOS 26.5 Simulator; Debug UI tests and normal Release build",
+  "production_changes": true,
+  "unique_test_cases": 8,
+  "passed_attempts": 12,
+  "failed_attempts": 4,
+  "latest_results": {
+    "testCaptureChapterVisibility": {
+      "result": "passed",
+      "run": "dark"
+    },
+    "testCapturePresetEditorLayout": {
+      "result": "passed",
+      "run": "dark-fixed"
+    },
+    "testChapterCreationVisibilityKeepsLabelAndPersists": {
+      "result": "passed",
+      "run": "small-creation-fixed"
+    },
+    "testChapterVisibilityKeepsLabelAndPersists": {
+      "result": "passed",
+      "run": "light"
+    },
+    "testPresetCustomReminderStoresOffset": {
+      "result": "passed",
+      "run": "light"
+    },
+    "testPresetInlineCategorySavesChoiceAndSharesExpansionPreference": {
+      "result": "passed",
+      "run": "light"
+    },
+    "testPresetVisibilityAndNotePersistWithStableLabel": {
+      "result": "passed",
+      "run": "light"
+    },
+    "testRecurrenceYearCountAndInfoAreSavedInMaster": {
+      "result": "passed",
+      "run": "light"
+    }
+  },
+  "builds": [
+    {
+      "name": "build",
+      "result": "passed",
+      "log": "/private/tmp/liminalog-preset-layout-20261023/build.log",
+      "summary": "/private/tmp/liminalog-preset-layout-20261023/build-summary.log"
+    },
+    {
+      "name": "build-fixed",
+      "result": "passed",
+      "log": "/private/tmp/liminalog-preset-layout-20261023/build-fixed.log",
+      "summary": "/private/tmp/liminalog-preset-layout-20261023/build-fixed-summary.log"
+    },
+    {
+      "name": "build-capture",
+      "result": "passed",
+      "log": "/private/tmp/liminalog-preset-layout-20261023/build-capture.log",
+      "summary": "/private/tmp/liminalog-preset-layout-20261023/build-capture-summary.log"
+    },
+    {
+      "name": "release-build",
+      "result": "passed",
+      "log": "/private/tmp/liminalog-preset-layout-20261023/release-build.log",
+      "summary": "/private/tmp/liminalog-preset-layout-20261023/release-build-summary.log"
+    }
+  ],
+  "runs": [
+    {
+      "name": "light",
+      "log": "/private/tmp/liminalog-preset-layout-20261023/light.log",
+      "xcresult": "/private/tmp/liminalog-preset-layout-20261023/light.xcresult",
+      "passed": 6,
+      "failed": 2,
+      "skipped": 0,
+      "automatic_test_retries": 0,
+      "tests": [
+        {
+          "name": "testCaptureChapterVisibility",
+          "result": "failed",
+          "duration_seconds": 33.826
+        },
+        {
+          "name": "testCapturePresetEditorLayout",
+          "result": "passed",
+          "duration_seconds": 43.188
+        },
+        {
+          "name": "testChapterCreationVisibilityKeepsLabelAndPersists",
+          "result": "failed",
+          "duration_seconds": 19.19
+        },
+        {
+          "name": "testChapterVisibilityKeepsLabelAndPersists",
+          "result": "passed",
+          "duration_seconds": 46.646
+        },
+        {
+          "name": "testPresetCustomReminderStoresOffset",
+          "result": "passed",
+          "duration_seconds": 128.978
+        },
+        {
+          "name": "testPresetInlineCategorySavesChoiceAndSharesExpansionPreference",
+          "result": "passed",
+          "duration_seconds": 184.308
+        },
+        {
+          "name": "testPresetVisibilityAndNotePersistWithStableLabel",
+          "result": "passed",
+          "duration_seconds": 428.779
+        },
+        {
+          "name": "testRecurrenceYearCountAndInfoAreSavedInMaster",
+          "result": "passed",
+          "duration_seconds": 227.459
+        }
+      ],
+      "devices": [
+        {
+          "architecture": "arm64",
+          "deviceId": "5DA1E432-0D01-42A6-8259-B59A9CEC7854",
+          "deviceName": "Liminalog-Internals-QA-20261016",
+          "modelName": "iPhone 17",
+          "osBuildNumber": "23F77",
+          "osVersion": "26.5",
+          "platform": "iOS Simulator"
+        }
+      ]
+    },
+    {
+      "name": "small",
+      "log": "/private/tmp/liminalog-preset-layout-20261023/small.log",
+      "xcresult": "/private/tmp/liminalog-preset-layout-20261023/small.xcresult",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "automatic_test_retries": 0,
+      "tests": [
+        {
+          "name": "testCapturePresetEditorLayout",
+          "result": "passed",
+          "duration_seconds": 43.557
+        }
+      ],
+      "devices": [
+        {
+          "architecture": "arm64",
+          "deviceId": "88A12ABD-256C-47B9-A314-88B3C80EC01B",
+          "deviceName": "Liminalog-Handoff-Small-20261021",
+          "modelName": "iPhone SE (3rd generation)",
+          "osBuildNumber": "23F77",
+          "osVersion": "26.5",
+          "platform": "iOS Simulator"
+        }
+      ]
+    },
+    {
+      "name": "small-creation-probe",
+      "log": "/private/tmp/liminalog-preset-layout-20261023/small-creation-probe.log",
+      "xcresult": "/private/tmp/liminalog-preset-layout-20261023/small-creation-probe.xcresult",
+      "passed": 0,
+      "failed": 1,
+      "skipped": 0,
+      "automatic_test_retries": 0,
+      "tests": [
+        {
+          "name": "testChapterCreationVisibilityKeepsLabelAndPersists",
+          "result": "failed",
+          "duration_seconds": 80.094
+        }
+      ],
+      "devices": [
+        {
+          "architecture": "arm64",
+          "deviceId": "88A12ABD-256C-47B9-A314-88B3C80EC01B",
+          "deviceName": "Liminalog-Handoff-Small-20261021",
+          "modelName": "iPhone SE (3rd generation)",
+          "osBuildNumber": "23F77",
+          "osVersion": "26.5",
+          "platform": "iOS Simulator"
+        }
+      ]
+    },
+    {
+      "name": "light-fixed",
+      "log": "/private/tmp/liminalog-preset-layout-20261023/light-fixed.log",
+      "xcresult": "/private/tmp/liminalog-preset-layout-20261023/light-fixed.xcresult",
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "automatic_test_retries": 0,
+      "tests": [
+        {
+          "name": "testCaptureChapterVisibility",
+          "result": "passed",
+          "duration_seconds": 68.065
+        },
+        {
+          "name": "testChapterCreationVisibilityKeepsLabelAndPersists",
+          "result": "passed",
+          "duration_seconds": 1055.733
+        }
+      ],
+      "devices": [
+        {
+          "architecture": "arm64",
+          "deviceId": "5DA1E432-0D01-42A6-8259-B59A9CEC7854",
+          "deviceName": "Liminalog-Internals-QA-20261016",
+          "modelName": "iPhone 17",
+          "osBuildNumber": "23F77",
+          "osVersion": "26.5",
+          "platform": "iOS Simulator"
+        }
+      ]
+    },
+    {
+      "name": "small-creation-fixed",
+      "log": "/private/tmp/liminalog-preset-layout-20261023/small-creation-fixed.log",
+      "xcresult": "/private/tmp/liminalog-preset-layout-20261023/small-creation-fixed.xcresult",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "automatic_test_retries": 0,
+      "tests": [
+        {
+          "name": "testChapterCreationVisibilityKeepsLabelAndPersists",
+          "result": "passed",
+          "duration_seconds": 164.797
+        }
+      ],
+      "devices": [
+        {
+          "architecture": "arm64",
+          "deviceId": "88A12ABD-256C-47B9-A314-88B3C80EC01B",
+          "deviceName": "Liminalog-Handoff-Small-20261021",
+          "modelName": "iPhone SE (3rd generation)",
+          "osBuildNumber": "23F77",
+          "osVersion": "26.5",
+          "platform": "iOS Simulator"
+        }
+      ]
+    },
+    {
+      "name": "dark",
+      "log": "/private/tmp/liminalog-preset-layout-20261023/dark.log",
+      "xcresult": "/private/tmp/liminalog-preset-layout-20261023/dark.xcresult",
+      "passed": 1,
+      "failed": 1,
+      "skipped": 0,
+      "automatic_test_retries": 0,
+      "tests": [
+        {
+          "name": "testCaptureChapterVisibility",
+          "result": "passed",
+          "duration_seconds": 67.504
+        },
+        {
+          "name": "testCapturePresetEditorLayout",
+          "result": "failed",
+          "duration_seconds": 2169.144
+        }
+      ],
+      "devices": [
+        {
+          "architecture": "arm64",
+          "deviceId": "5DA1E432-0D01-42A6-8259-B59A9CEC7854",
+          "deviceName": "Liminalog-Internals-QA-20261016",
+          "modelName": "iPhone 17",
+          "osBuildNumber": "23F77",
+          "osVersion": "26.5",
+          "platform": "iOS Simulator"
+        }
+      ]
+    },
+    {
+      "name": "dark-fixed",
+      "log": "/private/tmp/liminalog-preset-layout-20261023/dark-fixed.log",
+      "xcresult": "/private/tmp/liminalog-preset-layout-20261023/dark-fixed.xcresult",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "automatic_test_retries": 0,
+      "tests": [
+        {
+          "name": "testCapturePresetEditorLayout",
+          "result": "passed",
+          "duration_seconds": 34.295
+        }
+      ],
+      "devices": [
+        {
+          "architecture": "arm64",
+          "deviceId": "5DA1E432-0D01-42A6-8259-B59A9CEC7854",
+          "deviceName": "Liminalog-Internals-QA-20261016",
+          "modelName": "iPhone 17",
+          "osBuildNumber": "23F77",
+          "osVersion": "26.5",
+          "platform": "iOS Simulator"
+        }
+      ]
+    }
+  ],
+  "resolved_test_failures": [
+    {
+      "run": "light",
+      "test": "testCaptureChapterVisibility",
+      "finding": "Custom positioning left the switch non-hittable. Replaced positioning with normal scrolling and visibility checks; light-fixed and dark passed."
+    },
+    {
+      "run": "light",
+      "test": "testChapterCreationVisibilityKeepsLabelAndPersists",
+      "finding": "Synthesized event tapped the empty center of the Form row at (201, 814.5). Scroll the row fully into view and tap the visible switch at its trailing side; light-fixed and small-creation-fixed passed."
+    },
+    {
+      "run": "small-creation-probe",
+      "test": "testChapterCreationVisibilityKeepsLabelAndPersists",
+      "finding": "Queried a lazy timeline row before it was visible. Reveal the source chapter before reading its label; small-creation-fixed passed."
+    },
+    {
+      "run": "dark",
+      "test": "testCapturePresetEditorLayout",
+      "finding": "XCTest timed out synthesizing a custom drag; Mac sleep intervals overlap the test. Changed capture positioning to a normal swipe; dark-fixed passed with idle sleep inhibited for that command."
+    }
+  ],
+  "performance_measurement": false,
+  "environment_note": "Host sleep overlaps long AX query and drag delays. These test durations are not application performance measurements. Power events saved in sleep-during-tests.log.",
+  "screenshots": [
+    {
+      "name": "26-chapter-visibility-dark.png",
+      "phase": "after",
+      "appearance": "dark",
+      "pixels": [
+        1206,
+        2622
+      ],
+      "scale": 3,
+      "sha256": "078a1656764c6fcd1a56d82a469f5e3d4401b0f8980a45814af2a7bfa1e06343",
+      "bytes": 953403,
+      "test": "CalendarMonthDrawerUITests/testCaptureChapterVisibility()",
+      "attachments": "/private/tmp/liminalog-preset-layout-20261023/dark-attachments",
+      "original": "75E964EC-CC29-4D85-900C-A5AF68B6A2D2.png"
+    },
+    {
+      "name": "26-chapter-visibility-light.png",
+      "phase": "after",
+      "appearance": "light",
+      "pixels": [
+        1206,
+        2622
+      ],
+      "scale": 3,
+      "sha256": "bfc0cdb5598d6be4bf15c9921ace2c328c17b0fc4a537e8959fb82cf8fe143e2",
+      "bytes": 1118902,
+      "test": "CalendarMonthDrawerUITests/testCaptureChapterVisibility()",
+      "attachments": "/private/tmp/liminalog-preset-layout-20261023/light-fixed-attachments",
+      "original": "ACCD15DF-DFF9-454F-BD5A-A2D81DD3F96A.png"
+    },
+    {
+      "name": "26-preset-editor-lower-dark.png",
+      "phase": "after",
+      "appearance": "dark",
+      "pixels": [
+        1206,
+        2622
+      ],
+      "scale": 3,
+      "sha256": "8c6be575b45580e03ca1a31be0780f79216fa827865818e14dfaca198f8378a9",
+      "bytes": 1034307,
+      "test": "CalendarMonthDrawerUITests/testCapturePresetEditorLayout()",
+      "attachments": "/private/tmp/liminalog-preset-layout-20261023/dark-fixed-attachments",
+      "original": "3F9A1C98-2969-4188-BD0D-957D5DE347B5.png"
+    },
+    {
+      "name": "26-preset-editor-lower-light.png",
+      "phase": "after",
+      "appearance": "light",
+      "pixels": [
+        1206,
+        2622
+      ],
+      "scale": 3,
+      "sha256": "1315904fa60b360ab451b388287dd7961553c148bdabac3667987d37c7926c27",
+      "bytes": 1220287,
+      "test": "CalendarMonthDrawerUITests/testCapturePresetEditorLayout()",
+      "attachments": "/private/tmp/liminalog-preset-layout-20261023/light-attachments",
+      "original": "D20A507C-B061-4060-AECE-FA9F7F4EA8D6.png"
+    },
+    {
+      "name": "26-preset-editor-public-dark.png",
+      "phase": "after",
+      "appearance": "dark",
+      "pixels": [
+        1206,
+        2622
+      ],
+      "scale": 3,
+      "sha256": "679d302d8fcabcce6c0d77a1041d69257226eac7da2c20e158d83764641db4ce",
+      "bytes": 1036009,
+      "test": "CalendarMonthDrawerUITests/testCapturePresetEditorLayout()",
+      "attachments": "/private/tmp/liminalog-preset-layout-20261023/dark-fixed-attachments",
+      "original": "A3688B80-AC2A-48CA-970F-F8393B43E52D.png"
+    },
+    {
+      "name": "26-preset-editor-public-light.png",
+      "phase": "after",
+      "appearance": "light",
+      "pixels": [
+        1206,
+        2622
+      ],
+      "scale": 3,
+      "sha256": "f2be6d12016d788e26c00769f304f24e7d1afadd68039bcbfb502ada711c5102",
+      "bytes": 1213104,
+      "test": "CalendarMonthDrawerUITests/testCapturePresetEditorLayout()",
+      "attachments": "/private/tmp/liminalog-preset-layout-20261023/light-attachments",
+      "original": "AB45F2F6-03EB-4BC5-818F-D43DF30F29BF.png"
+    },
+    {
+      "name": "26-preset-editor-se-lower-light.png",
+      "phase": "after",
+      "appearance": "light",
+      "pixels": [
+        750,
+        1334
+      ],
+      "scale": 2,
+      "sha256": "11862098bdb4bcf4514528d6ea0606c576024d98df2a1d09e6120f9c01ddf337",
+      "bytes": 453666,
+      "test": "CalendarMonthDrawerUITests/testCapturePresetEditorLayout()",
+      "attachments": "/private/tmp/liminalog-preset-layout-20261023/small-attachments",
+      "original": "0780EDBA-DB24-4E80-B81B-15F8216090DD.png"
+    },
+    {
+      "name": "26-preset-editor-upper-dark.png",
+      "phase": "after",
+      "appearance": "dark",
+      "pixels": [
+        1206,
+        2622
+      ],
+      "scale": 3,
+      "sha256": "8b5350a763c37cd8efd7dfe88ab8882b4b2a193339b158ae553c3450307366ec",
+      "bytes": 917801,
+      "test": "CalendarMonthDrawerUITests/testCapturePresetEditorLayout()",
+      "attachments": "/private/tmp/liminalog-preset-layout-20261023/dark-fixed-attachments",
+      "original": "46E1DEC7-F040-45E1-96E7-8926F1EC7C77.png"
+    },
+    {
+      "name": "26-preset-editor-upper-light.png",
+      "phase": "after",
+      "appearance": "light",
+      "pixels": [
+        1206,
+        2622
+      ],
+      "scale": 3,
+      "sha256": "c5e1853b7ce2eebe2e5ed87a7a039b6fb0cb6276803613897cb8aeb16975b0f8",
+      "bytes": 1023087,
+      "test": "CalendarMonthDrawerUITests/testCapturePresetEditorLayout()",
+      "attachments": "/private/tmp/liminalog-preset-layout-20261023/light-attachments",
+      "original": "5A60134B-8590-4149-9899-7E4499EB8960.png"
+    }
+  ],
+  "screenshot_review": "All 9 new images inspected; all 124 indexed PNG hashes and dimensions verified.",
+  "not_run": [
+    "physical device verification",
+    "full unit test suite",
+    "performance benchmarking"
+  ],
+  "test_source_sha256": "3598c4fde47331c0d91078751d5fbae4bf8fbdd3712e3872d6768af335a21c00"
+}
