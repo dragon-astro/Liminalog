@@ -66,6 +66,12 @@ labels = {
  '27-editor-se-memo': 'iPhone SE・予定編集の重要とメモ',
  '27-preset-editor-se-main': 'iPhone SE・プリセット編集の先頭カード',
  '27-preset-editor-se-memo': 'iPhone SE・プリセット編集のメモ',
+ '28-title-se-plan-input': 'iPhone SE・長い予定名の入力中',
+ '28-title-se-plan-caret': 'iPhone SE・予定名の途中をタップして修正',
+ '28-title-se-plan-reopened': 'iPhone SE・長い予定名を保存して再編集',
+ '28-title-se-preset-input': 'iPhone SE・長いプリセット名の入力中',
+ '28-title-se-preset-caret': 'iPhone SE・プリセット名の途中を修正',
+ '28-title-se-preset-reopened': 'iPhone SE・プリセット名を保存して再編集',
 }
 body = []
 for stem, label in labels.items():
@@ -84,7 +90,7 @@ for stem, label in labels.items():
 page = '''<!doctype html><html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Liminalog 画面証跡 — 2026-10-23</title><style>
 body{margin:24px auto;padding:0 24px;max-width:1320px;background:#eeeeef;color:#222;font:16px/1.7 system-ui,sans-serif}h1{font-size:24px}h2{font-size:19px;margin-top:36px}.pairs{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;align-items:start}figure{margin:0}figcaption{margin:0 0 8px}img{width:100%;height:auto;border:1px solid #bbb;border-radius:12px;background:#fff}section{border-top:1px solid #ccc;margin-top:28px}p{max-width:900px}a{color:inherit}
-</style><h1>ライト／ダーク画面の確認</h1><p>docs/37 §7・§12・§15・§17・§18・§22・§24 — iOS 26.5 / Debug。システム追従テーマ。iPhone 17は原寸1206×2622px（3x）、SEは750×1334px（2x）。PNGの加工なし。クリックで原寸。10・12・13は変更前後、その他は指定状態の画面記録です。15〜20はこれまでの繰り返し欄、21は下線タブ、22は間隔・開始日・終了を常時表示する構成です。23はメモ切替とカテゴリ横移動、24は開発サンプル、25は編集画面の仕上げ（印・しおり・その他・灰色の入力欄）、26は公開スイッチの文言と予定プリセット編集の並びをそろえた状態、27は先頭カードを1行にまとめた状態です。</p>
+</style><h1>ライト／ダーク画面の確認</h1><p>docs/37 §7・§12・§15・§17・§18・§22・§24・§25 — iOS 26.5 / Debug。システム追従テーマ。iPhone 17は原寸1206×2622px（3x）、SEは750×1334px（2x）。PNGの加工なし。クリックで原寸。10・12・13は変更前後、その他は指定状態の画面記録です。15〜20はこれまでの繰り返し欄、21は下線タブ、22は間隔・開始日・終了を常時表示する構成です。23はメモ切替とカテゴリ横移動、24は開発サンプル、25は編集画面の仕上げ（印・しおり・その他・灰色の入力欄）、26は公開スイッチの文言と予定プリセット編集の並びをそろえた状態、27は先頭カードを1行にまとめた状態、28はSEで長い予定名を入力・修正した検証画面です。</p>
 '''
 (root / 'index.html').write_text(page + '\n'.join(body) + '</html>\n')
 print(f'Indexed {len(images)} screenshots')

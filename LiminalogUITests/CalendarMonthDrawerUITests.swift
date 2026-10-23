@@ -910,6 +910,65 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         XCTAssertTrue(row.label.contains("9:00") && row.label.contains("11:00"), row.label)
     }
 
+    private func exerciseLongTitle(_ app: XCUIApplication, screenshotPrefix: String) -> String {
+        let title = element(app, "予定名")
+        let original = title.value as? String ?? ""
+        let name = "来週のチーム定例会議に向けた提案資料の最終確認と共有"
+        title.tap()
+        title.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: original.count) + name)
+        XCTAssertEqual(title.value as? String, name)
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        let metrics = XCTAttachment(string: "screen=\(app.frame); title=\(title.frame); keyboard=\(app.keyboards.firstMatch.frame); characters=\(name.count)")
+        metrics.name = screenshotPrefix + "-metrics"
+        metrics.lifetime = .keepAlways
+        add(metrics)
+        keepScreenshot(app, name: screenshotPrefix + "-input")
+
+        // Tap inside the visible text, insert a character, then remove only that insertion.
+        title.coordinate(withNormalizedOffset: CGVector(dx: 0.35, dy: 0.5)).tap()
+        title.typeText("仮")
+        let edited = title.value as? String ?? ""
+        XCTAssertEqual(edited.replacingOccurrences(of: "仮", with: ""), name)
+        XCTAssertEqual(edited.count, name.count + 1)
+        XCTAssertFalse(edited.hasPrefix("仮") || edited.hasSuffix("仮"), "Tap should place the caret inside the title: \(edited)")
+        keepScreenshot(app, name: screenshotPrefix + "-caret")
+        title.typeText(XCUIKeyboardKey.delete.rawValue)
+        XCTAssertEqual(title.value as? String, name)
+        return name
+    }
+
+    func testLongPlanTitleCanBeEditedAndReopened() {
+        let app = launch(planMemos: true)
+        openEditor(app, planID: sourceID)
+        let prefix = app.frame.width < 390 ? "28-title-se-plan" : "28-title-plan"
+        let name = exerciseLongTitle(app, screenshotPrefix: prefix)
+        app.buttons["保存"].tap()
+        XCTAssertTrue(app.buttons["calendar-drawer-edit"].waitForExistence(timeout: 5))
+        app.buttons["calendar-drawer-edit"].tap()
+        let title = element(app, "予定名")
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+        XCTAssertEqual(title.value as? String, name)
+        title.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        keepScreenshot(app, name: prefix + "-reopened")
+    }
+
+    func testLongPresetTitleCanBeEditedAndReopened() {
+        let app = launch(templateReplacement: true)
+        openFixturePresetEditor(app)
+        let prefix = app.frame.width < 390 ? "28-title-se-preset" : "28-title-preset"
+        let name = exerciseLongTitle(app, screenshotPrefix: prefix)
+        app.navigationBars["プリセットを編集"].buttons["保存"].tap()
+        XCTAssertTrue(app.navigationBars["予定プリセット"].waitForExistence(timeout: 5))
+        app.staticTexts[name + "を編集"].firstMatch.tap()
+        let title = element(app, "予定名")
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+        XCTAssertEqual(title.value as? String, name)
+        title.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        keepScreenshot(app, name: prefix + "-reopened")
+    }
+
     func testMemoPromotionCancelPreservesMemoAndApplyKeepsMainRemainders() {
         let app = launch(planMemos: true)
         let memoID = "00000000-0000-0000-0000-000000000102"
