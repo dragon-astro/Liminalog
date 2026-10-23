@@ -1,0 +1,195 @@
+{
+  "date": "2026-10-23",
+  "scope": "docs/37 section 20; Simulator follow-up for recurrence first-tap and initial launch",
+  "application_baseline": "60d9ef8",
+  "production_changes": false,
+  "test_source": "LiminalogUITests/CalendarMonthDrawerUITests.swift",
+  "test_source_sha256": "b6bfa586e0b1182819c39a69aafd9f5cf3934ec9d5f06102da37d21c8b067c25",
+  "unique_test_cases": 2,
+  "total_passed_attempts": 8,
+  "total_failed_attempts": 0,
+  "runs": [
+    {
+      "name": "year-baseline",
+      "condition": "existing test; unchanged application",
+      "temporary_application_diagnostics": false,
+      "log": "/private/tmp/liminalog-polish-20261021/followup-year-baseline.log",
+      "xcresult": "/private/tmp/liminalog-polish-20261021/followup-year-baseline.xcresult",
+      "passed_attempts": 3,
+      "failed_attempts": 0,
+      "retries": 0,
+      "tests": [
+        {
+          "name": "LiminalogUITests.CalendarMonthDrawerUITests testRecurrenceYearCountAndInfoAreSavedInMaster",
+          "duration_seconds": 84.202
+        },
+        {
+          "name": "LiminalogUITests.CalendarMonthDrawerUITests testRecurrenceYearCountAndInfoAreSavedInMaster",
+          "duration_seconds": 84.173
+        },
+        {
+          "name": "LiminalogUITests.CalendarMonthDrawerUITests testRecurrenceYearCountAndInfoAreSavedInMaster",
+          "duration_seconds": 88.983
+        }
+      ],
+      "devices": [
+        {
+          "architecture": "arm64",
+          "deviceId": "5DA1E432-0D01-42A6-8259-B59A9CEC7854",
+          "deviceName": "Liminalog-Internals-QA-20261016",
+          "modelName": "iPhone 17",
+          "osBuildNumber": "23F77",
+          "osVersion": "26.5",
+          "platform": "iOS Simulator"
+        }
+      ]
+    },
+    {
+      "name": "fresh-probe",
+      "condition": "new simulator first install; temporary diagnostics",
+      "temporary_application_diagnostics": true,
+      "log": "/private/tmp/liminalog-followup-20261023/fresh-probe.log",
+      "xcresult": "/private/tmp/liminalog-followup-20261023/fresh-probe.xcresult",
+      "passed_attempts": 1,
+      "failed_attempts": 0,
+      "retries": 0,
+      "tests": [
+        {
+          "name": "LiminalogUITests.CalendarMonthDrawerUITests testRecurrenceFrequencyRespondsToFirstTapAfterHelp",
+          "duration_seconds": 74.559
+        }
+      ],
+      "devices": [
+        {
+          "architecture": "arm64",
+          "deviceId": "A9BE33AA-A24F-476B-8E16-10A547AF2A8D",
+          "deviceName": "Liminalog-Launch-QA-20261023",
+          "modelName": "iPhone 17",
+          "osBuildNumber": "23F77",
+          "osVersion": "26.5",
+          "platform": "iOS Simulator"
+        }
+      ]
+    },
+    {
+      "name": "final-large",
+      "condition": "normal application; before explicit category-state assertion",
+      "temporary_application_diagnostics": false,
+      "log": "/private/tmp/liminalog-followup-20261023/final-large.log",
+      "xcresult": "/private/tmp/liminalog-followup-20261023/final-large.xcresult",
+      "passed_attempts": 1,
+      "failed_attempts": 0,
+      "retries": 0,
+      "tests": [
+        {
+          "name": "LiminalogUITests.CalendarMonthDrawerUITests testRecurrenceFrequencyRespondsToFirstTapAfterHelp",
+          "duration_seconds": 66.265
+        }
+      ],
+      "devices": [
+        {
+          "architecture": "arm64",
+          "deviceId": "A9BE33AA-A24F-476B-8E16-10A547AF2A8D",
+          "deviceName": "Liminalog-Launch-QA-20261023",
+          "modelName": "iPhone 17",
+          "osBuildNumber": "23F77",
+          "osVersion": "26.5",
+          "platform": "iOS Simulator"
+        }
+      ]
+    },
+    {
+      "name": "final-small",
+      "condition": "normal application; before explicit category-state assertion",
+      "temporary_application_diagnostics": false,
+      "log": "/private/tmp/liminalog-followup-20261023/final-small.log",
+      "xcresult": "/private/tmp/liminalog-followup-20261023/final-small.xcresult",
+      "passed_attempts": 1,
+      "failed_attempts": 0,
+      "retries": 0,
+      "tests": [
+        {
+          "name": "LiminalogUITests.CalendarMonthDrawerUITests testRecurrenceFrequencyRespondsToFirstTapAfterHelp",
+          "duration_seconds": 66.209
+        }
+      ],
+      "devices": [
+        {
+          "architecture": "arm64",
+          "deviceId": "88A12ABD-256C-47B9-A314-88B3C80EC01B",
+          "deviceName": "Liminalog-Handoff-Small-20261021",
+          "modelName": "iPhone SE (3rd generation)",
+          "osBuildNumber": "23F77",
+          "osVersion": "26.5",
+          "platform": "iOS Simulator"
+        }
+      ]
+    },
+    {
+      "name": "checked-large",
+      "condition": "final test; iPhone 17 dark",
+      "temporary_application_diagnostics": false,
+      "log": "/private/tmp/liminalog-followup-20261023/checked-large.log",
+      "xcresult": "/private/tmp/liminalog-followup-20261023/checked-large.xcresult",
+      "passed_attempts": 1,
+      "failed_attempts": 0,
+      "retries": 0,
+      "tests": [
+        {
+          "name": "LiminalogUITests.CalendarMonthDrawerUITests testRecurrenceFrequencyRespondsToFirstTapAfterHelp",
+          "duration_seconds": 65.967
+        }
+      ],
+      "devices": [
+        {
+          "architecture": "arm64",
+          "deviceId": "A9BE33AA-A24F-476B-8E16-10A547AF2A8D",
+          "deviceName": "Liminalog-Launch-QA-20261023",
+          "modelName": "iPhone 17",
+          "osBuildNumber": "23F77",
+          "osVersion": "26.5",
+          "platform": "iOS Simulator"
+        }
+      ]
+    },
+    {
+      "name": "checked-small",
+      "condition": "final test; iPhone SE light",
+      "temporary_application_diagnostics": false,
+      "log": "/private/tmp/liminalog-followup-20261023/checked-small.log",
+      "xcresult": "/private/tmp/liminalog-followup-20261023/checked-small.xcresult",
+      "passed_attempts": 1,
+      "failed_attempts": 0,
+      "retries": 0,
+      "tests": [
+        {
+          "name": "LiminalogUITests.CalendarMonthDrawerUITests testRecurrenceFrequencyRespondsToFirstTapAfterHelp",
+          "duration_seconds": 66.568
+        }
+      ],
+      "devices": [
+        {
+          "architecture": "arm64",
+          "deviceId": "88A12ABD-256C-47B9-A314-88B3C80EC01B",
+          "deviceName": "Liminalog-Handoff-Small-20261021",
+          "modelName": "iPhone SE (3rd generation)",
+          "osBuildNumber": "23F77",
+          "osVersion": "26.5",
+          "platform": "iOS Simulator"
+        }
+      ]
+    }
+  ],
+  "diagnostics": {
+    "log": "/private/tmp/liminalog-followup-20261023/probe-events.log",
+    "startup": "fixture argument and cached runtime flag both true at model-container initialization and view appearance; ActivePrewarm absent in this launch",
+    "recurrence": "8 frequency setter calls received while enabled, matching all 8 selected-state assertions",
+    "temporary_code_removed": true
+  },
+  "remaining": [
+    "Previous initial-launch failure remains unresolved; not reproduced in this fresh Simulator launch.",
+    "Previous first-tap frequency failure remains unresolved; not reproduced in this follow-up.",
+    "No new physical-device, Release, performance, or full unit-suite validation."
+  ],
+  "screenshots_added": 0
+}

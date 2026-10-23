@@ -601,6 +601,44 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         XCTAssertTrue(app.steppers["plan-recurrence-interval"].exists)
     }
 
+    func testRecurrenceFrequencyRespondsToFirstTapAfterHelp() {
+        let app = launch(planMemos: true)
+        openEditor(app, planID: sourceID)
+        let scroll = app.scrollViews["plan-editor-scroll"]
+        let toggle = app.switches["plan-recurrence-enabled"]
+        let frequency = app.segmentedControls["plan-recurrence-frequency"]
+
+        // Exercise both editor heights. Do not retry taps: that would hide the
+        // reported first-input failure after dismissing help or adding rows.
+        for expandedCategories in [false, true] {
+            for _ in 0..<5 where !app.buttons["plan-category-picker"].isHittable { scroll.swipeDown() }
+            let categoriesExpanded = app.scrollViews["plan-category-board-pager"].exists
+            if categoriesExpanded != expandedCategories { app.buttons["plan-category-picker"].tap() }
+            XCTAssertEqual(app.scrollViews["plan-category-board-pager"].exists, expandedCategories)
+            for _ in 0..<5 where !toggle.isHittable || toggle.frame.maxY > app.frame.maxY - 120 { scroll.swipeUp() }
+            app.buttons["繰り返しについて"].tap()
+            let bubble = element(app, "information-popover")
+            XCTAssertTrue(bubble.waitForExistence(timeout: 5))
+            bubble.swipeUp(); bubble.swipeDown()
+            app.navigationBars.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            XCTAssertFalse(bubble.exists)
+            toggle.tap()
+            XCTAssertEqual(toggle.value as? String, "1")
+            for (label, interval) in [("毎年", "1年ごと"), ("毎月", "1か月ごと"), ("毎日", "1日ごと"), ("毎週", "1週ごと")] {
+                let button = frequency.buttons[label]
+                for _ in 0..<4 where !button.isHittable { scroll.swipeUp() }
+                button.tap()
+                XCTAssertTrue(button.isSelected, "First tap: \(label), categories expanded: \(expandedCategories)\n\(app.debugDescription)")
+                XCTAssertTrue(app.steppers["plan-recurrence-interval"].label.contains(interval))
+                XCTAssertEqual(toggle.value as? String, "1")
+            }
+            for _ in 0..<4 where !toggle.isHittable { scroll.swipeDown() }
+            toggle.tap()
+            XCTAssertEqual(toggle.value as? String, "0")
+            XCTAssertFalse(frequency.exists)
+        }
+    }
+
     func testRecurrenceYearCountAndInfoAreSavedInMaster() {
         let app = launch(planMemos: true)
         openEditor(app, planID: sourceID)

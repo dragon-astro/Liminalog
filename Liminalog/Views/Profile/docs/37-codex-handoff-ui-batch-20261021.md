@@ -587,3 +587,16 @@ Claude が `dark-qa/` の画像を見て、見づらい色・コントラスト�
 - `25-editor-polish-*` を**12枚**追加。iPhone 17の5状態×曙／宵と、SEのタイトル／通知・回数終了の曙2枚。全12枚を目視確認し、既存103枚を含む**全115枚**の寸法・SHA-256を照合した。原寸PNGの加工なし。カスタム通知の周辺にあるカテゴリの開閉は保存済み状態を維持している。
 - 画像一覧は `design/app-navigation-review-20261005/dark-qa/index.html`、集計は同ディレクトリの `editor-polish-verification.json`。一時ログ・xcresultは `/private/tmp/liminalog-polish-20261021/editor-polish-*`。追加画像・集計・コンパクトなログの保管は `artifacts/ui-polish-dark-qa-20261022/editor-polish-followup.tar.gz`。
 - 今回はSimulatorまで。単体テスト全体・性能再計測・実機の追加検証は行っていない。UI初回起動の既知の問題、§7-4のユーザー確認、X2・X3は今回の完了対象に含めていない。
+
+## 20. 初回起動・周期の最初のタップの追加切り分け（2026-10-23 Codex）
+
+§18の仕上げは完了済みで、追加の設計指示はないため、§19で未確定だった2件を継続調査した。
+
+- **毎年の選択失敗は今回未再現**。前回と同じアプリ・同じ `testRecurrenceYearCountAndInfoAreSavedInMaster` を再試行なしで3回実行し、3回とも成功。説明の表示／スクロール／外側を押して閉じる操作、毎年への切替、回数3の保存、元プリセットの再表示、日時終了への変更と再表示まで確認した。
+- **初回起動の指定無視も今回未再現**。新規の専用iPhone 17 / iOS 26.5 Simulatorを作成し、初回インストール・起動を確認。モデルコンテナ作成時と画面表示時の一時診断で、引数のfixtureフラグと `LiminalogRuntime.isRunningUITests` がともに有効だった。初期カレンダーと指定IDの予定も開けた。この起動では `ActivePrewarm` はなかった。過去の失敗の原因を示す証拠ではなく、修正済みにはしない。
+- `testRecurrenceFrequencyRespondsToFirstTapAfterHelp` を追加。カテゴリ欄が閉じている場合と開いている場合の両方で、説明を閉じる→繰り返しオン→毎年・毎月・毎日・毎週を1回ずつ選ぶ→オフを検証。選択状態と間隔表示の両方を確認し、失敗したタップを再試行して通す処理は入れない。
+- 一時診断付きの初回起動では、8回の周期変更すべてで入力がBindingに届き、画面の選択状態も一致した。診断コードはその後撤去。製品の見た目・起動処理・繰り返し処理は変更していない。
+
+- 診断コード撤去後の通常Debugビルドも成功。新規テストはiPhone 17の宵とSE第3世代の曙で成功。カテゴリ欄の開閉状態を明示確認するassertionも加えた最終版を両端末で再実行し、双方成功した。すべてiOS 26.5。実行内訳は既存テスト3反復、診断付き初回1回、通常ビルド2回、最終テスト2回の**2種類・計8実行、失敗0・再試行0**。
+- 集計: `design/app-navigation-review-20261005/dark-qa/editor-stability-verification.json`。ログ・xcresultは `/private/tmp/liminalog-followup-20261023/`（既存3反復のみ `/private/tmp/liminalog-polish-20261021/followup-year-baseline.*`）。コンパクトなログと集計のローカル保管: `artifacts/ui-polish-dark-qa-20261023/editor-stability-followup.tar.gz`。既存の115枚の画像は変更なし。
+- **2件とも原因未確定・修正完了にはしない。** 今回の製品コードには差分を残さず、回帰テストと記録だけを追加。Release再ビルド・実機・性能計測・単体テスト全体は今回の対象外。§7-4のユーザー確認、X2・X3も保留を維持する。
