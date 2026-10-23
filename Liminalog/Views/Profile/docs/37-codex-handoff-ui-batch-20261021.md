@@ -651,3 +651,10 @@ Claude が `dark-qa/` の画像を見て、見づらい色・コントラスト�
 - **指定の9枚を追加・目視確認済み。** iPhone 17で上半分・下半分・公開オン・チャプター公開オフを曙／宵、SEで下半分を曙。`26-*` が今回分。既存115枚は維持し、全124枚の寸法とSHA-256の一致を確認した。
 - 画像一覧: `design/app-navigation-review-20261005/dark-qa/index.html`。集計: 同ディレクトリの `preset-layout-verification.json`。ログ・xcresult: `/private/tmp/liminalog-preset-layout-20261023/`。追加画像・引き継ぎ書・コンパクトなログのローカル保管: `artifacts/ui-polish-dark-qa-20261023/preset-layout-followup.tar.gz`。
 - 今回はSimulatorまで。実機・単体テスト全体・性能再計測は実施していない。§20の未確定事項と§7-4のユーザー確認、X2・X3は今回の完了対象に含めない。
+
+## 24. 予定編集の先頭カードを1行に（2026-10-23、ユーザー直接依頼）
+
+- 「一番上のカードが2列になっているので1列にする」という依頼を反映。予定編集はカテゴリの印・予定名・しおり・星・メモ切替を横一列にし、予定プリセット編集も予定名・星・メモ切替を一列にした。別段の「メイン予定／予定メモ」の見出しは外した。予定名は1行入力とし、長い名前は入力欄内で横に移動して編集する。
+- メインの左帯・実線、メモの破線、メモボタンの選択色は維持。星とメモのタップ領域は44pt、読み上げのオン／オフと切替先の案内も維持した。§18の先頭カードの2段構成は、この直接依頼で置き換えた。
+- Debugビルド成功。既存の `testMainAndMemoSwitchPreservesTimeAndPersists` と `testPresetInlineCategorySavesChoiceAndSharesExpansionPreference` をiPhone 17（宵）・SE（曙）で実行し、**2種類・4実行すべて成功、失敗・再試行なし**。星／メモの保存と再表示、予定時刻の維持、プリセットのカテゴリ・メモ種別の保存を確認した。
+- `27-*` の8枚を追加して目視確認。画像一覧は `design/app-navigation-review-20261005/dark-qa/index.html`、ログ・xcresultは `/private/tmp/liminalog-editor-one-row-20261023/`。画像と検証ログのローカル保管は `artifacts/ui-polish-dark-qa-20261023/editor-one-row.tar.gz`。既存124枚は変更していない。今回はレイアウト変更に対するSimulator検証で、実機・Release再ビルド・性能再計測は行っていない。

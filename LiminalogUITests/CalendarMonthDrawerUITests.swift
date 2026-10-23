@@ -795,7 +795,7 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         let title = element(app, "予定名")
         XCTAssertTrue(bookmark.isHittable)
         XCTAssertEqual(bookmark.frame.minY, title.frame.minY, accuracy: 2)
-        XCTAssertGreaterThan(bookmark.frame.minY, app.buttons["plan-important"].frame.minY)
+        XCTAssertEqual(bookmark.frame.midY, app.buttons["plan-important"].frame.midY, accuracy: 2)
         keepScreenshot(app, name: prefix + "memo")
         if !small {
             category.tap()
@@ -861,11 +861,9 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         openEditor(app, planID: sourceID)
         let memo = app.buttons["plan-memo-toggle"]
         XCTAssertEqual(memo.value as? String, "オフ")
-        XCTAssertEqual(app.staticTexts["plan-editor-kind"].label, "メイン予定")
         keepScreenshot(app, name: app.frame.width < 390 ? "23-editor-se-main" : "23-editor-main")
         memo.tap()
         XCTAssertEqual(memo.value as? String, "オン")
-        XCTAssertEqual(app.staticTexts["plan-editor-kind"].label, "予定メモ")
         app.buttons["plan-important"].tap()
         XCTAssertEqual(app.buttons["plan-important"].value as? String, "オン")
         XCTAssertEqual(memo.value as? String, "オン")
@@ -888,14 +886,22 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         let app = launch(planMemos: true)
         openEditor(app, planID: sourceID)
         let kind = app.buttons["plan-memo-toggle"]
+        let important = app.buttons["plan-important"]
+        let title = element(app, "予定名")
+        let bookmark = app.buttons["予定プリセットを選ぶ"]
+        let prefix = app.frame.width < 390 ? "27-editor-se-" : "27-editor-"
+        XCTAssertTrue(title.isHittable && bookmark.isHittable && important.isHittable && kind.isHittable)
+        keepScreenshot(app, name: prefix + "main")
         kind.tap()
-        keepScreenshot(app, name: "予定の種類を編集画面で切り替え")
+        important.tap()
+        keepScreenshot(app, name: prefix + "memo")
         app.buttons["保存"].tap()
         XCTAssertTrue(app.buttons["calendar-drawer-edit"].waitForExistence(timeout: 5))
         XCTAssertTrue(element(app, "calendar-drawer-plan-\(sourceID)").label.contains("予定メモ"))
         app.buttons["calendar-drawer-edit"].tap()
         XCTAssertTrue(kind.waitForExistence(timeout: 5))
         XCTAssertEqual(kind.value as? String, "オン")
+        XCTAssertEqual(important.value as? String, "オン")
         kind.tap()
         app.buttons["保存"].tap()
         XCTAssertTrue(app.buttons["calendar-drawer-edit"].waitForExistence(timeout: 5))
@@ -1752,9 +1758,12 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         let app = launch(templateReplacement: true)
         openFixturePresetEditor(app)
         let memo = app.buttons["plan-memo-toggle"]
+        let prefix = app.frame.width < 390 ? "27-preset-editor-se-" : "27-preset-editor-"
         XCTAssertEqual(memo.value as? String, "オフ")
+        keepScreenshot(app, name: prefix + "main")
         memo.tap()
-        XCTAssertEqual(app.staticTexts["plan-editor-kind"].label, "予定メモ")
+        XCTAssertEqual(memo.value as? String, "オン")
+        keepScreenshot(app, name: prefix + "memo")
         let category = app.buttons["plan-category-picker"]
         XCTAssertTrue(category.waitForExistence(timeout: 5))
         if !app.buttons["その他の並び順"].exists { category.tap() }
@@ -1772,7 +1781,6 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         XCTAssertEqual(category.value as? String, "仕事")
         XCTAssertFalse(app.buttons["その他の並び順"].exists)
         XCTAssertEqual(memo.value as? String, "オン")
-        XCTAssertEqual(app.staticTexts["plan-editor-kind"].label, "予定メモ")
         let editor = launch(planMemos: true)
         openEditor(editor, planID: sourceID)
         XCTAssertTrue(editor.buttons["plan-category-picker"].exists)

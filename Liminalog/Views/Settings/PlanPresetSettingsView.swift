@@ -664,17 +664,7 @@ struct PlanPresetEditSheet: View {
 
     private var identityCard: some View {
         PlanEditorCard(tint: selectedTint, planIsMemo: isMemo) {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Text(isMemo ? "予定メモ" : "メイン予定")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(LiminalTheme.secondaryText)
-                        .accessibilityIdentifier("plan-editor-kind")
-                    Spacer()
-                    PlanImportanceButton(isImportant: $isImportant)
-                    PlanMemoButton(isMemo: $isMemo)
-                }
-
+            HStack(spacing: 8) {
                 TextField("予定名", text: $title)
                     .font(.headline)
                     .padding(.horizontal, 12)
@@ -683,6 +673,11 @@ struct PlanPresetEditSheet: View {
                         selectedTint.opacity(0.08),
                         in: RoundedRectangle(cornerRadius: 8, style: .continuous)
                     )
+                    .accessibilityLabel("予定名")
+                HStack(spacing: 0) {
+                    PlanImportanceButton(isImportant: $isImportant)
+                    PlanMemoButton(isMemo: $isMemo)
+                }
             }
         }
     }

@@ -355,26 +355,16 @@ struct PlanCreateSheet: View {
 
     private var planTitleCard: some View {
         PlanEditorCard(tint: selectedTint, planIsMemo: isMemo) {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 4) {
-                    Text(isMemo ? "予定メモ" : "メイン予定")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(LiminalTheme.secondaryText)
-                        .accessibilityIdentifier("plan-editor-kind")
-                    Spacer(minLength: 0)
-                    PlanImportanceButton(isImportant: $isImportant)
-                    PlanMemoButton(isMemo: $isMemo).disabled(isScheduleLocked)
-                }
-                HStack(alignment: .top, spacing: 10) {
-                    CategoryPreviewIcon(category: selectedCategory, size: 36)
-                        .frame(height: 44)
-                    TextField(planTitlePlaceholder, text: $title, axis: .vertical)
-                        .font(.headline)
-                        .foregroundStyle(LiminalTheme.text)
-                        .lineLimit(1...3)
-                        .frame(minHeight: 44)
-                        .disabled(isScheduleLocked)
-                        .accessibilityLabel("予定名")
+            HStack(spacing: 8) {
+                CategoryPreviewIcon(category: selectedCategory, size: 36)
+                    .frame(height: 44)
+                TextField(planTitlePlaceholder, text: $title)
+                    .font(.headline)
+                    .foregroundStyle(LiminalTheme.text)
+                    .frame(minHeight: 44)
+                    .disabled(isScheduleLocked)
+                    .accessibilityLabel("予定名")
+                HStack(spacing: 0) {
                     if !planPresets.isEmpty, !isScheduleLocked {
                         Button { showingPresetChoices = true } label: {
                             Image(systemName: "bookmark")
@@ -384,6 +374,8 @@ struct PlanCreateSheet: View {
                         .buttonStyle(.plain)
                         .accessibilityLabel("予定プリセットを選ぶ")
                     }
+                    PlanImportanceButton(isImportant: $isImportant)
+                    PlanMemoButton(isMemo: $isMemo).disabled(isScheduleLocked)
                 }
             }
             .foregroundStyle(selectedTint)

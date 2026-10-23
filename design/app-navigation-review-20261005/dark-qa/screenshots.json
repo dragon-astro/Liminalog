@@ -1734,5 +1734,117 @@
     "test": "CalendarMonthDrawerUITests/testCapturePresetEditorLayout()",
     "attachments": "/private/tmp/liminalog-preset-layout-20261023/light-attachments",
     "original": "5A60134B-8590-4149-9899-7E4499EB8960.png"
+  },
+  "27-editor-main-dark.png": {
+    "phase": "after",
+    "appearance": "dark",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "d536f0e933fa6681c1b877ca39234b7571f01865ca76925934d70a4505cbb03b",
+    "bytes": 962347,
+    "test": "CalendarMonthDrawerUITests/testMainAndMemoSwitchPreservesTimeAndPersists()",
+    "attachments": "/private/tmp/liminalog-editor-one-row-20261023/dark-attachments",
+    "original": "D6793973-673B-46CA-AAC4-56DB58D19F54.png"
+  },
+  "27-editor-memo-dark.png": {
+    "phase": "after",
+    "appearance": "dark",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "bf271097a0a7bd0e60c7be22d8261b2ab35209f309eb85d7b4369a8cb2ac65da",
+    "bytes": 966239,
+    "test": "CalendarMonthDrawerUITests/testMainAndMemoSwitchPreservesTimeAndPersists()",
+    "attachments": "/private/tmp/liminalog-editor-one-row-20261023/dark-attachments",
+    "original": "335DC6DD-1744-4E49-9B8E-6DD5DA8CED28.png"
+  },
+  "27-editor-se-main-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      750,
+      1334
+    ],
+    "scale": 2,
+    "sha256": "1c88e82678906fcdd91e29a58418e2172bee89a1d1976425fd4a97e705dbd6f8",
+    "bytes": 451902,
+    "test": "CalendarMonthDrawerUITests/testMainAndMemoSwitchPreservesTimeAndPersists()",
+    "attachments": "/private/tmp/liminalog-editor-one-row-20261023/small-attachments",
+    "original": "52D3488E-172D-4097-B4A5-94AEE9C17BD3.png"
+  },
+  "27-editor-se-memo-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      750,
+      1334
+    ],
+    "scale": 2,
+    "sha256": "7ee8537883ae3f23f43627a80d20bcdee060e09a692fed5e462d4cd43655b0f5",
+    "bytes": 454521,
+    "test": "CalendarMonthDrawerUITests/testMainAndMemoSwitchPreservesTimeAndPersists()",
+    "attachments": "/private/tmp/liminalog-editor-one-row-20261023/small-attachments",
+    "original": "952B8AA6-EA8D-4AEE-9C35-0AE777CDA5F6.png"
+  },
+  "27-preset-editor-main-dark.png": {
+    "phase": "after",
+    "appearance": "dark",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "5fff8479d491db10333fda62679c1a8c4e3083ca37f800e1b3218129309faa34",
+    "bytes": 948624,
+    "test": "CalendarMonthDrawerUITests/testPresetInlineCategorySavesChoiceAndSharesExpansionPreference()",
+    "attachments": "/private/tmp/liminalog-editor-one-row-20261023/dark-attachments",
+    "original": "605562D5-5289-4542-946A-BD8C8187BFB2.png"
+  },
+  "27-preset-editor-memo-dark.png": {
+    "phase": "after",
+    "appearance": "dark",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "dd1b711d065771e56bfc0a65814e3981492aca102753fbb49d18d13b855e8841",
+    "bytes": 950176,
+    "test": "CalendarMonthDrawerUITests/testPresetInlineCategorySavesChoiceAndSharesExpansionPreference()",
+    "attachments": "/private/tmp/liminalog-editor-one-row-20261023/dark-attachments",
+    "original": "1432F194-0CF4-4585-A1D7-9B50CA97D558.png"
+  },
+  "27-preset-editor-se-main-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      750,
+      1334
+    ],
+    "scale": 2,
+    "sha256": "c5358b8d28ccbfd0f3db5a99cde2fd57b017fd0e3d63dd5ee31b64676da6aa7b",
+    "bytes": 383059,
+    "test": "CalendarMonthDrawerUITests/testPresetInlineCategorySavesChoiceAndSharesExpansionPreference()",
+    "attachments": "/private/tmp/liminalog-editor-one-row-20261023/small-attachments",
+    "original": "A26841FB-5880-457C-9D42-656D25BE9698.png"
+  },
+  "27-preset-editor-se-memo-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      750,
+      1334
+    ],
+    "scale": 2,
+    "sha256": "9592812c38b9411f6ba15db4ea2db51c41456b4be10f2c272a33e97983b49464",
+    "bytes": 384072,
+    "test": "CalendarMonthDrawerUITests/testPresetInlineCategorySavesChoiceAndSharesExpansionPreference()",
+    "attachments": "/private/tmp/liminalog-editor-one-row-20261023/small-attachments",
+    "original": "450AF342-1BF7-405E-8BB3-7955B541A98F.png"
   }
 }
