@@ -58,7 +58,7 @@ struct TimelineCategoryChip: View {
         }
         .overlay {
             Capsule()
-                .stroke(
+                .strokeBorder(
                     category.displayColor.opacity(style.strokeOpacity),
                     lineWidth: style.strokeWidth
                 )
@@ -93,7 +93,7 @@ struct TimelineCategoryStatusChip: View {
         }
         .overlay {
             Capsule()
-                .stroke(LiminalTheme.divider.opacity(0.72), lineWidth: 1)
+                .strokeBorder(LiminalTheme.divider.opacity(0.72), lineWidth: 1)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel)
@@ -119,7 +119,7 @@ struct TimelineCreateCategoryChip: View {
         }
         .overlay {
             Capsule()
-                .stroke(LiminalTheme.accent.opacity(0.5), lineWidth: 1)
+                .strokeBorder(LiminalTheme.accent.opacity(0.5), lineWidth: 1)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("新しいカテゴリを追加")

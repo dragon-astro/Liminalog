@@ -46,7 +46,9 @@ enum LiminalTheme {
     static var accentFilledText: Color {
         Color(UIColor { traits in
             let definition = LiminalThemeCatalog.resolvedDefinition(for: traits)
-            if definition.id == LiminalThemeCatalog.aurora.id { return .white }
+            if definition.id == LiminalThemeCatalog.aurora.id || definition.id == LiminalThemeCatalog.daybreak.id {
+                return .white
+            }
             return UIColor(Color(definition.palette.accent).liminalContrastingTextColor)
         })
     }

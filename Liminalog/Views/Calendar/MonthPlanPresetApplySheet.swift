@@ -86,7 +86,8 @@ struct MonthPlanPresetApplySheet: View {
 
     private func tile(_ preset: PlanPreset, style: PlanPresetLibraryCardStyle) -> some View {
         PlanPresetLibraryCard(preset: preset, category: categories.first { $0.id == preset.categoryID },
-                                  style: style, trailingSymbol: transfer == nil ? "plus.circle.fill" : "hand.draw.fill")
+                                  style: style, trailingSymbol: preset.isAllDay || preset.placementMode == .fixedTime
+                                    ? "plus.circle.fill" : "hand.draw.fill")
         .overlay {
             TimelinePlanPresetLongPressDragSurface(minimumDuration: 0.14, maximumDistance: 12,
                 onTap: { placementDate = nil; selectedPreset = preset; detent = .large }) { event in

@@ -2350,5 +2350,145 @@
     "test": "CalendarMonthDrawerUITests/testLongPresetTitleCanBeEditedAndReopened()",
     "attachments": "/private/tmp/liminalog-wrapping-title-20261025/small-fixed-attachments",
     "original": "F5801726-203C-443D-AC63-9D8B8EC4158F.png"
+  },
+  "31-locked-empty-memo-dark.png": {
+    "phase": "after",
+    "appearance": "dark",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "32f044923d1cc8038e20fed2eef9775dbed68edd1aad86cc23eb98e920cad872",
+    "bytes": 373430,
+    "test": "CalendarMonthDrawerUITests/testLockedDayCreatesMemosFromEmptySpaceAndSelectedMain()",
+    "attachments": "/private/tmp/liminalog-palette-memo-20261025/large-dark-attachments",
+    "original": "93B93266-6040-4703-8C7B-BE59BD80CC36.png"
+  },
+  "31-locked-overlap-memo-dark.png": {
+    "phase": "after",
+    "appearance": "dark",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "fe0b503d60b1be169b9aaf5328962f8a6986a5717af19258fff7599ab7a1efef",
+    "bytes": 382009,
+    "test": "CalendarMonthDrawerUITests/testLockedDayCreatesMemosFromEmptySpaceAndSelectedMain()",
+    "attachments": "/private/tmp/liminalog-palette-memo-20261025/large-dark-attachments",
+    "original": "B94C1E83-E604-47A8-9D06-3C2C63E97728.png"
+  },
+  "31-locked-se-empty-memo-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      750,
+      1334
+    ],
+    "scale": 2,
+    "sha256": "7daef9784fc85eb77d7484c715f042b6d53c9689126ef30f4d3dd39f32ff7874",
+    "bytes": 212005,
+    "test": "CalendarMonthDrawerUITests/testLockedDayCreatesMemosFromEmptySpaceAndSelectedMain()",
+    "attachments": "/private/tmp/liminalog-palette-memo-20261025/se-light-attachments",
+    "original": "255A685D-C466-4B78-B4DB-3D2D8F38891D.png"
+  },
+  "31-locked-se-overlap-memo-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      750,
+      1334
+    ],
+    "scale": 2,
+    "sha256": "7e1615ac76dbb9c470d31c051173e4463454bb369eea113966a6c0c875788fd4",
+    "bytes": 211363,
+    "test": "CalendarMonthDrawerUITests/testLockedDayCreatesMemosFromEmptySpaceAndSelectedMain()",
+    "attachments": "/private/tmp/liminalog-palette-memo-20261025/se-light-attachments",
+    "original": "2BABBD56-D0AC-4535-9218-14DA429503AB.png"
+  },
+  "31-palette-month-dark.png": {
+    "phase": "after",
+    "appearance": "dark",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "9e2c4d6b00a65157392bee282e8308fce12f57158198c6898bc17adfa8f747f9",
+    "bytes": 355577,
+    "test": "CalendarMonthDrawerUITests/testCapturePaletteEdgesAndPresetKinds()",
+    "attachments": "/private/tmp/liminalog-palette-memo-20261025/large-dark-attachments",
+    "original": "053878A8-E2A1-40E1-BD50-B2EC15656F88.png"
+  },
+  "31-palette-se-month-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      750,
+      1334
+    ],
+    "scale": 2,
+    "sha256": "b6bbab75da784fbf9b395ca0e453ffc2491627ec00e07fda19771f94038d4069",
+    "bytes": 176052,
+    "test": "CalendarMonthDrawerUITests/testCapturePaletteEdgesAndPresetKinds()",
+    "attachments": "/private/tmp/liminalog-palette-memo-20261025/se-light-attachments",
+    "original": "EEDA2DF6-6C27-49A6-8C95-259B60906CC9.png"
+  },
+  "31-palette-se-tomorrow-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      750,
+      1334
+    ],
+    "scale": 2,
+    "sha256": "c42cdca4644d9e4316d199345794d726e2d1a6a2f0ce93391ef850abda3f2816",
+    "bytes": 418605,
+    "test": "CalendarMonthDrawerUITests/testCapturePaletteEdgesAndPresetKinds()",
+    "attachments": "/private/tmp/liminalog-palette-memo-20261025/se-light-attachments",
+    "original": "619584EF-F315-4E9B-87AF-84310522F188.png"
+  },
+  "31-palette-tomorrow-dark.png": {
+    "phase": "after",
+    "appearance": "dark",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "0c44c190f55899f3d36927fefdc23929dc403eb55e0b32ec61091bd8e46261df",
+    "bytes": 898046,
+    "test": "CalendarMonthDrawerUITests/testCapturePaletteEdgesAndPresetKinds()",
+    "attachments": "/private/tmp/liminalog-palette-memo-20261025/large-dark-attachments",
+    "original": "D9EA6EBF-25BD-4DE8-B4CD-9B35D81D5DD5.png"
+  },
+  "31-presets-kinds-dark.png": {
+    "phase": "after",
+    "appearance": "dark",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "b9de107f4d54ff6987b9a8f2694ce4fdb20d9ec9e8a555e88b6271845b42bbb5",
+    "bytes": 639769,
+    "test": "CalendarMonthDrawerUITests/testCapturePaletteEdgesAndPresetKinds()",
+    "attachments": "/private/tmp/liminalog-palette-memo-20261025/large-dark-attachments",
+    "original": "420E5D47-BBF6-45B8-9704-B298B0E76ECC.png"
+  },
+  "31-presets-se-kinds-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      750,
+      1334
+    ],
+    "scale": 2,
+    "sha256": "fb32058755cf23fbfb8dfbac71948564cd7ee606557d95d7efcd8b0359deec96",
+    "bytes": 369863,
+    "test": "CalendarMonthDrawerUITests/testCapturePaletteEdgesAndPresetKinds()",
+    "attachments": "/private/tmp/liminalog-palette-memo-20261025/se-light-attachments",
+    "original": "C0EC085B-8064-4421-9C0A-376FDD0E2F51.png"
   }
 }

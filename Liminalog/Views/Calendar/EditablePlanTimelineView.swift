@@ -1042,29 +1042,39 @@ struct EditablePlanTimelineView: View {
         }
     }
 
+    @ViewBuilder
     private func creationDraftView(draft: PlanCreationDraft, width: CGFloat) -> some View {
         let color = selectedCategory?.displayColor ?? LiminalTheme.accent
-        return VStack(alignment: .leading, spacing: 3) {
-            Text(timeText(draft.startMinute))
-                .font(.system(size: 11, weight: .bold, design: .monospaced))
-                .lineLimit(1)
-                .minimumScaleFactor(0.78)
-            Text(selectedCategory?.name ?? "予定")
-                .font(.system(size: 12, weight: .semibold))
-                .lineLimit(1)
+        if draft.isMemo {
+            TimelineMemoCreationCard(title: selectedCategory?.name ?? "予定メモ",
+                start: date(forMinute: draft.startMinute), end: date(forMinute: draft.endMinute), color: color)
+                .frame(width: availableBlockWidth(width) * 0.48, height: max(1, height(for: draft.interval)))
+                .offset(x: hourColumnWidth + sideInset + availableBlockWidth(width) * 0.52,
+                    y: yOffset(for: draft.startMinute))
+                .zIndex(30)
+        } else {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(timeText(draft.startMinute))
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.78)
+                Text(selectedCategory?.name ?? "予定")
+                    .font(.system(size: 12, weight: .semibold))
+                    .lineLimit(1)
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .frame(width: availableBlockWidth(width), height: max(1, height(for: draft.interval)), alignment: .topLeading)
+            .background(color.opacity(0.72), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(color.opacity(0.95), style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
+            )
+            .clipped()
+            .offset(x: hourColumnWidth + sideInset, y: yOffset(for: draft.startMinute))
+            .allowsHitTesting(false)
         }
-        .foregroundStyle(.white)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
-        .frame(width: availableBlockWidth(width), height: max(1, height(for: draft.interval)), alignment: .topLeading)
-        .background(color.opacity(0.72), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(color.opacity(0.95), style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
-        )
-        .clipped()
-        .offset(x: hourColumnWidth + sideInset, y: yOffset(for: draft.startMinute))
-        .allowsHitTesting(false)
     }
 
     private func presetPlacementDraftView(
@@ -1212,9 +1222,7 @@ struct EditablePlanTimelineView: View {
     ) -> Bool {
         guard gesturePlanID == nil, memoCreationDraft == nil else { return false }
 
-        guard !timelineTouchEditingIsBlocked,
-              isEditingEnabled
-        else {
+        guard !timelineTouchEditingIsBlocked else {
             creationDraft = nil
             return false
         }
@@ -1228,16 +1236,18 @@ struct EditablePlanTimelineView: View {
         }
         let start = snappedMinute(fromY: startLocation.y)
         let current = snappedMinute(fromY: location.y)
+        // Locked days still allow free memo placement, including across main plans.
+        let isMemo = !isEditingEnabled
         guard let range = clampedCreationRange(
             anchorMinute: start,
             currentMinute: current,
-            intervals: collisionIntervals,
+            intervals: isMemo ? [] : collisionIntervals,
             isFinal: isFinal
         ) else {
             creationDraft = nil
             return false
         }
-        creationDraft = PlanCreationDraft(startMinute: range.start, endMinute: range.end)
+        creationDraft = PlanCreationDraft(startMinute: range.start, endMinute: range.end, isMemo: isMemo)
         selectedPlanID = nil
         return true
     }
@@ -1283,12 +1293,12 @@ struct EditablePlanTimelineView: View {
             self.creationDraft = nil
         }
         guard !timelineTouchEditingIsBlocked,
-              isEditingEnabled,
+              isEditingEnabled || creationDraft.isMemo,
               selectedCategory != nil
         else { return }
         let start = date(forMinute: creationDraft.startMinute)
         let end = date(forMinute: creationDraft.endMinute)
-        guard !store.hasTimedPlanOverlap(startTime: start, endTime: end) else {
+        guard creationDraft.isMemo || !store.hasTimedPlanOverlap(startTime: start, endTime: end) else {
             operationError = "既存の予定と重なっています。空いている時間をなぞってください。"
             LiminalHaptics.warning()
             return
@@ -1298,7 +1308,9 @@ struct EditablePlanTimelineView: View {
             title: selectedCategory?.name ?? "予定",
             startTime: start,
             endTime: end,
-            isAllDay: false
+            isAllDay: false,
+            isMemo: creationDraft.isMemo,
+            isPublic: !creationDraft.isMemo
         ) else {
             operationError = "予定を作成できませんでした。今日以前の日付や重なった時間は直接追加できません。"
             LiminalHaptics.warning()
@@ -1473,7 +1485,10 @@ struct EditablePlanTimelineView: View {
         if state == .began {
             guard !timelineTouchEditingIsBlocked, gesturePlanID == nil, memoCreationDraft == nil,
                   !creationGestureIsActive, pendingKindChange == nil else { return }
-            if selectedPlanID == plan.id { requestDeletePlan(plan); return }
+            if selectedPlanID == plan.id && !store.isPlanScheduleLocked(plan) {
+                requestDeletePlan(plan)
+                return
+            }
             guard let frame = presetTimelineContentFrameSource.currentFrame else { return }
             let anchor = snappedMinute(fromY: point.y - frame.minY)
             memoCreationDraft = TimelineMemoCreationDraft(sourceID: plan.id, anchorMinute: anchor,
@@ -2570,9 +2585,10 @@ private final class TimelineCreationTouchTrackingView: UIView {
 private struct PlanCreationDraft {
     let startMinute: Int
     let endMinute: Int
+    var isMemo = false
 
     var interval: PlanTimelineInterval {
-        PlanTimelineInterval(id: UUID(), startMinute: startMinute, endMinute: endMinute)
+        PlanTimelineInterval(id: UUID(), startMinute: startMinute, endMinute: endMinute, isMemo: isMemo)
     }
 }
 

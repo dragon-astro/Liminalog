@@ -15,12 +15,13 @@ final class CalendarMonthDrawerUITests: XCTestCase {
     private func element(_ app: XCUIApplication, _ id: String) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: id).firstMatch
     }
-    private func launch(longNote: Bool = false, previewSource: Bool = false, measureDrop: Bool = false, overlap: Bool = false, templateReplacement: Bool = false, expandedMode: String? = "summary", measureExpansion: Bool = false, planMemos: Bool = false, contentSize: String? = nil, useCalendarTab: Bool = false, editingSamples: Bool = false, chapters: Bool = false) -> XCUIApplication {
+    private func launch(longNote: Bool = false, previewSource: Bool = false, measureDrop: Bool = false, overlap: Bool = false, templateReplacement: Bool = false, expandedMode: String? = "summary", measureExpansion: Bool = false, planMemos: Bool = false, contentSize: String? = nil, useCalendarTab: Bool = false, editingSamples: Bool = false, chapters: Bool = false, lockedDay: Bool = false) -> XCUIApplication {
         continueAfterFailure = false
         let app = XCUIApplication()
         app.launchArguments = ["-LiminalogMonthDrawerUITests", "-LiminalogInitialRootTab", "calendar",
                                "-LiminalogInitialCalendarMode", "month", "-calendar.filter.usesCustomCategories", "NO"]
         if planMemos { app.launchArguments.append("-LiminalogUITestPlanMemos") }
+        if lockedDay { app.launchArguments.append("-LiminalogUITestLockedDay") }
         if editingSamples { app.launchArguments.append("-LiminalogUITestEditingSamples") }
         if chapters { app.launchArguments.append("-LiminalogUITestChapters") }
         if longNote { app.launchArguments.append("-LiminalogUITestLongNote") }
@@ -39,7 +40,10 @@ final class CalendarMonthDrawerUITests: XCTestCase {
             XCTAssertTrue(app.tabBars.buttons["カレンダー"].waitForExistence(timeout: 30))
             app.tabBars.buttons["カレンダー"].tap()
         }
-        let day = element(app, "calendar-month-day-\(dayID(fixtureDay))")
+        let targetDay = lockedDay
+            ? Calendar.current.date(byAdding: .day, value: -1, to: Calendar.current.startOfDay(for: Date()))!
+            : fixtureDay
+        let day = element(app, "calendar-month-day-\(dayID(targetDay))")
         XCTAssertTrue(day.waitForExistence(timeout: 30), app.debugDescription)
         day.tap()
         XCTAssertTrue(element(app, "calendar-drawer-plan-\(sourceID)").waitForExistence(timeout: 5))
@@ -59,6 +63,70 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         let target = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(
             dx: timeline.frame.minX + timeline.frame.width * fraction, dy: plan.frame.midY))
         origin.press(forDuration: 0.05, thenDragTo: target, withVelocity: .slow, thenHoldForDuration: 0.1)
+    }
+
+    func testLockedDayCreatesMemosFromEmptySpaceAndSelectedMain() {
+        let app = launch(expandedMode: "timeline", planMemos: true, lockedDay: true)
+        app.buttons["calendar-drawer-open-timeline"].tap()
+        let main = element(app, "day-plan-\(sourceID)")
+        XCTAssertTrue(main.waitForExistence(timeout: 10))
+        let before = main.label
+        let timeline = visibleDayTimeline(app)
+        let all = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'day-plan-'"))
+        let count = all.count
+        let origin = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(
+            dx: timeline.frame.minX + timeline.frame.width * 0.25, dy: main.frame.maxY + 14))
+        // Start in empty time, then extend upward across the locked main plan.
+        origin.press(forDuration: 0.6, thenDragTo: origin.withOffset(CGVector(dx: 0, dy: -80)),
+            withVelocity: .slow, thenHoldForDuration: 0.2)
+        XCTAssertEqual(all.count, count + 1, app.debugDescription)
+        let memos = all.matching(NSPredicate(format: "value == '予定メモ' AND label BEGINSWITH '仕事、'"))
+        XCTAssertEqual(memos.count, 1, app.debugDescription)
+        let times = planMinutes(memos.firstMatch.label)
+        XCTAssertLessThan(times[0], 660, "メイン予定と重なっても伸ばせる")
+        XCTAssertGreaterThan(times[1], 660)
+        XCTAssertEqual(main.label, before)
+        let size = app.frame.width < 390 ? "-se" : ""
+        keepScreenshot(app, name: "31-locked\(size)-empty-memo")
+
+        // Selecting a locked plan must not turn the next hold into a blocked delete.
+        main.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.5)).tap()
+        main.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.5)).press(forDuration: 0.8)
+        XCTAssertEqual(memos.count, 2, app.debugDescription)
+        XCTAssertFalse(app.buttons["削除"].exists)
+        XCTAssertEqual(main.label, before)
+        XCTAssertEqual(all.matching(NSPredicate(format: "value == 'メイン予定'")).count, 1)
+        let short = memos.allElementsBoundByIndex.first { planMinutes($0.label)[1] - planMinutes($0.label)[0] <= 15 }
+        XCTAssertNotNil(short)
+        XCTAssertGreaterThanOrEqual(short?.frame.height ?? 0, 17.5)
+        keepScreenshot(app, name: "31-locked\(size)-overlap-memo")
+        app.buttons["calendar-expanded-day-back"].tap()
+        app.buttons["calendar-drawer-open-timeline"].tap()
+        XCTAssertTrue(main.waitForExistence(timeout: 5))
+        XCTAssertEqual(memos.count, 2)
+        XCTAssertEqual(main.label, before)
+    }
+
+    func testCapturePaletteEdgesAndPresetKinds() throws {
+        try requirePolishCapture()
+        let app = launch(planMemos: true)
+        app.buttons["calendar-drawer-open-timeline"].tap()
+        XCTAssertTrue(visibleDayTimeline(app).waitForExistence(timeout: 5))
+        let size = app.frame.width < 390 ? "-se" : ""
+        keepScreenshot(app, name: "31-palette\(size)-month")
+        app.terminate()
+        app.launchArguments = ["-LiminalogMonthDrawerUITests", "-LiminalogUITestPlanMemos",
+            "-LiminalogUITestInitialTimeline", "-LiminalogInitialRootTab", "today",
+            "-home.tomorrowPlanMode", "timeline", "-calendar.filter.usesCustomCategories", "NO"]
+        app.launch()
+        XCTAssertTrue(app.buttons["明日の予定"].waitForExistence(timeout: 30))
+        app.buttons["明日の予定"].tap()
+        XCTAssertTrue(visibleDayTimeline(app).waitForExistence(timeout: 10))
+        keepScreenshot(app, name: "31-palette\(size)-tomorrow")
+        let presetApp = launch(templateReplacement: true)
+        presetApp.buttons["当日の予定を閉じる"].tap()
+        openMonthPresets(presetApp, kind: "plan")
+        keepScreenshot(presetApp, name: "31-presets\(size)-kinds")
     }
 
     func testUnselectedTimelineLongPressAddsMemoWithoutDeletingMain() {

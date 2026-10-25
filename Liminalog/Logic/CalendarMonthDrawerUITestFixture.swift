@@ -6,6 +6,9 @@ enum CalendarMonthDrawerUITestFixture {
     static let sourceID = UUID(uuidString: "00000000-0000-0000-0000-000000000101")!
     static var day: Date {
         let calendar = Calendar.current
+        if ProcessInfo.processInfo.arguments.contains("-LiminalogUITestLockedDay") {
+            return calendar.date(byAdding: .day, value: -1, to: calendar.startOfDay(for: Date()))!
+        }
         let month = calendar.date(from: calendar.dateComponents([.year, .month], from: Date()))!
         return calendar.date(byAdding: .day, value: 9, to: calendar.date(byAdding: .month, value: 1, to: month)!)!
     }
