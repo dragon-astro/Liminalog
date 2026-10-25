@@ -794,7 +794,7 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         let bookmark = app.buttons["予定プリセットを選ぶ"]
         let title = element(app, "予定名")
         XCTAssertTrue(bookmark.isHittable)
-        XCTAssertEqual(bookmark.frame.minY, title.frame.minY, accuracy: 2)
+        XCTAssertEqual(bookmark.frame.midY, title.frame.midY, accuracy: 2)
         XCTAssertEqual(bookmark.frame.midY, app.buttons["plan-important"].frame.midY, accuracy: 2)
         keepScreenshot(app, name: prefix + "memo")
         if !small {
@@ -889,7 +889,7 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         let important = app.buttons["plan-important"]
         let title = element(app, "予定名")
         let bookmark = app.buttons["予定プリセットを選ぶ"]
-        let prefix = app.frame.width < 390 ? "29-editor-se-" : "29-editor-"
+        let prefix = app.frame.width < 390 ? "30-editor-se-" : "30-editor-"
         XCTAssertTrue(title.isHittable && bookmark.isHittable && important.isHittable && kind.isHittable)
         keepScreenshot(app, name: prefix + "main")
         kind.tap()
@@ -915,17 +915,34 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         let original = title.value as? String ?? ""
         let name = "来週のチーム定例会議に向けた提案資料の最終確認と共有"
         title.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        // Focus expands the sheet; position the caret after the existing short title in its new frame.
+        title.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.5)).tap()
+        let shortHeight = title.frame.height
         title.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: original.count) + name)
         XCTAssertEqual(title.value as? String, name)
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
-        let metrics = XCTAttachment(string: "screen=\(app.frame); title=\(title.frame); keyboard=\(app.keyboards.firstMatch.frame); characters=\(name.count)")
+        let wrappedFrame = title.frame
+        XCTAssertGreaterThan(wrappedFrame.height, shortHeight + 10)
+        let metrics = XCTAttachment(string: "screen=\(app.frame); shortHeight=\(shortHeight); title=\(wrappedFrame); keyboard=\(app.keyboards.firstMatch.frame); characters=\(name.count)")
         metrics.name = screenshotPrefix + "-metrics"
         metrics.lifetime = .keepAlways
         add(metrics)
         keepScreenshot(app, name: screenshotPrefix + "-input")
 
-        // Tap inside the visible text, insert a character, then remove only that insertion.
-        title.coordinate(withNormalizedOffset: CGVector(dx: 0.35, dy: 0.5)).tap()
+        // More lines must grow the field; deleting them must restore its one-line height.
+        title.typeText(String(repeating: name, count: 2))
+        XCTAssertEqual(title.value as? String, String(repeating: name, count: 3))
+        XCTAssertGreaterThan(title.frame.height, wrappedFrame.height + 20)
+        keepScreenshot(app, name: screenshotPrefix + "-expanded")
+        title.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: name.count * 3) + original)
+        XCTAssertEqual(title.value as? String, original)
+        XCTAssertEqual(title.frame.height, shortHeight, accuracy: 1)
+        title.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: original.count) + name)
+
+        // Tap within the first line, avoiding a line boundary in a wrapped field.
+        title.coordinate(withNormalizedOffset: CGVector(dx: 0.35, dy: 0))
+            .withOffset(CGVector(dx: 0, dy: shortHeight / 2)).tap()
         title.typeText("仮")
         let edited = title.value as? String ?? ""
         XCTAssertEqual(edited.replacingOccurrences(of: "仮", with: ""), name)
@@ -940,7 +957,7 @@ final class CalendarMonthDrawerUITests: XCTestCase {
     func testLongPlanTitleCanBeEditedAndReopened() {
         let app = launch(planMemos: true)
         openEditor(app, planID: sourceID)
-        let prefix = app.frame.width < 390 ? "29-title-se-plan" : "29-title-plan"
+        let prefix = app.frame.width < 390 ? "30-title-se-plan" : "30-title-plan"
         let name = exerciseLongTitle(app, screenshotPrefix: prefix)
         app.buttons["保存"].tap()
         XCTAssertTrue(app.buttons["calendar-drawer-edit"].waitForExistence(timeout: 5))
@@ -956,7 +973,7 @@ final class CalendarMonthDrawerUITests: XCTestCase {
     func testLongPresetTitleCanBeEditedAndReopened() {
         let app = launch(templateReplacement: true)
         openFixturePresetEditor(app)
-        let prefix = app.frame.width < 390 ? "29-title-se-preset" : "29-title-preset"
+        let prefix = app.frame.width < 390 ? "30-title-se-preset" : "30-title-preset"
         let name = exerciseLongTitle(app, screenshotPrefix: prefix)
         app.navigationBars["プリセットを編集"].buttons["保存"].tap()
         XCTAssertTrue(app.navigationBars["予定プリセット"].waitForExistence(timeout: 5))
@@ -1817,7 +1834,7 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         let app = launch(templateReplacement: true)
         openFixturePresetEditor(app)
         let memo = app.buttons["plan-memo-toggle"]
-        let prefix = app.frame.width < 390 ? "29-preset-editor-se-" : "29-preset-editor-"
+        let prefix = app.frame.width < 390 ? "30-preset-editor-se-" : "30-preset-editor-"
         XCTAssertEqual(memo.value as? String, "オフ")
         keepScreenshot(app, name: prefix + "main")
         memo.tap()

@@ -355,12 +355,15 @@ struct PlanCreateSheet: View {
 
     private var planTitleCard: some View {
         PlanEditorCard(tint: selectedTint, planIsMemo: isMemo) {
-            HStack(spacing: 8) {
+            HStack(alignment: .top, spacing: 8) {
                 CategoryPreviewIcon(category: selectedCategory, size: 36)
                     .frame(height: 44)
-                TextField(planTitlePlaceholder, text: $title)
+                TextField(planTitlePlaceholder, text: $title, axis: .vertical)
                     .font(.headline)
                     .foregroundStyle(LiminalTheme.text)
+                    .lineLimit(1...)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.vertical, 11)
                     .frame(minHeight: 44)
                     .disabled(isScheduleLocked)
                     .accessibilityLabel("予定名")

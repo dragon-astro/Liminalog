@@ -82,6 +82,26 @@ labels = {
  '29-title-se-preset-input': 'iPhone SE・間隔調整後の長いプリセット名',
  '29-title-se-preset-caret': 'iPhone SE・間隔調整後のプリセット名の途中修正',
  '29-title-se-preset-reopened': 'iPhone SE・間隔調整後のプリセット名を再編集',
+ '30-editor-se-main': 'iPhone SE・短い予定名は1行のまま',
+ '30-editor-se-memo': 'iPhone SE・1行表示で重要とメモを切替',
+ '30-preset-editor-se-main': 'iPhone SE・短いプリセット名は1行のまま',
+ '30-preset-editor-se-memo': 'iPhone SE・1行表示のプリセットメモ',
+ '30-title-se-plan-input': 'iPhone SE・長い予定名を折り返して入力',
+ '30-title-se-plan-expanded': 'iPhone SE・さらに長い予定名も高さを広げる',
+ '30-title-se-plan-caret': 'iPhone SE・折り返した予定名の途中を修正',
+ '30-title-se-plan-reopened': 'iPhone SE・折り返した予定名を再編集',
+ '30-title-se-preset-input': 'iPhone SE・長いプリセット名を折り返して入力',
+ '30-title-se-preset-expanded': 'iPhone SE・さらに長いプリセット名も高さを広げる',
+ '30-title-se-preset-caret': 'iPhone SE・折り返したプリセット名の途中を修正',
+ '30-title-se-preset-reopened': 'iPhone SE・折り返したプリセット名を再編集',
+ '30-title-plan-input': '予定編集・長い名前を折り返して入力',
+ '30-title-plan-expanded': '予定編集・さらに長い名前も高さを広げる',
+ '30-title-plan-caret': '予定編集・折り返した名前の途中を修正',
+ '30-title-plan-reopened': '予定編集・折り返した名前を再編集',
+ '30-title-preset-input': '予定プリセット・長い名前を折り返して入力',
+ '30-title-preset-expanded': '予定プリセット・さらに長い名前も高さを広げる',
+ '30-title-preset-caret': '予定プリセット・折り返した名前の途中を修正',
+ '30-title-preset-reopened': '予定プリセット・折り返した名前を再編集',
 }
 body = []
 for stem, label in labels.items():
@@ -100,7 +120,7 @@ for stem, label in labels.items():
 page = '''<!doctype html><html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Liminalog 画面証跡 — 2026-10-25</title><style>
 body{margin:24px auto;padding:0 24px;max-width:1320px;background:#eeeeef;color:#222;font:16px/1.7 system-ui,sans-serif}h1{font-size:24px}h2{font-size:19px;margin-top:36px}.pairs{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;align-items:start}figure{margin:0}figcaption{margin:0 0 8px}img{width:100%;height:auto;border:1px solid #bbb;border-radius:12px;background:#fff}section{border-top:1px solid #ccc;margin-top:28px}p{max-width:900px}a{color:inherit}
-</style><h1>ライト／ダーク画面の確認</h1><p>docs/37 §7・§12・§15・§17・§18・§22・§24・§25・§26 — iOS 26.5 / Debug。システム追従テーマ。iPhone 17は原寸1206×2622px（3x）、SEは750×1334px（2x）。PNGの加工なし。クリックで原寸。10・12・13は変更前後、その他は指定状態の画面記録です。15〜20はこれまでの繰り返し欄、21は下線タブ、22は間隔・開始日・終了を常時表示する構成です。23はメモ切替とカテゴリ横移動、24は開発サンプル、25は編集画面の仕上げ（印・しおり・その他・灰色の入力欄）、26は公開スイッチの文言と予定プリセット編集の並びをそろえた状態、27は先頭カードを1行にまとめた状態、28はSEで長い予定名を入力・修正した検証画面、29は先頭カードのアイコン間隔を少し詰めた状態です。</p>
+</style><h1>ライト／ダーク画面の確認</h1><p>docs/37 §7・§12・§15・§17・§18・§22・§24・§25・§26・§27 — iOS 26.5 / Debug。システム追従テーマ。iPhone 17は原寸1206×2622px（3x）、SEは750×1334px（2x）。PNGの加工なし。クリックで原寸。10・12・13は変更前後、その他は指定状態の画面記録です。15〜20はこれまでの繰り返し欄、21は下線タブ、22は間隔・開始日・終了を常時表示する構成です。23はメモ切替とカテゴリ横移動、24は開発サンプル、25は編集画面の仕上げ（印・しおり・その他・灰色の入力欄）、26は公開スイッチの文言と予定プリセット編集の並びをそろえた状態、27は先頭カードを1行にまとめた状態、28はSEで長い予定名を入力・修正した検証画面、29は先頭カードのアイコン間隔を少し詰めた状態、30は長い予定名を折り返して入力欄が縦に広がる状態です。</p>
 '''
 (root / 'index.html').write_text(page + '\n'.join(body) + '</html>\n')
 print(f'Indexed {len(images)} screenshots')

@@ -664,10 +664,13 @@ struct PlanPresetEditSheet: View {
 
     private var identityCard: some View {
         PlanEditorCard(tint: selectedTint, planIsMemo: isMemo) {
-            HStack(spacing: 8) {
-                TextField("予定名", text: $title)
+            HStack(alignment: .top, spacing: 8) {
+                TextField("予定名", text: $title, axis: .vertical)
                     .font(.headline)
+                    .lineLimit(1...)
+                    .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, 12)
+                    .padding(.vertical, 12)
                     .frame(minHeight: 46)
                     .background(
                         selectedTint.opacity(0.08),
