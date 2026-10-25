@@ -1930,5 +1930,145 @@
     "test": "CalendarMonthDrawerUITests/testLongPresetTitleCanBeEditedAndReopened()",
     "attachments": "/private/tmp/liminalog-long-title-20261023/small-fixed-attachments",
     "original": "583B17F2-33FC-46DF-BD1D-A2244ACBBB32.png"
+  },
+  "29-editor-se-main-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      750,
+      1334
+    ],
+    "scale": 2,
+    "sha256": "2a27afd3ab96c711750e2a27b6953ad8b6fdec1e18cde8523b10717d4581cd79",
+    "bytes": 451712,
+    "test": "CalendarMonthDrawerUITests/testMainAndMemoSwitchPreservesTimeAndPersists()",
+    "attachments": "/private/tmp/liminalog-title-spacing-20261025/attachments",
+    "original": "0B82F911-D212-4596-A7B2-30F97E5A1C43.png"
+  },
+  "29-editor-se-memo-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      750,
+      1334
+    ],
+    "scale": 2,
+    "sha256": "b75770071f3fa814249bf0692f301050944db372e23d9b0b6528af48e6556ad3",
+    "bytes": 454523,
+    "test": "CalendarMonthDrawerUITests/testMainAndMemoSwitchPreservesTimeAndPersists()",
+    "attachments": "/private/tmp/liminalog-title-spacing-20261025/attachments",
+    "original": "CF3B1B1E-FECC-4275-B431-74D703356717.png"
+  },
+  "29-preset-editor-se-main-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      750,
+      1334
+    ],
+    "scale": 2,
+    "sha256": "ef17bdc65c8f2eed708d22e3ade87c4b87b754e2c5a86fc8bca8af4944f80b52",
+    "bytes": 383064,
+    "test": "CalendarMonthDrawerUITests/testPresetInlineCategorySavesChoiceAndSharesExpansionPreference()",
+    "attachments": "/private/tmp/liminalog-title-spacing-20261025/attachments",
+    "original": "3FFD0496-8244-49CE-A8FF-B8BCA4155349.png"
+  },
+  "29-preset-editor-se-memo-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      750,
+      1334
+    ],
+    "scale": 2,
+    "sha256": "3b2bd146b1f0af98e488fb5b4a0067326ecc0c82510fc28a10c7e578f4838fb7",
+    "bytes": 383996,
+    "test": "CalendarMonthDrawerUITests/testPresetInlineCategorySavesChoiceAndSharesExpansionPreference()",
+    "attachments": "/private/tmp/liminalog-title-spacing-20261025/attachments",
+    "original": "D4355188-D806-44D8-A751-F7465B454178.png"
+  },
+  "29-title-se-plan-caret-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      750,
+      1334
+    ],
+    "scale": 2,
+    "sha256": "a5aa37de8a7eda3f52f164ba404360946b771bf6c95631bd8ebdb2c180dff9eb",
+    "bytes": 371800,
+    "test": "CalendarMonthDrawerUITests/testLongPlanTitleCanBeEditedAndReopened()",
+    "attachments": "/private/tmp/liminalog-title-spacing-20261025/attachments",
+    "original": "84EB990B-6847-4BD7-B392-BD8FDE7C92C1.png"
+  },
+  "29-title-se-plan-input-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      750,
+      1334
+    ],
+    "scale": 2,
+    "sha256": "9f46d1e15275dcb681ba348002a0eb179ff51a82f6707650880922c27593bfe2",
+    "bytes": 371290,
+    "test": "CalendarMonthDrawerUITests/testLongPlanTitleCanBeEditedAndReopened()",
+    "attachments": "/private/tmp/liminalog-title-spacing-20261025/attachments",
+    "original": "BB1352B3-0BB0-4BD7-BB2B-23C5351C9F03.png"
+  },
+  "29-title-se-plan-reopened-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      750,
+      1334
+    ],
+    "scale": 2,
+    "sha256": "2750826f6e94948b81a229f6107ad27bbe47a77a1b3135f159a7435fe8949973",
+    "bytes": 369971,
+    "test": "CalendarMonthDrawerUITests/testLongPlanTitleCanBeEditedAndReopened()",
+    "attachments": "/private/tmp/liminalog-title-spacing-20261025/attachments",
+    "original": "53D19251-5F7B-44AE-AF5A-C221AD3BB28B.png"
+  },
+  "29-title-se-preset-caret-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      750,
+      1334
+    ],
+    "scale": 2,
+    "sha256": "58942ea978b14552b0bd436637034698c1e13d5bb4ce1958dbc09681c134a931",
+    "bytes": 373529,
+    "test": "CalendarMonthDrawerUITests/testLongPresetTitleCanBeEditedAndReopened()",
+    "attachments": "/private/tmp/liminalog-title-spacing-20261025/attachments",
+    "original": "4048EB4E-9941-4B2B-813C-4D509150390F.png"
+  },
+  "29-title-se-preset-input-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      750,
+      1334
+    ],
+    "scale": 2,
+    "sha256": "f11754612c3fd8c89dcf97bff3e91176f93c6707bea7badc557a1682dc76b1e1",
+    "bytes": 373090,
+    "test": "CalendarMonthDrawerUITests/testLongPresetTitleCanBeEditedAndReopened()",
+    "attachments": "/private/tmp/liminalog-title-spacing-20261025/attachments",
+    "original": "033DB4B1-B705-4727-88AF-887A395B8253.png"
+  },
+  "29-title-se-preset-reopened-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      750,
+      1334
+    ],
+    "scale": 2,
+    "sha256": "89f4d01c0031c3399652d87aafae14544edddc89b03a7021bba5f5b4bffeeedc",
+    "bytes": 371477,
+    "test": "CalendarMonthDrawerUITests/testLongPresetTitleCanBeEditedAndReopened()",
+    "attachments": "/private/tmp/liminalog-title-spacing-20261025/attachments",
+    "original": "EB63FC42-3A05-445C-9B27-8C911C21BA21.png"
   }
 }

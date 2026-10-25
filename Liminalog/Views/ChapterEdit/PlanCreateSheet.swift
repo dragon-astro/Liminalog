@@ -369,7 +369,7 @@ struct PlanCreateSheet: View {
                         Button { showingPresetChoices = true } label: {
                             Image(systemName: "bookmark")
                                 .foregroundStyle(LiminalTheme.secondaryText)
-                                .frame(width: 44, height: 44)
+                                .frame(width: 40, height: 44)
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("予定プリセットを選ぶ")

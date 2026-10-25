@@ -889,7 +889,7 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         let important = app.buttons["plan-important"]
         let title = element(app, "予定名")
         let bookmark = app.buttons["予定プリセットを選ぶ"]
-        let prefix = app.frame.width < 390 ? "27-editor-se-" : "27-editor-"
+        let prefix = app.frame.width < 390 ? "29-editor-se-" : "29-editor-"
         XCTAssertTrue(title.isHittable && bookmark.isHittable && important.isHittable && kind.isHittable)
         keepScreenshot(app, name: prefix + "main")
         kind.tap()
@@ -940,7 +940,7 @@ final class CalendarMonthDrawerUITests: XCTestCase {
     func testLongPlanTitleCanBeEditedAndReopened() {
         let app = launch(planMemos: true)
         openEditor(app, planID: sourceID)
-        let prefix = app.frame.width < 390 ? "28-title-se-plan" : "28-title-plan"
+        let prefix = app.frame.width < 390 ? "29-title-se-plan" : "29-title-plan"
         let name = exerciseLongTitle(app, screenshotPrefix: prefix)
         app.buttons["保存"].tap()
         XCTAssertTrue(app.buttons["calendar-drawer-edit"].waitForExistence(timeout: 5))
@@ -956,7 +956,7 @@ final class CalendarMonthDrawerUITests: XCTestCase {
     func testLongPresetTitleCanBeEditedAndReopened() {
         let app = launch(templateReplacement: true)
         openFixturePresetEditor(app)
-        let prefix = app.frame.width < 390 ? "28-title-se-preset" : "28-title-preset"
+        let prefix = app.frame.width < 390 ? "29-title-se-preset" : "29-title-preset"
         let name = exerciseLongTitle(app, screenshotPrefix: prefix)
         app.navigationBars["プリセットを編集"].buttons["保存"].tap()
         XCTAssertTrue(app.navigationBars["予定プリセット"].waitForExistence(timeout: 5))
@@ -1817,7 +1817,7 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         let app = launch(templateReplacement: true)
         openFixturePresetEditor(app)
         let memo = app.buttons["plan-memo-toggle"]
-        let prefix = app.frame.width < 390 ? "27-preset-editor-se-" : "27-preset-editor-"
+        let prefix = app.frame.width < 390 ? "29-preset-editor-se-" : "29-preset-editor-"
         XCTAssertEqual(memo.value as? String, "オフ")
         keepScreenshot(app, name: prefix + "main")
         memo.tap()

@@ -26,7 +26,7 @@ struct PlanMemoButton: View {
             Image(systemName: "rectangle.dashed")
                 .font(.title3)
                 .foregroundStyle(isMemo ? LiminalTheme.accent : LiminalTheme.secondaryText)
-                .frame(width: 44, height: 44)
+                .frame(width: 40, height: 44)
                 .background(isMemo ? LiminalTheme.accent.opacity(0.15) : .clear, in: RoundedRectangle(cornerRadius: 8))
                 .contentShape(Rectangle())
         }
@@ -48,7 +48,7 @@ struct PlanImportanceButton: View {
             Image(systemName: isImportant ? "star.fill" : "star")
                 .font(.title3)
                 .foregroundStyle(isImportant ? LiminalTheme.reward : LiminalTheme.secondaryText)
-                .frame(width: 44, height: 44)
+                .frame(width: 40, height: 44)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
