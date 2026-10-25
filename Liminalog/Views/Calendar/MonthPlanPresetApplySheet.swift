@@ -34,10 +34,6 @@ struct MonthPlanPresetApplySheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    if transfer != nil {
-                        Text("長押ししてカレンダーの日付へ置く")
-                            .font(.subheadline.weight(.semibold)).padding(.horizontal, 14)
-                    }
                     RecentPlanPresetShelf(presets: presets) { preset in tile(preset, style: .quick) }
                     Divider()
                     PlanPresetFilterControls(searchText: $searchText, selectedCategoryID: $selectedCategoryID,

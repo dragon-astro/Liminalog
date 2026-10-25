@@ -82,10 +82,10 @@ struct DayPresetSettingsView: View {
                 .accessibilityLabel("一日プリセットを追加")
             }
         }
-        .fullScreenCover(isPresented: $showingCreateSheet) {
+        .sheet(isPresented: $showingCreateSheet) {
             DayPresetEditSheet(preset: nil)
         }
-        .fullScreenCover(item: $editingPreset) { preset in
+        .sheet(item: $editingPreset) { preset in
             DayPresetEditSheet(preset: preset)
         }
         .alert("一日プリセットを削除しますか？", isPresented: deletionPresented, presenting: deletionTarget) { target in

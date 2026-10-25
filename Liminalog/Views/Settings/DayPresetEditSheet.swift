@@ -95,6 +95,26 @@ struct DayPresetEditSheet: View {
         #endif
     }
 
+    private struct Draft: Equatable {
+        var name: String
+        var color: String
+        var icon: String
+        var recurrence: PlanRecurrenceRule?
+        var items: [PlanTemplateSnapshot]
+    }
+    private var draft: Draft {
+        Draft(name: name.trimmingCharacters(in: .whitespacesAndNewlines),
+              color: presetColor.hexString,
+              icon: presetIcon,
+              recurrence: recurrenceRule,
+              items: items.map { $0.snapshot.editorComparison })
+    }
+
+    @State private var showingDeleteConfirmation = false
+    @State private var initialDraft: Draft?
+    @State private var showingDiscardConfirmation = false
+    private var hasChanges: Bool { initialDraft.map { $0 != draft } ?? false }
+
     var body: some View {
         NavigationStack {
             GeometryReader { _ in
@@ -147,14 +167,25 @@ struct DayPresetEditSheet: View {
             }
             .navigationTitle(preset == nil ? "一日プリセットを作成" : "一日プリセットを編集")
             .navigationBarTitleDisplayMode(.inline)
+            .editorDismissGuard(hasChanges: hasChanges, showingConfirmation: $showingDiscardConfirmation)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("キャンセル") { dismiss() }
+                    EditorCancelButton(hasChanges: hasChanges, showingConfirmation: $showingDiscardConfirmation) { dismiss() }
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("保存") { save() }
-                        .fontWeight(.semibold)
-                        .disabled(!canSave)
+                if preset != nil {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        EditorActionsMenu {
+                            Button("プリセットを削除", systemImage: "trash", role: .destructive) {
+                                showingDeleteConfirmation = true
+                            }
+                        }
+                        .confirmationDialog("プリセットを削除しますか？", isPresented: $showingDeleteConfirmation, titleVisibility: .visible) {
+                            Button("削除", role: .destructive) { deleteDayPreset() }
+                        }
+                    }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    EditorSaveButton(isEmphasized: hasChanges || (preset == nil), canSave: canSave) { save() }
                 }
             }
             .alert("保存できませんでした", isPresented: operationErrorPresented) {
@@ -185,7 +216,10 @@ struct DayPresetEditSheet: View {
             .sheet(isPresented: $showingAppearance) {
                 DayPresetAppearanceSheet(color: $presetColor, icon: $presetIcon)
             }
-            .onAppear { normalizeSelectedCategory() }
+            .onAppear {
+                normalizeSelectedCategory()
+                if initialDraft == nil { initialDraft = draft }
+            }
             .onChange(of: categories.map(\.id)) { _, _ in normalizeSelectedCategory() }
             .alert("予定を外しますか？", isPresented: Binding(
                 get: { deletionItem != nil },
@@ -906,6 +940,14 @@ struct DayPresetEditSheet: View {
         items.removeAll { $0.id == id }
         if selectedItemID == id { selectedItemID = nil }
         LiminalHaptics.commit()
+    }
+
+    private func deleteDayPreset() {
+        guard let preset, presetStore.deleteDayPreset(preset) else {
+            operationError = "プリセットを削除できませんでした。"
+            return
+        }
+        dismiss()
     }
 
     private func save() {

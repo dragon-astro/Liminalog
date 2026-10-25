@@ -226,7 +226,10 @@ struct CalendarView: View {
                 .presentationDetents([.large])
             }
             .sheet(item: $editingPlan, onDismiss: reloadVisibleData) { plan in
-                PlanCreateSheet(plan: plan)
+                // The sheet can re-render after its model is deleted, before dismissal finishes.
+                if plan.modelContext != nil && !plan.isDeleted {
+                    PlanCreateSheet(plan: plan)
+                }
             }
             .sheet(item: $pendingPlanCreation, onDismiss: reloadVisibleData) { request in
                 PlanCreateSheet(
@@ -835,7 +838,10 @@ struct CalendarView: View {
             .background(CalendarSheetRetreatBridge(isRetreated: monthTransfer.request != nil || monthTransfer.presetRequest != nil))
             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { monthDrawerHeight = $0 }
             .sheet(item: $monthDrawerEditingPlan, onDismiss: reloadVisibleData) { plan in
-                PlanCreateSheet(plan: plan)
+                // The sheet can re-render after its model is deleted, before dismissal finishes.
+                if plan.modelContext != nil && !plan.isDeleted {
+                    PlanCreateSheet(plan: plan)
+                }
             }
             .sheet(item: $monthDrawerCreation, onDismiss: reloadVisibleData) { request in
                 PlanCreateSheet(initialDate: request.preset.initialDate, startsAsAllDay: request.preset.startsAsAllDay)
@@ -2513,6 +2519,8 @@ private struct CalendarFriendFilterRow: View {
 }
 
 struct CalendarSettingsContent: View {
+    @AppStorage("calendarShowsPlanStartTime") private var showsPlanStartTime = false
+
     @AppStorage("calendarTimedPlanLabelStyle") private var timedPlanLabelStyleRaw = CalendarPlanLabelStyle.background.rawValue
     @AppStorage("calendarAllDayPlanLabelStyle") private var allDayPlanLabelStyleRaw = CalendarPlanLabelStyle.background.rawValue
     @AppStorage("calendarMultiDayPlanLabelStyle") private var multiDayPlanLabelStyleRaw = CalendarPlanLabelStyle.background.rawValue
@@ -2550,7 +2558,7 @@ struct CalendarSettingsContent: View {
                     selectionRaw: $timedPlanLabelStyleRaw,
                     fontSize: normalizedPlanTitleFontSize,
                     isBold: planTitleBold,
-                    sampleTime: "9:30"
+                    sampleTime: showsPlanStartTime ? "9:30" : nil
                 )
 
                 CalendarLabelStyleSettingRow(
@@ -2596,12 +2604,14 @@ struct CalendarSettingsContent: View {
             }
 
             Section {
+                Toggle("開始時刻を表示", isOn: $showsPlanStartTime)
+                    .accessibilityIdentifier("calendar-shows-plan-start-time")
                 Toggle("過去の予定を薄くする", isOn: $dimPastPlans)
                 Toggle("打ち消し線を入れる", isOn: $strikePastPlans)
             } header: {
                 SettingsSectionHeader(
-                    title: "過去の予定",
-                    explanation: "過去の予定を薄く表示するか、打ち消し線を入れるかを変更します。それぞれ独立して選べるため、薄くせず打ち消し線だけを入れることもできます。"
+                    title: "予定の表示",
+                    explanation: "月間の予定に開始時刻を表示できます。過去の予定の薄さと打ち消し線も、それぞれ切り替えられます。"
                 )
             }
         }
@@ -3152,7 +3162,10 @@ private struct CalendarPlanSearchSheet: View {
         }
         .presentationDetents([.large])
         .sheet(item: $editingPlan) { plan in
-            PlanCreateSheet(plan: plan)
+            // The sheet can re-render after its model is deleted, before dismissal finishes.
+            if plan.modelContext != nil && !plan.isDeleted {
+                PlanCreateSheet(plan: plan)
+            }
         }
     }
 
@@ -3613,6 +3626,8 @@ struct CalendarMonthGrid: View {
 }
 
 private struct CalendarMonthWeekRow: View {
+    @AppStorage("calendarShowsPlanStartTime") private var showsPlanStartTime = false
+
     @Environment(\.monthPlanTransfer) private var transfer
     let dates: [Date]
     let visibleMonth: Date
@@ -3967,7 +3982,8 @@ private struct CalendarMonthWeekRow: View {
             titleFontSize: displayPlanTitleFontSize,
             titleBold: planTitleBold,
             dimPastPlans: dimPastPlans,
-            strikePastPlans: strikePastPlans
+            strikePastPlans: strikePastPlans,
+            showsPlanStartTime: showsPlanStartTime
         )
     }
 }
@@ -4117,6 +4133,7 @@ private struct CalendarMonthPlanLabelConfiguration: Equatable {
     let titleBold: Bool
     let dimPastPlans: Bool
     let strikePastPlans: Bool
+    let showsPlanStartTime: Bool
 }
 
 private struct CalendarScoreBadge: View {
@@ -4276,9 +4293,6 @@ private struct CalendarImportantPlanLabel: View {
     }
 
     private var backgroundFillColor: Color {
-        if usesLightPastDimStyle {
-            return CalendarPlanColorRendering.lightPastSurface(from: color, sourceAmount: 0.82, alpha: 0.68)
-        }
         return CalendarPlanColorRendering.surface(
             from: color,
             colorScheme: colorScheme,
@@ -4287,9 +4301,6 @@ private struct CalendarImportantPlanLabel: View {
     }
 
     private var borderColor: Color {
-        if usesLightPastDimStyle {
-            return CalendarPlanColorRendering.lightPastSurface(from: color, sourceAmount: 0.9, alpha: 0.84)
-        }
         return CalendarPlanColorRendering.surface(
             from: color,
             colorScheme: colorScheme,
@@ -4298,9 +4309,6 @@ private struct CalendarImportantPlanLabel: View {
     }
 
     private var markerColor: Color {
-        if usesLightPastDimStyle {
-            return CalendarPlanColorRendering.lightPastSurface(from: color, sourceAmount: 0.86, alpha: 0.76)
-        }
         return CalendarPlanColorRendering.surface(
             from: color,
             colorScheme: colorScheme,
@@ -4309,15 +4317,11 @@ private struct CalendarImportantPlanLabel: View {
     }
 
     private var labelOpacity: Double {
-        usesLightPastDimStyle ? 1 : (isPastDimmed ? 0.38 : 1)
+        isPastDimmed ? (colorScheme == .dark ? 0.38 : 0.45) : 1
     }
 
     private var isPastDimmed: Bool {
         isPastPlan && configuration.dimPastPlans
-    }
-
-    private var usesLightPastDimStyle: Bool {
-        colorScheme != .dark && isPastDimmed
     }
 
     private var timeFontSize: Double {
@@ -4384,7 +4388,7 @@ private struct CalendarImportantPlanLabel: View {
     }
 
     private var timePrefix: String? {
-        if plan.isAllDay || continuesFromPreviousDay {
+        if !configuration.showsPlanStartTime || plan.isAllDay || continuesFromPreviousDay {
             return nil
         }
         return plan.startTime.shortTime
@@ -4392,6 +4396,8 @@ private struct CalendarImportantPlanLabel: View {
 }
 
 private struct CalendarMultiDayPlanBar: View {
+    @AppStorage("calendarShowsPlanStartTime") private var showsPlanStartTime = false
+
     @Environment(\.colorScheme) private var colorScheme
 
     let plan: CalendarDisplayPlan
@@ -4406,14 +4412,24 @@ private struct CalendarMultiDayPlanBar: View {
 
     var body: some View {
         Color.clear
-            .overlay {
-                Text(plan.title)
-                    .font(.system(size: displayTitleFontSize, weight: titleBold ? .bold : .regular))
-                    .foregroundStyle(titleColor)
-                    .lineLimit(1)
-                    .fixedSize(horizontal: true, vertical: false)
-                    .strikethrough(isPastPlan && strikePastPlans, color: titleColor)
-                    .offset(y: textVerticalOffset)
+            .overlay(alignment: showsPlanStartTime && !plan.isAllDay && roundsLeading ? .leading : .center) {
+                HStack(spacing: 1) {
+                    if showsPlanStartTime && !plan.isAllDay && roundsLeading {
+                        Text(plan.startTime.shortTime)
+                            .font(.system(size: max(4, displayTitleFontSize - 1), weight: .medium, design: .rounded))
+                            .foregroundStyle(titleColor)
+                            .monospacedDigit()
+                            .fixedSize(horizontal: true, vertical: false)
+                            .strikethrough(isPastPlan && strikePastPlans, color: titleColor)
+                    }
+                    Text(plan.title)
+                        .font(.system(size: displayTitleFontSize, weight: titleBold ? .bold : .regular))
+                        .foregroundStyle(titleColor)
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
+                        .strikethrough(isPastPlan && strikePastPlans, color: titleColor)
+                        .offset(y: textVerticalOffset)
+                }
             }
             .clipped()
             .background(backgroundShape)
@@ -4467,9 +4483,6 @@ private struct CalendarMultiDayPlanBar: View {
     }
 
     private var backgroundFillColor: Color {
-        if usesLightPastDimStyle {
-            return CalendarPlanColorRendering.lightPastSurface(from: color, sourceAmount: 0.82, alpha: 0.68)
-        }
         return CalendarPlanColorRendering.surface(
             from: color,
             colorScheme: colorScheme,
@@ -4478,9 +4491,6 @@ private struct CalendarMultiDayPlanBar: View {
     }
 
     private var borderColor: Color {
-        if usesLightPastDimStyle {
-            return CalendarPlanColorRendering.lightPastSurface(from: color, sourceAmount: 0.9, alpha: 0.84)
-        }
         return CalendarPlanColorRendering.surface(
             from: color,
             colorScheme: colorScheme,
@@ -4489,9 +4499,6 @@ private struct CalendarMultiDayPlanBar: View {
     }
 
     private var markerColor: Color {
-        if usesLightPastDimStyle {
-            return CalendarPlanColorRendering.lightPastSurface(from: color, sourceAmount: 0.86, alpha: 0.76)
-        }
         return CalendarPlanColorRendering.surface(
             from: color,
             colorScheme: colorScheme,
@@ -4500,15 +4507,11 @@ private struct CalendarMultiDayPlanBar: View {
     }
 
     private var labelOpacity: Double {
-        usesLightPastDimStyle ? 1 : (isPastDimmed ? 0.38 : 1)
+        isPastDimmed ? (colorScheme == .dark ? 0.38 : 0.45) : 1
     }
 
     private var isPastDimmed: Bool {
         isPastPlan && dimPastPlans
-    }
-
-    private var usesLightPastDimStyle: Bool {
-        colorScheme != .dark && isPastDimmed
     }
 
     private var markerHeight: CGFloat {
@@ -4542,12 +4545,6 @@ private enum CalendarPlanColorRendering {
         return Color(uiColor: source.mixed(with: base, sourceAmount: intensity))
     }
 
-    static func lightPastSurface(from color: Color, sourceAmount: CGFloat, alpha: CGFloat) -> Color {
-        let traits = UITraitCollection(userInterfaceStyle: .light)
-        let source = UIColor(color).resolvedColor(with: traits)
-        let darkened = source.mixed(with: .black, sourceAmount: sourceAmount)
-        return Color(uiColor: darkened.withAlphaComponent(min(max(alpha, 0), 1)))
-    }
 }
 
 private extension UIColor {

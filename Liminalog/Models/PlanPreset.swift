@@ -80,7 +80,7 @@ final class PlanPreset {
             note: note,
             isPublic: isPublic,
             reminderMinutesBefore: reminderMinutesBefore,
-            isMemo: isMemo
+            isMemo: false
         )
     }
 

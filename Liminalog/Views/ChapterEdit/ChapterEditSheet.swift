@@ -26,6 +26,31 @@ struct ChapterEditSheet: View {
     @State private var isLoadingValues = false
     @State private var saveError: String?
 
+    private struct Draft: Equatable {
+        var start: Date
+        var end: Date?
+        var categoryID: UUID?
+        var note: String
+        var location: String
+        var isPublic: Bool
+        var audience: Set<UUID>
+        var source: AudienceSource
+    }
+    private var draft: Draft {
+        Draft(start: startTime,
+              end: endTime,
+              categoryID: selectedCategory?.id,
+              note: note.trimmingCharacters(in: .whitespacesAndNewlines),
+              location: locationName.trimmingCharacters(in: .whitespacesAndNewlines),
+              isPublic: isPublic,
+              audience: Set(audienceFriendIDs),
+              source: audienceSource)
+    }
+
+    @State private var initialDraft: Draft?
+    @State private var showingDiscardConfirmation = false
+    private var hasChanges: Bool { initialDraft.map { $0 != draft } ?? false }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -36,7 +61,6 @@ struct ChapterEditSheet: View {
                     noteCard
                     locationCard
                     visibilityCard
-                    deleteCard
                 }
                 .padding(16)
                 .padding(.bottom, 30)
@@ -45,17 +69,23 @@ struct ChapterEditSheet: View {
             .background(LiminalTheme.canvasGradient)
             .navigationTitle(chapter.isActive ? "記録中のチャプター" : "チャプターを編集")
             .navigationBarTitleDisplayMode(.inline)
+            .editorDismissGuard(hasChanges: hasChanges, showingConfirmation: $showingDiscardConfirmation)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("キャンセル") { dismiss() }
+                    EditorCancelButton(hasChanges: hasChanges, showingConfirmation: $showingDiscardConfirmation) { dismiss() }
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("保存") { save() }
-                        .fontWeight(.semibold)
-                        .disabled(!canSave)
+                if !isTimeLocked {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        EditorActionsMenu {
+                            Button("実績を削除", systemImage: "trash", role: .destructive) { showDeleteConfirm = true }
+                        }
+                    }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    EditorSaveButton(isEmphasized: hasChanges, canSave: canSave) { save() }
                 }
             }
-            .confirmationDialog("チャプターを削除しますか？", isPresented: $showDeleteConfirm, titleVisibility: .visible) {
+            .confirmationDialog("実績を削除しますか？", isPresented: $showDeleteConfirm, titleVisibility: .visible) {
                 Button("削除", role: .destructive) {
                     if store.deleteChapter(chapter) {
                         dismiss()
@@ -67,6 +97,7 @@ struct ChapterEditSheet: View {
             .onAppear {
                 guard !didLoadValues else { return }
                 loadValues()
+                initialDraft = draft
             }
             .sheet(isPresented: $showingCategoryPicker) {
                 PlanCategoryPickerSheet(
@@ -321,26 +352,6 @@ struct ChapterEditSheet: View {
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(LiminalTheme.secondaryText)
-                }
-            }
-        }
-    }
-
-    private var deleteCard: some View {
-        PlanEditorCard(tint: isTimeLocked ? LiminalTheme.secondaryText : Color.red) {
-            if isTimeLocked {
-                PlanEditorStatusLabel(
-                    text: "前日以前の実績は削除できません。",
-                    systemImage: "lock.fill",
-                    tint: LiminalTheme.secondaryText
-                )
-            } else {
-                Button(role: .destructive) {
-                    showDeleteConfirm = true
-                } label: {
-                    Label("チャプターを削除", systemImage: "trash.fill")
-                        .font(.subheadline.weight(.semibold))
-                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
         }

@@ -106,6 +106,49 @@ struct PlanCreateSheet: View {
         _isPublic = State(initialValue: snapshot.isPublic)
     }
 
+    private struct Draft: Equatable {
+        var title: String
+        var note: String
+        var categoryID: UUID?
+        var start: Date
+        var end: Date
+        var allDayEnd: Date
+        var isAllDay: Bool
+        var isMemo: Bool
+        var isImportant: Bool
+        var isPublic: Bool
+        var recurrence: PlanRecurrenceRule?
+        var reminder: Int?
+        var reminderDate: Date?
+        var audience: Set<UUID>
+        var audienceSource: AudienceSource
+        var templateStart: Int
+        var templateEnd: Int
+    }
+    private var draft: Draft {
+        Draft(title: title.trimmingCharacters(in: .whitespacesAndNewlines),
+              note: note.trimmingCharacters(in: .whitespacesAndNewlines),
+              categoryID: selectedCategory?.id,
+              start: startTime,
+              end: endTime,
+              allDayEnd: allDayEndDate,
+              isAllDay: isAllDay,
+              isMemo: isMemo,
+              isImportant: isImportant,
+              isPublic: isPublic,
+              recurrence: recurrenceRule,
+              reminder: reminderMinutesBefore,
+              reminderDate: reminderDate,
+              audience: Set(audienceFriendIDs),
+              audienceSource: audienceSource,
+              templateStart: templateStartMinute,
+              templateEnd: templateEndMinute)
+    }
+
+    @State private var initialDraft: Draft?
+    @State private var showingDiscardConfirmation = false
+    private var hasChanges: Bool { initialDraft.map { $0 != draft } ?? false }
+
     var body: some View {
         // Share one overlap lookup across both toolbar buttons and the warning.
         // Store writes still validate the schedule again at save time.
@@ -157,36 +200,31 @@ struct PlanCreateSheet: View {
             .background(LiminalTheme.canvasGradient)
             .navigationTitle(editingPlan != nil || snapshotEditor?.onDelete != nil ? "予定を編集" : "予定を追加")
             .navigationBarTitleDisplayMode(.inline)
+            .editorDismissGuard(hasChanges: hasChanges, showingConfirmation: $showingDiscardConfirmation)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("キャンセル") {
-                        LiminalHaptics.lightImpact(intensity: 0.45)
-                        dismiss()
-                    }
+                    EditorCancelButton(hasChanges: hasChanges, showingConfirmation: $showingDiscardConfirmation) { dismiss() }
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("保存") { save() }
-                        .fontWeight(.semibold)
-                        .disabled(!canSave)
-                }
-                ToolbarItem(placement: .secondaryAction) {
-                    // secondaryAction 自体が標準の三点メニューに入るので、Menuを重ねない。
-                    Button {
-                        saveAsPreset()
-                    } label: {
-                        Label("プリセットとして保存", systemImage: "bookmark")
-                    }
-                    .disabled(!canSave)
-                }
-                if editingPlan != nil || snapshotEditor?.onDelete != nil {
-                    ToolbarItem(placement: .secondaryAction) {
-                        Button("予定を削除", systemImage: "trash", role: .destructive) {
-                            showingDeleteConfirmation = true
+                ToolbarItem(placement: .topBarTrailing) {
+                    EditorActionsMenu {
+                        Button { saveAsPreset() } label: {
+                            Label("プリセットとして保存", systemImage: "square.and.arrow.down")
                         }
-                        .disabled(isScheduleLocked)
+                        .disabled(!canSave)
+                        if editingPlan != nil || snapshotEditor?.onDelete != nil {
+                            Divider()
+                            Button("予定を削除", systemImage: "trash", role: .destructive) {
+                                showingDeleteConfirmation = true
+                            }
+                            .disabled(isScheduleLocked)
+                        }
                     }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    EditorSaveButton(isEmphasized: hasChanges || (editingPlan == nil && snapshotEditor?.onDelete == nil), canSave: canSave) { save() }
                 }
             }
+
             .sheet(item: $memoPromotion) { request in
                 PlanMemoPromotionSheet(request: request, title: resolvedPlanTitle, start: startTime, end: endTime,
                     colorHex: selectedCategory?.colorHex, icon: selectedCategory?.icon) { mode in
@@ -209,6 +247,7 @@ struct PlanCreateSheet: View {
                     resetAudienceToCategoryDefault()
                     didInitializeAudience = true
                 }
+                if initialDraft == nil { initialDraft = draft }
             }
             .onChange(of: selectedCategory?.id) { _, _ in
                 guard didInitializeAudience, audienceSource == .categoryDefaultSnapshot else { return }
@@ -672,7 +711,6 @@ struct PlanCreateSheet: View {
         title = snapshot.title
         selectedCategory = category(for: preset)
         note = snapshot.note ?? ""
-        isMemo = snapshot.isMemo
         isAllDay = snapshot.isAllDay
         isImportant = snapshot.isImportant
         isPublic = snapshot.isPublic

@@ -175,7 +175,12 @@ struct PlanMemoTests {
         #expect(store.applyTemplates(decoded.map { .init(snapshot: $0, resolvedCategory: nil) }, to: day(), calendar: calendar))
         #expect(store.allPlannedBlocks().filter(\.isMemo).count == 1)
         let preset = try #require(PlanPresetStore(modelContext: context).createPlanPreset(name: "電話", snapshot: memo))
-        #expect(preset.isMemo && preset.snapshot.isMemo)
+        #expect(!preset.isMemo && !preset.snapshot.isMemo)
+        preset.isMemo = true // Legacy storage is preserved but never determines placement.
+        try context.save()
+        let presets = PlanPresetStore(modelContext: context)
+        #expect(presets.updatePlanPreset(preset, name: "電話", snapshot: memo))
+        #expect(preset.isMemo && !preset.snapshot.isMemo)
         let datedMemo = try #require(store.allPlannedBlocks().first { $0.isMemo })
         #expect(PlanPresetStore.snapshot(from: datedMemo, calendar: calendar)?.isMemo == true)
     }

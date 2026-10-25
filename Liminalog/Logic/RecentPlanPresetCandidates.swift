@@ -15,7 +15,6 @@ enum RecentPlanPresetCandidates {
                 isAllDay: snapshot.isAllDay, isImportant: snapshot.isImportant, note: snapshot.note,
                 isPublic: snapshot.isPublic, placementMode: snapshot.isAllDay ? .fixedTime : .duration,
                 now: plan.createdAt)
-            candidate.isMemo = snapshot.isMemo
             candidate.id = plan.id
             candidate.reminderMinutesBefore = snapshot.reminderMinutesBefore
             guard !presets.contains(where: { matches(candidate, registered: $0) }),

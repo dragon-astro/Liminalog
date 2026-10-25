@@ -54,7 +54,9 @@ struct CalendarExpandedDayTimeline: View {
             )
             .zIndex(100)
         }
-        .sheet(item: $editingPlan) { PlanCreateSheet(plan: $0) }
+        .sheet(item: $editingPlan) { plan in
+            if plan.modelContext != nil && !plan.isDeleted { PlanCreateSheet(plan: plan) }
+        }
         .sheet(isPresented: $showingPresetSettings) { CalendarSettingsSheet() }
         .sheet(isPresented: $showingCategoryEditor) {
             CategoryEditSheet(category: nil) { category in

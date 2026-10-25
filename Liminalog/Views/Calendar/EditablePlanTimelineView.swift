@@ -1372,13 +1372,14 @@ struct EditablePlanTimelineView: View {
             0,
             TimelineAxisMap.minutesPerDay - preset.snapshot.durationMinutes
         )
-        guard let snapshot = TimelinePlanPresetPlacementGeometry.snapshot(preset.snapshot, placementMode: preset.placementMode,
+        guard var snapshot = TimelinePlanPresetPlacementGeometry.snapshot(preset.snapshot, placementMode: preset.placementMode,
             startMinute: min(maximumStartMinute, max(0, snappedMinute)),
             horizontalFraction: (location.x - hourColumnWidth - sideInset) / availableBlockWidth(viewportSize.width),
-            currentIsMemo: presetPlacementDraft?.snapshot.isMemo ?? preset.isMemo) else {
+            currentIsMemo: presetPlacementDraft?.snapshot.isMemo ?? false) else {
             return
         }
 
+        if !isEditingEnabled && !snapshot.isAllDay { snapshot.isMemo = true }
         let previewInterval = PlanTimelineInterval(
             id: preset.id,
             startMinute: snapshot.startMinute,
@@ -1432,8 +1433,9 @@ struct EditablePlanTimelineView: View {
         snapshot: PlanTemplateSnapshot? = nil,
         interval: DateInterval
     ) -> String? {
-        let source = snapshot ?? preset.snapshot
-        guard (isEditingEnabled || source.isMemo),
+        var source = snapshot ?? preset.snapshot
+        if !isEditingEnabled && !source.isAllDay { source.isMemo = true }
+        guard (isEditingEnabled || source.isMemo || source.isAllDay),
               store.canCreatePlan(startTime: interval.start, isAllDay: source.isAllDay, isMemo: source.isMemo)
         else {
             return "この日には予定を追加できません。"

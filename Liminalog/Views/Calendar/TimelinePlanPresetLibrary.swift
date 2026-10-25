@@ -406,6 +406,7 @@ struct TimelinePlanPresetLibrary: View {
     private func timedTile(_ preset: PlanPreset, style: PlanPresetLibraryCardStyle) -> some View {
         let card = tileContent(preset, style: style)
             .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("timeline-preset-\(preset.id)")
             .overlay {
                 TimelinePlanPresetLongPressDragSurface(
                     minimumDuration: durationLongPressMinimumDuration,
@@ -991,7 +992,7 @@ struct PlanPresetLibraryCard: View {
                 }
             }
 
-            Text((preset.isMemo ? "予定メモ · " : "") + (category == nil ? "\(summary) · カテゴリ未設定" : summary))
+            Text(category == nil ? "\(summary) · カテゴリ未設定" : summary)
                 .font(.caption2.monospacedDigit())
                 .foregroundStyle(LiminalTheme.secondaryText)
                 .lineLimit(1)

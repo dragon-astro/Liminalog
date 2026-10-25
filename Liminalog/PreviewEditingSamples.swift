@@ -69,7 +69,6 @@ extension PreviewSupport {
                     startMinute: item.startMinute, endMinute: item.endMinute, isAllDay: item.isAllDay,
                     isImportant: item.isImportant, isPublic: false, placementMode: mode,
                     sortOrder: (presets.map(\.sortOrder).max() ?? -1) + 1)
-                preset.isMemo = item.isMemo
                 context.insert(preset)
                 presets.append(preset)
             }

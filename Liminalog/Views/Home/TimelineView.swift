@@ -272,7 +272,10 @@ struct TimelineView: View {
             Text(operationError ?? "")
         }
         .sheet(item: $editingPlan) { plan in
-            PlanCreateSheet(plan: plan)
+            // The sheet can re-render after its model is deleted, before dismissal finishes.
+            if plan.modelContext != nil && !plan.isDeleted {
+                PlanCreateSheet(plan: plan)
+            }
         }
         .sheet(isPresented: $showingChapterCreate) {
             ChapterCreateSheet(initialDate: gapStartDate)

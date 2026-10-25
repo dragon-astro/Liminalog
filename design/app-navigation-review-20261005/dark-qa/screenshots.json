@@ -2490,5 +2490,481 @@
     "test": "CalendarMonthDrawerUITests/testCapturePaletteEdgesAndPresetKinds()",
     "attachments": "/private/tmp/liminalog-palette-memo-20261025/se-light-attachments",
     "original": "C0EC085B-8064-4421-9C0A-376FDD0E2F51.png"
+  },
+  "32-editor-toolbar-changed-dark.png": {
+    "phase": "after",
+    "appearance": "dark",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "b97bde6755a6a85aa4a75ec182a780df71571f1b541fe930aa098d0f848654d2",
+    "bytes": 980186,
+    "test": "CalendarMonthDrawerUITests/testEditorToolbarProtectsPlanChangesAndSavesExplicitly()",
+    "attachments": "/private/tmp/liminalog-editor-calendar-20261026/dark-c-attachments",
+    "original": "56FEBD06-89C9-43D6-9671-6B78D81A635E.png"
+  },
+  "32-editor-toolbar-changed-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "b07e0bceb65102b399d5f1bdd4df6d8ebf6440322a3e28665b4abd9628830eb8",
+    "bytes": 1129150,
+    "test": "CalendarMonthDrawerUITests/testEditorToolbarProtectsPlanChangesAndSavesExplicitly()",
+    "attachments": "/private/tmp/liminalog-editor-calendar-20261026/light-e-attachments",
+    "original": "27989A65-2963-4538-B30E-AFD2AE629960.png"
+  },
+  "32-editor-toolbar-discard-dark.png": {
+    "phase": "after",
+    "appearance": "dark",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "a69bd8a63862181ee0790b0e5766a17d36663f89d0ddd8f0458d539887b7d618",
+    "bytes": 932120,
+    "test": "CalendarMonthDrawerUITests/testEditorToolbarProtectsPlanChangesAndSavesExplicitly()",
+    "attachments": "/private/tmp/liminalog-editor-calendar-20261026/dark-c-attachments",
+    "original": "8CAB8B9C-B3B6-4AD1-BFAB-FB6076B216F9.png"
+  },
+  "32-editor-toolbar-discard-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "57dd1dd4c7bd6c8a978a32cbd9be7b00422fe7e741286d34f9f2a161ec2db926",
+    "bytes": 1091498,
+    "test": "CalendarMonthDrawerUITests/testEditorToolbarProtectsPlanChangesAndSavesExplicitly()",
+    "attachments": "/private/tmp/liminalog-editor-calendar-20261026/light-e-attachments",
+    "original": "142CA96A-CA1B-4C7C-B7B4-B8B5E2059CBB.png"
+  },
+  "32-editor-toolbar-menu-dark.png": {
+    "phase": "after",
+    "appearance": "dark",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "7fb52cbe76fd674e96829c274debeb7641ec1dab0c54b06b7030fa903fd3e058",
+    "bytes": 932664,
+    "test": "CalendarMonthDrawerUITests/testEditorToolbarProtectsPlanChangesAndSavesExplicitly()",
+    "attachments": "/private/tmp/liminalog-editor-calendar-20261026/dark-c-attachments",
+    "original": "57634A79-37B3-4125-945B-B647841F68BF.png"
+  },
+  "32-editor-toolbar-menu-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "65e29a0c4f5a95162c3fcf5b3a3b2395d964ded0973c2cfe0f54be8e78f546e3",
+    "bytes": 1087087,
+    "test": "CalendarMonthDrawerUITests/testEditorToolbarProtectsPlanChangesAndSavesExplicitly()",
+    "attachments": "/private/tmp/liminalog-editor-calendar-20261026/light-e-attachments",
+    "original": "2854BAF1-D17B-4359-A912-537C0E7D18C6.png"
+  },
+  "32-editor-toolbar-preset-bottom-dark.png": {
+    "phase": "after",
+    "appearance": "dark",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "64c22152fa9ddf490f8c8c7a44db548f06e8d54a7bbaa2fd9acbaec7201c7a86",
+    "bytes": 970410,
+    "test": "CalendarMonthDrawerUITests/testPresetEditorDiscardSaveAndNeutralAppearance()",
+    "attachments": "/private/tmp/liminalog-editor-calendar-20261026/dark-c-attachments",
+    "original": "B98AC06D-A6B3-4453-8CE5-237C24C6EF9C.png"
+  },
+  "32-editor-toolbar-preset-bottom-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "dfc2766a907b53701228fbfffe466257e629a1e0b71f450ca166f88074c4864f",
+    "bytes": 1135961,
+    "test": "CalendarMonthDrawerUITests/testPresetEditorDiscardSaveAndNeutralAppearance()",
+    "attachments": "/private/tmp/liminalog-editor-calendar-20261026/light-e-attachments",
+    "original": "AE5BDBC6-A78D-447D-BF63-5B054815F7E5.png"
+  },
+  "32-editor-toolbar-se-changed-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      750,
+      1334
+    ],
+    "scale": 2,
+    "sha256": "43e773c665e8dc47494d27e13b596751d4a7925f9d455f70dc5f3137d3a45c9f",
+    "bytes": 459867,
+    "test": "CalendarMonthDrawerUITests/testEditorToolbarProtectsPlanChangesAndSavesExplicitly()",
+    "attachments": "/private/tmp/liminalog-editor-calendar-20261026/se-c-attachments",
+    "original": "74F40747-C188-400C-B638-26C4265AC17C.png"
+  },
+  "32-editor-toolbar-se-discard-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      750,
+      1334
+    ],
+    "scale": 2,
+    "sha256": "182399ba9308c94cfa6bae47ef29e5a99ba6ec4467d4d0b465cbcb564267c436",
+    "bytes": 444010,
+    "test": "CalendarMonthDrawerUITests/testEditorToolbarProtectsPlanChangesAndSavesExplicitly()",
+    "attachments": "/private/tmp/liminalog-editor-calendar-20261026/se-c-attachments",
+    "original": "7F83C5ED-41EB-49B5-9250-1F0903FCA9BA.png"
+  },
+  "32-editor-toolbar-se-menu-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      750,
+      1334
+    ],
+    "scale": 2,
+    "sha256": "49533a8c01a9acd4c2d2309f22b6499857bbcaa98c7b9f6a317120fc873ee06f",
+    "bytes": 444213,
+    "test": "CalendarMonthDrawerUITests/testEditorToolbarProtectsPlanChangesAndSavesExplicitly()",
+    "attachments": "/private/tmp/liminalog-editor-calendar-20261026/se-c-attachments",
+    "original": "9D0DD693-52B7-411C-8EF6-D5379A832F98.png"
+  },
+  "32-editor-toolbar-se-preset-bottom-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      750,
+      1334
+    ],
+    "scale": 2,
+    "sha256": "24f73af6a0d7c460d718ac453e51d8bfca116fa04fb454835b850652bf689515",
+    "bytes": 423335,
+    "test": "CalendarMonthDrawerUITests/testPresetEditorDiscardSaveAndNeutralAppearance()",
+    "attachments": "/private/tmp/liminalog-editor-calendar-20261026/se-c-attachments",
+    "original": "F430C5E7-E062-44C5-A8AB-360764BDAB16.png"
+  },
+  "32-editor-toolbar-se-unchanged-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      750,
+      1334
+    ],
+    "scale": 2,
+    "sha256": "f86f4629735ce9a0c30dbae9580d2acefc6ea408ed7f434495f494a0e551e07a",
+    "bytes": 456695,
+    "test": "CalendarMonthDrawerUITests/testEditorToolbarProtectsPlanChangesAndSavesExplicitly()",
+    "attachments": "/private/tmp/liminalog-editor-calendar-20261026/se-c-attachments",
+    "original": "CF74AD0B-6BEC-49D5-A8B6-64B81EBADBF9.png"
+  },
+  "32-editor-toolbar-unchanged-dark.png": {
+    "phase": "after",
+    "appearance": "dark",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "b33933b89d1fab639bc1941ac1f7022bac6f45865cdca5846a05a25e287de815",
+    "bytes": 975040,
+    "test": "CalendarMonthDrawerUITests/testEditorToolbarProtectsPlanChangesAndSavesExplicitly()",
+    "attachments": "/private/tmp/liminalog-editor-calendar-20261026/dark-c-attachments",
+    "original": "8C5140D3-6C03-470B-A93F-136826C5FDF0.png"
+  },
+  "32-editor-toolbar-unchanged-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "60c058844c4c9d46f0b6c9931405639ed8aa35a03b3abf32577d2b1e9cd737f8",
+    "bytes": 1123002,
+    "test": "CalendarMonthDrawerUITests/testEditorToolbarProtectsPlanChangesAndSavesExplicitly()",
+    "attachments": "/private/tmp/liminalog-editor-calendar-20261026/light-e-attachments",
+    "original": "34F01B3C-6AD8-4250-ACC6-0DBC7FFA9D6F.png"
+  },
+  "33-preset-editor-lower-dark.png": {
+    "phase": "after",
+    "appearance": "dark",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "64c22152fa9ddf490f8c8c7a44db548f06e8d54a7bbaa2fd9acbaec7201c7a86",
+    "bytes": 970410,
+    "test": "CalendarMonthDrawerUITests/testPresetEditorDiscardSaveAndNeutralAppearance()",
+    "attachments": "/private/tmp/liminalog-editor-calendar-20261026/dark-c-attachments",
+    "original": "DA17355B-AF7F-4267-9DB7-A85E6B8FC092.png"
+  },
+  "33-preset-editor-lower-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "dfc2766a907b53701228fbfffe466257e629a1e0b71f450ca166f88074c4864f",
+    "bytes": 1135961,
+    "test": "CalendarMonthDrawerUITests/testPresetEditorDiscardSaveAndNeutralAppearance()",
+    "attachments": "/private/tmp/liminalog-editor-calendar-20261026/light-e-attachments",
+    "original": "992AE977-A46D-47BE-9D16-682B46F8A664.png"
+  },
+  "33-preset-editor-se-lower-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      750,
+      1334
+    ],
+    "scale": 2,
+    "sha256": "396a4e98a8660d3009b90a041e9facc117dc25718cda6b2492634c8e877f2254",
+    "bytes": 422652,
+    "test": "CalendarMonthDrawerUITests/testPresetEditorDiscardSaveAndNeutralAppearance()",
+    "attachments": "/private/tmp/liminalog-editor-calendar-20261026/se-c-attachments",
+    "original": "3E288131-EC3F-416F-98A6-5BC615AA175F.png"
+  },
+  "33-preset-editor-se-upper-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      750,
+      1334
+    ],
+    "scale": 2,
+    "sha256": "512ee62cc82b8f21d997ec0417ba9dabac04919c05d3ec0abeea7ef28e0080a1",
+    "bytes": 384335,
+    "test": "CalendarMonthDrawerUITests/testPresetEditorDiscardSaveAndNeutralAppearance()",
+    "attachments": "/private/tmp/liminalog-editor-calendar-20261026/se-c-attachments",
+    "original": "07A3E1D2-EB97-4340-AF5C-8BE35F43D409.png"
+  },
+  "33-preset-editor-upper-dark.png": {
+    "phase": "after",
+    "appearance": "dark",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "cd8bf07a704748b782a6151a9ba338b9aa02163170da5dfdd44477f28d890a14",
+    "bytes": 917597,
+    "test": "CalendarMonthDrawerUITests/testPresetEditorDiscardSaveAndNeutralAppearance()",
+    "attachments": "/private/tmp/liminalog-editor-calendar-20261026/dark-c-attachments",
+    "original": "0B83F887-AB45-48C6-92CE-59C261BB9969.png"
+  },
+  "33-preset-editor-upper-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "23516be3a045a03ee0ce98c4dd4f092b9c91d5bd27b1800e2f65eed0422ce84f",
+    "bytes": 1024578,
+    "test": "CalendarMonthDrawerUITests/testPresetEditorDiscardSaveAndNeutralAppearance()",
+    "attachments": "/private/tmp/liminalog-editor-calendar-20261026/light-e-attachments",
+    "original": "B05B4305-6F54-4324-B0A8-BC81013AA394.png"
+  },
+  "33-preset-recent-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "b540d4298c6b51e81aa22bd1c11b5ea0fe6f65c90c492f05f637b224a304150d",
+    "bytes": 780650,
+    "test": "CalendarMonthDrawerUITests/testCaptureNeutralRecentPresets()",
+    "attachments": "/private/tmp/liminalog-editor-calendar-20261026/light-e-attachments",
+    "original": "B682B180-9530-4352-9A39-64A354E4400F.png"
+  },
+  "34-month-aurora-past-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "8e85e62ad06d29ac682570bface6a9e64e5018867c14846dc1ed212bc0afe3b8",
+    "bytes": 781718,
+    "test": "CalendarMonthDrawerUITests/testMonthStartTimeSettingAndPastAppearance()",
+    "attachments": "/private/tmp/liminalog-editor-calendar-20261026/aurora-f-attachments",
+    "original": "7FE27790-4815-4568-868B-961A5DACF020.png"
+  },
+  "34-month-aurora-strike-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "3bf269f3f22249652d3e48abe9b8f46236f3d5dca155486fd6ce395690f7bb2f",
+    "bytes": 784499,
+    "test": "CalendarMonthDrawerUITests/testMonthStartTimeSettingAndPastAppearance()",
+    "attachments": "/private/tmp/liminalog-editor-calendar-20261026/aurora-f-attachments",
+    "original": "0D49DE08-7708-46BF-A5B6-E34B4F439183.png"
+  },
+  "34-month-aurora-time-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "eb42572dfa92698d8d33d41f5ffd65f49a41de6760c6e617c827126c9334ac11",
+    "bytes": 785386,
+    "test": "CalendarMonthDrawerUITests/testMonthStartTimeSettingAndPastAppearance()",
+    "attachments": "/private/tmp/liminalog-editor-calendar-20261026/aurora-f-attachments",
+    "original": "F4335368-2E59-41C6-9C83-8ACB15D6B0F5.png"
+  },
+  "34-month-past-dark.png": {
+    "phase": "after",
+    "appearance": "dark",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "c7fa0fa50889b149b792fd680d3cb34716ff1b20e8f4c088728a588dd1df9a79",
+    "bytes": 657907,
+    "test": "CalendarMonthDrawerUITests/testMonthStartTimeSettingAndPastAppearance()",
+    "attachments": "/private/tmp/liminalog-editor-calendar-20261026/dark-d-attachments",
+    "original": "9A3EE710-B896-4D31-BAB3-CD5ECDD453B1.png"
+  },
+  "34-month-past-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "0878fcc48ee0383f119159e33191c63818ac0488b2fe556d9b42fc42ac4574cb",
+    "bytes": 706968,
+    "test": "CalendarMonthDrawerUITests/testMonthStartTimeSettingAndPastAppearance()",
+    "attachments": "/private/tmp/liminalog-editor-calendar-20261026/light-e-attachments",
+    "original": "1D7E9B01-E52F-4815-92FF-A9982C83120E.png"
+  },
+  "34-month-se-past-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      750,
+      1334
+    ],
+    "scale": 2,
+    "sha256": "0fddca13bad7639f9ac822ae5c9cb1fb1c34c2bfb524cdb134cf6b22855b17ab",
+    "bytes": 272589,
+    "test": "CalendarMonthDrawerUITests/testMonthStartTimeSettingAndPastAppearance()",
+    "attachments": "/private/tmp/liminalog-editor-calendar-20261026/se-d-attachments",
+    "original": "D1B37405-7D85-4C4B-B250-F82EF5C043B3.png"
+  },
+  "34-month-se-strike-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      750,
+      1334
+    ],
+    "scale": 2,
+    "sha256": "ceabdd6de6c9e1c8f7cd79036cb161bb3131ce4c432c116df30567214e2d5eb3",
+    "bytes": 273329,
+    "test": "CalendarMonthDrawerUITests/testMonthStartTimeSettingAndPastAppearance()",
+    "attachments": "/private/tmp/liminalog-editor-calendar-20261026/se-d-attachments",
+    "original": "2976B87F-F91A-46B7-83FF-C7E5106AF7A0.png"
+  },
+  "34-month-se-time-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      750,
+      1334
+    ],
+    "scale": 2,
+    "sha256": "ceabdd6de6c9e1c8f7cd79036cb161bb3131ce4c432c116df30567214e2d5eb3",
+    "bytes": 273329,
+    "test": "CalendarMonthDrawerUITests/testMonthStartTimeSettingAndPastAppearance()",
+    "attachments": "/private/tmp/liminalog-editor-calendar-20261026/se-d-attachments",
+    "original": "D660DA9F-3FAC-42BA-95D5-87CB22431B99.png"
+  },
+  "34-month-strike-dark.png": {
+    "phase": "after",
+    "appearance": "dark",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "0ad21f2ad97b6004fd11674fe0ed7597f034a50018e7c0eb1235816f6a30210e",
+    "bytes": 659996,
+    "test": "CalendarMonthDrawerUITests/testMonthStartTimeSettingAndPastAppearance()",
+    "attachments": "/private/tmp/liminalog-editor-calendar-20261026/dark-d-attachments",
+    "original": "1A90180B-73D4-4707-86BB-61977DE7C4C5.png"
+  },
+  "34-month-strike-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "993b3c786a444486b51a3d7d0552cdea5497389a64ded6a5c4f0618249f522c1",
+    "bytes": 709300,
+    "test": "CalendarMonthDrawerUITests/testMonthStartTimeSettingAndPastAppearance()",
+    "attachments": "/private/tmp/liminalog-editor-calendar-20261026/light-e-attachments",
+    "original": "F75A6E02-51C2-4FDE-AE1A-F11A83CCD34B.png"
+  },
+  "34-month-time-dark.png": {
+    "phase": "after",
+    "appearance": "dark",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "be39e56aee18fcea5b746aa5aa17bfe56eb9b5150a57ce451fddd9fab8a5517a",
+    "bytes": 661122,
+    "test": "CalendarMonthDrawerUITests/testMonthStartTimeSettingAndPastAppearance()",
+    "attachments": "/private/tmp/liminalog-editor-calendar-20261026/dark-d-attachments",
+    "original": "9F28B1D6-EAE0-40FF-B04F-DB352F46D292.png"
+  },
+  "34-month-time-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "54be18cc3f0917c1383ed92fbc18d731a12ad5f2a09aee2329f31313e52ff09a",
+    "bytes": 710260,
+    "test": "CalendarMonthDrawerUITests/testMonthStartTimeSettingAndPastAppearance()",
+    "attachments": "/private/tmp/liminalog-editor-calendar-20261026/light-e-attachments",
+    "original": "0E2A5982-10FF-491B-868A-ADA4C2849DA3.png"
   }
 }

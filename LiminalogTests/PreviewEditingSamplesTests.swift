@@ -20,7 +20,7 @@ struct PreviewEditingSamplesTests {
         #expect(categories.allCategories().count == 16)
         #expect(try context.fetchCount(FetchDescriptor<CategorySet>()) == 4)
         #expect(plans.count == 16 && days.count == 5)
-        #expect(plans.contains { $0.isMemo } && plans.contains { $0.isAllDay })
+        #expect(plans.allSatisfy { !$0.snapshot.isMemo } && plans.contains { $0.isAllDay })
         #expect(plans.contains { $0.placementMode == .fixedTime } && plans.contains { $0.placementMode == .duration })
         let ids = Set(categories.allCategories().map(\.id))
         for plan in plans {

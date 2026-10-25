@@ -22,7 +22,6 @@ final class PlanRecurrenceStore {
             isImportant: plan.isImportant, note: plan.note, isPublic: plan.isPublic, placementMode: .fixedTime)
         preset.sortOrder = nextOrder
         preset.recurrenceData = data
-        preset.isMemo = plan.isMemo
         preset.reminderMinutesBefore = snapshot.reminderMinutesBefore
         context.insert(preset)
         plan.recurrenceSeriesID = preset.id

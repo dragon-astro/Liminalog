@@ -491,7 +491,6 @@ struct PlanPresetEditSheet: View {
     @State private var startTime: Date
     @State private var endMinute: Int
     @State private var durationMinutes: Int
-    @State private var isMemo: Bool
     @State private var isAllDay: Bool
     @State private var isImportant: Bool
     @State private var note: String
@@ -524,7 +523,6 @@ struct PlanPresetEditSheet: View {
         _startTime = State(initialValue: Self.date(minute: snapshot.startMinute, from: referenceDay))
         _endMinute = State(initialValue: snapshot.endMinute)
         _durationMinutes = State(initialValue: snapshot.durationMinutes)
-        _isMemo = State(initialValue: snapshot.isMemo)
         _isAllDay = State(initialValue: snapshot.isAllDay)
         _isImportant = State(initialValue: snapshot.isImportant)
         _note = State(initialValue: snapshot.note ?? "")
@@ -532,10 +530,44 @@ struct PlanPresetEditSheet: View {
         _placementMode = State(initialValue: initial?.placementMode ?? .duration)
     }
 
+    private struct Draft: Equatable {
+        var title: String
+        var note: String
+        var categoryID: UUID?
+        var startMinute: Int
+        var endMinute: Int
+        var duration: Int
+        var isAllDay: Bool
+        var isImportant: Bool
+        var isPublic: Bool
+        var recurrence: PlanRecurrenceRule?
+        var reminder: Int?
+        var placement: PlanPresetPlacementMode
+    }
+    private var draft: Draft {
+        Draft(title: title.trimmingCharacters(in: .whitespacesAndNewlines),
+              note: note.trimmingCharacters(in: .whitespacesAndNewlines),
+              categoryID: selectedCategory?.id,
+              startMinute: computedStartMinute,
+              endMinute: endMinute,
+              duration: durationMinutes,
+              isAllDay: isAllDay,
+              isImportant: isImportant,
+              isPublic: isPublic,
+              recurrence: recurrenceRule,
+              reminder: reminderMinutesBefore,
+              placement: placementMode)
+    }
+
+    @State private var showingDeleteConfirmation = false
+    @State private var initialDraft: Draft?
+    @State private var showingDiscardConfirmation = false
+    private var hasChanges: Bool { initialDraft.map { $0 != draft } ?? false }
+
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 14) {
+                VStack(spacing: 10) {
                     identityCard
                     timeCard
                     categoryCard
@@ -547,9 +579,6 @@ struct PlanPresetEditSheet: View {
                     }
                     visibilityCard
                     noteCard
-                    if preset != nil {
-                        deleteCard
-                    }
                 }
                 .padding(16)
                 .padding(.bottom, 30)
@@ -558,14 +587,25 @@ struct PlanPresetEditSheet: View {
             .background(LiminalTheme.canvasGradient)
             .navigationTitle(preset == nil ? "プリセットを追加" : "プリセットを編集")
             .navigationBarTitleDisplayMode(.inline)
+            .editorDismissGuard(hasChanges: hasChanges, showingConfirmation: $showingDiscardConfirmation)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("キャンセル") { dismiss() }
+                    EditorCancelButton(hasChanges: hasChanges, showingConfirmation: $showingDiscardConfirmation) { dismiss() }
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("保存") { save() }
-                        .fontWeight(.semibold)
-                        .disabled(!canSave)
+                if preset != nil {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        EditorActionsMenu {
+                            Button("プリセットを削除", systemImage: "trash", role: .destructive) {
+                                showingDeleteConfirmation = true
+                            }
+                        }
+                        .confirmationDialog("プリセットを削除しますか？", isPresented: $showingDeleteConfirmation, titleVisibility: .visible) {
+                            Button("削除", role: .destructive) { deletePreset() }
+                        }
+                    }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    EditorSaveButton(isEmphasized: hasChanges || (preset == nil), canSave: canSave) { save() }
                 }
             }
             .onChange(of: recurrenceRule != nil) { _, enabled in
@@ -573,11 +613,13 @@ struct PlanPresetEditSheet: View {
             }
             .onAppear {
                 if recurrenceRule != nil { placementMode = .fixedTime }
-                guard selectedCategory == nil else { return }
-                if let categoryID = initialCategoryID {
-                    selectedCategory = categories.first { $0.id == categoryID }
-                } else if !hasInitialContent {
-                    selectedCategory = categories.first
+                if initialDraft == nil {
+                    if let categoryID = initialCategoryID {
+                        selectedCategory = categories.first { $0.id == categoryID }
+                    } else if !hasInitialContent {
+                        selectedCategory = categories.first
+                    }
+                    initialDraft = draft
                 }
             }
             .sheet(isPresented: $showingCategoryPicker) {
@@ -663,24 +705,19 @@ struct PlanPresetEditSheet: View {
     }
 
     private var identityCard: some View {
-        PlanEditorCard(tint: selectedTint, planIsMemo: isMemo) {
+        PlanEditorCard(tint: selectedTint) {
             HStack(alignment: .top, spacing: 8) {
+                CategoryPreviewIcon(category: selectedCategory, size: 36)
+                    .frame(height: 44)
                 TextField("予定名", text: $title, axis: .vertical)
                     .font(.headline)
+                    .foregroundStyle(LiminalTheme.text)
                     .lineLimit(1...)
                     .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 12)
-                    .frame(minHeight: 46)
-                    .background(
-                        selectedTint.opacity(0.08),
-                        in: RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    )
+                    .padding(.vertical, 11)
+                    .frame(minHeight: 44)
                     .accessibilityLabel("予定名")
-                HStack(spacing: 0) {
-                    PlanImportanceButton(isImportant: $isImportant)
-                    PlanMemoButton(isMemo: $isMemo)
-                }
+                PlanImportanceButton(isImportant: $isImportant)
             }
         }
     }
@@ -745,16 +782,10 @@ struct PlanPresetEditSheet: View {
     private var timeCard: some View {
         PlanEditorCard(tint: selectedTint) {
             VStack(alignment: .leading, spacing: 12) {
-                PlanEditorSectionHeader(
-                    title: "時間と呼び出し方",
-                    systemImage: "clock.fill",
-                    tint: selectedTint
-                )
-
                 Toggle(isOn: $isAllDay) {
-                    Label("終日", systemImage: "sun.max.fill")
+                    Label("終日", systemImage: "calendar")
                 }
-                .tint(selectedTint)
+                .font(.subheadline)
 
                 if !isAllDay {
                     Picker("呼び出し方", selection: $placementMode) {
@@ -769,16 +800,14 @@ struct PlanPresetEditSheet: View {
                         if placementMode == .duration {
                             timeEditorRow(
                                 title: "長さ",
-                                value: Self.durationText(durationMinutes),
-                                systemImage: "timer"
+                                value: Self.durationText(durationMinutes)
                             ) {
                                 activeTimeEditor = .duration
                             }
                         } else {
                             timeEditorRow(
                                 title: "開始",
-                                value: Self.timeText(computedStartMinute),
-                                systemImage: "play.fill"
+                                value: Self.timeText(computedStartMinute)
                             ) {
                                 activeTimeEditor = .start
                             }
@@ -787,18 +816,12 @@ struct PlanPresetEditSheet: View {
 
                             timeEditorRow(
                                 title: "終了",
-                                value: Self.timeText(computedEndMinute),
-                                systemImage: "stop.fill"
+                                value: Self.timeText(computedEndMinute)
                             ) {
                                 activeTimeEditor = .end
                             }
                         }
                     }
-                    .padding(12)
-                    .background(
-                        LiminalTheme.elevated,
-                        in: RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    )
 
                     if let timeValidationMessage {
                         PlanEditorStatusLabel(
@@ -813,7 +836,7 @@ struct PlanPresetEditSheet: View {
                             ? "タップすると、この時刻に追加します。"
                             : "長押しして、置く時刻を決めます。",
                         systemImage: placementMode == .fixedTime ? "hand.tap.fill" : "hand.draw.fill",
-                        tint: selectedTint
+                        tint: LiminalTheme.secondaryText
                     )
                 }
             }
@@ -850,18 +873,6 @@ struct PlanPresetEditSheet: View {
             }
             .font(.subheadline)
             .accessibilityIdentifier("preset-visibility")
-        }
-    }
-
-    private var deleteCard: some View {
-        PlanEditorCard(tint: .red) {
-            Button(role: .destructive) {
-                deletePreset()
-            } label: {
-                Label("プリセットを削除", systemImage: "trash.fill")
-                    .font(.subheadline.weight(.semibold))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
         }
     }
 
@@ -929,22 +940,17 @@ struct PlanPresetEditSheet: View {
     private func timeEditorRow(
         title: String,
         value: String,
-        systemImage: String,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
             HStack(spacing: 10) {
-                Label(title, systemImage: systemImage)
+                Text(title).font(.subheadline)
                     .foregroundStyle(LiminalTheme.text)
                 Spacer()
-                Text(value)
-                    .font(.body.monospacedDigit().weight(.semibold))
-                    .foregroundStyle(selectedTint)
-                Image(systemName: "chevron.up.chevron.down")
-                    .font(.caption2.weight(.bold))
-                    .foregroundStyle(LiminalTheme.tertiaryText)
+                Text(value).monospacedDigit().modifier(PlanValueCapsule())
             }
             .frame(minHeight: 44)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(title)、\(value)")
@@ -993,8 +999,7 @@ struct PlanPresetEditSheet: View {
             isImportant: isImportant,
             note: note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : note,
             isPublic: isPublic,
-            reminderMinutesBefore: reminderMinutesBefore,
-            isMemo: isMemo
+            reminderMinutesBefore: reminderMinutesBefore
         )
     }
 

@@ -245,7 +245,7 @@ struct RootTabView: View {
             } message: {
                 Text(storageFallbackMessage)
             }
-            .fullScreenCover(isPresented: $isShowingDebugDayPresetEditor) {
+            .sheet(isPresented: $isShowingDebugDayPresetEditor) {
                 if let appStores {
                     DayPresetEditSheet(preset: nil)
                         .environment(appStores.chapterStore)

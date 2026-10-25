@@ -67,7 +67,6 @@ final class PlanPresetStore {
             sortOrder: (presets.map(\.sortOrder).max() ?? -1) + 1,
             now: clock.now
         )
-        preset.isMemo = snapshot.isMemo
         preset.reminderMinutesBefore = snapshot.reminderMinutesBefore
         if let recurrence { preset.recurrenceData = recurrence?.data }
         modelContext.insert(preset)
@@ -83,7 +82,6 @@ final class PlanPresetStore {
         recurrence: PlanRecurrenceRule?? = nil
     ) -> Bool {
         guard recurrence.flatMap({ $0 }).map(\.isValid) ?? true, isValid(snapshot) else { return false }
-        preset.isMemo = snapshot.isMemo
         preset.reminderMinutesBefore = snapshot.reminderMinutesBefore
         if let recurrence { preset.recurrenceData = recurrence?.data }
         preset.name = normalizedPlanPresetName(name, title: snapshot.title)

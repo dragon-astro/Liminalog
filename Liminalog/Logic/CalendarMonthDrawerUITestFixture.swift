@@ -6,6 +6,9 @@ enum CalendarMonthDrawerUITestFixture {
     static let sourceID = UUID(uuidString: "00000000-0000-0000-0000-000000000101")!
     static var day: Date {
         let calendar = Calendar.current
+        if ProcessInfo.processInfo.arguments.contains("-LiminalogUITestMonthAppearance") {
+            return calendar.date(from: calendar.dateComponents([.year, .month], from: Date()))!
+        }
         if ProcessInfo.processInfo.arguments.contains("-LiminalogUITestLockedDay") {
             return calendar.date(byAdding: .day, value: -1, to: calendar.startOfDay(for: Date()))!
         }
@@ -108,6 +111,26 @@ enum CalendarMonthDrawerUITestFixture {
             ]
             context.insert(DayPreset(name: "学習の日", itemsData: try! DayPresetItemsCodec.encode(items), itemCount: items.count))
         }
+        if ProcessInfo.processInfo.arguments.contains("-LiminalogUITestMonthAppearance") {
+            UserDefaults.standard.set(false, forKey: "calendarShowsPlanStartTime")
+            UserDefaults.standard.set(false, forKey: "calendarStrikePastPlans")
+            UserDefaults.standard.set(true, forKey: "calendarDimPastPlans")
+            let category = work ?? Category(name: "仕事", colorHex: "#537BC5", icon: "laptopcomputer")
+            if work == nil { context.insert(category) }
+            for (index, offset) in [-2, 1, 10, 20, 27, 32].enumerated() {
+                let target = calendar.date(byAdding: .day, value: offset, to: day)!
+                let start = calendar.date(byAdding: .hour, value: 9, to: target)!
+                let plan = PlanBlock(category: category, title: "月表示確認", startTime: start,
+                    endTime: start.addingTimeInterval(3600), isImportant: true, isPublic: false)
+                plan.id = UUID(uuidString: "00000000-0000-0000-0000-00000000080\(index)")!
+                context.insert(plan)
+            }
+            let crossingStart = calendar.date(byAdding: .hour, value: 23 * 24 + 22, to: day)!
+            context.insert(PlanBlock(category: category, title: "日をまたぐ確認", startTime: crossingStart,
+                endTime: crossingStart.addingTimeInterval(28 * 3600), isImportant: true, isPublic: false))
+            context.insert(PlanBlock(category: category, title: "終日の確認", startTime: day,
+                endTime: calendar.date(byAdding: .day, value: 1, to: day)!, isAllDay: true, isImportant: true, isPublic: false))
+        }
         if ProcessInfo.processInfo.arguments.contains("-LiminalogUITestInitialTimeline") {
             for offset in 0...2 {
                 let targetDay = offset == 2 ? day : calendar.date(byAdding: .day, value: offset, to: calendar.startOfDay(for: Date()))!
@@ -123,6 +146,18 @@ enum CalendarMonthDrawerUITestFixture {
             PreviewSupport.seedEditingSamplesIfNeeded(in: context, defaults: nil)
         }
         #endif
+        let args = ProcessInfo.processInfo.arguments
+        if let index = args.firstIndex(of: "-LiminalogUITestTheme"), args.indices.contains(index + 1) {
+            let theme = args[index + 1]
+            let settings = UserSettings()
+            settings.themeName = theme
+            context.insert(settings)
+            let unlock = UnlockItem()
+            unlock.key = "theme.\(theme)"
+            unlock.targetID = theme
+            unlock.unlockedAt = Date()
+            context.insert(unlock)
+        }
         try! context.save()
     }
 }

@@ -104,10 +104,15 @@ struct CalendarDayView: View {
         }
         .modifier(DayNavigationGestureModifier(isEnabled: allowsDayNavigation, shiftDay: shiftDay(_:)))
         .sheet(item: $editingChapter) { chapter in
-            ChapterEditSheet(chapter: chapter)
+            if chapter.modelContext != nil && !chapter.isDeleted {
+                ChapterEditSheet(chapter: chapter)
+            }
         }
         .sheet(item: $editingPlan) { plan in
-            PlanCreateSheet(plan: plan)
+            // The sheet can re-render after its model is deleted, before dismissal finishes.
+            if plan.modelContext != nil && !plan.isDeleted {
+                PlanCreateSheet(plan: plan)
+            }
         }
         .sheet(isPresented: $showingPlanSheet) {
             PlanCreateSheet(initialDate: pendingCreateDate, startsAsAllDay: pendingPlanStartsAsAllDay)

@@ -133,10 +133,15 @@ struct HomeView: View {
             refreshTomorrowCoverageIfNeeded()
         }
         .sheet(item: $editingChapter) { chapter in
-            ChapterEditSheet(chapter: chapter)
+            if chapter.modelContext != nil && !chapter.isDeleted {
+                ChapterEditSheet(chapter: chapter)
+            }
         }
         .sheet(item: $editingPlan, onDismiss: reloadTomorrowPlansAfterEditing) { plan in
-            PlanCreateSheet(plan: plan)
+            // The sheet can re-render after its model is deleted, before dismissal finishes.
+            if plan.modelContext != nil && !plan.isDeleted {
+                PlanCreateSheet(plan: plan)
+            }
         }
         .sheet(item: $planCreateRequest, onDismiss: reloadTomorrowPlansAfterEditing) { request in
             PlanCreateSheet(initialDate: request.initialDate, startsAsAllDay: request.startsAsAllDay)

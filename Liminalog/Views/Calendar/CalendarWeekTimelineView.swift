@@ -1532,15 +1532,7 @@ struct CalendarWeekTimelineView: View {
         onScheduleChanged()
     }
 
-    private var memoPresetMessage: String {
-        "予定メモは日表示のプリセットから追加できます。"
-    }
-
     private func addFixedTimePreset(_ preset: PlanPreset) {
-        guard !preset.isMemo else {
-            operationError = memoPresetMessage
-            return
-        }
         // 週表示でタップ配置する日は、ページの基準日（現在週なら今日）に固定する。
         // 任意の曜日へ置く長さ指定プリセットは、カードをその列へドラッグする。
         let targetDay = days.first { calendar.isDate($0, inSameDayAs: anchorDate) } ?? days[0]
@@ -1562,10 +1554,6 @@ struct CalendarWeekTimelineView: View {
         allDayLaneHeight: CGFloat,
         viewportSize: CGSize
     ) {
-        guard !preset.isMemo else {
-            presetPlacementDraft = nil
-            return
-        }
         guard let location,
               location.x >= 0,
               location.x <= min(totalWidth, viewportSize.width),
@@ -1647,7 +1635,6 @@ struct CalendarWeekTimelineView: View {
         allDayLaneHeight: CGFloat,
         viewportSize: CGSize
     ) -> String? {
-        guard !preset.isMemo else { return memoPresetMessage }
         updateDurationPresetPreview(
             preset,
             at: location,
@@ -1680,7 +1667,6 @@ struct CalendarWeekTimelineView: View {
         interval: DateInterval
     ) -> String? {
         let source = snapshot ?? preset.snapshot
-        guard !source.isMemo else { return memoPresetMessage }
         guard store.canCreatePlan(startTime: interval.start, isAllDay: source.isAllDay, isMemo: source.isMemo) else {
             return "この日には予定を追加できません。"
         }

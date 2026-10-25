@@ -2,7 +2,7 @@ import SwiftUI
 import UserNotifications
 
 /// Inline stored values share the compact date picker's neutral treatment.
-private struct PlanValueCapsule: ViewModifier {
+struct PlanValueCapsule: ViewModifier {
     var isMenu = false
 
     func body(content: Content) -> some View {

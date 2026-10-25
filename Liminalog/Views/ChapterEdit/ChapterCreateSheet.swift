@@ -33,6 +33,31 @@ struct ChapterCreateSheet: View {
         _endTime = State(initialValue: end)
     }
 
+    private struct Draft: Equatable {
+        var start: Date
+        var end: Date?
+        var categoryID: UUID?
+        var note: String
+        var location: String
+        var isPublic: Bool
+        var audience: Set<UUID>
+        var source: AudienceSource
+    }
+    private var draft: Draft {
+        Draft(start: startTime,
+              end: endTime,
+              categoryID: selectedCategory?.id,
+              note: note.trimmingCharacters(in: .whitespacesAndNewlines),
+              location: locationName.trimmingCharacters(in: .whitespacesAndNewlines),
+              isPublic: isPublic,
+              audience: Set(audienceFriendIDs),
+              source: audienceSource)
+    }
+
+    @State private var initialDraft: Draft?
+    @State private var showingDiscardConfirmation = false
+    private var hasChanges: Bool { initialDraft.map { $0 != draft } ?? false }
+
     var body: some View {
         NavigationStack {
             Form {
@@ -100,14 +125,13 @@ struct ChapterCreateSheet: View {
             .accessibilityIdentifier("chapter-create-form")
             .navigationTitle("チャプターを追加")
             .navigationBarTitleDisplayMode(.inline)
+            .editorDismissGuard(hasChanges: hasChanges, showingConfirmation: $showingDiscardConfirmation)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("キャンセル") { dismiss() }
+                    EditorCancelButton(hasChanges: hasChanges, showingConfirmation: $showingDiscardConfirmation) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("保存") { save() }
-                        .fontWeight(.semibold)
-                        .disabled(!canSave)
+                    EditorSaveButton(isEmphasized: true, canSave: canSave) { save() }
                 }
             }
             .onAppear {
@@ -119,6 +143,7 @@ struct ChapterCreateSheet: View {
                     didInitializeAudience = true
                 }
                 clampToToday()
+                if initialDraft == nil { initialDraft = draft }
             }
             .onChange(of: selectedCategory?.id) { _, _ in
                 guard didInitializeAudience, audienceSource == .categoryDefaultSnapshot else { return }
