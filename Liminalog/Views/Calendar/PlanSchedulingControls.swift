@@ -4,6 +4,7 @@ import UserNotifications
 /// Inline stored values share the compact date picker's neutral treatment.
 struct PlanValueCapsule: ViewModifier {
     var isMenu = false
+    @Environment(\.colorScheme) private var colorScheme
 
     func body(content: Content) -> some View {
         HStack(spacing: 5) {
@@ -18,7 +19,7 @@ struct PlanValueCapsule: ViewModifier {
         .foregroundStyle(LiminalTheme.text)
         .padding(.horizontal, 12)
         .padding(.vertical, 7)
-        .background(Color(.tertiarySystemFill), in: Capsule())
+        .background(colorScheme == .dark ? Color(.tertiarySystemFill) : Color.black.opacity(0.12), in: Capsule())
     }
 }
 

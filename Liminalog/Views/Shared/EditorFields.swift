@@ -37,10 +37,12 @@ struct ActualEditorIdentityCard: View {
                     .font(.headline)
                     .foregroundStyle(category == nil ? LiminalTheme.secondaryText : LiminalTheme.text)
                     .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-                Image(systemName: isActive ? "record.circle.fill" : "checkmark.circle.fill")
-                    .foregroundStyle(category?.displayColor ?? LiminalTheme.secondaryText)
-                    .frame(width: 40, height: 44)
-                    .accessibilityLabel(isActive ? "記録中" : "完了")
+                if !isNew || category != nil {
+                    Image(systemName: isActive ? "record.circle.fill" : "checkmark.circle.fill")
+                        .foregroundStyle(category?.displayColor ?? LiminalTheme.secondaryText)
+                        .frame(width: 40, height: 44)
+                        .accessibilityLabel(isActive ? "記録中" : "完了")
+                }
             }
         }
     }
@@ -83,6 +85,7 @@ struct EditorDateRow: View {
     @Binding var date: Date
     var range: ClosedRange<Date> = Date.distantPast...Date.distantFuture
     var showsTime = true
+    var dateIdentifier: String?
     @AppStorage("planEditor.datePickerStyle") private var style = "calendar"
     @Environment(\.editorDateExpansion) private var sharedExpansion
     @State private var localExpansion = EditorDateExpansion()
@@ -91,6 +94,7 @@ struct EditorDateRow: View {
 
     private var expansion: EditorDateExpansion { sharedExpansion ?? localExpansion }
     private var isExpanded: Bool { expansion.activeID == id && style == "wheel" }
+    private var dateTitle: String { title.hasSuffix("日") ? title : title + "日" }
 
     var body: some View {
         VStack(spacing: 8) {
@@ -108,11 +112,12 @@ struct EditorDateRow: View {
                             .modifier(PlanValueCapsule())
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel(title + "日")
+                    .accessibilityLabel(dateTitle)
+                    .accessibilityIdentifier(dateIdentifier ?? dateTitle)
                     .accessibilityValue(date.formatted(date: .abbreviated, time: .omitted))
                 } else {
-                    DatePicker(title + "日", selection: $date, in: range, displayedComponents: .date)
-                        .labelsHidden().fixedSize().accessibilityIdentifier(title + "日")
+                    DatePicker(dateTitle, selection: $date, in: range, displayedComponents: .date)
+                        .labelsHidden().fixedSize().accessibilityIdentifier(dateIdentifier ?? dateTitle)
                 }
                 if showsTime {
                     DatePicker(title + "時刻", selection: $date, in: range, displayedComponents: .hourAndMinute)
@@ -122,7 +127,7 @@ struct EditorDateRow: View {
             }
             .frame(minHeight: 34)
             if isExpanded {
-                DatePicker(title + "日", selection: $date, in: range, displayedComponents: .date)
+                DatePicker(dateTitle, selection: $date, in: range, displayedComponents: .date)
                     .datePickerStyle(.wheel).labelsHidden().frame(maxWidth: .infinity)
                     .accessibilityIdentifier("editor-date-wheel")
             }

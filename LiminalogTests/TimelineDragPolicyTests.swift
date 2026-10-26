@@ -101,13 +101,42 @@ struct TimelineDragPolicyTests {
         #expect(top + 180 == 800)
     }
 
-    @Test("precisionは15分を標準に5分と1分を選べる")
+    @Test("1・5・10・15・30分を選べて保存済みの値も変わらない")
     func supportedPrecisions() {
-        #expect(TimelineSnapPrecision.allCases.map(\.minutes) == [15, 5, 1])
-        #expect(TimelineSnapPrecision.sliderOptions.map(\.minutes) == [1, 5, 15])
+        #expect(Set(TimelineSnapPrecision.allCases.map(\.minutes)) == [1, 5, 10, 15, 30])
+        #expect(TimelineSnapPrecision.sliderOptions.map(\.minutes) == [1, 5, 10, 15, 30])
+        for minutes in [1, 5, 10, 15, 30] {
+            #expect(TimelineSnapPrecision.normalized(minutes: minutes).minutes == minutes)
+        }
         #expect(TimelineSnapPrecision.quarterHour.minutes == 15)
         #expect(TimelineSnapPrecision.normalized(minutes: 5) == .fiveMinutes)
         #expect(TimelineSnapPrecision.normalized(minutes: 7) == .quarterHour)
+    }
+
+    @Test("10・30分も全zoomで移動と伸縮の差分を共通の時刻グリッドへ揃える")
+    func newPrecisionsAcrossZoomTiers() {
+        for precision in [TimelineSnapPrecision.tenMinutes, .halfHour] {
+            for scale in DayTimelineZoomPolicy.supportedScales {
+                let height = DayTimelineZoomPolicy.hourHeight(for: scale)
+                for direction in [-1, 1] {
+                    var session = TimelineDragSession(startGlobalY: 400, hourHeight: height)
+                    let minutes = precision.minutes * direction
+                    let delta = session.update(currentGlobalY: 400 + height * CGFloat(minutes) / 60, precision: precision)
+                    #expect(delta == minutes)
+                    #expect(TimelineSnapPolicy.alignedMinute(originalMinute: 540, relativeDelta: delta, precision: precision) == 540 + minutes)
+                    #expect(TimelineSnapPolicy.alignedMinute(originalMinute: 543, relativeDelta: delta, precision: precision) == 540 + minutes)
+                    let axis = TimelineAxisMap(hourHeight: height,
+                        intervals: [.init(startMinute: 540, endMinute: 542)], minimumIntervalHeight: 18)
+                    var mapped = TimelineAxisDragSession(startGlobalY: 400, originalMinute: 540, axisMap: axis)
+                    let pointerY = 400 + axis.y(forMinute: 540 + minutes) - axis.y(forMinute: 540)
+                    #expect(mapped.update(currentGlobalY: pointerY, precision: precision) == minutes)
+                    let creation = PlanTimelineCreationPolicy.range(anchorMinute: 540,
+                        currentMinute: 540 + minutes, minimumDuration: precision.minutes, intervals: [])
+                    #expect(creation?.start == min(540, 540 + minutes))
+                    #expect(creation?.end == max(540, 540 + minutes))
+                }
+            }
+        }
     }
 
     @Test("刻み幅を大きくした後は差分ではなく時刻をきりのよい値へ揃える")

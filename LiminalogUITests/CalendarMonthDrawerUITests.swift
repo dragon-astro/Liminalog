@@ -3117,6 +3117,143 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         keepScreenshot(app, name: "34-month\(small)-strike")
     }
 
+    func testFollowupPresetDatesCalendar() { checkFollowupPresetDates(style: "calendar") }
+    func testFollowupPresetDatesWheel() { checkFollowupPresetDates(style: "wheel") }
+
+    private func checkFollowupPresetDates(style: String) {
+        let app = launch(templateReplacement: true, dateStyle: style)
+        let suffix = nextCaptureSuffix(app)
+        func chooseDate(_ identifier: String, day: Int, capture: String? = nil, close: Bool = true) {
+            if style == "calendar" {
+                selectPresetDate(app, identifier: identifier, dayIndex: day - 1)
+            } else {
+                let control = element(app, identifier)
+                control.tap()
+                XCTAssertTrue(element(app, "editor-date-wheel").waitForExistence(timeout: 3))
+                XCTAssertTrue(control.isHittable)
+                app.pickerWheels.element(boundBy: 2).adjust(toPickerWheelValue: "\(day)日")
+                if let capture { keepScreenshot(app, name: capture + suffix) }
+                if close { control.tap() }
+            }
+        }
+        func assertApplied(day: Int, title: String) {
+            let date = app.buttons["calendar-drawer-date"]
+            XCTAssertTrue(date.waitForExistence(timeout: 8))
+            XCTAssertEqual(date.value as? String, dayID(Calendar.current.date(byAdding: .day, value: day - 1, to: presetDay)!))
+            XCTAssertTrue(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'calendar-drawer-plan-' AND label CONTAINS %@", title)).firstMatch.exists)
+        }
+        app.buttons["当日の予定を閉じる"].tap()
+        selectMonthPreset("休日", in: app)
+        chooseDate("month-preset-target-date", day: 2, capture: "39-preset-date-plan-wheel")
+        app.buttons["month-preset-apply"].tap()
+        assertApplied(day: 2, title: "休日")
+        app.buttons["当日の予定を閉じる"].tap()
+        openMonthPresets(app, kind: "day")
+        chooseDate("day-preset-target-date", day: 3, capture: "39-preset-date-day-wheel")
+        app.buttons["丸ごと追加"].tap()
+        assertApplied(day: 3, title: "勉強")
+        app.buttons["当日の予定を閉じる"].tap()
+        switchCalendarMode(app, "週間")
+        openPresets(app, entry: "calendar-open-presets", kind: "day")
+        chooseDate("day-preset-drawer-date", day: 4, capture: "39-preset-date-drawer-wheel", close: false)
+        let card = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'day-preset-card-'")).firstMatch
+        let scroll = app.scrollViews["day-preset-drawer-scroll"]
+        for _ in 0..<5 where !card.isHittable { scroll.swipeUp() }
+        XCTAssertTrue(card.isHittable, app.debugDescription)
+        if card.frame.maxY > app.frame.maxY - 25 {
+            let start = card.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0)).withOffset(CGVector(dx: 0, dy: 8))
+            start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: -180)))
+            XCTAssertLessThan(card.frame.maxY, app.frame.maxY - 12)
+            keepScreenshot(app, name: "39-preset-date-drawer-list" + suffix)
+        }
+        card.tap()
+        XCTAssertFalse(element(app, "day-preset-target-date").exists, "固定日は文字だけ")
+        app.buttons["丸ごと追加"].tap()
+        XCTAssertTrue(app.buttons["preset-kind-day"].waitForNonExistence(timeout: 8))
+        switchCalendarMode(app, "月間")
+        let day = Calendar.current.date(byAdding: .day, value: 3, to: presetDay)!
+        element(app, "calendar-month-day-\(dayID(day))").tap()
+        assertApplied(day: 4, title: "勉強")
+    }
+
+    func testFollowupEditorSmallFixes() {
+        let app = launch(planMemos: true, dateStyle: "wheel")
+        openEditor(app, planID: sourceID)
+        keepScreenshot(app, name: "38-editor-date-fill" + nextCaptureSuffix(app))
+        editorActions(app).tap()
+        XCTAssertTrue(app.buttons["プリセットを使う…"].waitForExistence(timeout: 3))
+        keepScreenshot(app, name: "38-editor-menu" + nextCaptureSuffix(app))
+        app.terminate()
+        let actual = launch(chapters: true)
+        openFixtureChapterTimeline(actual)
+        let add = actual.buttons.matching(NSPredicate(format: "label BEGINSWITH '未記録 ' AND label ENDSWITH ' 追加'")).firstMatch
+        for _ in 0..<8 where !add.isHittable { actual.swipeDown() }
+        add.tap()
+        XCTAssertTrue(actual.navigationBars["実績を追加"].waitForExistence(timeout: 5))
+        XCTAssertFalse(actual.images["完了"].exists)
+        XCTAssertTrue(element(actual, "chapter-create-category").staticTexts["カテゴリを選択してください。"].exists)
+        XCTAssertFalse(actual.buttons["保存"].isEnabled)
+        keepScreenshot(actual, name: "38-actual-unselected" + nextCaptureSuffix(actual))
+    }
+
+    func testFollowupDiscreteSettingSliders() throws {
+        let app = launch()
+        app.buttons["当日の予定を閉じる"].tap()
+        app.buttons["カレンダー表示設定"].tap()
+        let slider = element(app, "timeline-snap-selector")
+        for _ in 0..<6 where !slider.isHittable || slider.frame.maxY > app.frame.maxY - 100 { app.swipeUp() }
+        XCTAssertTrue(slider.isHittable)
+        let originalPrecision = try XCTUnwrap(slider.value as? String)
+        let originalIndex = try XCTUnwrap(["1分", "5分", "10分", "15分", "30分"].firstIndex(of: originalPrecision))
+        let font = element(app, "calendar-font-size-slider")
+        let originalFont = try XCTUnwrap(font.value as? String)
+        let originalFontSize = try XCTUnwrap(Double(originalFont))
+        func point(_ fraction: CGFloat) -> XCUICoordinate {
+            app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(
+                dx: slider.frame.minX + 16 + (slider.frame.width - 32) * fraction,
+                dy: slider.frame.minY + 22))
+        }
+        for (index, name) in ["one", "five", "ten", "fifteen", "thirty"].enumerated() {
+            point(CGFloat(index) / 4).tap()
+            XCTAssertEqual(slider.value as? String, "\([1, 5, 10, 15, 30][index])分")
+            keepScreenshot(app, name: "40-snap-" + name + nextCaptureSuffix(app))
+        }
+        let beforeScroll = slider.frame.minY
+        let scrollStart = point(0.5)
+        scrollStart.press(forDuration: 0.05, thenDragTo: scrollStart.withOffset(CGVector(dx: 0, dy: 100)))
+        XCTAssertEqual(slider.value as? String, "30分", "縦スクロールは刻みを変えない")
+        XCTAssertGreaterThan(slider.frame.minY, beforeScroll + 20)
+        let scrollBack = point(0.5)
+        scrollBack.press(forDuration: 0.05, thenDragTo: scrollBack.withOffset(CGVector(dx: 0, dy: -100)))
+        XCTAssertEqual(slider.value as? String, "30分")
+        point(1).press(forDuration: 0.1, thenDragTo: point(0), withVelocity: .slow, thenHoldForDuration: 0.5)
+        XCTAssertEqual(slider.value as? String, "1分")
+        point(0).press(forDuration: 0.1, thenDragTo: point(1), withVelocity: .fast, thenHoldForDuration: 0.5)
+        XCTAssertEqual(slider.value as? String, "30分")
+        point(1).press(forDuration: 0.1, thenDragTo: point(0.61), withVelocity: .slow, thenHoldForDuration: 1)
+        XCTAssertEqual(slider.value as? String, "10分")
+        point(0.5).press(forDuration: 0.1, thenDragTo: point(0.64), withVelocity: .slow, thenHoldForDuration: 1)
+        XCTAssertEqual(slider.value as? String, "15分")
+        app.buttons["calendar-settings-close"].tap()
+        app.buttons["カレンダー表示設定"].tap()
+        for _ in 0..<6 where !slider.isHittable || slider.frame.maxY > app.frame.maxY - 100 { app.swipeUp() }
+        XCTAssertEqual(slider.value as? String, "15分")
+        for _ in 0..<6 where !font.isHittable || font.frame.minY < 150 { app.swipeDown() }
+        font.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.5)).tap()
+        XCTAssertEqual(font.value as? String, "5")
+        font.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
+        XCTAssertEqual(font.value as? String, "9")
+        keepScreenshot(app, name: "40-font-size" + nextCaptureSuffix(app))
+        // Keep successful device checks from leaving the user's settings at the tested extremes.
+        app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(
+            dx: font.frame.minX + 16 + (font.frame.width - 32) * (originalFontSize - 5) / 4,
+            dy: font.frame.minY + 22)).tap()
+        XCTAssertEqual(font.value as? String, originalFont)
+        for _ in 0..<6 where !slider.isHittable || slider.frame.maxY > app.frame.maxY - 100 { app.swipeUp() }
+        point(CGFloat(originalIndex) / 4).tap()
+        XCTAssertEqual(slider.value as? String, originalPrecision)
+    }
+
     private func nextCaptureSuffix(_ app: XCUIApplication) -> String {
         (app.frame.width < 390 ? "-se" : "") + (ProcessInfo.processInfo.environment["LIMINALOG_CAPTURE_THEME"] == "aurora" ? "-aurora" : "")
     }
@@ -3152,13 +3289,13 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["保存済みです"].exists)
         more.tap()
         keepScreenshot(app, name: "32c-editor-bookmark" + suffix + "-menu")
-        app.buttons["プリセットから入れる…"].tap()
+        app.buttons["プリセットを使う…"].tap()
         XCTAssertTrue(app.navigationBars["予定プリセット"].waitForExistence(timeout: 5))
         XCTAssertEqual(app.scrollViews.buttons.matching(NSPredicate(format: "label == '仕事'")).count, 1)
         app.buttons["閉じる"].tap()
         star.tap()
         bookmark.tap()
-        more.tap(); app.buttons["プリセットから入れる…"].tap()
+        more.tap(); app.buttons["プリセットを使う…"].tap()
         XCTAssertEqual(app.scrollViews.buttons.matching(NSPredicate(format: "label == '仕事'")).count, 2)
         app.scrollViews.buttons.matching(NSPredicate(format: "label == '配達のメモ'")).firstMatch.tap()
         XCTAssertTrue(app.navigationBars["予定を編集"].waitForExistence(timeout: 5))

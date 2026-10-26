@@ -238,7 +238,7 @@ struct PlanCreateSheet: View {
                     ToolbarItem(placement: .topBarTrailing) {
                         EditorActionsMenu {
                             if canChoosePreset {
-                                Button("プリセットから入れる…", systemImage: "rectangle.stack") {
+                                Button("プリセットを使う…", systemImage: "rectangle.stack") {
                                     showingPresetChoices = true
                                 }
                             }

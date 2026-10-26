@@ -2833,24 +2833,12 @@ private struct CalendarFontSizeSlider: View {
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.tint)
 
-            VStack(spacing: 0) {
-                Slider(value: $value, in: CalendarPlanTitleMetrics.minSize...CalendarPlanTitleMetrics.maxSize, step: CalendarPlanTitleMetrics.step)
-
-                HStack {
-                    ForEach(0..<CalendarPlanTitleMetrics.stepCount, id: \.self) { index in
-                        Circle()
-                            .fill(index == selectedStepIndex ? LiminalTheme.accent : LiminalTheme.secondaryText.opacity(0.42))
-                            .frame(width: index == selectedStepIndex ? 5 : 3, height: index == selectedStepIndex ? 5 : 3)
-
-                        if index < CalendarPlanTitleMetrics.stepCount - 1 {
-                            Spacer(minLength: 0)
-                        }
-                    }
-                }
-                .padding(.horizontal, 13)
-                .padding(.top, -2)
-                .allowsHitTesting(false)
-            }
+            DiscreteSettingSlider(selection: Binding(
+                get: { selectedStepIndex },
+                set: { value = CalendarPlanTitleMetrics.minSize + Double($0) * CalendarPlanTitleMetrics.step }
+            ), count: CalendarPlanTitleMetrics.stepCount,
+                accessibilityTitle: "予定の文字の大きさ", accessibilityText: value.formatted())
+                .accessibilityIdentifier("calendar-font-size-slider")
 
             Text("A")
                 .font(.title3.weight(.semibold))

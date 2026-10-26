@@ -5,11 +5,13 @@ enum TimelineSnapPrecision: Int, CaseIterable, Identifiable {
     case quarterHour = 15
     case fiveMinutes = 5
     case oneMinute = 1
+    case tenMinutes = 10
+    case halfHour = 30
 
     var id: Int { rawValue }
     var minutes: Int { rawValue }
 
-    static let sliderOptions: [Self] = [.oneMinute, .fiveMinutes, .quarterHour]
+    static let sliderOptions: [Self] = [.oneMinute, .fiveMinutes, .tenMinutes, .quarterHour, .halfHour]
     static let userDefaultsKey = "timeline.snapPrecisionMinutes"
 
     static func normalized(minutes: Int) -> Self {

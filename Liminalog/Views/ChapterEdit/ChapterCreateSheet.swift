@@ -74,7 +74,14 @@ struct ChapterCreateSheet: View {
                         }
                     }
                     PlanEditorCard(tint: selectedTint) {
-                        PlanCategoryInlinePicker(categories: categories, categorySets: categorySets, selectedCategory: $selectedCategory)
+                        VStack(alignment: .leading, spacing: 12) {
+                            PlanCategoryInlinePicker(categories: categories, categorySets: categorySets, selectedCategory: $selectedCategory)
+                            if selectedCategory == nil {
+                                PlanEditorStatusLabel(text: "カテゴリを選択してください。", systemImage: "exclamationmark.triangle.fill", tint: LiminalTheme.reward)
+                            }
+                        }
+                        .accessibilityElement(children: .contain)
+                        .accessibilityIdentifier("chapter-create-category")
                     }
                     visibilityCard
                     EditorTextRow(title: "場所", symbol: "mappin.and.ellipse", text: $locationName, tint: selectedTint)
@@ -179,9 +186,6 @@ struct ChapterCreateSheet: View {
     }
 
     private var validationMessage: String? {
-        if selectedCategory == nil {
-            return "カテゴリを選択してください。"
-        }
         if startTime >= endTime {
             return "終了時刻は開始時刻より後にしてください。"
         }

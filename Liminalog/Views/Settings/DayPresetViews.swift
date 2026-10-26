@@ -221,8 +221,8 @@ struct DayPresetApplySheet: View {
             List {
                 if allowsDateSelection {
                     Section {
-                        DatePicker("追加する日", selection: $targetDate, displayedComponents: .date)
-                            .accessibilityIdentifier("day-preset-target-date")
+                        EditorDateRow(title: "追加する日", date: $targetDate, showsTime: false,
+                                      dateIdentifier: "day-preset-target-date")
                     }
                 }
                 if presets.isEmpty {
@@ -265,6 +265,7 @@ struct DayPresetApplySheet: View {
                     }
                 }
             }
+            .editorDateSelectionScope()
             .navigationTitle(allowsDateSelection ? "一日プリセット" : targetDate.japaneseMonthDayShortWeekday)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

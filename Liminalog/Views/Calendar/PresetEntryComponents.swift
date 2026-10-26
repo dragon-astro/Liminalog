@@ -139,50 +139,44 @@ struct DayPresetDrawerList: View {
     let onChoose: (DayPreset) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            targetDateRow
-                .padding(.horizontal, CalendarDrawerStyle.horizontalInset)
-
-            if presets.isEmpty {
-                ContentUnavailableView(
-                    "一日プリセットはありません",
-                    systemImage: "calendar.badge.plus",
-                    description: Text("設定 ＞ カレンダー ＞ 一日プリセットで作成できます。")
-                )
-                .frame(maxWidth: .infinity)
-            } else {
-                ScrollView(.vertical) {
+        ScrollView(.vertical) {
+            VStack(alignment: .leading, spacing: 10) {
+                targetDateRow
+                if presets.isEmpty {
+                    ContentUnavailableView(
+                        "一日プリセットはありません",
+                        systemImage: "calendar.badge.plus",
+                        description: Text("設定 ＞ カレンダー ＞ 一日プリセットで作成できます。")
+                    )
+                    .frame(maxWidth: .infinity)
+                } else {
                     LazyVStack(spacing: 8) {
                         ForEach(presets) { preset in
                             Button {
                                 LiminalHaptics.openSheet()
                                 onChoose(preset)
                             } label: {
-                                DayPresetDrawerCard(
-                                    preset: preset,
-                                    items: items(for: preset),
-                                    categories: categories
-                                )
+                                DayPresetDrawerCard(preset: preset, items: items(for: preset), categories: categories)
                             }
                             .buttonStyle(.plain)
                             .accessibilityIdentifier("day-preset-card-\(preset.id)")
                         }
                     }
-                    .padding(.horizontal, CalendarDrawerStyle.horizontalInset)
-                    .padding(.bottom, 14)
                 }
-                .scrollIndicators(.hidden)
             }
+            .padding(.horizontal, CalendarDrawerStyle.horizontalInset)
+            .padding(.bottom, 14)
         }
+        .scrollIndicators(.hidden)
+        .accessibilityIdentifier("day-preset-drawer-scroll")
+        .editorDateSelectionScope()
     }
 
     @ViewBuilder
     private var targetDateRow: some View {
         if allowsDateSelection {
-            DatePicker("追加する日", selection: $targetDate, displayedComponents: .date)
-                .font(.subheadline)
-                .foregroundStyle(LiminalTheme.secondaryText)
-                .accessibilityIdentifier("day-preset-drawer-date")
+            EditorDateRow(title: "追加する日", date: $targetDate, showsTime: false,
+                          dateIdentifier: "day-preset-drawer-date")
         } else {
             HStack {
                 Text("追加する日")

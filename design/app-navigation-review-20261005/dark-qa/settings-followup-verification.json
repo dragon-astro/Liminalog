@@ -1,0 +1,183 @@
+{
+  "date": "2026-10-26",
+  "specification": "docs/38 §8–9",
+  "runs": {
+    "aurora": {
+      "result": "Passed",
+      "totalTestCount": 1,
+      "passedTests": 1,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "resultBundle": "/private/tmp/liminalog-settings-20261026/aurora.xcresult"
+    },
+    "dark-final": {
+      "result": "Passed",
+      "totalTestCount": 1,
+      "passedTests": 1,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "resultBundle": "/private/tmp/liminalog-settings-20261026/dark-final.xcresult"
+    },
+    "dark": {
+      "result": "Passed",
+      "totalTestCount": 3,
+      "passedTests": 3,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "resultBundle": "/private/tmp/liminalog-settings-20261026/dark.xcresult"
+    },
+    "device-retry": {
+      "result": "Failed",
+      "totalTestCount": 1,
+      "passedTests": 0,
+      "failedTests": 1,
+      "skippedTests": 0,
+      "resultBundle": "/private/tmp/liminalog-settings-20261026/device-retry.xcresult"
+    },
+    "device": {
+      "result": "Failed",
+      "totalTestCount": 1,
+      "passedTests": 0,
+      "failedTests": 1,
+      "skippedTests": 0,
+      "resultBundle": "/private/tmp/liminalog-settings-20261026/device.xcresult"
+    },
+    "light-directional": {
+      "result": "Failed",
+      "totalTestCount": 1,
+      "passedTests": 0,
+      "failedTests": 1,
+      "skippedTests": 0,
+      "resultBundle": "/private/tmp/liminalog-settings-20261026/light-directional.xcresult"
+    },
+    "light-final": {
+      "result": "Failed",
+      "totalTestCount": 3,
+      "passedTests": 2,
+      "failedTests": 1,
+      "skippedTests": 0,
+      "resultBundle": "/private/tmp/liminalog-settings-20261026/light-final.xcresult"
+    },
+    "light-origin": {
+      "result": "Passed",
+      "totalTestCount": 1,
+      "passedTests": 1,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "resultBundle": "/private/tmp/liminalog-settings-20261026/light-origin.xcresult"
+    },
+    "light": {
+      "result": "Failed",
+      "totalTestCount": 4,
+      "passedTests": 2,
+      "failedTests": 2,
+      "skippedTests": 0,
+      "resultBundle": "/private/tmp/liminalog-settings-20261026/light.xcresult"
+    },
+    "se-final": {
+      "result": "Failed",
+      "totalTestCount": 23,
+      "passedTests": 21,
+      "failedTests": 2,
+      "skippedTests": 0,
+      "resultBundle": "/private/tmp/liminalog-settings-20261026/se-final.xcresult"
+    },
+    "se-origin": {
+      "result": "Passed",
+      "totalTestCount": 2,
+      "passedTests": 2,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "resultBundle": "/private/tmp/liminalog-settings-20261026/se-origin.xcresult"
+    },
+    "se-slider": {
+      "result": "Failed",
+      "totalTestCount": 1,
+      "passedTests": 0,
+      "failedTests": 1,
+      "skippedTests": 0,
+      "resultBundle": "/private/tmp/liminalog-settings-20261026/se-slider.xcresult"
+    },
+    "se": {
+      "result": "Failed",
+      "totalTestCount": 2,
+      "passedTests": 1,
+      "failedTests": 1,
+      "skippedTests": 0,
+      "resultBundle": "/private/tmp/liminalog-settings-20261026/se.xcresult"
+    },
+    "unit": {
+      "result": "Passed",
+      "totalTestCount": 21,
+      "passedTests": 21,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "resultBundle": "/private/tmp/liminalog-settings-20261026/unit.xcresult"
+    },
+    "device-unlocked": {
+      "result": "Passed",
+      "totalTestCount": 4,
+      "passedTests": 4,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "resultBundle": "/private/tmp/liminalog-settings-20261026/device-unlocked.xcresult"
+    },
+    "device-restore-settings": {
+      "result": "Passed",
+      "totalTestCount": 1,
+      "passedTests": 1,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "resultBundle": "/private/tmp/liminalog-settings-20261026/device-restore-settings.xcresult"
+    },
+    "se-cleanup": {
+      "result": "Passed",
+      "totalTestCount": 1,
+      "passedTests": 1,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "resultBundle": "/private/tmp/liminalog-settings-20261026/se-cleanup.xcresult"
+    }
+  },
+  "unitTestsLatest": {
+    "bundle": "se-final.xcresult",
+    "passed": 21,
+    "failed": 0
+  },
+  "uiDistinctLatestPassed": 5,
+  "simulators": [
+    "iPhone 17 / iOS 26.5",
+    "iPhone SE (3rd generation) / iOS 26.5"
+  ],
+  "builds": {
+    "simulatorDebug": "build-origin.log",
+    "deviceUIRelease": "device-origin-build.log",
+    "normalDeviceRelease": "normal-release-final.log"
+  },
+  "device": {
+    "model": "iPhone 16",
+    "os": "iOS 27.0.1",
+    "uiTestsCompleted": 4,
+    "blocker": null,
+    "normalReleaseSignatureVerified": true,
+    "normalReleaseRestoredAndLaunched": true,
+    "fixtureSymbolsAbsent": true,
+    "hapticFeelVerified": true,
+    "voiceOverManualVerified": false,
+    "uiTestsPassed": 4,
+    "initializationFailuresResolvedAfterUserUnlock": true,
+    "fontRestoredToObservedValue": 7.5,
+    "hapticFeelEvidence": "通常Releaseへ戻した後、ユーザーが「改善した」と回答（2026-10-26）"
+  },
+  "screenshots": {
+    "total": 309,
+    "added": 37,
+    "preserved": 272,
+    "allHashesVerified": true
+  },
+  "remaining": [
+    "VoiceOverの読み上げと増減の手動評価は未実施（増減処理は実装済み）"
+  ],
+  "logDirectory": "/private/tmp/liminalog-settings-20261026",
+  "testCleanupVerified": true
+}

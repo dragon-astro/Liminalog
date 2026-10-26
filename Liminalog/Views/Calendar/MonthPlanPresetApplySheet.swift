@@ -160,8 +160,8 @@ private struct MonthPlanPresetPlacementView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 if allowsDateSelection {
-                    DatePicker("追加する日", selection: $targetDate, displayedComponents: .date)
-                        .accessibilityIdentifier("month-preset-target-date")
+                    EditorDateRow(title: "追加する日", date: $targetDate, showsTime: false,
+                                  dateIdentifier: "month-preset-target-date")
                 } else {
                     Label(targetDate.japaneseMonthDayShortWeekday, systemImage: "calendar")
                         .font(.headline)
@@ -184,6 +184,7 @@ private struct MonthPlanPresetPlacementView: View {
             }
             .padding(16)
         }
+        .editorDateSelectionScope()
         .navigationTitle(preset.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .safeAreaInset(edge: .bottom) {
