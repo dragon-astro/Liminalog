@@ -167,6 +167,8 @@ struct FriendSharedPlanSnapshot: Codable, Identifiable, Hashable {
     var categoryTitle: String
     var categoryIconName: String
     var categoryColorHex: String
+    var locationName: String?
+    var urlString: String?
     var updatedAt: Date
 
     init(
@@ -181,6 +183,7 @@ struct FriendSharedPlanSnapshot: Codable, Identifiable, Hashable {
         categoryTitle: String = "",
         categoryIconName: String = "calendar",
         categoryColorHex: String = "#2F80ED",
+        locationName: String? = nil, urlString: String? = nil,
         updatedAt: Date = Date()
     ) {
         self.id = id
@@ -194,6 +197,8 @@ struct FriendSharedPlanSnapshot: Codable, Identifiable, Hashable {
         self.categoryTitle = categoryTitle
         self.categoryIconName = categoryIconName
         self.categoryColorHex = categoryColorHex
+        self.locationName = PlanExtraDetails.normalized(locationName)
+        self.urlString = PlanExtraDetails.normalized(urlString)
         self.updatedAt = updatedAt
     }
 
@@ -209,6 +214,8 @@ struct FriendSharedPlanSnapshot: Codable, Identifiable, Hashable {
         self.categoryTitle = plan.category?.name ?? ""
         self.categoryIconName = plan.category?.icon ?? "calendar"
         self.categoryColorHex = plan.category?.colorHex ?? "#2F80ED"
+        self.locationName = plan.locationName
+        self.urlString = plan.urlString
         self.updatedAt = plan.updatedAt
     }
 
@@ -474,6 +481,8 @@ private struct FriendSharingVisibilityPolicy {
         guard access != .hidden else { return nil }
 
         var snapshot = FriendSharedPlanSnapshot(plan: plan)
+        if hideLocation { snapshot.locationName = nil }
+        if hideMoodAndNote { snapshot.urlString = nil }
         if access == .redacted || freeTimeOnly {
             redactPlan(&snapshot)
         }
@@ -527,6 +536,8 @@ private struct FriendSharingVisibilityPolicy {
     }
 
     private func redactPlan(_ snapshot: inout FriendSharedPlanSnapshot) {
+        snapshot.locationName = nil
+        snapshot.urlString = nil
         snapshot.categoryID = nil
         snapshot.title = Self.redactedPlanTitle
         snapshot.categoryTitle = ""

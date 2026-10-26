@@ -369,6 +369,7 @@ struct CalendarMonthDayDrawer: View {
                     Label(plan.isPublic ? "友達に公開" : "自分だけ", systemImage: plan.isPublic ? "person.2" : "lock")
                 }
                 .font(.caption).foregroundStyle(LiminalTheme.secondaryText)
+                PlanExtraDetailRows(locationName: plan.locationName, urlString: plan.urlString)
                 if let note = plan.note, !note.isEmpty {
                     Text(note).font(.subheadline).foregroundStyle(LiminalTheme.text)
                 }

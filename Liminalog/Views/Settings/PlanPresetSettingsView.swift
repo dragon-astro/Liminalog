@@ -487,12 +487,15 @@ struct PlanPresetEditSheet: View {
     @State private var recurrenceRule: PlanRecurrenceRule?
     @State private var reminderMinutesBefore: Int?
     @State private var title: String
+    @FocusState private var isTitleFocused: Bool
     @State private var selectedCategory: Category?
     @State private var startTime: Date
     @State private var endMinute: Int
     @State private var durationMinutes: Int
     @State private var isAllDay: Bool
     @State private var isImportant: Bool
+    @State private var locationName = ""
+    @State private var urlString = ""
     @State private var note: String
     @State private var isPublic: Bool
     @State private var placementMode: PlanPresetPlacementMode
@@ -525,6 +528,8 @@ struct PlanPresetEditSheet: View {
         _durationMinutes = State(initialValue: snapshot.durationMinutes)
         _isAllDay = State(initialValue: snapshot.isAllDay)
         _isImportant = State(initialValue: snapshot.isImportant)
+        _locationName = State(initialValue: snapshot.locationName ?? "")
+        _urlString = State(initialValue: snapshot.urlString ?? "")
         _note = State(initialValue: snapshot.note ?? "")
         _isPublic = State(initialValue: snapshot.isPublic)
         _placementMode = State(initialValue: initial?.placementMode ?? .duration)
@@ -532,6 +537,8 @@ struct PlanPresetEditSheet: View {
 
     private struct Draft: Equatable {
         var title: String
+        var location: String
+        var url: String
         var note: String
         var categoryID: UUID?
         var startMinute: Int
@@ -546,6 +553,8 @@ struct PlanPresetEditSheet: View {
     }
     private var draft: Draft {
         Draft(title: title.trimmingCharacters(in: .whitespacesAndNewlines),
+              location: PlanExtraDetails.normalized(locationName) ?? "",
+              url: PlanExtraDetails.normalized(urlString) ?? "",
               note: note.trimmingCharacters(in: .whitespacesAndNewlines),
               categoryID: selectedCategory?.id,
               startMinute: computedStartMinute,
@@ -578,6 +587,12 @@ struct PlanPresetEditSheet: View {
                         PlanRecurrenceControls(rule: $recurrenceRule)
                     }
                     visibilityCard
+                    EditorTextRow(title: "場所", symbol: "mappin.and.ellipse", text: $locationName, tint: selectedTint)
+                    EditorTextRow(title: "URL", symbol: "link", text: $urlString, tint: selectedTint, isURL: true)
+                    if !PlanExtraDetails.isValid(location: locationName, url: urlString) {
+                        Text("場所は100文字、URLは2,000文字以内にしてください。")
+                            .font(.caption).foregroundStyle(.red)
+                    }
                     noteCard
                 }
                 .padding(16)
@@ -585,13 +600,21 @@ struct PlanPresetEditSheet: View {
             }
             .accessibilityIdentifier("preset-editor-scroll")
             .background(LiminalTheme.canvasGradient)
+            .editorDateSelectionScope()
             .navigationTitle(preset == nil ? "プリセットを追加" : "プリセットを編集")
             .navigationBarTitleDisplayMode(.inline)
             .editorDismissGuard(hasChanges: hasChanges, showingConfirmation: $showingDiscardConfirmation)
             .toolbar {
+                if isTitleFocused {
+                    ToolbarItemGroup(placement: .keyboard) {
+                        Spacer()
+                        Button("完了") { isTitleFocused = false }
+                    }
+                }
+
                 ToolbarItem(placement: .cancellationAction) {
                     EditorCancelButton(hasChanges: hasChanges, showingConfirmation: $showingDiscardConfirmation) { dismiss() }
-                }
+                }.sharedBackgroundVisibility(.hidden)
                 if preset != nil {
                     ToolbarItem(placement: .topBarTrailing) {
                         EditorActionsMenu {
@@ -602,11 +625,11 @@ struct PlanPresetEditSheet: View {
                         .confirmationDialog("プリセットを削除しますか？", isPresented: $showingDeleteConfirmation, titleVisibility: .visible) {
                             Button("削除", role: .destructive) { deletePreset() }
                         }
-                    }
+                    }.sharedBackgroundVisibility(.hidden)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     EditorSaveButton(isEmphasized: hasChanges || (preset == nil), canSave: canSave) { save() }
-                }
+                }.sharedBackgroundVisibility(.hidden)
             }
             .onChange(of: recurrenceRule != nil) { _, enabled in
                 if enabled { placementMode = .fixedTime }
@@ -717,8 +740,10 @@ struct PlanPresetEditSheet: View {
                     .padding(.vertical, 11)
                     .frame(minHeight: 44)
                     .accessibilityLabel("予定名")
-                PlanImportanceButton(isImportant: $isImportant)
+                    .focused($isTitleFocused)
+                if !isTitleFocused { PlanImportanceButton(isImportant: $isImportant) }
             }
+            .animation(.easeInOut(duration: 0.2), value: isTitleFocused)
         }
     }
 
@@ -812,8 +837,6 @@ struct PlanPresetEditSheet: View {
                                 activeTimeEditor = .start
                             }
 
-                            Divider()
-
                             timeEditorRow(
                                 title: "終了",
                                 value: Self.timeText(computedEndMinute)
@@ -904,6 +927,7 @@ struct PlanPresetEditSheet: View {
     }
 
     private var canSave: Bool {
+        guard PlanExtraDetails.isValid(location: locationName, url: urlString) else { return false }
         guard note.count <= 200 else { return false }
         if isAllDay { return true }
         if placementMode == .duration {
@@ -998,6 +1022,7 @@ struct PlanPresetEditSheet: View {
             isAllDay: isAllDay,
             isImportant: isImportant,
             note: note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : note,
+            locationName: locationName, urlString: urlString,
             isPublic: isPublic,
             reminderMinutesBefore: reminderMinutesBefore
         )

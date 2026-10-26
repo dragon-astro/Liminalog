@@ -62,6 +62,7 @@ final class PlanPresetStore {
             isAllDay: snapshot.isAllDay,
             isImportant: snapshot.isImportant,
             note: normalizedNote(snapshot.note),
+            locationName: snapshot.locationName, urlString: snapshot.urlString,
             isPublic: snapshot.isPublic,
             placementMode: snapshot.isAllDay ? .fixedTime : placementMode,
             sortOrder: (presets.map(\.sortOrder).max() ?? -1) + 1,
@@ -91,6 +92,8 @@ final class PlanPresetStore {
         preset.endMinute = snapshot.endMinute
         preset.isAllDay = snapshot.isAllDay
         preset.isImportant = snapshot.isImportant
+        preset.locationName = PlanExtraDetails.normalized(snapshot.locationName)
+        preset.urlString = PlanExtraDetails.normalized(snapshot.urlString)
         preset.note = normalizedNote(snapshot.note)
         preset.isPublic = snapshot.isPublic
         preset.placementMode = snapshot.isAllDay ? .fixedTime : placementMode
@@ -268,7 +271,7 @@ final class PlanPresetStore {
                 endMinute: 24 * 60,
                 isAllDay: true,
                 isImportant: plan.isImportant,
-                note: plan.note,
+                note: plan.note, locationName: plan.locationName, urlString: plan.urlString,
                 isPublic: plan.isPublic,
                 reminderMinutesBefore: PlanReminderTiming.templateMinutes(minutes: plan.reminderMinutesBefore, date: plan.reminderDate, start: plan.startTime, isAllDay: plan.isAllDay, calendar: calendar),
                 isMemo: plan.isMemo
@@ -292,7 +295,7 @@ final class PlanPresetStore {
             endMinute: endMinute,
             isAllDay: false,
             isImportant: plan.isImportant,
-            note: plan.note,
+            note: plan.note, locationName: plan.locationName, urlString: plan.urlString,
             isPublic: plan.isPublic,
                 reminderMinutesBefore: PlanReminderTiming.templateMinutes(minutes: plan.reminderMinutesBefore, date: plan.reminderDate, start: plan.startTime, isAllDay: plan.isAllDay, calendar: calendar),
                 isMemo: plan.isMemo
@@ -319,7 +322,7 @@ final class PlanPresetStore {
         let hasNormalizedTime = snapshot.isAllDay
             ? snapshot.startMinute == 0 && snapshot.endMinute == 24 * 60
             : snapshot.hasValidTime
-        return hasNormalizedTime && (snapshot.note?.count ?? 0) <= 200
+        return PlanExtraDetails.isValid(location: snapshot.locationName, url: snapshot.urlString) && hasNormalizedTime && (snapshot.note?.count ?? 0) <= 200
     }
 
     private func isValidDayPresetItems(_ items: [PlanTemplateSnapshot]) -> Bool {

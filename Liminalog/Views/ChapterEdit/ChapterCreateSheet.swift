@@ -5,6 +5,7 @@ struct ChapterCreateSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(ChapterStore.self) private var store
     @Query(sort: \Category.sortOrder) private var categories: [Category]
+    @Query(sort: \CategorySet.sortOrder) private var categorySets: [CategorySet]
     @Query(sort: \FriendSet.sortOrder) private var friendSets: [FriendSet]
     @Query(sort: \Friend.displayName) private var friends: [Friend]
 
@@ -60,84 +61,43 @@ struct ChapterCreateSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("カテゴリ") {
-                    Picker("カテゴリ", selection: $selectedCategory) {
-                        Text("選択").tag(Optional<Category>.none)
-                        ForEach(categories) { category in
-                            Label(category.name, systemImage: category.icon ?? "circle.fill")
-                                .tag(Optional(category))
+            ScrollView {
+                VStack(spacing: 10) {
+                    ActualEditorIdentityCard(category: selectedCategory, isNew: true)
+                    PlanEditorCard(tint: selectedTint) {
+                        VStack(alignment: .leading, spacing: 12) {
+                            EditorDateRow(title: "開始", date: $startTime, range: todayRange)
+                            EditorDateRow(title: "終了", date: $endTime, range: endTimeRange)
+                            if let validationMessage {
+                                PlanEditorStatusLabel(text: validationMessage, systemImage: "exclamationmark.triangle.fill", tint: LiminalTheme.reward)
+                            }
                         }
                     }
-                }
-
-                Section("時間") {
-                    DatePicker("開始", selection: $startTime, in: todayRange, displayedComponents: [.date, .hourAndMinute])
-                    DatePicker("終了", selection: $endTime, in: endTimeRange, displayedComponents: [.date, .hourAndMinute])
-
-                    if let validationMessage {
-                        Label(validationMessage, systemImage: "exclamationmark.triangle.fill")
-                            .font(.caption)
-                            .foregroundStyle(LiminalTheme.reward)
-                    } else {
-                        Text("実績の手動追加は今日の現在時刻までの範囲で保存できます。")
-                            .font(.caption)
-                            .foregroundStyle(LiminalTheme.secondaryText)
+                    PlanEditorCard(tint: selectedTint) {
+                        PlanCategoryInlinePicker(categories: categories, categorySets: categorySets, selectedCategory: $selectedCategory)
                     }
+                    visibilityCard
+                    EditorTextRow(title: "場所", symbol: "mappin.and.ellipse", text: $locationName, tint: selectedTint)
+                    EditorTextRow(title: "メモ", symbol: "note.text", text: $note, tint: selectedTint)
                 }
-
-                Section("メモ") {
-                    TextField("メモを追加...", text: $note, axis: .vertical)
-                        .lineLimit(3...6)
-                }
-
-                Section("場所") {
-                    TextField("場所名を追加...", text: $locationName)
-                }
-
-                Section("公開設定") {
-                    Toggle(isOn: $isPublic) {
-                        Label("友達に見せる", systemImage: isPublic ? "person.2" : "lock")
-                    }
-                    .font(.subheadline)
-                    .accessibilityIdentifier("chapter-visibility")
-                    if isPublic {
-                        Button {
-                            showingAudiencePicker = true
-                            audienceSource = .custom
-                        } label: {
-                            AudienceSummaryRow(
-                                title: "公開相手",
-                                count: audienceFriendIDs.count,
-                                systemImage: "person.2.fill",
-                                tint: selectedCategory?.displayColor ?? LiminalTheme.accent
-                            )
-                        }
-
-                        Button {
-                            resetAudienceToCategoryDefault()
-                        } label: {
-                            Label("カテゴリ既定値に戻す", systemImage: "arrow.counterclockwise")
-                        }
-                    }
-                }
+                .padding(16)
+                .padding(.bottom, 30)
             }
             .accessibilityIdentifier("chapter-create-form")
-            .navigationTitle("チャプターを追加")
+            .background(LiminalTheme.canvasGradient)
+            .editorDateSelectionScope()
+            .navigationTitle("実績を追加")
             .navigationBarTitleDisplayMode(.inline)
             .editorDismissGuard(hasChanges: hasChanges, showingConfirmation: $showingDiscardConfirmation)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     EditorCancelButton(hasChanges: hasChanges, showingConfirmation: $showingDiscardConfirmation) { dismiss() }
-                }
+                }.sharedBackgroundVisibility(.hidden)
                 ToolbarItem(placement: .confirmationAction) {
                     EditorSaveButton(isEmphasized: true, canSave: canSave) { save() }
-                }
+                }.sharedBackgroundVisibility(.hidden)
             }
             .onAppear {
-                if selectedCategory == nil {
-                    selectedCategory = categories.first
-                }
                 if !didInitializeAudience {
                     resetAudienceToCategoryDefault()
                     didInitializeAudience = true
@@ -161,6 +121,46 @@ struct ChapterCreateSheet: View {
             }
         }
     }
+
+    private var visibilityCard: some View {
+        PlanEditorCard(tint: selectedTint) {
+            VStack(alignment: .leading, spacing: 12) {
+                Toggle(isOn: $isPublic) {
+                    Label("友達に見せる", systemImage: isPublic ? "person.2" : "lock")
+                }
+                .font(.subheadline)
+                .accessibilityIdentifier("chapter-visibility")
+
+                if isPublic {
+                    Button {
+                        showingAudiencePicker = true
+                        audienceSource = .custom
+                    } label: {
+                        AudienceSummaryRow(
+                            title: "公開相手",
+                            count: audienceFriendIDs.count,
+                            systemImage: "person.2.fill",
+                            tint: selectedTint
+                        )
+                        .padding(12)
+                        .background(LiminalTheme.elevated, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        resetAudienceToCategoryDefault()
+                    } label: {
+                        Label("カテゴリ既定値に戻す", systemImage: "arrow.counterclockwise")
+                            .font(.caption.weight(.semibold))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(LiminalTheme.secondaryText)
+                }
+            }
+        }
+    }
+
+    private var selectedTint: Color { selectedCategory?.displayColor ?? LiminalTheme.accent }
 
     private var todayRange: ClosedRange<Date> {
         let now = Date()

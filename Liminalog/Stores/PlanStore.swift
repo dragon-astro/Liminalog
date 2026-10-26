@@ -163,7 +163,7 @@ final class PlanStore {
         calendar: Calendar = .current,
         approvedReplacement: PlanTemplateReplacement? = nil
     ) -> Bool {
-        guard !applications.isEmpty else { return false }
+        guard !applications.isEmpty, applications.allSatisfy({ PlanExtraDetails.isValid(location: $0.snapshot.locationName, url: $0.snapshot.urlString) }) else { return false }
         let snapshots = applications.map(\.snapshot)
         let targetBoundary = DayBoundary(date: targetDate, calendar: calendar)
         guard let fetchEnd = calendar.date(
@@ -235,6 +235,7 @@ final class PlanStore {
                 isAllDay: snapshot.isAllDay, isMemo: snapshot.isMemo,
                 isImportant: snapshot.isImportant,
                 note: snapshot.note.flatMap { $0.isEmpty ? nil : $0 },
+                locationName: snapshot.locationName, urlString: snapshot.urlString,
                 isPublic: snapshot.isPublic
             )
             plan.reminderMinutesBefore = snapshot.reminderMinutesBefore
@@ -315,6 +316,7 @@ final class PlanStore {
         isMemo: Bool = false,
         isImportant: Bool = false,
         note: String? = nil,
+        locationName: String? = nil, urlString: String? = nil,
         isPublic: Bool = true,
         audienceFriendIDs: [UUID] = [],
         audienceSource: AudienceSource = .categoryDefaultSnapshot,
@@ -328,7 +330,7 @@ final class PlanStore {
             isAllDay: isAllDay,
             isMemo: isMemo,
             isImportant: isImportant,
-            note: note,
+            note: note, locationName: locationName, urlString: urlString,
             isPublic: isPublic,
             audienceFriendIDs: audienceFriendIDs,
             audienceSource: audienceSource,
@@ -346,13 +348,15 @@ final class PlanStore {
         isMemo: Bool = false,
         isImportant: Bool = false,
         note: String? = nil,
+        locationName: String? = nil, urlString: String? = nil,
         isPublic: Bool = true,
         audienceFriendIDs: [UUID] = [],
         audienceSource: AudienceSource = .categoryDefaultSnapshot,
         hasAudienceSnapshot: Bool = false,
         beforeSave: ((PlanBlock) -> Bool)? = nil
     ) -> PlanBlock? {
-        guard canCreate(startTime: startTime, endTime: endTime, isAllDay: isAllDay, isMemo: isMemo) else { return nil }
+        guard PlanExtraDetails.isValid(location: locationName, url: urlString),
+              canCreate(startTime: startTime, endTime: endTime, isAllDay: isAllDay, isMemo: isMemo) else { return nil }
         let plan = PlanBlock(
             category: category,
             title: normalizedTitle(title, category: category),
@@ -362,6 +366,7 @@ final class PlanStore {
             isMemo: isMemo,
             isImportant: isImportant,
             note: note.flatMap { $0.isEmpty ? nil : $0 },
+            locationName: locationName, urlString: urlString,
             isPublic: isPublic
         )
         plan.audienceFriendIDs = audienceFriendIDs
@@ -387,7 +392,7 @@ final class PlanStore {
         isAllDay: Bool,
         isMemo: Bool? = nil,
         isImportant: Bool,
-        note: String?,
+        note: String?, locationName: String? = nil, urlString: String? = nil,
         isPublic: Bool,
         audienceFriendIDs: [UUID]? = nil,
         audienceSource: AudienceSource? = nil,
@@ -396,6 +401,7 @@ final class PlanStore {
         promotionMode: PlanMemoPromotionMode = .keepRemainders,
         beforeSave: ((PlanBlock) -> Bool)? = nil
     ) -> Bool {
+        guard PlanExtraDetails.isValid(location: locationName, url: urlString) else { return false }
         let resolvedMemo = isMemo ?? plan.isMemo
         var changedIDs: Set<UUID> = [plan.id]
         var promotions: [PlanBlock] = []
@@ -429,6 +435,9 @@ final class PlanStore {
             plan.isImportant = isImportant
             changedScoreDayStarts.formUnion(affectedScoreDayStarts(start: startTime, end: max(endTime, startTime.addingTimeInterval(60))))
         }
+        // Omitted optional inputs preserve details during timeline moves; an empty string clears them.
+        if let locationName { plan.locationName = PlanExtraDetails.normalized(locationName) }
+        if let urlString { plan.urlString = PlanExtraDetails.normalized(urlString) }
         plan.note = note.flatMap { $0.isEmpty ? nil : $0 }
         plan.isPublic = isPublic
         if let audienceFriendIDs {
@@ -513,7 +522,7 @@ final class PlanStore {
                 let copy = PlanBlock(category: original.category, title: original.title,
                                      startTime: part.start, endTime: part.end,
                                      isAllDay: original.isAllDay, isImportant: original.isImportant,
-                                     note: original.note, isPublic: original.isPublic)
+                                     note: original.note, locationName: original.locationName, urlString: original.urlString, isPublic: original.isPublic)
                 copy.visibilityScope = original.visibilityScope
                 copy.audienceFriendIDs = original.audienceFriendIDs
                 copy.audienceSourceRawValue = original.audienceSourceRawValue
@@ -647,7 +656,7 @@ final class PlanStore {
                 target = PlanBlock(category: source.category, title: source.title,
                                    startTime: interval.start, endTime: interval.end,
                                    isAllDay: source.isAllDay, isMemo: source.isMemo, isImportant: source.isImportant,
-                                   note: source.note, isPublic: source.isPublic)
+                                   note: source.note, locationName: source.locationName, urlString: source.urlString, isPublic: source.isPublic)
                 target.reminderMinutesBefore = source.reminderMinutesBefore
                 target.reminderDate = source.reminderDate
                 target.visibilityScope = source.visibilityScope

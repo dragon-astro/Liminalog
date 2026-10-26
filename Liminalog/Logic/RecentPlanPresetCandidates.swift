@@ -12,7 +12,7 @@ enum RecentPlanPresetCandidates {
                   (snapshot.note?.count ?? 0) <= 200 else { continue }
             let candidate = PlanPreset(name: snapshot.title, title: snapshot.title,
                 categoryID: snapshot.categoryID, startMinute: snapshot.startMinute, endMinute: snapshot.endMinute,
-                isAllDay: snapshot.isAllDay, isImportant: snapshot.isImportant, note: snapshot.note,
+                isAllDay: snapshot.isAllDay, isImportant: snapshot.isImportant, note: snapshot.note, locationName: snapshot.locationName, urlString: snapshot.urlString,
                 isPublic: snapshot.isPublic, placementMode: snapshot.isAllDay ? .fixedTime : .duration,
                 now: plan.createdAt)
             candidate.id = plan.id

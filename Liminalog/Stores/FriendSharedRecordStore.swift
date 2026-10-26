@@ -637,6 +637,8 @@ private struct FriendSharedRecordKey: Hashable {
 
 private struct FriendSharedPlanDisplayKey: Hashable {
     let friendID: UUID
+    let locationName: String?
+    let urlString: String?
     let title: String
     let startTime: Date
     let endTime: Date
@@ -647,6 +649,8 @@ private struct FriendSharedPlanDisplayKey: Hashable {
 
     init(record: FriendSharedPlanRecord) {
         friendID = record.friendID
+        locationName = record.locationName
+        urlString = record.urlString
         title = record.title
         startTime = record.startTime
         endTime = record.endTime

@@ -28,6 +28,8 @@ struct PlanRecurrenceBaseline: Codable, Equatable {
     private var memo: Bool? = nil
     let isAllDay: Bool
     let isImportant: Bool
+    let locationName: String?
+    let urlString: String?
     let note: String?
     let isPublic: Bool
     let reminder: Int?
@@ -41,6 +43,7 @@ struct PlanRecurrenceBaseline: Codable, Equatable {
         start = plan.startTime; end = plan.endTime
         memo = plan.isMemo ? true : nil
         isAllDay = plan.isAllDay; isImportant = plan.isImportant
+        locationName = plan.locationName; urlString = plan.urlString
         note = plan.note; isPublic = plan.isPublic; reminder = plan.reminderMinutesBefore
         reminderDate = plan.reminderDate
         audienceSource = plan.audienceSource.rawValue

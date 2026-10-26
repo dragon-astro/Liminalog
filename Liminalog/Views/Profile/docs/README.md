@@ -46,7 +46,7 @@
 | 35 | [35-calendar-interaction-refinement.md](35-calendar-interaction-refinement.md) | 日付選択→予定追加・移動を中心とした導線・情報量の刷新 | 🟡 コード調査・設計たたき台／画面実査は未完了 |
 | 36 | [36-app-navigation-review.md](36-app-navigation-review.md) | アプリ全体の動線・操作部品の見直し（隠れた切替→スライド式セグメント・入口の統一・層の削減） | 🟡 改訂版 §R（UI=Claude / 機能=Codex） |
 | 37 | [37-codex-handoff-ui-batch-20261021.md](37-codex-handoff-ui-batch-20261021.md) | docs/36 の UI・動線バッチを Codex へ引き継ぐ（変更一覧・識別子の変更・検証状況・Codex のタスク） | 🟢 Codex 着手可 |
-| 38 | [38-editor-calendar-plan-20261025.md](38-editor-calendar-plan-20261025.md) | 編集画面（破棄の確認・プリセットと実績の統一）とカレンダー表示、予定のURL・場所・添付の実装計画と優先順位 | 🟡 バッチ1・2・4実装・Simulator検証済み／Claude確認待ち |
+| 38 | [38-editor-calendar-plan-20261025.md](38-editor-calendar-plan-20261025.md) | 編集画面（破棄の確認・プリセットと実績の統一）とカレンダー表示、予定のURL・場所・添付の実装計画と優先順位 | 🟡 バッチ1〜5・6-1実装・Simulator検証済み／画像確認・実機同期検証は残る |
 
 ---
 

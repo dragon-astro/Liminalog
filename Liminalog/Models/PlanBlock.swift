@@ -11,6 +11,8 @@ final class PlanBlock {
     var isMemo: Bool = false
     var isAllDay: Bool = false
     var isImportant: Bool = false
+    var locationName: String?
+    var urlString: String?
     var note: String?
     var isPublic: Bool = true
     var visibilityScope: VisibilityScope = VisibilityScope.all
@@ -36,7 +38,7 @@ final class PlanBlock {
 
     init() {}
 
-    init(category: Category?, title: String, startTime: Date, endTime: Date, isAllDay: Bool = false, isMemo: Bool = false, isImportant: Bool = false, note: String? = nil, isPublic: Bool = true) {
+    init(category: Category?, title: String, startTime: Date, endTime: Date, isAllDay: Bool = false, isMemo: Bool = false, isImportant: Bool = false, note: String? = nil, locationName: String? = nil, urlString: String? = nil, isPublic: Bool = true) {
         self.id = UUID()
         self.category = category
         self.title = title
@@ -45,6 +47,8 @@ final class PlanBlock {
         self.isMemo = isMemo
         self.isAllDay = isAllDay
         self.isImportant = isImportant
+        self.locationName = PlanExtraDetails.normalized(locationName)
+        self.urlString = PlanExtraDetails.normalized(urlString)
         self.note = note
         self.isPublic = isPublic
         self.visibilityScope = .all

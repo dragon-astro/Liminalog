@@ -1,6 +1,23 @@
 import SwiftUI
 import UIKit
 
+/// Opaque, separate toolbar circles keep their geometry when the draft changes.
+private struct EditorToolbarIcon: View {
+    @Environment(\.isEnabled) private var isEnabled
+    let name: String
+    var emphasized = false
+
+    var body: some View {
+        Image(systemName: name)
+            .font(.body.weight(.semibold))
+            .foregroundStyle(emphasized ? LiminalTheme.accentFilledText : LiminalTheme.text)
+            .frame(width: 44, height: 44)
+            .background(emphasized ? LiminalTheme.accent : LiminalTheme.elevated, in: Circle())
+            .overlay(Circle().strokeBorder(emphasized ? Color.clear : LiminalTheme.divider, lineWidth: 1))
+            .opacity(isEnabled ? 1 : 0.4)
+    }
+}
+
 struct EditorCancelButton: View {
     let hasChanges: Bool
     @Binding var showingConfirmation: Bool
@@ -9,9 +26,8 @@ struct EditorCancelButton: View {
     var body: some View {
         Button {
             if hasChanges { showingConfirmation = true } else { discard() }
-        } label: {
-            Image(systemName: "xmark")
-        }
+        } label: { EditorToolbarIcon(name: "xmark") }
+        .buttonStyle(.plain)
         .accessibilityLabel("キャンセル")
         .confirmationDialog("編集中の内容を破棄してよろしいですか？",
                             isPresented: $showingConfirmation, titleVisibility: .visible) {
@@ -26,19 +42,10 @@ struct EditorSaveButton: View {
     let save: () -> Void
 
     var body: some View {
-        Group {
-            if isEmphasized {
-                button.buttonStyle(.glassProminent).tint(LiminalTheme.accent)
-            } else {
-                button
-            }
-        }
-        .disabled(!canSave)
-    }
-
-    private var button: some View {
-        Button(action: save) { Image(systemName: "checkmark").fontWeight(.semibold) }
+        Button(action: save) { EditorToolbarIcon(name: "checkmark", emphasized: isEmphasized) }
+            .buttonStyle(.plain)
             .accessibilityLabel("保存")
+            .disabled(!canSave)
     }
 }
 
@@ -46,7 +53,8 @@ struct EditorActionsMenu<Content: View>: View {
     @ViewBuilder let content: () -> Content
 
     var body: some View {
-        Menu(content: content) { Image(systemName: "ellipsis") }
+        Menu(content: content) { EditorToolbarIcon(name: "ellipsis") }
+            .buttonStyle(.plain)
             .accessibilityLabel("その他")
     }
 }
@@ -140,6 +148,8 @@ extension PlanTemplateSnapshot {
         copy.title = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedNote = note?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         copy.note = trimmedNote.isEmpty ? nil : trimmedNote
+        copy.locationName = PlanExtraDetails.normalized(locationName)
+        copy.urlString = PlanExtraDetails.normalized(urlString)
         return copy
     }
 }

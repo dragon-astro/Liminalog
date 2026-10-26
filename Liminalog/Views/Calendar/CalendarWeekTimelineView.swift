@@ -1688,7 +1688,7 @@ struct CalendarWeekTimelineView: View {
             isAllDay: source.isAllDay,
             isMemo: source.isMemo,
             isImportant: source.isImportant,
-            note: source.note,
+            note: source.note, locationName: source.locationName, urlString: source.urlString,
             isPublic: source.isPublic,
             beforeSave: { $0.reminderMinutesBefore = source.reminderMinutesBefore; return true }
         ) else {

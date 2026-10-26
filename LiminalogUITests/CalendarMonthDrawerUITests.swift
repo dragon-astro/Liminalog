@@ -15,7 +15,7 @@ final class CalendarMonthDrawerUITests: XCTestCase {
     private func element(_ app: XCUIApplication, _ id: String) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: id).firstMatch
     }
-    private func launch(longNote: Bool = false, previewSource: Bool = false, measureDrop: Bool = false, overlap: Bool = false, templateReplacement: Bool = false, expandedMode: String? = "summary", measureExpansion: Bool = false, planMemos: Bool = false, contentSize: String? = nil, useCalendarTab: Bool = false, editingSamples: Bool = false, chapters: Bool = false, lockedDay: Bool = false) -> XCUIApplication {
+    private func launch(longNote: Bool = false, previewSource: Bool = false, measureDrop: Bool = false, overlap: Bool = false, templateReplacement: Bool = false, expandedMode: String? = "summary", measureExpansion: Bool = false, planMemos: Bool = false, contentSize: String? = nil, useCalendarTab: Bool = true, editingSamples: Bool = false, chapters: Bool = false, lockedDay: Bool = false, dateStyle: String? = nil, activeChapter: Bool = false, narrowMemos: Bool = false) -> XCUIApplication {
         continueAfterFailure = false
         let app = XCUIApplication()
         app.launchArguments = ["-LiminalogMonthDrawerUITests", "-LiminalogInitialRootTab", "calendar",
@@ -24,6 +24,12 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         if lockedDay { app.launchArguments.append("-LiminalogUITestLockedDay") }
         if editingSamples { app.launchArguments.append("-LiminalogUITestEditingSamples") }
         if chapters { app.launchArguments.append("-LiminalogUITestChapters") }
+        if activeChapter { app.launchArguments.append("-LiminalogUITestActiveChapter") }
+        if narrowMemos { app.launchArguments.append("-LiminalogUITestNarrowMemos") }
+        if let dateStyle { app.launchArguments += ["-planEditor.datePickerStyle", dateStyle] }
+        if let theme = ProcessInfo.processInfo.environment["LIMINALOG_CAPTURE_THEME"] {
+            app.launchArguments += ["-LiminalogUITestTheme", theme]
+        }
         if longNote { app.launchArguments.append("-LiminalogUITestLongNote") }
         if previewSource { app.launchArguments.append("-LiminalogUITestPreviewSource") }
         if measureDrop { app.launchArguments.append("-LiminalogMeasureMonthDrop") }
@@ -862,7 +868,7 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         let pager = app.scrollViews["plan-category-board-pager"]
         if pager.exists { category.tap() }
         app.buttons["plan-memo-toggle"].tap()
-        let bookmark = app.buttons["予定プリセットを選ぶ"]
+        let bookmark = app.buttons["プリセットに保存"]
         let title = element(app, "予定名")
         XCTAssertTrue(bookmark.isHittable)
         XCTAssertEqual(bookmark.frame.midY, title.frame.midY, accuracy: 2)
@@ -960,7 +966,7 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         let kind = app.buttons["plan-memo-toggle"]
         let important = app.buttons["plan-important"]
         let title = element(app, "予定名")
-        let bookmark = app.buttons["予定プリセットを選ぶ"]
+        let bookmark = app.buttons["プリセットに保存"]
         let prefix = app.frame.width < 390 ? "30-editor-se-" : "30-editor-"
         XCTAssertTrue(title.isHittable && bookmark.isHittable && important.isHittable && kind.isHittable)
         keepScreenshot(app, name: prefix + "main")
@@ -1856,7 +1862,7 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         for _ in 0..<6 where !row.isHittable { today.swipeUp() }
         XCTAssertTrue(row.isHittable, today.debugDescription)
         row.tap()
-        XCTAssertTrue(today.navigationBars["チャプターを編集"].waitForExistence(timeout: 5), today.debugDescription)
+        XCTAssertTrue(today.navigationBars["実績を編集"].waitForExistence(timeout: 5), today.debugDescription)
         let category = today.buttons["plan-category-picker"]
         if category.exists && !today.buttons["その他の並び順"].exists { category.tap() }
         keepScreenshot(today, name: "12-chapter-category")
@@ -2011,7 +2017,7 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         for _ in 0..<6 where !row.isHittable { app.swipeUp() }
         XCTAssertTrue(row.isHittable, app.debugDescription)
         row.tap()
-        XCTAssertTrue(app.navigationBars["チャプターを編集"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["実績を編集"].waitForExistence(timeout: 5))
     }
 
     func testChapterVisibilityKeepsLabelAndPersists() {
@@ -2028,8 +2034,8 @@ final class CalendarMonthDrawerUITests: XCTestCase {
             XCTAssertEqual(visibility.label, "友達に見せる")
             XCTAssertEqual(visibility.value as? String, enabled ? "1" : "0")
             XCTAssertEqual(app.buttons["カテゴリ既定値に戻す"].exists, enabled)
-            app.navigationBars["チャプターを編集"].buttons["保存"].tap()
-            XCTAssertFalse(app.navigationBars["チャプターを編集"].exists)
+            app.navigationBars["実績を編集"].buttons["保存"].tap()
+            XCTAssertFalse(app.navigationBars["実績を編集"].exists)
             openFixtureChapterEditor(app)
             for _ in 0..<6 where !visibility.isHittable { scroll.swipeUp() }
             XCTAssertEqual(visibility.value as? String, enabled ? "1" : "0")
@@ -2047,25 +2053,29 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         for _ in 0..<6 where !gap.isHittable { app.swipeDown() }
         XCTAssertTrue(gap.isHittable, app.debugDescription)
         gap.tap()
-        XCTAssertTrue(app.navigationBars["チャプターを追加"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["実績を追加"].waitForExistence(timeout: 5))
         let visibility = app.switches["chapter-visibility"]
         for _ in 0..<6 where !visibility.isHittable || visibility.frame.maxY > app.frame.maxY - 100 {
             app.swipeUp()
         }
         XCTAssertEqual(visibility.label, "友達に見せる")
         XCTAssertEqual(visibility.value as? String, "1")
-        // Form exposes the whole row as the switch; its blank center is not the control.
+        // Tap the switch itself, independently of the label width.
         visibility.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
         XCTAssertEqual(visibility.label, "友達に見せる")
         XCTAssertEqual(visibility.value as? String, "0")
         XCTAssertFalse(app.buttons["カテゴリ既定値に戻す"].exists)
-        app.navigationBars["チャプターを追加"].buttons["保存"].tap()
-        XCTAssertFalse(app.navigationBars["チャプターを追加"].exists)
+        let categoryChoice = app.buttons["読書を選択"]
+        for _ in 0..<7 where !categoryChoice.isHittable { app.swipeDown() }
+        if !categoryChoice.isHittable { app.buttons["plan-category-picker"].tap() }
+        categoryChoice.tap()
+        app.navigationBars["実績を追加"].buttons["保存"].tap()
+        XCTAssertFalse(app.navigationBars["実績を追加"].exists)
         let added = app.buttons.matching(NSPredicate(format: "label BEGINSWITH '読書、' AND label != %@", original)).firstMatch
         for _ in 0..<6 where !added.isHittable { app.swipeUp() }
         XCTAssertTrue(added.isHittable, app.debugDescription)
         added.tap()
-        XCTAssertTrue(app.navigationBars["チャプターを編集"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["実績を編集"].waitForExistence(timeout: 5))
         for _ in 0..<6 where !visibility.isHittable { app.scrollViews["chapter-editor-scroll"].swipeUp() }
         XCTAssertEqual(visibility.label, "友達に見せる")
         XCTAssertEqual(visibility.value as? String, "0")
@@ -2876,7 +2886,8 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         XCTAssertTrue(more.exists, app.debugDescription)
         more.tap()
         keepScreenshot(app, name: "32-editor-toolbar\(small)-menu")
-        app.buttons["プリセットとして保存"].tap()
+        app.tap()
+        app.buttons["プリセットに保存"].tap()
         more.tap()
         app.buttons["予定を削除"].tap()
         XCTAssertTrue(app.buttons["削除"].waitForExistence(timeout: 5))
@@ -3034,7 +3045,7 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         let visibility = app.switches["chapter-visibility"]
         for _ in 0..<6 where !visibility.isHittable { scroll.swipeUp() }
         visibility.tap()
-        attemptEditorSwipe(app, title: "チャプターを編集")
+        attemptEditorSwipe(app, title: "実績を編集")
         assertDiscardPrompt(app)
         closeDiscardPrompt(app)
         app.buttons["キャンセル"].tap()
@@ -3048,22 +3059,24 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         for _ in 0..<6 where !add.isHittable { app.swipeDown() }
         XCTAssertTrue(add.isHittable, app.debugDescription)
         add.tap()
-        XCTAssertTrue(app.navigationBars["チャプターを追加"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["実績を追加"].waitForExistence(timeout: 5))
         for _ in 0..<6 where !visibility.isHittable { app.swipeUp() }
         visibility.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
-        attemptEditorSwipe(app, title: "チャプターを追加")
+        attemptEditorSwipe(app, title: "実績を追加")
         assertDiscardPrompt(app)
         closeDiscardPrompt(app)
         app.buttons["キャンセル"].tap()
         assertDiscardPrompt(app)
         app.buttons["破棄する"].tap()
-        XCTAssertTrue(app.navigationBars["チャプターを追加"].waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["実績を追加"].waitForNonExistence(timeout: 5))
         openFixtureChapterEditor(app)
         editorActions(app).tap()
         app.buttons["実績を削除"].tap()
         XCTAssertTrue(app.buttons["削除"].waitForExistence(timeout: 5))
+        keepScreenshot(app, name: "35-actual" + nextCaptureSuffix(app) + "-delete")
         app.buttons["削除"].tap()
-        XCTAssertTrue(app.navigationBars["チャプターを編集"].waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["実績を編集"].waitForNonExistence(timeout: 5))
+        keepScreenshot(app, name: "35-actual" + nextCaptureSuffix(app) + "-empty")
     }
 
     func testCaptureNeutralRecentPresets() throws {
@@ -3102,6 +3115,242 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         strike.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
         app.buttons["calendar-settings-close"].tap()
         keepScreenshot(app, name: "34-month\(small)-strike")
+    }
+
+    private func nextCaptureSuffix(_ app: XCUIApplication) -> String {
+        (app.frame.width < 390 ? "-se" : "") + (ProcessInfo.processInfo.environment["LIMINALOG_CAPTURE_THEME"] == "aurora" ? "-aurora" : "")
+    }
+
+    func testNextToolbarBookmarkAndTitleFocus() {
+        let app = launch(planMemos: true)
+        openEditor(app, planID: sourceID)
+        let suffix = nextCaptureSuffix(app)
+        let more = editorActions(app)
+        let save = app.buttons["保存"]
+        let bookmark = app.buttons["プリセットに保存"]
+        let star = app.buttons["plan-important"]
+        let initialSave = save.frame, initialMore = more.frame
+        keepScreenshot(app, name: "32b-editor-toolbar" + suffix + "-partial-unchanged")
+        star.tap()
+        XCTAssertEqual(save.frame.midX, initialSave.midX, accuracy: 1)
+        XCTAssertEqual(more.frame.midX, initialMore.midX, accuracy: 1)
+        keepScreenshot(app, name: "32b-editor-toolbar" + suffix + "-partial-changed")
+        let bar = app.navigationBars["予定を編集"]
+        bar.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.15)).press(forDuration: 0.1,
+            thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)))
+        keepScreenshot(app, name: "32b-editor-toolbar" + suffix + "-full-changed")
+        star.tap()
+        keepScreenshot(app, name: "32b-editor-toolbar" + suffix + "-full-unchanged")
+        bookmark.tap()
+        XCTAssertTrue(app.staticTexts["プリセットに保存しました"].exists)
+        // Capture the 1.5-second feedback before an accessibility query waits for idle.
+        let feedbackCapture = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        feedbackCapture.name = "32c-editor-bookmark" + suffix + "-saved"
+        feedbackCapture.lifetime = .keepAlways
+        add(feedbackCapture)
+        bookmark.tap()
+        XCTAssertTrue(app.staticTexts["保存済みです"].exists)
+        more.tap()
+        keepScreenshot(app, name: "32c-editor-bookmark" + suffix + "-menu")
+        app.buttons["プリセットから入れる…"].tap()
+        XCTAssertTrue(app.navigationBars["予定プリセット"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.scrollViews.buttons.matching(NSPredicate(format: "label == '仕事'")).count, 1)
+        app.buttons["閉じる"].tap()
+        star.tap()
+        bookmark.tap()
+        more.tap(); app.buttons["プリセットから入れる…"].tap()
+        XCTAssertEqual(app.scrollViews.buttons.matching(NSPredicate(format: "label == '仕事'")).count, 2)
+        app.scrollViews.buttons.matching(NSPredicate(format: "label == '配達のメモ'")).firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["予定を編集"].waitForExistence(timeout: 5))
+        let title = element(app, "予定名")
+        XCTAssertEqual(title.value as? String, "配達のメモ")
+        title.tap(); title.typeText("の予定名を長くして全体を確認するための入力です")
+        XCTAssertFalse(bookmark.exists)
+        XCTAssertFalse(star.exists)
+        XCTAssertFalse(app.buttons["plan-memo-toggle"].exists)
+        keepScreenshot(app, name: "36-detail" + suffix + "-title-input")
+        app.buttons["完了"].tap()
+        XCTAssertTrue(bookmark.waitForExistence(timeout: 3))
+        XCTAssertTrue(star.exists)
+        star.tap()
+        app.buttons["plan-memo-toggle"].tap()
+        app.buttons["保存"].tap()
+        XCTAssertTrue(app.buttons["calendar-drawer-edit"].waitForExistence(timeout: 5))
+        app.buttons["calendar-drawer-edit"].tap()
+        XCTAssertEqual(star.value as? String, "オン")
+        XCTAssertEqual(app.buttons["plan-memo-toggle"].value as? String, "オン")
+    }
+
+    func testNextPlanExtraDetailsPersistAndAppearInDrawer() {
+        let app = launch(planMemos: true)
+        openEditor(app, planID: sourceID)
+        let scroll = app.scrollViews["plan-editor-scroll"]
+        let location = element(app, "場所"), url = element(app, "URL")
+        for _ in 0..<8 where !location.isHittable { scroll.swipeUp() }
+        location.tap(); location.typeText("中央図書館")
+        for _ in 0..<4 where !url.isHittable { scroll.swipeUp() }
+        url.tap(); url.typeText("example.com/event")
+        keepScreenshot(app, name: "37-plan-extra" + nextCaptureSuffix(app) + "-editor")
+        app.buttons["保存"].tap()
+        XCTAssertTrue(app.buttons["calendar-drawer-edit"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["中央図書館"].exists)
+        XCTAssertTrue(app.buttons["plan-detail-url"].exists)
+        keepScreenshot(app, name: "37-plan-extra" + nextCaptureSuffix(app) + "-drawer")
+        app.buttons["calendar-drawer-edit"].tap()
+        for _ in 0..<8 where !location.isHittable { scroll.swipeUp() }
+        XCTAssertEqual(location.value as? String, "中央図書館")
+        XCTAssertEqual(url.value as? String, "example.com/event")
+        app.buttons["キャンセル"].tap()
+        XCTAssertTrue(app.buttons["calendar-drawer-edit"].waitForExistence(timeout: 5))
+    }
+
+    func testNextWheelDateSelectionIsExclusiveAndPersists() {
+        let app = launch(planMemos: true, dateStyle: "wheel")
+        openEditor(app, planID: sourceID)
+        let start = app.buttons["開始日"], end = app.buttons["終了日"]
+        XCTAssertTrue(start.isHittable)
+        start.tap()
+        XCTAssertTrue(element(app, "editor-date-wheel").waitForExistence(timeout: 3))
+        keepScreenshot(app, name: "36-detail" + nextCaptureSuffix(app) + "-wheel")
+        start.tap()
+        XCTAssertFalse(element(app, "editor-date-wheel").exists)
+        end.tap()
+        let wheels = app.pickerWheels
+        XCTAssertGreaterThan(wheels.count, 0)
+        let old = end.value as? String
+        // Native wheel order follows Japanese locale: year, month, day.
+        let dayWheel = wheels.element(boundBy: 2)
+        dayWheel.adjust(toPickerWheelValue: "11日")
+        end.tap()
+        XCTAssertNotEqual(end.value as? String, old)
+        app.buttons["保存"].tap()
+        XCTAssertTrue(app.buttons["calendar-drawer-edit"].waitForExistence(timeout: 5))
+        app.buttons["calendar-drawer-edit"].tap()
+        XCTAssertTrue((end.value as? String ?? "").contains("11"))
+    }
+
+    func testNextActualEditorDetailsAndCreation() {
+        let app = launch(useCalendarTab: true, chapters: true)
+        openFixtureChapterTimeline(app); openFixtureChapterEditor(app)
+        let suffix = nextCaptureSuffix(app)
+        keepScreenshot(app, name: "35-actual" + suffix + "-edit")
+        let scroll = app.scrollViews["chapter-editor-scroll"]
+        let location = element(app, "場所"), note = element(app, "メモ")
+        for _ in 0..<8 where !location.isHittable { scroll.swipeUp() }
+        location.tap(); location.typeText("自宅")
+        note.tap(); note.typeText("読書の記録")
+        app.buttons["保存"].tap()
+        openFixtureChapterEditor(app)
+        for _ in 0..<8 where !location.isHittable { scroll.swipeUp() }
+        XCTAssertEqual(location.value as? String, "自宅")
+        XCTAssertEqual(note.value as? String, "読書の記録")
+        app.buttons["キャンセル"].tap()
+        let add = app.buttons.matching(NSPredicate(format: "label BEGINSWITH '未記録 ' AND label ENDSWITH ' 追加'")).firstMatch
+        for _ in 0..<8 where !add.isHittable { app.swipeDown() }
+        add.tap()
+        XCTAssertTrue(app.navigationBars["実績を追加"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["保存"].isEnabled)
+        keepScreenshot(app, name: "35-actual" + suffix + "-new-empty")
+        let choice = app.buttons["読書を選択"]
+        if !choice.isHittable { app.buttons["plan-category-picker"].tap() }
+        for _ in 0..<5 where !choice.isHittable { app.swipeUp() }
+        choice.tap()
+        XCTAssertTrue(app.buttons["保存"].isEnabled)
+        keepScreenshot(app, name: "35-actual" + suffix + "-new-selected")
+        app.buttons["保存"].tap()
+        XCTAssertTrue(app.navigationBars["実績を追加"].waitForNonExistence(timeout: 5))
+    }
+
+    func testNextActiveActualAndNarrowMemos() {
+        let app = launch(useCalendarTab: true, chapters: true, activeChapter: true)
+        openFixtureChapterTimeline(app)
+        let row = app.buttons.matching(NSPredicate(format: "label BEGINSWITH '読書、'")).firstMatch
+        for _ in 0..<7 where !row.isHittable { app.swipeUp() }
+        row.tap()
+        XCTAssertTrue(app.navigationBars["記録中の実績"].waitForExistence(timeout: 5))
+        keepScreenshot(app, name: "35-actual" + nextCaptureSuffix(app) + "-active")
+        let visibility = app.switches["chapter-visibility"]
+        for _ in 0..<6 where !visibility.isHittable { app.swipeUp() }
+        visibility.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        app.buttons["保存"].tap()
+        XCTAssertTrue(app.navigationBars["記録中の実績"].waitForNonExistence(timeout: 5))
+        let memoApp = launch(planMemos: true, useCalendarTab: true, narrowMemos: true)
+        memoApp.buttons["calendar-drawer-open-timeline"].tap()
+        XCTAssertTrue(memoApp.buttons["timeline-open-presets"].waitForExistence(timeout: 5))
+        keepScreenshot(memoApp, name: "36-detail" + nextCaptureSuffix(memoApp) + "-narrow-memos")
+    }
+
+    func testNextFriendPlanDetails() {
+        let app = XCUIApplication()
+        app.launchArguments = ["-LiminalogMonthDrawerUITests", "-LiminalogUITestFriendExtras", "-LiminalogInitialRootTab", "friends",
+            "-LiminalogDebugOpenFriendCalendar", "表示確認"]
+        if let theme = ProcessInfo.processInfo.environment["LIMINALOG_CAPTURE_THEME"] {
+            app.launchArguments += ["-LiminalogUITestTheme", theme]
+        }
+        app.launch()
+        let search = app.buttons["友達の予定を検索"]
+        XCTAssertTrue(search.waitForExistence(timeout: 20), app.debugDescription)
+        search.tap()
+        let query = app.textFields["予定名で検索"]
+        query.tap(); query.typeText("図書館")
+        let plan = app.buttons.containing(.staticText, identifier: "図書館で待ち合わせ").firstMatch
+        XCTAssertTrue(plan.waitForExistence(timeout: 5), app.debugDescription)
+        plan.tap()
+        XCTAssertTrue(app.buttons["plan-detail-url"].waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(app.staticTexts["中央図書館"].exists)
+        keepScreenshot(app, name: "37-plan-extra" + nextCaptureSuffix(app) + "-friend")
+    }
+
+    func testNextDateStyleSettingAndNativeCalendarSave() {
+        let app = launch(planMemos: true)
+        app.buttons["当日の予定を閉じる"].tap()
+        app.buttons["カレンダー表示設定"].tap()
+        let setting = app.buttons["plan-editor-date-picker-style"]
+        for _ in 0..<7 where !setting.isHittable { app.swipeUp() }
+        XCTAssertTrue(setting.isHittable, app.debugDescription)
+        setting.tap(); app.buttons["ホイール"].tap()
+        app.buttons["calendar-settings-close"].tap()
+        element(app, "calendar-month-day-\(dayID(fixtureDay))").tap()
+        openEditor(app, planID: sourceID)
+        XCTAssertTrue(app.buttons["開始日"].isHittable)
+        app.buttons["開始日"].tap()
+        XCTAssertTrue(element(app, "editor-date-wheel").waitForExistence(timeout: 3))
+        app.buttons["開始日"].tap()
+        app.buttons["キャンセル"].tap()
+        app.buttons["当日の予定を閉じる"].tap()
+        app.buttons["カレンダー表示設定"].tap()
+        for _ in 0..<7 where !setting.isHittable { app.swipeUp() }
+        setting.tap(); app.buttons.matching(NSPredicate(format: "label == 'カレンダー' AND identifier != 'calendar'")).firstMatch.tap()
+        app.buttons["calendar-settings-close"].tap()
+        element(app, "calendar-month-day-\(dayID(fixtureDay))").tap()
+        openEditor(app, planID: sourceID)
+        selectPresetDate(app, identifier: "終了日", dayIndex: 10)
+        XCTAssertFalse(element(app, "editor-date-wheel").exists)
+        XCTAssertTrue(app.buttons["保存"].isEnabled)
+        app.buttons["保存"].tap()
+        XCTAssertTrue(app.buttons["calendar-drawer-edit"].waitForExistence(timeout: 5))
+        app.buttons["calendar-drawer-edit"].tap()
+        XCTAssertTrue(element(app, "終了日").exists)
+        XCTAssertFalse(app.buttons["プリセットに保存"].isEnabled, "24時間を超える予定はプリセットに保存しない")
+    }
+
+    func testNextPresetTitleFocusAndExtraDetails() {
+        let app = launch(templateReplacement: true)
+        openFixturePresetEditor(app)
+        keepScreenshot(app, name: "33b-preset-editor" + nextCaptureSuffix(app) + "-upper")
+        let title = element(app, "予定名"), star = app.buttons["plan-important"]
+        title.tap(); title.typeText("の長い名前を入力しながら確認します")
+        XCTAssertFalse(star.exists)
+        keepScreenshot(app, name: "36-detail" + nextCaptureSuffix(app) + "-preset-title-input")
+        app.buttons["完了"].tap()
+        XCTAssertTrue(star.waitForExistence(timeout: 3))
+        let location = element(app, "場所"), url = element(app, "URL")
+        for _ in 0..<8 where !location.isHittable { app.swipeUp() }
+        location.tap(); location.typeText("受付")
+        for _ in 0..<4 where !url.isHittable { app.swipeUp() }
+        url.tap(); url.typeText("example.com/preset")
+        app.buttons["保存"].tap()
+        XCTAssertTrue(app.navigationBars["プリセットを編集"].waitForNonExistence(timeout: 5))
     }
 
 }

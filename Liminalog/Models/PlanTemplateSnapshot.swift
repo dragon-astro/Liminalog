@@ -7,6 +7,8 @@ struct PlanTemplateSnapshot: Codable, Equatable, Sendable {
     var endMinute: Int
     var isAllDay: Bool
     var isImportant: Bool
+    var locationName: String?
+    var urlString: String?
     var note: String?
     var isPublic: Bool
     var reminderMinutesBefore: Int? = nil
@@ -19,11 +21,13 @@ struct PlanTemplateSnapshot: Codable, Equatable, Sendable {
     }
 
     init(title: String, categoryID: UUID?, startMinute: Int, endMinute: Int, isAllDay: Bool,
-         isImportant: Bool, note: String? = nil, isPublic: Bool, reminderMinutesBefore: Int? = nil,
+         isImportant: Bool, note: String? = nil, locationName: String? = nil, urlString: String? = nil, isPublic: Bool, reminderMinutesBefore: Int? = nil,
          templateItemID: UUID? = nil, isMemo: Bool = false) {
         self.title = title; self.categoryID = categoryID
         self.startMinute = startMinute; self.endMinute = endMinute
         self.isAllDay = isAllDay; self.isImportant = isImportant
+        self.locationName = PlanExtraDetails.normalized(locationName)
+        self.urlString = PlanExtraDetails.normalized(urlString)
         self.note = note; self.isPublic = isPublic
         self.reminderMinutesBefore = reminderMinutesBefore; self.templateItemID = templateItemID
         self.isMemo = isMemo

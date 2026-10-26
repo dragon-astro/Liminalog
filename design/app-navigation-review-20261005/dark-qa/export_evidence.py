@@ -21,7 +21,7 @@ index = json.loads(index_path.read_text()) if index_path.exists() else {}
 for test in json.loads((source / 'manifest.json').read_text()):
     for attachment in test['attachments']:
         name = attachment.get('suggestedHumanReadableName', '').split('_0_')[0]
-        if not re.fullmatch(r'\d\d-[a-z-]+', name):
+        if not re.fullmatch(r'\d\d[a-z]?-[a-z-]+', name):
             continue
         if int(name[:2]) < minimum_number:
             continue

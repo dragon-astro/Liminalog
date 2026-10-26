@@ -1,0 +1,292 @@
+{
+  "date": "2026-10-26",
+  "spec": "docs/38 sections 6-1 through 6-6",
+  "build": "build-j.log: TEST BUILD SUCCEEDED",
+  "unit_unique_passed": 81,
+  "unit_runs": [
+    {
+      "run": "unit-a",
+      "passed": 78,
+      "suites": 7,
+      "note": ""
+    },
+    {
+      "run": "unit-final-d",
+      "passed": 9,
+      "suites": 1,
+      "note": ""
+    },
+    {
+      "run": "unit-migration-b",
+      "passed": 8,
+      "suites": 1,
+      "note": ""
+    },
+    {
+      "run": "unit-split-c",
+      "passed": 0,
+      "suites": 0,
+      "note": "filter selected zero tests; excluded"
+    }
+  ],
+  "ui_unique": 13,
+  "ui_latest": {
+    "testNextActualEditorDetailsAndCreation": {
+      "status": "passed",
+      "run": "ui-dark-e"
+    },
+    "testNextPlanExtraDetailsPersistAndAppearInDrawer": {
+      "status": "passed",
+      "run": "ui-dark-d"
+    },
+    "testNextToolbarBookmarkAndTitleFocus": {
+      "status": "passed",
+      "run": "ui-light-h"
+    },
+    "testNextWheelDateSelectionIsExclusiveAndPersists": {
+      "status": "passed",
+      "run": "ui-se-d"
+    },
+    "testNextActiveActualAndNarrowMemos": {
+      "status": "passed",
+      "run": "ui-light-f"
+    },
+    "testChapterEditorsProtectChanges": {
+      "status": "passed",
+      "run": "ui-light-f"
+    },
+    "testDayPresetEditorProtectsChanges": {
+      "status": "passed",
+      "run": "ui-dark-b"
+    },
+    "testNextFriendPlanDetails": {
+      "status": "passed",
+      "run": "ui-dark-e"
+    },
+    "testPresetEditorDiscardSaveAndNeutralAppearance": {
+      "status": "passed",
+      "run": "ui-dark-b"
+    },
+    "testNextDateStyleSettingAndNativeCalendarSave": {
+      "status": "passed",
+      "run": "ui-dark-e"
+    },
+    "testNextPresetTitleFocusAndExtraDetails": {
+      "status": "passed",
+      "run": "ui-light-f"
+    },
+    "testDayPresetCanSaveAutomaticRecurrence": {
+      "status": "passed",
+      "run": "ui-se-d"
+    },
+    "testRecurrenceYearCountAndInfoAreSavedInMaster": {
+      "status": "passed",
+      "run": "ui-se-d"
+    }
+  },
+  "ui_runs": [
+    {
+      "run": "ui-light-a",
+      "log": "/private/tmp/liminalog-next-20261026/ui-light-a.log",
+      "xcresult": "/private/tmp/liminalog-next-20261026/ui-light-a.xcresult",
+      "passed": 3,
+      "total": 4,
+      "tests": {
+        "testNextActualEditorDetailsAndCreation": "failed",
+        "testNextPlanExtraDetailsPersistAndAppearInDrawer": "passed",
+        "testNextToolbarBookmarkAndTitleFocus": "passed",
+        "testNextWheelDateSelectionIsExclusiveAndPersists": "passed"
+      }
+    },
+    {
+      "run": "ui-se-b",
+      "log": "/private/tmp/liminalog-next-20261026/ui-se-b.log",
+      "xcresult": "/private/tmp/liminalog-next-20261026/ui-se-b.xcresult",
+      "passed": 3,
+      "total": 4,
+      "tests": {
+        "testNextActiveActualAndNarrowMemos": "passed",
+        "testNextActualEditorDetailsAndCreation": "failed",
+        "testNextToolbarBookmarkAndTitleFocus": "passed",
+        "testNextWheelDateSelectionIsExclusiveAndPersists": "passed"
+      }
+    },
+    {
+      "run": "ui-dark-b",
+      "log": "/private/tmp/liminalog-next-20261026/ui-dark-b.log",
+      "xcresult": "/private/tmp/liminalog-next-20261026/ui-dark-b.xcresult",
+      "passed": 6,
+      "total": 9,
+      "tests": {
+        "testChapterEditorsProtectChanges": "failed",
+        "testDayPresetEditorProtectsChanges": "passed",
+        "testNextActiveActualAndNarrowMemos": "passed",
+        "testNextActualEditorDetailsAndCreation": "failed",
+        "testNextFriendPlanDetails": "failed",
+        "testNextPlanExtraDetailsPersistAndAppearInDrawer": "passed",
+        "testNextToolbarBookmarkAndTitleFocus": "passed",
+        "testNextWheelDateSelectionIsExclusiveAndPersists": "passed",
+        "testPresetEditorDiscardSaveAndNeutralAppearance": "passed"
+      }
+    },
+    {
+      "run": "ui-light-c",
+      "log": "/private/tmp/liminalog-next-20261026/ui-light-c.log",
+      "xcresult": "/private/tmp/liminalog-next-20261026/ui-light-c.xcresult",
+      "passed": 6,
+      "total": 8,
+      "tests": {
+        "testChapterEditorsProtectChanges": "failed",
+        "testNextActiveActualAndNarrowMemos": "passed",
+        "testNextActualEditorDetailsAndCreation": "passed",
+        "testNextDateStyleSettingAndNativeCalendarSave": "failed",
+        "testNextFriendPlanDetails": "passed",
+        "testNextPresetTitleFocusAndExtraDetails": "passed",
+        "testNextToolbarBookmarkAndTitleFocus": "passed",
+        "testNextWheelDateSelectionIsExclusiveAndPersists": "passed"
+      }
+    },
+    {
+      "run": "ui-se-c",
+      "log": "/private/tmp/liminalog-next-20261026/ui-se-c.log",
+      "xcresult": "/private/tmp/liminalog-next-20261026/ui-se-c.xcresult",
+      "passed": 5,
+      "total": 5,
+      "tests": {
+        "testChapterEditorsProtectChanges": "passed",
+        "testNextActiveActualAndNarrowMemos": "passed",
+        "testNextActualEditorDetailsAndCreation": "passed",
+        "testNextPresetTitleFocusAndExtraDetails": "passed",
+        "testNextToolbarBookmarkAndTitleFocus": "passed"
+      }
+    },
+    {
+      "run": "ui-dark-d",
+      "log": "/private/tmp/liminalog-next-20261026/ui-dark-d.log",
+      "xcresult": "/private/tmp/liminalog-next-20261026/ui-dark-d.xcresult",
+      "passed": 3,
+      "total": 7,
+      "tests": {
+        "testNextActiveActualAndNarrowMemos": "failed",
+        "testNextActualEditorDetailsAndCreation": "failed",
+        "testNextDateStyleSettingAndNativeCalendarSave": "failed",
+        "testNextFriendPlanDetails": "failed",
+        "testNextPlanExtraDetailsPersistAndAppearInDrawer": "passed",
+        "testNextPresetTitleFocusAndExtraDetails": "passed",
+        "testNextWheelDateSelectionIsExclusiveAndPersists": "passed"
+      }
+    },
+    {
+      "run": "ui-se-d",
+      "log": "/private/tmp/liminalog-next-20261026/ui-se-d.log",
+      "xcresult": "/private/tmp/liminalog-next-20261026/ui-se-d.xcresult",
+      "passed": 5,
+      "total": 6,
+      "tests": {
+        "testDayPresetCanSaveAutomaticRecurrence": "passed",
+        "testNextActiveActualAndNarrowMemos": "passed",
+        "testNextDateStyleSettingAndNativeCalendarSave": "failed",
+        "testNextPresetTitleFocusAndExtraDetails": "passed",
+        "testNextWheelDateSelectionIsExclusiveAndPersists": "passed",
+        "testRecurrenceYearCountAndInfoAreSavedInMaster": "passed"
+      }
+    },
+    {
+      "run": "ui-se-e",
+      "log": "/private/tmp/liminalog-next-20261026/ui-se-e.log",
+      "xcresult": "/private/tmp/liminalog-next-20261026/ui-se-e.xcresult",
+      "passed": 1,
+      "total": 1,
+      "tests": {
+        "testNextDateStyleSettingAndNativeCalendarSave": "passed"
+      }
+    },
+    {
+      "run": "ui-dark-e",
+      "log": "/private/tmp/liminalog-next-20261026/ui-dark-e.log",
+      "xcresult": "/private/tmp/liminalog-next-20261026/ui-dark-e.xcresult",
+      "passed": 5,
+      "total": 5,
+      "tests": {
+        "testNextActiveActualAndNarrowMemos": "passed",
+        "testNextActualEditorDetailsAndCreation": "passed",
+        "testNextDateStyleSettingAndNativeCalendarSave": "passed",
+        "testNextFriendPlanDetails": "passed",
+        "testNextToolbarBookmarkAndTitleFocus": "passed"
+      }
+    },
+    {
+      "run": "ui-se-f",
+      "log": "/private/tmp/liminalog-next-20261026/ui-se-f.log",
+      "xcresult": "/private/tmp/liminalog-next-20261026/ui-se-f.xcresult",
+      "passed": 1,
+      "total": 1,
+      "tests": {
+        "testNextToolbarBookmarkAndTitleFocus": "passed"
+      }
+    },
+    {
+      "run": "ui-light-f",
+      "log": "/private/tmp/liminalog-next-20261026/ui-light-f.log",
+      "xcresult": "/private/tmp/liminalog-next-20261026/ui-light-f.xcresult",
+      "passed": 3,
+      "total": 4,
+      "tests": {
+        "testChapterEditorsProtectChanges": "passed",
+        "testNextActiveActualAndNarrowMemos": "passed",
+        "testNextPresetTitleFocusAndExtraDetails": "passed",
+        "testNextToolbarBookmarkAndTitleFocus": "failed"
+      }
+    },
+    {
+      "run": "ui-dark-g",
+      "log": "/private/tmp/liminalog-next-20261026/ui-dark-g.log",
+      "xcresult": "/private/tmp/liminalog-next-20261026/ui-dark-g.xcresult",
+      "passed": 1,
+      "total": 1,
+      "tests": {
+        "testNextToolbarBookmarkAndTitleFocus": "passed"
+      }
+    },
+    {
+      "run": "ui-aurora-f",
+      "log": "/private/tmp/liminalog-next-20261026/ui-aurora-f.log",
+      "xcresult": "/private/tmp/liminalog-next-20261026/ui-aurora-f.xcresult",
+      "passed": 1,
+      "total": 1,
+      "tests": {
+        "testNextToolbarBookmarkAndTitleFocus": "passed"
+      }
+    },
+    {
+      "run": "ui-light-h",
+      "log": "/private/tmp/liminalog-next-20261026/ui-light-h.log",
+      "xcresult": "/private/tmp/liminalog-next-20261026/ui-light-h.xcresult",
+      "passed": 1,
+      "total": 1,
+      "tests": {
+        "testNextToolbarBookmarkAndTitleFocus": "passed"
+      }
+    }
+  ],
+  "automatic_retry": false,
+  "fixtures": "Dedicated iPhone 17 and iPhone SE 3, iOS 26.5 Debug, in-memory; user simulator untouched",
+  "screenshots": {
+    "baseline": 212,
+    "added": 60,
+    "total": 272,
+    "baseline_records_and_hashes_unchanged": true
+  },
+  "unverified": [
+    "Physical device",
+    "Live cross-device CloudKit sync and production schema deployment",
+    "Fresh Live Activity runtime screenshot"
+  ],
+  "notes": [
+    "Known first launch argument issue remains separate; pre-launch used before final test runs",
+    "Global UITargetAppCommandLineArguments removed after cross-case contamination",
+    "Native DatePicker duplicated accessibility label corrected",
+    "Transient feedback assertion moved before capture; one-second polling missed it",
+    "Old narrow-memo fixture screenshots excluded"
+  ]
+}

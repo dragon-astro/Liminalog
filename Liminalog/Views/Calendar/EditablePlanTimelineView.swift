@@ -973,6 +973,7 @@ struct EditablePlanTimelineView: View {
             title: plan.title.isEmpty ? (plan.category?.name ?? "予定") : plan.title,
             interval: interval,
             color: color,
+            categoryIcon: plan.category?.icon ?? "circle.fill",
             isSelected: isSelected,
             isLocked: store.isPlanScheduleLocked(plan),
             planTitleFontSize: planTitleFontSize,
@@ -1458,7 +1459,7 @@ struct EditablePlanTimelineView: View {
             isAllDay: source.isAllDay,
             isMemo: source.isMemo,
             isImportant: source.isImportant,
-            note: source.note,
+            note: source.note, locationName: source.locationName, urlString: source.urlString,
             isPublic: source.isPublic,
             beforeSave: { $0.reminderMinutesBefore = source.reminderMinutesBefore; return true }
         ) else {
@@ -2627,6 +2628,7 @@ struct EditablePlanBlock<MoveGesture: Gesture>: View {
     let title: String
     let interval: PlanTimelineInterval
     let color: Color
+    var categoryIcon: String = "circle.fill"
     let isSelected: Bool
     let isLocked: Bool
     let planTitleFontSize: Double
@@ -2716,10 +2718,24 @@ struct EditablePlanBlock<MoveGesture: Gesture>: View {
         }
     }
 
+    private var memoTimeWidth: CGFloat {
+        ceil((timeText(interval.startMinute) as NSString).size(withAttributes: [
+            .font: UIFont.monospacedDigitSystemFont(ofSize: 9, weight: .semibold)
+        ]).width)
+    }
+
     private func blockCard(height: CGFloat) -> some View {
         // Keep the gesture's host alive when a drag switches the label's layout between layers.
         ZStack(alignment: .topLeading) {
-            blockLabel(height: height)
+            GeometryReader { geometry in
+                if !interval.isMemo || geometry.size.width >= memoTimeWidth {
+                    blockLabel(height: height)
+                } else if geometry.size.width >= 12 {
+                    Image(systemName: categoryIcon)
+                        .font(.system(size: 12))
+                        .frame(maxWidth: .infinity, alignment: .top)
+                }
+            }
         }
         .foregroundStyle(interval.isMemo ? color : .white)
         .padding(.horizontal, 8)

@@ -26,6 +26,11 @@ struct PlanCreateSheet: View {
     @State private var reminderMinutesBefore: Int?
     @State private var reminderDate: Date?
     @State private var title = ""
+    @FocusState private var isTitleFocused: Bool
+    @State private var savedPresetSnapshots: [PlanTemplateSnapshot] = []
+    @State private var presetFeedback: String?
+    @State private var presetFeedbackID = UUID()
+    @State private var showsSavedBookmark = false
     @State private var startTime = Date()
     @State private var endTime = Date()
     @State private var allDayEndDate = Date()
@@ -34,6 +39,8 @@ struct PlanCreateSheet: View {
     @State private var isAllDay = false
     @State private var isImportant = false
     @State private var selectedCategory: Category?
+    @State private var locationName = ""
+    @State private var urlString = ""
     @State private var note = ""
     @State private var isPublic = true
     @State private var showingCategoryPicker = false
@@ -80,6 +87,8 @@ struct PlanCreateSheet: View {
         _isAllDay = State(initialValue: plan.isAllDay)
         _isImportant = State(initialValue: plan.isImportant)
         _selectedCategory = State(initialValue: plan.category)
+        _locationName = State(initialValue: plan.locationName ?? "")
+        _urlString = State(initialValue: plan.urlString ?? "")
         _note = State(initialValue: plan.note ?? "")
         _isPublic = State(initialValue: plan.isPublic)
         _audienceFriendIDs = State(initialValue: plan.audienceFriendIDs)
@@ -102,12 +111,16 @@ struct PlanCreateSheet: View {
         _isMemo = State(initialValue: snapshot.isMemo)
         _isAllDay = State(initialValue: snapshot.isAllDay)
         _isImportant = State(initialValue: snapshot.isImportant)
+        _locationName = State(initialValue: snapshot.locationName ?? "")
+        _urlString = State(initialValue: snapshot.urlString ?? "")
         _note = State(initialValue: snapshot.note ?? "")
         _isPublic = State(initialValue: snapshot.isPublic)
     }
 
     private struct Draft: Equatable {
         var title: String
+        var location: String
+        var url: String
         var note: String
         var categoryID: UUID?
         var start: Date
@@ -127,6 +140,8 @@ struct PlanCreateSheet: View {
     }
     private var draft: Draft {
         Draft(title: title.trimmingCharacters(in: .whitespacesAndNewlines),
+              location: PlanExtraDetails.normalized(locationName) ?? "",
+              url: PlanExtraDetails.normalized(urlString) ?? "",
               note: note.trimmingCharacters(in: .whitespacesAndNewlines),
               categoryID: selectedCategory?.id,
               start: startTime,
@@ -156,12 +171,12 @@ struct PlanCreateSheet: View {
         let canPlace = snapshotEditor != nil
             ? draftSnapshot.hasValidTime
             : store.canCreatePlan(startTime: startTime, isAllDay: isAllDay, isMemo: isMemo)
-        let canSave = (isScheduleLocked || (validationMessage == nil && canPlace))
+        let canSave = PlanExtraDetails.isValid(location: locationName, url: urlString) && (isScheduleLocked || (validationMessage == nil && canPlace))
             && (recurrenceRule == nil || currentPresetSnapshot != nil)
         NavigationStack {
             ScrollView {
                 VStack(spacing: 10) {
-                    planTitleCard
+                    planTitleCard(canSave: canSave)
                     timeCard(validationMessage: validationMessage, canPlace: canPlace)
                     categoryCard
                     PlanEditorCard(tint: selectedTint) {
@@ -191,6 +206,12 @@ struct PlanCreateSheet: View {
                         }
                     }
                     visibilityCard
+                    EditorTextRow(title: "場所", symbol: "mappin.and.ellipse", text: $locationName, tint: selectedTint)
+                    EditorTextRow(title: "URL", symbol: "link", text: $urlString, tint: selectedTint, isURL: true)
+                    if !PlanExtraDetails.isValid(location: locationName, url: urlString) {
+                        Text("場所は100文字、URLは2,000文字以内にしてください。")
+                            .font(.caption).foregroundStyle(.red)
+                    }
                     noteCard
                 }
                 .padding(16)
@@ -198,31 +219,42 @@ struct PlanCreateSheet: View {
             }
             .accessibilityIdentifier("plan-editor-scroll")
             .background(LiminalTheme.canvasGradient)
+            .editorDateSelectionScope()
             .navigationTitle(editingPlan != nil || snapshotEditor?.onDelete != nil ? "予定を編集" : "予定を追加")
             .navigationBarTitleDisplayMode(.inline)
             .editorDismissGuard(hasChanges: hasChanges, showingConfirmation: $showingDiscardConfirmation)
             .toolbar {
+                if isTitleFocused {
+                    ToolbarItemGroup(placement: .keyboard) {
+                        Spacer()
+                        Button("完了") { isTitleFocused = false }
+                    }
+                }
+
                 ToolbarItem(placement: .cancellationAction) {
                     EditorCancelButton(hasChanges: hasChanges, showingConfirmation: $showingDiscardConfirmation) { dismiss() }
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    EditorActionsMenu {
-                        Button { saveAsPreset() } label: {
-                            Label("プリセットとして保存", systemImage: "square.and.arrow.down")
-                        }
-                        .disabled(!canSave)
-                        if editingPlan != nil || snapshotEditor?.onDelete != nil {
-                            Divider()
-                            Button("予定を削除", systemImage: "trash", role: .destructive) {
-                                showingDeleteConfirmation = true
+                }.sharedBackgroundVisibility(.hidden)
+                if canChoosePreset || editingPlan != nil || snapshotEditor?.onDelete != nil {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        EditorActionsMenu {
+                            if canChoosePreset {
+                                Button("プリセットから入れる…", systemImage: "rectangle.stack") {
+                                    showingPresetChoices = true
+                                }
                             }
-                            .disabled(isScheduleLocked)
+                            if editingPlan != nil || snapshotEditor?.onDelete != nil {
+                                if canChoosePreset { Divider() }
+                                Button("予定を削除", systemImage: "trash", role: .destructive) {
+                                    showingDeleteConfirmation = true
+                                }
+                                .disabled(isScheduleLocked)
+                            }
                         }
-                    }
+                    }.sharedBackgroundVisibility(.hidden)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     EditorSaveButton(isEmphasized: hasChanges || (editingPlan == nil && snapshotEditor?.onDelete == nil), canSave: canSave) { save() }
-                }
+                }.sharedBackgroundVisibility(.hidden)
             }
 
             .sheet(item: $memoPromotion) { request in
@@ -392,34 +424,47 @@ struct PlanCreateSheet: View {
         return layout { content() }
     }
 
-    private var planTitleCard: some View {
+    private var canChoosePreset: Bool { !planPresets.isEmpty && !isScheduleLocked }
+
+    private func planTitleCard(canSave: Bool) -> some View {
         PlanEditorCard(tint: selectedTint, planIsMemo: isMemo) {
-            HStack(alignment: .top, spacing: 8) {
-                CategoryPreviewIcon(category: selectedCategory, size: 36)
-                    .frame(height: 44)
-                TextField(planTitlePlaceholder, text: $title, axis: .vertical)
-                    .font(.headline)
-                    .foregroundStyle(LiminalTheme.text)
-                    .lineLimit(1...)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.vertical, 11)
-                    .frame(minHeight: 44)
-                    .disabled(isScheduleLocked)
-                    .accessibilityLabel("予定名")
-                HStack(spacing: 0) {
-                    if !planPresets.isEmpty, !isScheduleLocked {
-                        Button { showingPresetChoices = true } label: {
-                            Image(systemName: "bookmark")
-                                .foregroundStyle(LiminalTheme.secondaryText)
-                                .frame(width: 40, height: 44)
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .top, spacing: 8) {
+                    CategoryPreviewIcon(category: selectedCategory, size: 36)
+                        .frame(height: 44)
+                    TextField(planTitlePlaceholder, text: $title, axis: .vertical)
+                        .font(.headline)
+                        .foregroundStyle(LiminalTheme.text)
+                        .lineLimit(1...)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.vertical, 11)
+                        .frame(minHeight: 44)
+                        .focused($isTitleFocused)
+                        .disabled(isScheduleLocked)
+                        .accessibilityLabel("予定名")
+                    if !isTitleFocused {
+                        HStack(spacing: 0) {
+                            Button { saveAsPreset() } label: {
+                                Image(systemName: showsSavedBookmark ? "bookmark.fill" : "bookmark")
+                                    .foregroundStyle(showsSavedBookmark ? LiminalTheme.accent : LiminalTheme.secondaryText)
+                                    .frame(width: 40, height: 44)
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(!canSave || currentPresetSnapshot == nil)
+                            .accessibilityLabel("プリセットに保存")
+                            PlanImportanceButton(isImportant: $isImportant)
+                            PlanMemoButton(isMemo: $isMemo).disabled(isScheduleLocked)
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("予定プリセットを選ぶ")
                     }
-                    PlanImportanceButton(isImportant: $isImportant)
-                    PlanMemoButton(isMemo: $isMemo).disabled(isScheduleLocked)
+                }
+                if let presetFeedback {
+                    Text(presetFeedback)
+                        .font(.caption)
+                        .foregroundStyle(LiminalTheme.secondaryText)
+                        .accessibilityIdentifier("plan-preset-save-feedback")
                 }
             }
+            .animation(.easeInOut(duration: 0.2), value: isTitleFocused)
             .foregroundStyle(selectedTint)
         }
     }
@@ -573,9 +618,9 @@ struct PlanCreateSheet: View {
                         PlanTemplateTimeFields(startMinute: $templateStartMinute, endMinute: $templateEndMinute)
                     }
                 } else {
-                    Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 12) {
-                        dateRow(title: "開始", date: $startTime)
-                        dateRow(title: "終了", date: isAllDay ? $allDayEndDate : $endTime)
+                    VStack(spacing: 12) {
+                        EditorDateRow(title: "開始", date: $startTime, showsTime: !isAllDay)
+                        EditorDateRow(title: "終了", date: isAllDay ? $allDayEndDate : $endTime, showsTime: !isAllDay)
                     }
                     .disabled(isScheduleLocked)
                 }
@@ -584,36 +629,8 @@ struct PlanCreateSheet: View {
         }
     }
 
-    private func dateRow(title: String, date: Binding<Date>) -> some View {
-        GridRow {
-            Text(title)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            DatePicker(title + "日", selection: date, displayedComponents: .date)
-                .labelsHidden()
-                .fixedSize()
-                .accessibilityLabel(title + "日")
-            if !isAllDay {
-                DatePicker(title + "時刻", selection: date, displayedComponents: .hourAndMinute)
-                    .labelsHidden()
-                    .fixedSize()
-                    .accessibilityLabel(title + "時刻")
-            }
-        }
-        .font(.subheadline)
-        .datePickerStyle(.compact)
-        .tint(LiminalTheme.text)
-    }
-
     private var noteCard: some View {
-        PlanEditorCard(tint: selectedTint) {
-            HStack(alignment: .top, spacing: 10) {
-                Image(systemName: "note.text").foregroundStyle(selectedTint).padding(.top, 10)
-                TextField("メモを追加", text: $note, axis: .vertical)
-                    .lineLimit(1...6)
-                    .frame(minHeight: 44)
-                    .accessibilityLabel("メモ")
-            }
-        }
+        EditorTextRow(title: "メモ", symbol: "note.text", text: $note, tint: selectedTint)
     }
 
     @ViewBuilder
@@ -710,6 +727,8 @@ struct PlanCreateSheet: View {
 
         title = snapshot.title
         selectedCategory = category(for: preset)
+        locationName = snapshot.locationName ?? ""
+        urlString = snapshot.urlString ?? ""
         note = snapshot.note ?? ""
         isAllDay = snapshot.isAllDay
         isImportant = snapshot.isImportant
@@ -760,12 +779,36 @@ struct PlanCreateSheet: View {
             saveError = "現在の時刻設定ではプリセットを作成できません。"
             return
         }
+        var comparison = snapshot.editorComparison
+        comparison.isMemo = false
+        comparison.templateItemID = nil
+        if savedPresetSnapshots.contains(comparison) {
+            showPresetFeedback("保存済みです")
+            return
+        }
         guard planPresetStore.createPlanPreset(name: resolvedPlanTitle, snapshot: snapshot) != nil else {
             errorTitle = "保存できませんでした"
             saveError = "プリセットを保存できませんでした。時間をおいてもう一度試してください。"
             return
         }
+        savedPresetSnapshots.append(comparison)
+        showPresetFeedback("プリセットに保存しました")
         LiminalHaptics.commit()
+    }
+
+    private func showPresetFeedback(_ message: String) {
+        let id = UUID()
+        presetFeedbackID = id
+        presetFeedback = message
+        showsSavedBookmark = true
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(1200))
+            guard presetFeedbackID == id else { return }
+            showsSavedBookmark = false
+            try? await Task.sleep(for: .milliseconds(300))
+            guard presetFeedbackID == id else { return }
+            presetFeedback = nil
+        }
     }
 
     private var currentPresetSnapshot: PlanTemplateSnapshot? {
@@ -799,11 +842,12 @@ struct PlanCreateSheet: View {
             isAllDay: isAllDay,
             isImportant: isImportant,
             note: note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : note,
+            locationName: locationName, urlString: urlString,
             isPublic: isPublic,
             reminderMinutesBefore: PlanReminderTiming.templateMinutes(minutes: reminderMinutesBefore, date: reminderDate, start: startTime, isAllDay: isAllDay),
             isMemo: isMemo
         )
-        return snapshot.hasValidTime ? snapshot : nil
+        return snapshot.hasValidTime && PlanExtraDetails.isValid(location: locationName, url: urlString) ? snapshot : nil
     }
 
     private func wallClockDate(
@@ -879,7 +923,7 @@ struct PlanCreateSheet: View {
                 isAllDay: isAllDay,
                 isMemo: isMemo,
                 isImportant: isImportant,
-                note: note,
+                note: note, locationName: locationName, urlString: urlString,
                 isPublic: isPublic,
                 audienceFriendIDs: audienceFriendIDs,
                 audienceSource: audienceSource,
@@ -897,7 +941,7 @@ struct PlanCreateSheet: View {
                 isAllDay: isAllDay,
                 isMemo: isMemo,
                 isImportant: isImportant,
-                note: note,
+                note: note, locationName: locationName, urlString: urlString,
                 isPublic: isPublic,
                 audienceFriendIDs: audienceFriendIDs,
                 audienceSource: audienceSource,
@@ -949,6 +993,7 @@ struct PlanCreateSheet: View {
             isAllDay: isAllDay,
             isImportant: isImportant,
             note: note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : note,
+            locationName: locationName, urlString: urlString,
             isPublic: isPublic,
             reminderMinutesBefore: reminderMinutesBefore,
             templateItemID: snapshotEditor?.initial.templateItemID,

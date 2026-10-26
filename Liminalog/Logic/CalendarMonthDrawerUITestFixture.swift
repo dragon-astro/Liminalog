@@ -17,6 +17,7 @@ enum CalendarMonthDrawerUITestFixture {
     }
 
     @MainActor static func seed(in context: ModelContext) {
+        UserDefaults.standard.set("calendar", forKey: "planEditor.datePickerStyle")
         let calendar = Calendar.current
         let longNote = ProcessInfo.processInfo.arguments.contains("-LiminalogUITestLongNote")
         let memoFixture = ProcessInfo.processInfo.arguments.contains("-LiminalogUITestPlanMemos")
@@ -40,14 +41,16 @@ enum CalendarMonthDrawerUITestFixture {
         }
         if memoFixture {
             let start = calendar.date(byAdding: .minute, value: 570, to: day)!
-            let memo = PlanBlock(category: errands, title: "荷物の受け取り", startTime: start,
-                endTime: start.addingTimeInterval(3600), isMemo: true, isPublic: false)
-            memo.id = UUID(uuidString: "00000000-0000-0000-0000-000000000102")!
-            context.insert(memo)
-            let phone = PlanBlock(category: errands, title: "電話する", startTime: start.addingTimeInterval(900),
-                endTime: start.addingTimeInterval(2700), isMemo: true, isPublic: false)
-            phone.id = UUID(uuidString: "00000000-0000-0000-0000-000000000103")!
-            context.insert(phone)
+            if !ProcessInfo.processInfo.arguments.contains("-LiminalogUITestNarrowMemos") {
+                let memo = PlanBlock(category: errands, title: "荷物の受け取り", startTime: start,
+                    endTime: start.addingTimeInterval(3600), isMemo: true, isPublic: false)
+                memo.id = UUID(uuidString: "00000000-0000-0000-0000-000000000102")!
+                context.insert(memo)
+                let phone = PlanBlock(category: errands, title: "電話する", startTime: start.addingTimeInterval(900),
+                    endTime: start.addingTimeInterval(2700), isMemo: true, isPublic: false)
+                phone.id = UUID(uuidString: "00000000-0000-0000-0000-000000000103")!
+                context.insert(phone)
+            }
             let memoPreset = PlanPreset(name: "配達のメモ", title: "配達のメモ", categoryID: errands?.id,
                 startMinute: 570, endMinute: 630, isPublic: false, placementMode: .fixedTime)
             memoPreset.isMemo = true
@@ -66,6 +69,24 @@ enum CalendarMonthDrawerUITestFixture {
             context.insert(PlanBlock(category: nil, title: "UITest 重複予定",
                 startTime: start, endTime: start.addingTimeInterval(2400), isPublic: false))
         }
+        if ProcessInfo.processInfo.arguments.contains("-LiminalogUITestNarrowMemos") {
+            for (hour, count) in [(9, 2), (10, 4), (11, 6)] {
+                for index in 0..<count {
+                    let start = calendar.date(byAdding: .hour, value: hour, to: day)!
+                    context.insert(PlanBlock(category: errands, title: "重なり確認\(index + 1)", startTime: start,
+                        endTime: start.addingTimeInterval(2400), isMemo: true))
+                }
+            }
+        }
+        if ProcessInfo.processInfo.arguments.contains("-LiminalogUITestFriendExtras") {
+            let friend = Friend(displayName: "表示確認", status: .accepted)
+            context.insert(friend)
+            let plan = PlanBlock(category: nil, title: "図書館で待ち合わせ", startTime: day,
+                endTime: calendar.date(byAdding: .day, value: 1, to: day)!, isAllDay: true, isImportant: true,
+                locationName: "中央図書館", urlString: "example.com/event", isPublic: true)
+            FriendSharedRecordStore(modelContext: context).reconcilePlans(friendID: friend.id,
+                snapshots: [FriendSharedPlanSnapshot(plan: plan)])
+        }
         if ProcessInfo.processInfo.arguments.contains("-LiminalogUITestChapters") {
             let category = Category(name: "読書", colorHex: "#537BC5", icon: "book.fill", sortOrder: -1)
             context.insert(category)
@@ -73,7 +94,8 @@ enum CalendarMonthDrawerUITestFixture {
             let today = DayBoundary.dayStart(for: now)
             let elapsed = now.timeIntervalSince(today)
             let chapter = Chapter(category: category, startTime: today.addingTimeInterval(elapsed / 3))
-            chapter.endTime = today.addingTimeInterval(elapsed / 2)
+            chapter.endTime = ProcessInfo.processInfo.arguments.contains("-LiminalogUITestActiveChapter")
+                ? nil : today.addingTimeInterval(elapsed / 2)
             chapter.isPublic = false
             context.insert(chapter)
         }

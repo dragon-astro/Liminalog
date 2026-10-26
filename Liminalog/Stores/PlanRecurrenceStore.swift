@@ -19,7 +19,7 @@ final class PlanRecurrenceStore {
         let nextOrder = ((try? context.fetch(FetchDescriptor<PlanPreset>())) ?? []).map(\.sortOrder).max().map { $0 + 1 } ?? 0
         let preset = PlanPreset(name: plan.title, title: plan.title, categoryID: plan.category?.id,
             startMinute: snapshot.startMinute, endMinute: snapshot.endMinute, isAllDay: plan.isAllDay,
-            isImportant: plan.isImportant, note: plan.note, isPublic: plan.isPublic, placementMode: .fixedTime)
+            isImportant: plan.isImportant, note: plan.note, locationName: plan.locationName, urlString: plan.urlString, isPublic: plan.isPublic, placementMode: .fixedTime)
         preset.sortOrder = nextOrder
         preset.recurrenceData = data
         preset.reminderMinutesBefore = snapshot.reminderMinutesBefore
@@ -179,7 +179,7 @@ final class PlanRecurrenceStore {
                     if let existing, existing.title == title, existing.category?.id == category?.id,
                        existing.startTime == interval.start, existing.endTime == interval.end,
                        existing.isAllDay == item.isAllDay, existing.isMemo == item.isMemo, existing.isImportant == item.isImportant,
-                       existing.note == item.note, existing.isPublic == item.isPublic,
+                       existing.note == item.note, existing.locationName == item.locationName, existing.urlString == item.urlString, existing.isPublic == item.isPublic,
                        existing.reminderMinutesBefore == item.reminderMinutesBefore, existing.reminderDate == nil { continue }
                     let plan = existing ?? PlanBlock(category: category, title: title,
                         startTime: interval.start, endTime: interval.end)
@@ -188,6 +188,8 @@ final class PlanRecurrenceStore {
                     plan.startTime = interval.start; plan.endTime = interval.end
                     plan.isMemo = item.isMemo
                     plan.isAllDay = item.isAllDay; plan.isImportant = item.isImportant
+                    plan.locationName = PlanExtraDetails.normalized(item.locationName)
+                    plan.urlString = PlanExtraDetails.normalized(item.urlString)
                     plan.note = item.note; plan.isPublic = item.isPublic
                     plan.reminderMinutesBefore = item.reminderMinutesBefore
                     plan.reminderDate = nil

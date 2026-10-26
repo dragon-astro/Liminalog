@@ -54,43 +54,44 @@ struct ChapterEditSheet: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 14) {
-                    chapterPreviewCard
-                    categoryCard
+                VStack(spacing: 10) {
+                    ActualEditorIdentityCard(category: selectedCategory, isActive: chapter.isActive)
                     timeCard
-                    noteCard
-                    locationCard
+                    categoryCard
                     visibilityCard
+                    EditorTextRow(title: "場所", symbol: "mappin.and.ellipse", text: $locationName, tint: selectedTint)
+                    EditorTextRow(title: "メモ", symbol: "note.text", text: $note, tint: selectedTint)
                 }
                 .padding(16)
                 .padding(.bottom, 30)
             }
             .accessibilityIdentifier("chapter-editor-scroll")
             .background(LiminalTheme.canvasGradient)
-            .navigationTitle(chapter.isActive ? "記録中のチャプター" : "チャプターを編集")
+            .editorDateSelectionScope()
+            .navigationTitle(chapter.isActive ? "記録中の実績" : "実績を編集")
             .navigationBarTitleDisplayMode(.inline)
             .editorDismissGuard(hasChanges: hasChanges, showingConfirmation: $showingDiscardConfirmation)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     EditorCancelButton(hasChanges: hasChanges, showingConfirmation: $showingDiscardConfirmation) { dismiss() }
-                }
+                }.sharedBackgroundVisibility(.hidden)
                 if !isTimeLocked {
                     ToolbarItem(placement: .topBarTrailing) {
                         EditorActionsMenu {
                             Button("実績を削除", systemImage: "trash", role: .destructive) { showDeleteConfirm = true }
                         }
-                    }
+                    }.sharedBackgroundVisibility(.hidden)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     EditorSaveButton(isEmphasized: hasChanges, canSave: canSave) { save() }
-                }
+                }.sharedBackgroundVisibility(.hidden)
             }
             .confirmationDialog("実績を削除しますか？", isPresented: $showDeleteConfirm, titleVisibility: .visible) {
                 Button("削除", role: .destructive) {
                     if store.deleteChapter(chapter) {
                         dismiss()
                     } else {
-                        saveError = "チャプターを削除できませんでした。時間をおいてもう一度試してください。"
+                        saveError = "実績を削除できませんでした。時間をおいてもう一度試してください。"
                     }
                 }
             }
@@ -121,69 +122,6 @@ struct ChapterEditSheet: View {
                 Text(saveError ?? "")
             }
         }
-    }
-
-    private var chapterPreviewCard: some View {
-        let tint = selectedTint
-        return VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .top, spacing: 12) {
-                CategoryPreviewIcon(category: selectedCategory, size: 52)
-
-                VStack(alignment: .leading, spacing: 7) {
-                    Text(previewTitle)
-                        .font(.title3.weight(.bold))
-                        .foregroundStyle(LiminalTheme.text)
-                        .lineLimit(2)
-
-                    Text(previewTimeText)
-                        .font(.subheadline.monospacedDigit().weight(.semibold))
-                        .foregroundStyle(LiminalTheme.text)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.78)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-                Image(systemName: chapter.isActive ? "record.circle.fill" : "checkmark.circle.fill")
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(tint)
-                    .frame(width: 26, height: 26)
-                    .liminalGlassFill(in: Circle())
-            }
-
-            HStack(spacing: 8) {
-                PlanPreviewBadge(
-                    text: chapter.isActive ? "記録中" : "記録済み",
-                    systemImage: chapter.isActive ? "record.circle.fill" : "checkmark.circle.fill",
-                    tint: tint
-                )
-                PlanPreviewBadge(
-                    text: previewDurationText,
-                    systemImage: "clock.fill",
-                    tint: tint
-                )
-                PlanPreviewBadge(
-                    text: isPublic ? "共有" : "非公開",
-                    systemImage: isPublic ? "eye.fill" : "eye.slash.fill",
-                    tint: isPublic ? LiminalTheme.accent : LiminalTheme.secondaryText
-                )
-                if isTimeLocked {
-                    PlanPreviewBadge(text: "ロック", systemImage: "lock.fill", tint: LiminalTheme.secondaryText)
-                }
-            }
-        }
-        .padding(18)
-        .background {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(LiminalTheme.surface)
-                .overlay(alignment: .bottom) {
-                    DecorativeAccentStrip(color: tint)
-                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                }
-        }
-        .overlay(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(tint.opacity(0.24), lineWidth: 1)
-        )
     }
 
     @ViewBuilder
@@ -261,60 +199,19 @@ struct ChapterEditSheet: View {
     private var timeCard: some View {
         PlanEditorCard(tint: selectedTint) {
             VStack(alignment: .leading, spacing: 12) {
-                PlanEditorSectionHeader(title: "時間", systemImage: "clock.fill", tint: selectedTint)
-
-                VStack(spacing: 10) {
-                    DatePicker("開始", selection: $startTime, displayedComponents: [.date, .hourAndMinute])
-                        .foregroundStyle(LiminalTheme.text)
-                        .tint(LiminalTheme.text)
-                        .allowsHitTesting(!isTimeLocked)
-
-                    if endTime != nil {
-                        DatePicker("終了", selection: Binding(
-                            get: { endTime ?? Date() },
-                            set: { endTime = $0 }
-                        ), displayedComponents: [.date, .hourAndMinute])
-                        .foregroundStyle(LiminalTheme.text)
-                        .tint(LiminalTheme.text)
-                        .allowsHitTesting(!isTimeLocked)
-                    } else {
-                        HStack {
-                            Text("終了")
-                                .foregroundStyle(LiminalTheme.secondaryText)
-                            Spacer()
-                            Text("記録中")
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(LiminalTheme.text)
-                        }
-                    }
+                EditorDateRow(title: "開始", date: $startTime)
+                    .disabled(isTimeLocked)
+                if endTime != nil {
+                    EditorDateRow(title: "終了", date: Binding(get: { endTime ?? Date() }, set: { endTime = $0 }))
+                        .disabled(isTimeLocked)
+                } else {
+                    HStack {
+                        Text("終了").foregroundStyle(LiminalTheme.secondaryText)
+                        Spacer()
+                        Text("記録中").font(.subheadline.weight(.semibold))
+                    }.frame(minHeight: 34)
                 }
-                .padding(12)
-                .background(LiminalTheme.elevated, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-
                 validationStatus
-            }
-        }
-    }
-
-    private var noteCard: some View {
-        PlanEditorCard(tint: selectedTint) {
-            VStack(alignment: .leading, spacing: 10) {
-                PlanEditorSectionHeader(title: "メモ", systemImage: "note.text", tint: selectedTint)
-                TextField("メモを追加...", text: $note, axis: .vertical)
-                    .lineLimit(3...6)
-                    .padding(12)
-                    .background(LiminalTheme.elevated, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-            }
-        }
-    }
-
-    private var locationCard: some View {
-        PlanEditorCard(tint: selectedTint) {
-            VStack(alignment: .leading, spacing: 10) {
-                PlanEditorSectionHeader(title: "場所", systemImage: "mappin.and.ellipse", tint: selectedTint)
-                TextField("場所名を追加...", text: $locationName)
-                    .padding(12)
-                    .background(LiminalTheme.elevated, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             }
         }
     }
@@ -424,23 +321,6 @@ struct ChapterEditSheet: View {
         selectedCategory?.displayColor ?? LiminalTheme.accent
     }
 
-    private var previewTitle: String {
-        selectedCategory?.name ?? "カテゴリなしの実績"
-    }
-
-    private var previewTimeText: String {
-        let resolvedEnd = endTime ?? Date()
-        if Calendar.current.isDate(startTime, inSameDayAs: resolvedEnd) {
-            return "\(startTime.japaneseMonthDayShortWeekday) \(startTime.shortTime) - \(resolvedEnd.shortTime)"
-        }
-        return "\(startTime.japaneseMonthDayShortWeekday) \(startTime.shortTime) - \(resolvedEnd.japaneseMonthDayShortWeekday) \(resolvedEnd.shortTime)"
-    }
-
-    private var previewDurationText: String {
-        let resolvedEnd = endTime ?? Date()
-        return compactDuration(max(0, resolvedEnd.timeIntervalSince(startTime)))
-    }
-
     private var selectedCategorySetName: String {
         guard let selectedCategory else { return "未分類" }
         if let set = categorySets.first(where: { $0.assignedIDs.contains(selectedCategory.id) }) {
@@ -464,7 +344,7 @@ struct ChapterEditSheet: View {
             audienceSource: audienceSource,
             hasAudienceSnapshot: shouldSaveAudienceSnapshot
         ) else {
-            saveError = "チャプターの変更を保存できませんでした。時間をおいてもう一度試してください。"
+            saveError = "実績の変更を保存できませんでした。時間をおいてもう一度試してください。"
             return
         }
         dismiss()
@@ -502,16 +382,4 @@ struct ChapterEditSheet: View {
         return "この時間では保存できません。"
     }
 
-    private func compactDuration(_ seconds: TimeInterval) -> String {
-        let minutes = max(0, Int((seconds / 60).rounded()))
-        if minutes < 60 {
-            return "\(minutes)分"
-        }
-        let hours = minutes / 60
-        let remainingMinutes = minutes % 60
-        if remainingMinutes == 0 {
-            return "\(hours)時間"
-        }
-        return "\(hours)時間\(remainingMinutes)分"
-    }
 }

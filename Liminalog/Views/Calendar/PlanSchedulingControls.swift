@@ -114,7 +114,7 @@ struct PlanRecurrenceControls: View {
             }
             .frame(minHeight: 44)
             .accessibilityIdentifier("plan-recurrence-interval")
-            DatePicker("開始日", selection: value.startDate, displayedComponents: .date)
+            EditorDateRow(title: "開始", date: value.startDate, showsTime: false)
                 .frame(minHeight: 44)
             HStack {
                 Text("終了")
@@ -137,13 +137,12 @@ struct PlanRecurrenceControls: View {
             }
             .frame(minHeight: 44)
             if ending.wrappedValue == 1 {
-                DatePicker("終了日時", selection: Binding(get: {
+                EditorDateRow(title: "終了", date: Binding(get: {
                     guard let end = value.wrappedValue.endDate else { return initialDate }
                     if value.wrappedValue.endDateIncludesTime == true { return end }
                     return Calendar.current.date(bySettingHour: 23, minute: 59, second: 0, of: end) ?? end
                 }, set: { value.wrappedValue.endDate = $0; value.wrappedValue.endDateIncludesTime = true }),
-                in: Calendar.current.startOfDay(for: value.wrappedValue.startDate)...,
-                displayedComponents: [.date, .hourAndMinute])
+                range: Calendar.current.startOfDay(for: value.wrappedValue.startDate)...Date.distantFuture)
                 .frame(minHeight: 44)
                 .accessibilityIdentifier("plan-recurrence-end-date")
             } else if ending.wrappedValue == 2 {
@@ -345,8 +344,8 @@ struct PlanReminderControls: View {
                 .accessibilityIdentifier("plan-reminder-picker")
             }
             if absoluteDate.wrappedValue != nil {
-                DatePicker("通知する日時", selection: Binding(get: { absoluteDate.wrappedValue ?? Date() },
-                    set: { absoluteDate.wrappedValue = $0 }), displayedComponents: [.date, .hourAndMinute])
+                EditorDateRow(title: "通知する", date: Binding(get: { absoluteDate.wrappedValue ?? Date() },
+                    set: { absoluteDate.wrappedValue = $0 }))
                     .accessibilityIdentifier("plan-reminder-date")
                 Text("予定を動かしても、この日時に通知します。")
                     .font(.caption).foregroundStyle(.secondary)

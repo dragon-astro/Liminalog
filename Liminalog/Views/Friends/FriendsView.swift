@@ -2417,7 +2417,7 @@ private struct FriendDetailView: View {
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(LiminalTheme.text)
                     Spacer()
-                    InformationButton(title: "この相手に見せるもの", explanation: "カテゴリ別のデフォルト公開相手と連動します。既存チャプター/予定や個別例外は変更しません。")
+                    InformationButton(title: "この相手に見せるもの", explanation: "カテゴリ別のデフォルト公開相手と連動します。既存の実績・予定や個別例外は変更しません。")
                 }
 
                 if categories.isEmpty {
@@ -3700,7 +3700,8 @@ private struct FriendSharedTimelineView: View {
                     title: plan.title,
                     categoryName: plan.categoryTitle.isEmpty ? plan.title : plan.categoryTitle,
                     categoryIconName: plan.categoryIconName,
-                    categoryColorHex: plan.categoryColorHex
+                    categoryColorHex: plan.categoryColorHex,
+                    locationName: plan.locationName, urlString: plan.urlString
                 )
             },
             actualSnapshots: activities.map { activity in
@@ -3727,22 +3728,25 @@ private struct FriendSharedPlanRow: View {
     let plan: FriendSharedPlanSnapshot
 
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: plan.categoryIconName)
-                .font(.headline.weight(.bold))
-                .foregroundStyle(Color.cachedDisplayHex(plan.categoryColorHex))
-                .frame(width: 36, height: 36)
-                .background(Circle().fill(Color.cachedDisplayHex(plan.categoryColorHex).opacity(0.14)))
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 12) {
+                Image(systemName: plan.categoryIconName)
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(Color.cachedDisplayHex(plan.categoryColorHex))
+                    .frame(width: 36, height: 36)
+                    .background(Circle().fill(Color.cachedDisplayHex(plan.categoryColorHex).opacity(0.14)))
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(plan.title)
-                    .font(.subheadline.weight(.bold))
-                    .lineLimit(1)
-                Text(timeText)
-                    .font(.caption)
-                    .foregroundStyle(LiminalTheme.secondaryText)
-                    .monospacedDigit()
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(plan.title)
+                        .font(.subheadline.weight(.bold))
+                        .lineLimit(1)
+                    Text(timeText)
+                        .font(.caption)
+                        .foregroundStyle(LiminalTheme.secondaryText)
+                        .monospacedDigit()
+                }
             }
+            PlanExtraDetailRows(locationName: plan.locationName, urlString: plan.urlString)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

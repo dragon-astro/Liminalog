@@ -118,7 +118,7 @@ struct CategoryAudiencePickerSheet: View {
                         }
                     }
                 } header: {
-                    SettingsSectionHeader(title: "個別の友達", explanation: "友達セットのメンバーは、新規チャプター/予定を作る時点の最新メンバーで展開されます。")
+                    SettingsSectionHeader(title: "個別の友達", explanation: "友達セットのメンバーは、新しい実績・予定を作る時点の最新メンバーで展開されます。")
                 }
 
             }
@@ -423,7 +423,7 @@ struct AudienceSnapshotPickerSheet<Header: View>: View {
                         }
                     }
                 } header: {
-                    SettingsSectionHeader(title: "個別の友達", explanation: "友達セットを選ぶと、現在のメンバーをこのチャプター/予定の公開相手として保存します。")
+                    SettingsSectionHeader(title: "個別の友達", explanation: "友達セットを選ぶと、現在のメンバーをこの実績・予定の公開相手として保存します。")
                 }
             }
             .navigationTitle("公開相手")

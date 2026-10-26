@@ -167,11 +167,12 @@ struct DayPresetEditSheet: View {
             }
             .navigationTitle(preset == nil ? "一日プリセットを作成" : "一日プリセットを編集")
             .navigationBarTitleDisplayMode(.inline)
+            .editorDateSelectionScope()
             .editorDismissGuard(hasChanges: hasChanges, showingConfirmation: $showingDiscardConfirmation)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     EditorCancelButton(hasChanges: hasChanges, showingConfirmation: $showingDiscardConfirmation) { dismiss() }
-                }
+                }.sharedBackgroundVisibility(.hidden)
                 if preset != nil {
                     ToolbarItem(placement: .topBarTrailing) {
                         EditorActionsMenu {
@@ -182,11 +183,11 @@ struct DayPresetEditSheet: View {
                         .confirmationDialog("プリセットを削除しますか？", isPresented: $showingDeleteConfirmation, titleVisibility: .visible) {
                             Button("削除", role: .destructive) { deleteDayPreset() }
                         }
-                    }
+                    }.sharedBackgroundVisibility(.hidden)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     EditorSaveButton(isEmphasized: hasChanges || (preset == nil), canSave: canSave) { save() }
-                }
+                }.sharedBackgroundVisibility(.hidden)
             }
             .alert("保存できませんでした", isPresented: operationErrorPresented) {
                 Button("OK", role: .cancel) { operationError = nil }
@@ -208,6 +209,7 @@ struct DayPresetEditSheet: View {
             .sheet(isPresented: $showingRecurrence) {
                 NavigationStack {
                     Form { PlanRecurrenceControls(rule: $recurrenceRule) }
+                        .editorDateSelectionScope()
                         .navigationTitle("一日プリセットの繰り返し")
                         .navigationBarTitleDisplayMode(.inline)
                         .toolbar { ToolbarItem(placement: .confirmationAction) { Button("完了") { showingRecurrence = false } } }

@@ -610,6 +610,7 @@ final class ChapterStore {
         isMemo: Bool = false,
         isImportant: Bool = false,
         note: String? = nil,
+        locationName: String? = nil, urlString: String? = nil,
         isPublic: Bool = true,
         audienceFriendIDs: [UUID]? = nil,
         audienceSource: AudienceSource = .categoryDefaultSnapshot,
@@ -623,7 +624,7 @@ final class ChapterStore {
             isAllDay: isAllDay,
             isMemo: isMemo,
             isImportant: isImportant,
-            note: note,
+            note: note, locationName: locationName, urlString: urlString,
             isPublic: isPublic,
             audienceFriendIDs: audienceFriendIDs,
             audienceSource: audienceSource,
@@ -641,6 +642,7 @@ final class ChapterStore {
         isMemo: Bool = false,
         isImportant: Bool = false,
         note: String? = nil,
+        locationName: String? = nil, urlString: String? = nil,
         isPublic: Bool = true,
         audienceFriendIDs: [UUID]? = nil,
         audienceSource: AudienceSource = .categoryDefaultSnapshot,
@@ -658,7 +660,7 @@ final class ChapterStore {
             isAllDay: isAllDay,
             isMemo: isMemo,
             isImportant: isImportant,
-            note: note,
+            note: note, locationName: locationName, urlString: urlString,
             isPublic: isPublic,
             audienceFriendIDs: audienceResolution.friendIDs,
             audienceSource: audienceSource,
@@ -670,8 +672,8 @@ final class ChapterStore {
     }
 
     @discardableResult
-    func savePlanBlock(_ plan: PlanBlock, category: Category?, title: String, startTime: Date, endTime: Date, isAllDay: Bool, isMemo: Bool? = nil, isImportant: Bool, note: String?, isPublic: Bool, audienceFriendIDs: [UUID]? = nil, audienceSource: AudienceSource? = nil, hasAudienceSnapshot: Bool? = nil, approvedPromotion: [PlanMemoPromotionChange]? = nil, promotionMode: PlanMemoPromotionMode = .keepRemainders, beforeSave: ((PlanBlock) -> Bool)? = nil) -> Bool {
-        guard planStore.savePlanBlock(plan, category: category, title: title, startTime: startTime, endTime: endTime, isAllDay: isAllDay, isMemo: isMemo, isImportant: isImportant, note: note, isPublic: isPublic, audienceFriendIDs: audienceFriendIDs, audienceSource: audienceSource, hasAudienceSnapshot: hasAudienceSnapshot, approvedPromotion: approvedPromotion, promotionMode: promotionMode, beforeSave: beforeSave) else { return false }
+    func savePlanBlock(_ plan: PlanBlock, category: Category?, title: String, startTime: Date, endTime: Date, isAllDay: Bool, isMemo: Bool? = nil, isImportant: Bool, note: String?, locationName: String? = nil, urlString: String? = nil, isPublic: Bool, audienceFriendIDs: [UUID]? = nil, audienceSource: AudienceSource? = nil, hasAudienceSnapshot: Bool? = nil, approvedPromotion: [PlanMemoPromotionChange]? = nil, promotionMode: PlanMemoPromotionMode = .keepRemainders, beforeSave: ((PlanBlock) -> Bool)? = nil) -> Bool {
+        guard planStore.savePlanBlock(plan, category: category, title: title, startTime: startTime, endTime: endTime, isAllDay: isAllDay, isMemo: isMemo, isImportant: isImportant, note: note, locationName: locationName, urlString: urlString, isPublic: isPublic, audienceFriendIDs: audienceFriendIDs, audienceSource: audienceSource, hasAudienceSnapshot: hasAudienceSnapshot, approvedPromotion: approvedPromotion, promotionMode: promotionMode, beforeSave: beforeSave) else { return false }
         markChanged(requestCloudFriendShareRefresh: false)
         return true
     }

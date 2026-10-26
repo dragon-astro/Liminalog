@@ -122,7 +122,7 @@ struct CategoryEditSheet: View {
                         showingAudiencePicker = true
                     } label: {
                         AudienceSummaryRow(
-                            title: "新規チャプター/予定の公開相手",
+                            title: "新しい実績・予定の公開相手",
                             count: resolvedAudienceCount,
                             systemImage: "person.2.fill",
                             tint: color

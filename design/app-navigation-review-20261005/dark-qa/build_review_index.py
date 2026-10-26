@@ -137,6 +137,20 @@ labels = {
  '34-month-aurora-strike': '極光・月間・時刻と打ち消し線',
  '33-preset-recent': '予定プリセット・最近の予定から選ぶ',
 }
+# docs/38 second batch; previous image records remain unchanged.
+next_labels = {
+    '32b-editor-toolbar': {'partial-unchanged': '半開き・変更なし', 'partial-changed': '半開き・変更あり', 'full-unchanged': '全開・変更なし', 'full-changed': '全開・変更あり'},
+    '32c-editor-bookmark': {'saved': 'しおりで保存した反応', 'menu': 'プリセットから入れるメニュー'},
+    '33b-preset-editor': {'upper': '予定プリセット・区切り線を外した時刻欄'},
+    '35-actual': {'edit': '実績編集', 'active': '記録中の実績', 'new-empty': '実績追加・カテゴリ未選択', 'new-selected': '実績追加・カテゴリ選択後', 'delete': '実績を削除する確認', 'empty': '実績を削除した後の空状態'},
+    '36-detail': {'title-input': '予定名の入力中・操作ボタンを畳む', 'preset-title-input': 'プリセット名の入力中', 'wheel': '行内の日付ホイール', 'narrow-memos': 'メモの幅に応じた文字・印・枠の表示'},
+    '37-plan-extra': {'editor': '場所・URLの入力', 'drawer': '月間ドロワーの場所・URL', 'friend': '友達のカレンダーの場所・URL'},
+}
+for group, states in next_labels.items():
+    for suffix, device in [('', ''), ('-se', 'iPhone SE・'), ('-aurora', '極光・')]:
+        for state, label in states.items():
+            labels[f'{group}{suffix}-{state}'] = device + label
+
 body = []
 for stem, label in labels.items():
     figures = []
@@ -145,16 +159,16 @@ for stem, label in labels.items():
             name = f'{stem}{"-before" if phase == "before" else ""}-{appearance}.png'
             if name not in images:
                 continue
-            caption = f'{"変更前・" if phase == "before" else ""}{title}'
+            caption = f'{"変更前・" if phase == "before" else ""}{"極光" if "-aurora-" in stem else title}'
             escaped = html.escape(name)
             width, height = images[name]['pixels']
             figures.append(f'<figure><figcaption>{caption}</figcaption><a href="{escaped}"><img loading="lazy" width="{width}" height="{height}" src="{escaped}" alt="{html.escape(label)}・{caption}"></a></figure>')
     if figures:
         body.append(f'<section id="{stem}"><h2>{stem[:2]} {label}</h2><div class="pairs">{"".join(figures)}</div></section>')
 page = '''<!doctype html><html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Liminalog 画面証跡 — 2026-10-25</title><style>
+<title>Liminalog 画面証跡 — 2026-10-26</title><style>
 body{margin:24px auto;padding:0 24px;max-width:1320px;background:#eeeeef;color:#222;font:16px/1.7 system-ui,sans-serif}h1{font-size:24px}h2{font-size:19px;margin-top:36px}.pairs{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;align-items:start}figure{margin:0}figcaption{margin:0 0 8px}img{width:100%;height:auto;border:1px solid #bbb;border-radius:12px;background:#fff}section{border-top:1px solid #ccc;margin-top:28px}p{max-width:900px}a{color:inherit}
-</style><h1>ライト／ダーク画面の確認</h1><p>docs/37 §7・§12・§15・§17・§18・§22・§24・§25・§26・§27・§28 — iOS 26.5 / Debug。システム追従テーマ。iPhone 17は原寸1206×2622px（3x）、SEは750×1334px（2x）。PNGの加工なし。クリックで原寸。10・12・13は変更前後、その他は指定状態の画面記録です。15〜20はこれまでの繰り返し欄、21は下線タブ、22は間隔・開始日・終了を常時表示する構成です。23はメモ切替とカテゴリ横移動、24は開発サンプル、25は編集画面の仕上げ（印・しおり・その他・灰色の入力欄）、26は公開スイッチの文言と予定プリセット編集の並びをそろえた状態、27は先頭カードを1行にまとめた状態、28はSEで長い予定名を入力・修正した検証画面、29は先頭カードのアイコン間隔を少し詰めた状態、30は長い予定名を折り返して入力欄が縦に広がる状態、31はカテゴリ左端・ロック日のメモ追加・プリセットの印を直した状態です。</p>
+</style><h1>ライト／ダーク画面の確認</h1><p>docs/37 §7・§12・§15・§17・§18・§22・§24・§25・§26・§27・§28 — iOS 26.5 / Debug。システム追従テーマ。iPhone 17は原寸1206×2622px（3x）、SEは750×1334px（2x）。PNGの加工なし。クリックで原寸。10・12・13は変更前後、その他は指定状態の画面記録です。15〜20はこれまでの繰り返し欄、21は下線タブ、22は間隔・開始日・終了を常時表示する構成です。23はメモ切替とカテゴリ横移動、24は開発サンプル、25は編集画面の仕上げ（印・しおり・その他・灰色の入力欄）、26は公開スイッチの文言と予定プリセット編集の並びをそろえた状態、27は先頭カードを1行にまとめた状態、28はSEで長い予定名を入力・修正した検証画面、29は先頭カードのアイコン間隔を少し詰めた状態、30は長い予定名を折り返して入力欄が縦に広がる状態、31はカテゴリ左端・ロック日のメモ追加・プリセットの印を直した状態です。32〜34はdocs/38の初回実装、32b・32c・33b・35〜37は追加仕様の実装後（2026-10-26）。以前の画像は比較用にそのまま残しています。</p>
 '''
 (root / 'index.html').write_text(page + '\n'.join(body) + '</html>\n')
 print(f'Indexed {len(images)} screenshots')

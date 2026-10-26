@@ -53,6 +53,7 @@ enum TimelineEntryKind {
 struct TimelineEntryMetadata {
     var note: String?
     var mood: String?
+    var urlString: String? = nil
     var locationName: String?
     var plannedMatchTitle: String?
     var isShort: Bool
@@ -409,7 +410,7 @@ struct TimelineView: View {
     private func deleteEntry(_ entry: TimelineEntry) {
         if let chapter = entry.chapter {
             guard store.deleteChapter(chapter) else {
-                operationError = "チャプターを削除できませんでした。時間をおいてもう一度試してください。"
+                operationError = "実績を削除できませんでした。時間をおいてもう一度試してください。"
                 return
             }
         } else if let plan = entry.plan {
@@ -461,6 +462,7 @@ struct TimelineDisplaySnapshot: Identifiable, Hashable {
     let isActive: Bool
     let note: String?
     let mood: String?
+    let urlString: String?
     let locationName: String?
     let plannedMatchTitle: String?
 
@@ -478,6 +480,7 @@ struct TimelineDisplaySnapshot: Identifiable, Hashable {
         note: String? = nil,
         mood: String? = nil,
         locationName: String? = nil,
+        urlString: String? = nil,
         plannedMatchTitle: String? = nil
     ) {
         self.id = id
@@ -492,6 +495,7 @@ struct TimelineDisplaySnapshot: Identifiable, Hashable {
         self.isActive = isActive
         self.note = note
         self.mood = mood
+        self.urlString = urlString
         self.locationName = locationName
         self.plannedMatchTitle = plannedMatchTitle
     }
@@ -826,6 +830,7 @@ extension SharedTimelineReadOnlyView {
             metadata: TimelineEntryMetadata(
                 note: snapshot.note,
                 mood: snapshot.mood,
+                urlString: snapshot.urlString,
                 locationName: snapshot.locationName,
                 plannedMatchTitle: snapshot.plannedMatchTitle,
                 isShort: snapshot.end.timeIntervalSince(snapshot.start) < 60,
@@ -1581,30 +1586,33 @@ private struct TimelineQuickDetail: View {
     var onClose: () -> Void
 
     var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: entry.categoryIconName)
-                .font(.caption.weight(.bold))
-                .foregroundStyle(entry.color)
-                .frame(width: 22, height: 22)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(entry.title)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                Image(systemName: entry.categoryIconName)
                     .font(.caption.weight(.bold))
-                    .lineLimit(1)
-                Text("\(entry.timeRangeText)  \(entry.durationText)")
-                    .font(.caption2.monospacedDigit())
-                    .foregroundStyle(LiminalTheme.secondaryText)
-                    .lineLimit(1)
-            }
+                    .foregroundStyle(entry.color)
+                    .frame(width: 22, height: 22)
 
-            Spacer()
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(entry.title)
+                        .font(.caption.weight(.bold))
+                        .lineLimit(1)
+                    Text("\(entry.timeRangeText)  \(entry.durationText)")
+                        .font(.caption2.monospacedDigit())
+                        .foregroundStyle(LiminalTheme.secondaryText)
+                        .lineLimit(1)
+                }
 
-            Button(action: onClose) {
-                Image(systemName: "xmark.circle.fill")
-                    .foregroundStyle(LiminalTheme.tertiaryText)
+                Spacer()
+
+                Button(action: onClose) {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(LiminalTheme.tertiaryText)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("メニューを閉じる")
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("メニューを閉じる")
+            PlanExtraDetailRows(locationName: entry.metadata.locationName, urlString: entry.metadata.urlString)
         }
         .padding(10)
         .background(

@@ -2528,6 +2528,7 @@ struct CalendarSettingsContent: View {
     @AppStorage("calendarPlanTitleBold") private var planTitleBold = false
     @AppStorage("calendarDimPastPlans") private var dimPastPlans = true
     @AppStorage("calendarStrikePastPlans") private var strikePastPlans = false
+    @AppStorage("planEditor.datePickerStyle") private var editorDatePickerStyle = "calendar"
     @AppStorage(TimelineSnapPrecision.userDefaultsKey)
     private var storedSnapPrecisionMinutes = TimelineSnapPrecision.quarterHour.minutes
 
@@ -2601,6 +2602,14 @@ struct CalendarSettingsContent: View {
                     title: "タイムライン操作",
                     explanation: "日間・週間タイムラインで、予定を移動したり長さを変えたりするときの刻み幅です。小さい値ほど細かく調整できます。"
                 )
+            }
+
+            Section("予定の入力") {
+                Picker("日付の選び方", selection: $editorDatePickerStyle) {
+                    Text("カレンダー").tag("calendar")
+                    Text("ホイール").tag("wheel")
+                }
+                .accessibilityIdentifier("plan-editor-date-picker-style")
             }
 
             Section {

@@ -433,7 +433,7 @@ struct CalendarDayView: View {
 
         return Menu {
             if visibleDayChapters.isEmpty {
-                Text("この日にチャプターはありません")
+                Text("この日に実績はありません")
             } else {
                 if isMixed {
                     Text("公開/非公開が混在しています")
@@ -460,7 +460,7 @@ struct CalendarDayView: View {
                 .disabled(allPrivate)
 
                 Divider()
-                Text("\(visibleDayChapters.count)件のチャプター")
+                Text("\(visibleDayChapters.count)件の実績")
                     .font(.caption)
             }
         } label: {

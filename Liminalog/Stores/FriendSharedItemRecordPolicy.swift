@@ -26,6 +26,7 @@ enum FriendSharedItemRecordPolicy {
         static let note = "note"
         static let mood = "mood"
         static let locationName = "locationName"
+        static let urlString = "urlString"
         static let dayIdentifier = "dayIdentifier"
         static let score = "score"
         static let plannedDuration = "plannedDuration"
@@ -86,6 +87,8 @@ enum FriendSharedItemRecordPolicy {
         record[Field.categoryTitle] = snapshot.categoryTitle as CKRecordValue
         record[Field.categoryIconName] = snapshot.categoryIconName as CKRecordValue
         record[Field.categoryColorHex] = snapshot.categoryColorHex as CKRecordValue
+        record[Field.locationName] = snapshot.locationName as CKRecordValue?
+        record[Field.urlString] = snapshot.urlString as CKRecordValue?
         record[Field.updatedAt] = snapshot.updatedAt as CKRecordValue
     }
 
@@ -149,6 +152,7 @@ enum FriendSharedItemRecordPolicy {
             categoryTitle: (record[Field.categoryTitle] as? String) ?? "",
             categoryIconName: (record[Field.categoryIconName] as? String) ?? "calendar",
             categoryColorHex: (record[Field.categoryColorHex] as? String) ?? "#2F80ED",
+            locationName: record[Field.locationName] as? String, urlString: record[Field.urlString] as? String,
             updatedAt: updatedAt
         )
     }

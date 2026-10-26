@@ -24,6 +24,8 @@ final class PlanPreset {
     var isMemo: Bool = false
     var isAllDay: Bool = false
     var isImportant: Bool = false
+    var locationName: String?
+    var urlString: String?
     var note: String?
     var isPublic: Bool = true
     var reminderMinutesBefore: Int?
@@ -45,7 +47,7 @@ final class PlanPreset {
         endMinute: Int = 10 * 60,
         isAllDay: Bool = false,
         isImportant: Bool = false,
-        note: String? = nil,
+        note: String? = nil, locationName: String? = nil, urlString: String? = nil,
         isPublic: Bool = true,
         placementMode: PlanPresetPlacementMode = .duration,
         sortOrder: Int = 0,
@@ -59,6 +61,8 @@ final class PlanPreset {
         self.endMinute = endMinute
         self.isAllDay = isAllDay
         self.isImportant = isImportant
+        self.locationName = PlanExtraDetails.normalized(locationName)
+        self.urlString = PlanExtraDetails.normalized(urlString)
         self.note = note
         self.isPublic = isPublic
         self.placementModeRawValue = placementMode.rawValue
@@ -78,6 +82,7 @@ final class PlanPreset {
             isAllDay: isAllDay,
             isImportant: isImportant,
             note: note,
+            locationName: locationName, urlString: urlString,
             isPublic: isPublic,
             reminderMinutesBefore: reminderMinutesBefore,
             isMemo: false

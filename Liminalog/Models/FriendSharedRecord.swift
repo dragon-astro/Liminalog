@@ -21,6 +21,8 @@ final class FriendSharedPlanRecord {
     var categoryTitle: String = ""
     var categoryIconName: String = "calendar"
     var categoryColorHex: String = "#2F80ED"
+    var locationName: String?
+    var urlString: String?
     var updatedAt: Date = Date()
 
     init() {}
@@ -43,6 +45,8 @@ final class FriendSharedPlanRecord {
         categoryTitle = snapshot.categoryTitle
         categoryIconName = snapshot.categoryIconName
         categoryColorHex = snapshot.categoryColorHex
+        locationName = snapshot.locationName
+        urlString = snapshot.urlString
         updatedAt = snapshot.updatedAt
     }
 
@@ -59,6 +63,7 @@ final class FriendSharedPlanRecord {
             categoryTitle: categoryTitle,
             categoryIconName: categoryIconName,
             categoryColorHex: categoryColorHex,
+            locationName: locationName, urlString: urlString,
             updatedAt: updatedAt
         )
     }
