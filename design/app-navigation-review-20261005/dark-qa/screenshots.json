@@ -4408,5 +4408,173 @@
     "test": "CalendarMonthDrawerUITests/testDateStyleHelpCanScrollAndDismissWithoutChangingSetting()",
     "attachments": "/private/tmp/liminalog-date-help-20261026/se-light-f-attachments",
     "original": "296D961B-3242-4854-AD27-2B63A1B8FD56.png"
+  },
+  "42-past-capsule-dimmed-aurora-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "5cf335d22b176e00923807a8d2bd884fe3f13dc043bc1a5017f98268958f9796",
+    "bytes": 790479,
+    "test": "CalendarMonthDrawerUITests/testPastCapsuleContrastAndDimSetting()",
+    "attachments": "/private/tmp/liminalog-past-capsule-20261026/aurora-attachments",
+    "original": "CD7496E1-1F5E-4363-90A7-0D7B02A5ECAD.png"
+  },
+  "42-past-capsule-dimmed-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "c8e813e4a0039ca55d9b91affe0e72f157e590385a01a76acaf4bd4e4f7abff3",
+    "bytes": 718609,
+    "test": "CalendarMonthDrawerUITests/testPastCapsuleContrastAndDimSetting()",
+    "attachments": "/private/tmp/liminalog-past-capsule-20261026/light-attachments",
+    "original": "083C40EF-566A-4067-8F13-71CD9DD45414.png"
+  },
+  "42-past-capsule-dimmed-se-dark.png": {
+    "phase": "after",
+    "appearance": "dark",
+    "pixels": [
+      750,
+      1334
+    ],
+    "scale": 2,
+    "sha256": "9cff14da82ae05dfd07db6ab28cedc97575cfd58a5759bdfcd602fc391437f6c",
+    "bytes": 265623,
+    "test": "CalendarMonthDrawerUITests/testPastCapsuleContrastAndDimSetting()",
+    "attachments": "/private/tmp/liminalog-past-capsule-20261026/se-dark-attachments",
+    "original": "DDDE6DBA-5023-481C-AA36-FB58E35DDA11.png"
+  },
+  "42-past-capsule-dimmed-se-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      750,
+      1334
+    ],
+    "scale": 2,
+    "sha256": "4ed8aaa930e0ea6c0de133c7cc028cd93926fda539d4d4d7821643497a2e00c7",
+    "bytes": 277714,
+    "test": "CalendarMonthDrawerUITests/testPastCapsuleContrastAndDimSetting()",
+    "attachments": "/private/tmp/liminalog-past-capsule-20261026/se-light-attachments",
+    "original": "14EFD48E-91D6-458D-869C-E46CCD3C2683.png"
+  },
+  "42-past-capsule-time-strike-aurora-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "80cdb998d127ea03206edaaf59203235af55c2c2ae41826bd65c8908b6917b71",
+    "bytes": 792488,
+    "test": "CalendarMonthDrawerUITests/testPastCapsuleContrastAndDimSetting()",
+    "attachments": "/private/tmp/liminalog-past-capsule-20261026/aurora-attachments",
+    "original": "198AD598-EB29-4415-928F-EA7531F8FCC8.png"
+  },
+  "42-past-capsule-time-strike-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "de418dec2122495399c4713658abaebe0aeb2b24e66e2625d7d46d5c5686ba28",
+    "bytes": 720433,
+    "test": "CalendarMonthDrawerUITests/testPastCapsuleContrastAndDimSetting()",
+    "attachments": "/private/tmp/liminalog-past-capsule-20261026/light-attachments",
+    "original": "65B5469C-B029-4394-AD4F-C74572FCDE0B.png"
+  },
+  "42-past-capsule-time-strike-se-dark.png": {
+    "phase": "after",
+    "appearance": "dark",
+    "pixels": [
+      750,
+      1334
+    ],
+    "scale": 2,
+    "sha256": "23a1a3f4680607a4f67b0337a66d6a4e7513242e5598d7899434d17bcb2a1948",
+    "bytes": 265868,
+    "test": "CalendarMonthDrawerUITests/testPastCapsuleContrastAndDimSetting()",
+    "attachments": "/private/tmp/liminalog-past-capsule-20261026/se-dark-attachments",
+    "original": "AF6C161A-B04C-4EDD-ABC6-C873D7BAB5DC.png"
+  },
+  "42-past-capsule-time-strike-se-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      750,
+      1334
+    ],
+    "scale": 2,
+    "sha256": "e0ce176d6070116d8be5b50635f24ad26a29d34ecd23514de34a501ef8adce9b",
+    "bytes": 278566,
+    "test": "CalendarMonthDrawerUITests/testPastCapsuleContrastAndDimSetting()",
+    "attachments": "/private/tmp/liminalog-past-capsule-20261026/se-light-attachments",
+    "original": "42F730C3-A590-4D38-8592-F1B0F270CE80.png"
+  },
+  "42-past-capsule-undimmed-aurora-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "fc6dc45ae90563460f44b4bcd9f3509ae8f36bff6159804792463571a101c4f0",
+    "bytes": 790824,
+    "test": "CalendarMonthDrawerUITests/testPastCapsuleContrastAndDimSetting()",
+    "attachments": "/private/tmp/liminalog-past-capsule-20261026/aurora-attachments",
+    "original": "A29C12DF-AF1B-48FA-BF63-DA983949A9A1.png"
+  },
+  "42-past-capsule-undimmed-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "4bf56f12f35f586e2988687a8d08027687151bcf23fb34af8c69ea7e1c401778",
+    "bytes": 719277,
+    "test": "CalendarMonthDrawerUITests/testPastCapsuleContrastAndDimSetting()",
+    "attachments": "/private/tmp/liminalog-past-capsule-20261026/light-attachments",
+    "original": "36C20C2F-0A07-4C64-8FB3-32BCB421EC5C.png"
+  },
+  "42-past-capsule-undimmed-se-dark.png": {
+    "phase": "after",
+    "appearance": "dark",
+    "pixels": [
+      750,
+      1334
+    ],
+    "scale": 2,
+    "sha256": "d2920e095adde747ced8d8175fb33b4d561021a9473e05fdabfdada22512ada4",
+    "bytes": 268010,
+    "test": "CalendarMonthDrawerUITests/testPastCapsuleContrastAndDimSetting()",
+    "attachments": "/private/tmp/liminalog-past-capsule-20261026/se-dark-attachments",
+    "original": "7E94B951-56B4-42ED-9EF8-86D7B8C5F17A.png"
+  },
+  "42-past-capsule-undimmed-se-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      750,
+      1334
+    ],
+    "scale": 2,
+    "sha256": "26bafd6eb7b8a7100b89523cf53e673d9e139e2e0cb1fb08e013094f4773ae88",
+    "bytes": 278129,
+    "test": "CalendarMonthDrawerUITests/testPastCapsuleContrastAndDimSetting()",
+    "attachments": "/private/tmp/liminalog-past-capsule-20261026/se-light-attachments",
+    "original": "3701362A-45AC-4D01-A0D7-02A42328B5E4.png"
   }
 }

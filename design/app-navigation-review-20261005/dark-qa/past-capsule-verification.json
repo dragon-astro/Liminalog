@@ -1,0 +1,66 @@
+{
+  "date": "2026-10-26",
+  "specification": "docs/38 §11",
+  "build": "build.log: TEST BUILD SUCCEEDED",
+  "runs": {
+    "aurora": {
+      "result": "Passed",
+      "totalTestCount": 1,
+      "passedTests": 1,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "resultBundle": "/private/tmp/liminalog-past-capsule-20261026/aurora.xcresult"
+    },
+    "light": {
+      "result": "Passed",
+      "totalTestCount": 1,
+      "passedTests": 1,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "resultBundle": "/private/tmp/liminalog-past-capsule-20261026/light.xcresult"
+    },
+    "se-dark": {
+      "result": "Passed",
+      "totalTestCount": 1,
+      "passedTests": 1,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "resultBundle": "/private/tmp/liminalog-past-capsule-20261026/se-dark.xcresult"
+    },
+    "se-light": {
+      "result": "Passed",
+      "totalTestCount": 1,
+      "passedTests": 1,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "resultBundle": "/private/tmp/liminalog-past-capsule-20261026/se-light.xcresult"
+    }
+  },
+  "visualChecks": [
+    "iPhone 17: daybreak and aurora",
+    "iPhone SE: daybreak and dusk",
+    "Past timed, all-day and multi-day capsules",
+    "Start times and strikethrough",
+    "Dim setting disabled"
+  ],
+  "previousImagesPreserved": 315,
+  "addedImages": [
+    "42-past-capsule-dimmed-aurora-light.png",
+    "42-past-capsule-dimmed-light.png",
+    "42-past-capsule-dimmed-se-dark.png",
+    "42-past-capsule-dimmed-se-light.png",
+    "42-past-capsule-time-strike-aurora-light.png",
+    "42-past-capsule-time-strike-light.png",
+    "42-past-capsule-time-strike-se-dark.png",
+    "42-past-capsule-time-strike-se-light.png",
+    "42-past-capsule-undimmed-aurora-light.png",
+    "42-past-capsule-undimmed-light.png",
+    "42-past-capsule-undimmed-se-dark.png",
+    "42-past-capsule-undimmed-se-light.png"
+  ],
+  "totalImages": 327,
+  "limitations": [
+    "Simulator only; no physical-device verification.",
+    "Screenshots use 7.5 pt plan text; production defaults are unchanged."
+  ]
+}

@@ -3117,6 +3117,50 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         keepScreenshot(app, name: "34-month\(small)-strike")
     }
 
+    func testPastCapsuleContrastAndDimSetting() throws {
+        try requirePolishCapture()
+        let app = XCUIApplication()
+        app.launchArguments = ["-LiminalogMonthDrawerUITests", "-LiminalogUITestMonthAppearance", "-LiminalogUITestPlanMemos",
+            "-LiminalogInitialRootTab", "calendar", "-LiminalogInitialCalendarMode", "month",
+            "-calendar.filter.usesCustomCategories", "NO", "-calendarPlanTitleFontSize", "7.5",
+            "-calendarTimedPlanLabelStyle", "background", "-calendarAllDayPlanLabelStyle", "background",
+            "-calendarMultiDayPlanLabelStyle", "background"]
+        if let theme = ProcessInfo.processInfo.environment["LIMINALOG_CAPTURE_THEME"] {
+            app.launchArguments += ["-LiminalogUITestTheme", theme]
+        }
+        app.launch()
+        XCTAssertTrue(app.buttons["calendar-period-button"].waitForExistence(timeout: 30))
+        let suffix = nextCaptureSuffix(app)
+        keepScreenshot(app, name: "42-past-capsule-dimmed" + suffix)
+
+        func openDisplaySettings() {
+            app.buttons["カレンダー表示設定"].tap()
+            let strike = app.switches["打ち消し線を入れる"]
+            for _ in 0..<7 where !strike.isHittable { app.swipeUp() }
+            XCTAssertTrue(strike.isHittable)
+        }
+        func toggle(_ setting: XCUIElement) {
+            setting.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        }
+        openDisplaySettings()
+        let dim = app.switches["過去の予定を薄くする"]
+        let strike = app.switches["打ち消し線を入れる"]
+        let time = app.switches["calendar-shows-plan-start-time"]
+        XCTAssertEqual(dim.value as? String, "1")
+        toggle(time); toggle(strike)
+        XCTAssertEqual(time.value as? String, "1")
+        XCTAssertEqual(strike.value as? String, "1")
+        app.buttons["calendar-settings-close"].tap()
+        keepScreenshot(app, name: "42-past-capsule-time-strike" + suffix)
+
+        openDisplaySettings()
+        toggle(dim); toggle(strike)
+        XCTAssertEqual(dim.value as? String, "0")
+        XCTAssertEqual(strike.value as? String, "0")
+        app.buttons["calendar-settings-close"].tap()
+        keepScreenshot(app, name: "42-past-capsule-undimmed" + suffix)
+    }
+
     func testFollowupPresetDatesCalendar() { checkFollowupPresetDates(style: "calendar") }
     func testFollowupPresetDatesWheel() { checkFollowupPresetDates(style: "wheel") }
 
