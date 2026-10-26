@@ -1,0 +1,129 @@
+{
+  "date": "2026-10-26",
+  "specification": "docs/38 §10",
+  "build": "build-f.log: TEST BUILD SUCCEEDED",
+  "runs": {
+    "dark-e": {
+      "result": "Passed",
+      "totalTestCount": 2,
+      "passedTests": 2,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "resultBundle": "/private/tmp/liminalog-date-help-20261026/dark-e.xcresult"
+    },
+    "dark-final": {
+      "result": "Failed",
+      "totalTestCount": 2,
+      "passedTests": 1,
+      "failedTests": 1,
+      "skippedTests": 0,
+      "resultBundle": "/private/tmp/liminalog-date-help-20261026/dark-final.xcresult"
+    },
+    "dark": {
+      "result": "Passed",
+      "totalTestCount": 1,
+      "passedTests": 1,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "resultBundle": "/private/tmp/liminalog-date-help-20261026/dark.xcresult"
+    },
+    "light-b": {
+      "result": "Passed",
+      "totalTestCount": 1,
+      "passedTests": 1,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "resultBundle": "/private/tmp/liminalog-date-help-20261026/light-b.xcresult"
+    },
+    "light-f": {
+      "result": "Passed",
+      "totalTestCount": 1,
+      "passedTests": 1,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "resultBundle": "/private/tmp/liminalog-date-help-20261026/light-f.xcresult"
+    },
+    "light-final": {
+      "result": "Passed",
+      "totalTestCount": 1,
+      "passedTests": 1,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "resultBundle": "/private/tmp/liminalog-date-help-20261026/light-final.xcresult"
+    },
+    "light": {
+      "result": "Failed",
+      "totalTestCount": 1,
+      "passedTests": 0,
+      "failedTests": 1,
+      "skippedTests": 0,
+      "resultBundle": "/private/tmp/liminalog-date-help-20261026/light.xcresult"
+    },
+    "se-light-b": {
+      "result": "Passed",
+      "totalTestCount": 1,
+      "passedTests": 1,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "resultBundle": "/private/tmp/liminalog-date-help-20261026/se-light-b.xcresult"
+    },
+    "se-light-e": {
+      "result": "Failed",
+      "totalTestCount": 1,
+      "passedTests": 0,
+      "failedTests": 1,
+      "skippedTests": 0,
+      "resultBundle": "/private/tmp/liminalog-date-help-20261026/se-light-e.xcresult"
+    },
+    "se-light-f": {
+      "result": "Passed",
+      "totalTestCount": 1,
+      "passedTests": 1,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "resultBundle": "/private/tmp/liminalog-date-help-20261026/se-light-f.xcresult"
+    },
+    "se-light-final": {
+      "result": "Passed",
+      "totalTestCount": 1,
+      "passedTests": 1,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "resultBundle": "/private/tmp/liminalog-date-help-20261026/se-light-final.xcresult"
+    },
+    "se-light": {
+      "result": "Failed",
+      "totalTestCount": 1,
+      "passedTests": 0,
+      "failedTests": 1,
+      "skippedTests": 0,
+      "resultBundle": "/private/tmp/liminalog-date-help-20261026/se-light.xcresult"
+    }
+  },
+  "finalRuns": [
+    "light-f",
+    "se-light-f",
+    "dark-e"
+  ],
+  "previousImagesPreserved": 309,
+  "addedImages": [
+    "41-date-style-help-diagrams-dark.png",
+    "41-date-style-help-diagrams-light.png",
+    "41-date-style-help-diagrams-se-light.png",
+    "41-date-style-help-entry-dark.png",
+    "41-date-style-help-entry-light.png",
+    "41-date-style-help-entry-se-light.png"
+  ],
+  "totalImages": 315,
+  "visualChecks": [
+    "iPhone 17 light and dark",
+    "iPhone SE light: captions visible, year does not wrap"
+  ],
+  "notes": [
+    "Initial test tapped the empty header center; changed to the visible icon.",
+    "Reduced diagram size and reserved year width after visual inspection.",
+    "SE bubble moved above its anchor; dismissal test now taps the outside right margin.",
+    "Experimental shared height change was removed. Recurrence toggle failed once during that experiment; the final unchanged layout passed the existing regression. Cause is not established.",
+    "Simulator only; no physical-device validation in this task."
+  ]
+}

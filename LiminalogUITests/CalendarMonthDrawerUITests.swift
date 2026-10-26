@@ -3471,6 +3471,34 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         XCTAssertFalse(app.buttons["プリセットに保存"].isEnabled, "24時間を超える予定はプリセットに保存しない")
     }
 
+    func testDateStyleHelpCanScrollAndDismissWithoutChangingSetting() {
+        let app = launch()
+        app.buttons["当日の予定を閉じる"].tap()
+        app.buttons["カレンダー表示設定"].tap()
+        let help = app.buttons["予定の入力の説明"]
+        for _ in 0..<7 where !help.isHittable || help.frame.maxY > app.frame.maxY - 120 { app.swipeUp() }
+        let setting = app.buttons["plan-editor-date-picker-style"]
+        let originalLabel = setting.label
+        let originalValue = setting.value as? String
+        keepScreenshot(app, name: "41-date-style-help-entry" + nextCaptureSuffix(app))
+        // Form reports the section header as full width; tap the visible info icon.
+        help.images["info.circle"].tap()
+        let bubble = element(app, "information-popover")
+        XCTAssertTrue(bubble.waitForExistence(timeout: 5))
+        XCTAssertGreaterThanOrEqual(bubble.frame.minX, 0)
+        XCTAssertLessThanOrEqual(bubble.frame.maxX, app.frame.maxX)
+        keepScreenshot(app, name: "41-date-style-help-diagrams" + nextCaptureSuffix(app))
+        bubble.swipeUp(); bubble.swipeDown()
+        XCTAssertEqual(app.state, .runningForeground)
+        // On SE the bubble can cover the navigation bar; the right margin remains outside.
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.99, dy: 0.5)).tap()
+        XCTAssertTrue(bubble.waitForNonExistence(timeout: 3))
+        XCTAssertEqual(setting.label, originalLabel)
+        XCTAssertEqual(setting.value as? String, originalValue)
+        setting.tap()
+        XCTAssertTrue(app.buttons["ホイール"].waitForExistence(timeout: 3))
+    }
+
     func testNextPresetTitleFocusAndExtraDetails() {
         let app = launch(templateReplacement: true)
         openFixturePresetEditor(app)

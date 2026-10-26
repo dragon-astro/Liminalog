@@ -4324,5 +4324,89 @@
     "test": "CalendarMonthDrawerUITests/testFollowupDiscreteSettingSliders()",
     "attachments": "/private/tmp/liminalog-settings-20261026/se-origin-attachments",
     "original": "CE586EE0-3DF9-42A9-B313-D0F6D4F07DA6.png"
+  },
+  "41-date-style-help-diagrams-dark.png": {
+    "phase": "after",
+    "appearance": "dark",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "91b2346f18f58b876cef64cbd6fc70f15f12b818bc2f2ffe1992862ce3de0268",
+    "bytes": 473819,
+    "test": "CalendarMonthDrawerUITests/testDateStyleHelpCanScrollAndDismissWithoutChangingSetting()",
+    "attachments": "/private/tmp/liminalog-date-help-20261026/dark-e-attachments",
+    "original": "004AE3AD-2228-4A2B-B6B1-A6F9B0D404D2.png"
+  },
+  "41-date-style-help-diagrams-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "89765e4e386f2538d0f0bc820149199e144a96ac0ad452412e81dbf48216b23c",
+    "bytes": 568302,
+    "test": "CalendarMonthDrawerUITests/testDateStyleHelpCanScrollAndDismissWithoutChangingSetting()",
+    "attachments": "/private/tmp/liminalog-date-help-20261026/light-f-attachments",
+    "original": "C5CA568C-152C-49A1-8C91-6801CDE3FDB5.png"
+  },
+  "41-date-style-help-diagrams-se-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      750,
+      1334
+    ],
+    "scale": 2,
+    "sha256": "cd4857a09db8fd67e7058e4c18dbe70218f850326da042ce3c273dfea5c1f71e",
+    "bytes": 221514,
+    "test": "CalendarMonthDrawerUITests/testDateStyleHelpCanScrollAndDismissWithoutChangingSetting()",
+    "attachments": "/private/tmp/liminalog-date-help-20261026/se-light-f-attachments",
+    "original": "E4EA9B05-E399-4460-ACE4-480183BD30F7.png"
+  },
+  "41-date-style-help-entry-dark.png": {
+    "phase": "after",
+    "appearance": "dark",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "e574728ceecf75fe71e96515f3384d1ef73c15f657d642b3352fee29425fed08",
+    "bytes": 371615,
+    "test": "CalendarMonthDrawerUITests/testDateStyleHelpCanScrollAndDismissWithoutChangingSetting()",
+    "attachments": "/private/tmp/liminalog-date-help-20261026/dark-e-attachments",
+    "original": "755FD654-DD23-43A7-B28E-42859692612D.png"
+  },
+  "41-date-style-help-entry-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "78f574aa83ed05241af5e84915993952f5ae4d4fb7d8e8a848baae2e08799484",
+    "bytes": 451878,
+    "test": "CalendarMonthDrawerUITests/testDateStyleHelpCanScrollAndDismissWithoutChangingSetting()",
+    "attachments": "/private/tmp/liminalog-date-help-20261026/light-f-attachments",
+    "original": "BC5F28B2-7ECC-4113-A4BE-14D6DF037EF4.png"
+  },
+  "41-date-style-help-entry-se-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      750,
+      1334
+    ],
+    "scale": 2,
+    "sha256": "0401cc8fc556665ab1ed68a6d6d40ec39968d15f593dfae7f0607fe629fee9c0",
+    "bytes": 193129,
+    "test": "CalendarMonthDrawerUITests/testDateStyleHelpCanScrollAndDismissWithoutChangingSetting()",
+    "attachments": "/private/tmp/liminalog-date-help-20261026/se-light-f-attachments",
+    "original": "296D961B-3242-4854-AD27-2B63A1B8FD56.png"
   }
 }

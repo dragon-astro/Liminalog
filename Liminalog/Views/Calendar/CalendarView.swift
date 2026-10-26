@@ -2604,12 +2604,18 @@ struct CalendarSettingsContent: View {
                 )
             }
 
-            Section("予定の入力") {
+            Section {
                 Picker("日付の選び方", selection: $editorDatePickerStyle) {
                     Text("カレンダー").tag("calendar")
                     Text("ホイール").tag("wheel")
                 }
                 .accessibilityIdentifier("plan-editor-date-picker-style")
+            } header: {
+                SettingsSectionHeader(
+                    title: "予定の入力",
+                    explanation: "予定の編集やプリセットの追加で使う、日付の選び方を切り替えます。",
+                    illustration: AnyView(EditorDateStyleIllustrations())
+                )
             }
 
             Section {

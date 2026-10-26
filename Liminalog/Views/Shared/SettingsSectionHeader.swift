@@ -4,6 +4,7 @@ import SwiftUI
 struct SettingsSectionHeader: View {
     let title: String
     let explanation: String
+    var illustration: AnyView? = nil
     @State private var showingExplanation = false
 
     var body: some View {
@@ -18,7 +19,7 @@ struct SettingsSectionHeader: View {
                         isPresented: $showingExplanation,
                         attachmentAnchor: .rect(.bounds)
                     ) {
-                        InformationPopoverContent(title: title, explanation: explanation)
+                        InformationPopoverContent(title: title, explanation: explanation, illustration: illustration)
                             // iPhoneでもシートに変換せず、アイコンから吹き出す。
                             .presentationCompactAdaptation(.popover)
                             .presentationBackground(LiminalTheme.plainSheetBackground)
@@ -63,6 +64,7 @@ struct InformationButton: View {
 private struct InformationPopoverContent: View {
     let title: String
     let explanation: String
+    var illustration: AnyView? = nil
 
     var body: some View {
         ViewThatFits(in: .vertical) {
@@ -80,6 +82,7 @@ private struct InformationPopoverContent: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title).font(.headline).accessibilityAddTraits(.isHeader)
             Text(explanation).font(.subheadline).fixedSize(horizontal: false, vertical: true)
+            if let illustration { illustration.padding(.top, 8) }
         }
         .foregroundStyle(.primary)
     }
