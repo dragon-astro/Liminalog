@@ -4223,8 +4223,8 @@ private struct CalendarImportantPlanLabel: View {
             .offset(y: textVerticalOffset)
             .frame(maxWidth: .infinity, alignment: .leading)
             .frame(height: labelHeight)
-            .background(backgroundShape.opacity(usesLightPastCapsule ? 0.45 : 1))
-            .overlay(borderShape.opacity(usesLightPastCapsule ? 0.45 : 1))
+            .background(backgroundShape)
+            .overlay(borderShape)
             .padding(.horizontal, labelOuterInset)
             .padding(.leading, continuesFromPreviousDay ? -labelOuterInset : 0)
             .padding(.trailing, continuesToNextDay ? -labelOuterInset : 0)
@@ -4283,7 +4283,7 @@ private struct CalendarImportantPlanLabel: View {
 
     private var titleColor: Color {
         if labelStyle == .background {
-            return usesLightPastCapsule ? LiminalTheme.text : .white
+            return .white
         }
         return color
     }
@@ -4317,12 +4317,10 @@ private struct CalendarImportantPlanLabel: View {
     }
 
     private var labelOpacity: Double {
-        usesLightPastCapsule ? 1 : (isPastDimmed ? (colorScheme == .dark ? 0.38 : 0.45) : 1)
-    }
-
-    private var usesLightPastCapsule: Bool {
-        // Keep the pale category background, but do not fade white text into it.
-        isPastDimmed && colorScheme == .light && labelStyle == .background
+        guard isPastDimmed else { return 1 }
+        if colorScheme == .dark { return 0.38 }
+        // White capsule text needs a stronger background than text-only labels.
+        return labelStyle == .background ? 0.80 : 0.45
     }
 
     private var isPastDimmed: Bool {
@@ -4437,8 +4435,8 @@ private struct CalendarMultiDayPlanBar: View {
                 }
             }
             .clipped()
-            .background(backgroundShape.opacity(usesLightPastCapsule ? 0.45 : 1))
-            .overlay(decorationOverlay.opacity(usesLightPastCapsule ? 0.45 : 1))
+            .background(backgroundShape)
+            .overlay(decorationOverlay)
             .opacity(labelOpacity)
             .accessibilityLabel("\(plan.title) 複数日に跨る重要な予定")
     }
@@ -4482,7 +4480,7 @@ private struct CalendarMultiDayPlanBar: View {
 
     private var titleColor: Color {
         if labelStyle == .background {
-            return usesLightPastCapsule ? LiminalTheme.text : .white
+            return .white
         }
         return color
     }
@@ -4512,11 +4510,10 @@ private struct CalendarMultiDayPlanBar: View {
     }
 
     private var labelOpacity: Double {
-        usesLightPastCapsule ? 1 : (isPastDimmed ? (colorScheme == .dark ? 0.38 : 0.45) : 1)
-    }
-
-    private var usesLightPastCapsule: Bool {
-        isPastDimmed && colorScheme == .light && labelStyle == .background
+        guard isPastDimmed else { return 1 }
+        if colorScheme == .dark { return 0.38 }
+        // White capsule text needs a stronger background than text-only labels.
+        return labelStyle == .background ? 0.80 : 0.45
     }
 
     private var isPastDimmed: Bool {

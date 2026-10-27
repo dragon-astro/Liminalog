@@ -3131,7 +3131,7 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         app.launch()
         XCTAssertTrue(app.buttons["calendar-period-button"].waitForExistence(timeout: 30))
         let suffix = nextCaptureSuffix(app)
-        keepScreenshot(app, name: "42-past-capsule-dimmed" + suffix)
+        keepScreenshot(app, name: "43-past-capsule-dimmed" + suffix)
 
         func openDisplaySettings() {
             app.buttons["カレンダー表示設定"].tap()
@@ -3151,14 +3151,14 @@ final class CalendarMonthDrawerUITests: XCTestCase {
         XCTAssertEqual(time.value as? String, "1")
         XCTAssertEqual(strike.value as? String, "1")
         app.buttons["calendar-settings-close"].tap()
-        keepScreenshot(app, name: "42-past-capsule-time-strike" + suffix)
+        keepScreenshot(app, name: "43-past-capsule-time-strike" + suffix)
 
         openDisplaySettings()
         toggle(dim); toggle(strike)
         XCTAssertEqual(dim.value as? String, "0")
         XCTAssertEqual(strike.value as? String, "0")
         app.buttons["calendar-settings-close"].tap()
-        keepScreenshot(app, name: "42-past-capsule-undimmed" + suffix)
+        keepScreenshot(app, name: "43-past-capsule-undimmed" + suffix)
     }
 
     func testFollowupPresetDatesCalendar() { checkFollowupPresetDates(style: "calendar") }

@@ -4576,5 +4576,173 @@
     "test": "CalendarMonthDrawerUITests/testPastCapsuleContrastAndDimSetting()",
     "attachments": "/private/tmp/liminalog-past-capsule-20261026/se-light-attachments",
     "original": "3701362A-45AC-4D01-A0D7-02A42328B5E4.png"
+  },
+  "43-past-capsule-dimmed-aurora-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "9cd2da734f3d8cb371c59063df9c8843ac6ae25276bd91ad49b22178576cd57b",
+    "bytes": 788311,
+    "test": "CalendarMonthDrawerUITests/testPastCapsuleContrastAndDimSetting()",
+    "attachments": "/private/tmp/liminalog-past-opacity-20261027/aurora-attachments",
+    "original": "E73DD4C3-3447-4FA7-BDCA-40EE1C275F62.png"
+  },
+  "43-past-capsule-dimmed-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "559dfaba7d69b0f642355908e526df571255aadf3ab31570a27be907c9fb8ccb",
+    "bytes": 714017,
+    "test": "CalendarMonthDrawerUITests/testPastCapsuleContrastAndDimSetting()",
+    "attachments": "/private/tmp/liminalog-past-opacity-20261027/light-attachments",
+    "original": "F7A1EA22-AE8E-48EA-9566-C6C0DFE0EB27.png"
+  },
+  "43-past-capsule-dimmed-se-dark.png": {
+    "phase": "after",
+    "appearance": "dark",
+    "pixels": [
+      750,
+      1334
+    ],
+    "scale": 2,
+    "sha256": "daffcd9d21f4006bf21db92a176920b58103d1c19169a97ac3823e9ca1cc018c",
+    "bytes": 265974,
+    "test": "CalendarMonthDrawerUITests/testPastCapsuleContrastAndDimSetting()",
+    "attachments": "/private/tmp/liminalog-past-opacity-20261027/se-dark-attachments",
+    "original": "A0D1F925-7597-4BBC-8352-298D908873A7.png"
+  },
+  "43-past-capsule-dimmed-se-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      750,
+      1334
+    ],
+    "scale": 2,
+    "sha256": "aa6d9a6a237c29ddb090cb591bab140fc53888aae33f2480008959c56cef612a",
+    "bytes": 276386,
+    "test": "CalendarMonthDrawerUITests/testPastCapsuleContrastAndDimSetting()",
+    "attachments": "/private/tmp/liminalog-past-opacity-20261027/se-light-attachments",
+    "original": "3FCF646B-BE32-4364-A243-BCC3A2CDA111.png"
+  },
+  "43-past-capsule-time-strike-aurora-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "b30f40f7e709eb9535aed085742e7478d7f05363b472fe87fdfd08aae4e5d3de",
+    "bytes": 790410,
+    "test": "CalendarMonthDrawerUITests/testPastCapsuleContrastAndDimSetting()",
+    "attachments": "/private/tmp/liminalog-past-opacity-20261027/aurora-attachments",
+    "original": "7511D9EA-A83B-4266-B2CD-235DC49FAB26.png"
+  },
+  "43-past-capsule-time-strike-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "82855bafb47be324eeb222bec53039c36328187d55da2a4082189ba653b525e2",
+    "bytes": 716443,
+    "test": "CalendarMonthDrawerUITests/testPastCapsuleContrastAndDimSetting()",
+    "attachments": "/private/tmp/liminalog-past-opacity-20261027/light-attachments",
+    "original": "E95391A5-1F7F-4D30-8FE0-0AEBE95EBE5B.png"
+  },
+  "43-past-capsule-time-strike-se-dark.png": {
+    "phase": "after",
+    "appearance": "dark",
+    "pixels": [
+      750,
+      1334
+    ],
+    "scale": 2,
+    "sha256": "5925cf0e30264245f3985a8f97f26b0bb76023ae75a751f2ba13ade413f5d9da",
+    "bytes": 266222,
+    "test": "CalendarMonthDrawerUITests/testPastCapsuleContrastAndDimSetting()",
+    "attachments": "/private/tmp/liminalog-past-opacity-20261027/se-dark-attachments",
+    "original": "A829F251-4ABE-43EB-AADA-D1DDC61CD5A1.png"
+  },
+  "43-past-capsule-time-strike-se-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      750,
+      1334
+    ],
+    "scale": 2,
+    "sha256": "7ab5a35bfcce0d378979703649806f8a27297afc2ad30492c9b3e40636fdc7bb",
+    "bytes": 276994,
+    "test": "CalendarMonthDrawerUITests/testPastCapsuleContrastAndDimSetting()",
+    "attachments": "/private/tmp/liminalog-past-opacity-20261027/se-light-attachments",
+    "original": "15C4D6DD-BD70-47A5-8A10-BAF7A1B1C437.png"
+  },
+  "43-past-capsule-undimmed-aurora-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "ce83a5c0c886f3c72394682758c423ca3885cbe58eda83e10647d3141973d186",
+    "bytes": 791397,
+    "test": "CalendarMonthDrawerUITests/testPastCapsuleContrastAndDimSetting()",
+    "attachments": "/private/tmp/liminalog-past-opacity-20261027/aurora-attachments",
+    "original": "498C4403-5352-43FF-8D5E-65C550750F82.png"
+  },
+  "43-past-capsule-undimmed-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "c879ff78e69c2d1396d20269eba6e2f6a301f35f7bb3740358723988f0dcc01a",
+    "bytes": 717880,
+    "test": "CalendarMonthDrawerUITests/testPastCapsuleContrastAndDimSetting()",
+    "attachments": "/private/tmp/liminalog-past-opacity-20261027/light-attachments",
+    "original": "62266D32-C355-44C7-8482-EDE9CD38FBA4.png"
+  },
+  "43-past-capsule-undimmed-se-dark.png": {
+    "phase": "after",
+    "appearance": "dark",
+    "pixels": [
+      750,
+      1334
+    ],
+    "scale": 2,
+    "sha256": "0f72e420fbc6401cc04a1e9cc819939df9f467a52aaf3d24614e991880ab30b1",
+    "bytes": 268430,
+    "test": "CalendarMonthDrawerUITests/testPastCapsuleContrastAndDimSetting()",
+    "attachments": "/private/tmp/liminalog-past-opacity-20261027/se-dark-attachments",
+    "original": "FDDA5506-A3A9-48E9-B078-F32F5D5CBD09.png"
+  },
+  "43-past-capsule-undimmed-se-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      750,
+      1334
+    ],
+    "scale": 2,
+    "sha256": "0b369f014994cab58d3c05c8419fc2c7e0262dfe5f2a57b4032321ac06f209d3",
+    "bytes": 278476,
+    "test": "CalendarMonthDrawerUITests/testPastCapsuleContrastAndDimSetting()",
+    "attachments": "/private/tmp/liminalog-past-opacity-20261027/se-light-attachments",
+    "original": "532C2DC8-587F-4818-B3EE-0EAF615F612C.png"
   }
 }

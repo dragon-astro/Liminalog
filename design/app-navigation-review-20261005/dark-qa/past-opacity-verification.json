@@ -1,0 +1,67 @@
+{
+  "date": "2026-10-27",
+  "specification": "docs/38 §12; supersedes text-color change in §11",
+  "build": "build.log: TEST BUILD SUCCEEDED",
+  "runs": {
+    "aurora": {
+      "result": "Passed",
+      "totalTestCount": 1,
+      "passedTests": 1,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "resultBundle": "/private/tmp/liminalog-past-opacity-20261027/aurora.xcresult"
+    },
+    "light": {
+      "result": "Passed",
+      "totalTestCount": 1,
+      "passedTests": 1,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "resultBundle": "/private/tmp/liminalog-past-opacity-20261027/light.xcresult"
+    },
+    "se-dark": {
+      "result": "Passed",
+      "totalTestCount": 1,
+      "passedTests": 1,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "resultBundle": "/private/tmp/liminalog-past-opacity-20261027/se-dark.xcresult"
+    },
+    "se-light": {
+      "result": "Passed",
+      "totalTestCount": 1,
+      "passedTests": 1,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "resultBundle": "/private/tmp/liminalog-past-opacity-20261027/se-light.xcresult"
+    }
+  },
+  "appearance": "Original white text and category colors; past light capsules use 0.80 whole-label opacity. Dark remains 0.38.",
+  "visualChecks": [
+    "iPhone 17 daybreak and aurora",
+    "iPhone SE daybreak and dusk",
+    "Timed, all-day and multi-day past capsules",
+    "Start times and strikethrough",
+    "Dim setting disabled"
+  ],
+  "previousImagesPreserved": 327,
+  "addedImages": [
+    "43-past-capsule-dimmed-aurora-light.png",
+    "43-past-capsule-dimmed-light.png",
+    "43-past-capsule-dimmed-se-dark.png",
+    "43-past-capsule-dimmed-se-light.png",
+    "43-past-capsule-time-strike-aurora-light.png",
+    "43-past-capsule-time-strike-light.png",
+    "43-past-capsule-time-strike-se-dark.png",
+    "43-past-capsule-time-strike-se-light.png",
+    "43-past-capsule-undimmed-aurora-light.png",
+    "43-past-capsule-undimmed-light.png",
+    "43-past-capsule-undimmed-se-dark.png",
+    "43-past-capsule-undimmed-se-light.png"
+  ],
+  "totalImages": 339,
+  "limitations": [
+    "Simulator only; no physical-device verification.",
+    "Capture text size 7.5 pt; production defaults unchanged."
+  ]
+}
