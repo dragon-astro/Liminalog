@@ -4320,7 +4320,7 @@ private struct CalendarImportantPlanLabel: View {
         guard isPastDimmed else { return 1 }
         if colorScheme == .dark { return 0.38 }
         // White capsule text needs a stronger background than text-only labels.
-        return labelStyle == .background ? 0.80 : 0.45
+        return labelStyle == .background ? 0.65 : 0.45
     }
 
     private var isPastDimmed: Bool {
@@ -4513,7 +4513,7 @@ private struct CalendarMultiDayPlanBar: View {
         guard isPastDimmed else { return 1 }
         if colorScheme == .dark { return 0.38 }
         // White capsule text needs a stronger background than text-only labels.
-        return labelStyle == .background ? 0.80 : 0.45
+        return labelStyle == .background ? 0.65 : 0.45
     }
 
     private var isPastDimmed: Bool {
