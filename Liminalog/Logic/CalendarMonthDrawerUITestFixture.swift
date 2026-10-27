@@ -6,11 +6,6 @@ enum CalendarMonthDrawerUITestFixture {
     static let sourceID = UUID(uuidString: "00000000-0000-0000-0000-000000000101")!
     static var day: Date {
         let calendar = Calendar.current
-        #if DEBUG
-        if CalendarPastPlanComparison.variant != nil {
-            return calendar.date(from: DateComponents(year: 2026, month: 10, day: 1))!
-        }
-        #endif
         if ProcessInfo.processInfo.arguments.contains("-LiminalogUITestMonthAppearance") {
             return calendar.date(from: calendar.dateComponents([.year, .month], from: Date()))!
         }
@@ -24,12 +19,6 @@ enum CalendarMonthDrawerUITestFixture {
     @MainActor static func seed(in context: ModelContext) {
         UserDefaults.standard.set("calendar", forKey: "planEditor.datePickerStyle")
         let calendar = Calendar.current
-        #if DEBUG
-        if CalendarPastPlanComparison.variant != nil {
-            seedPastComparison(in: context)
-            return
-        }
-        #endif
         let longNote = ProcessInfo.processInfo.arguments.contains("-LiminalogUITestLongNote")
         let memoFixture = ProcessInfo.processInfo.arguments.contains("-LiminalogUITestPlanMemos")
         let work = memoFixture ? Category(name: "仕事", colorHex: "#537BC5", icon: "laptopcomputer") : nil
@@ -193,47 +182,5 @@ enum CalendarMonthDrawerUITestFixture {
         }
         try! context.save()
     }
-    #if DEBUG
-    @MainActor private static func seedPastComparison(in context: ModelContext) {
-        let calendar = Calendar.current
-        let definitions = [("仕事", "#537BC5", "laptopcomputer"), ("読書", "#995DC4", "book.fill"),
-                           ("買い物", "#C37A42", "bag.fill"), ("運動", "#389D70", "figure.walk"),
-                           ("休み", "#D96996", "heart.fill")]
-        let categories = definitions.map { name, hex, icon in
-            let category = Category(name: name, colorHex: hex, icon: icon)
-            context.insert(category)
-            return category
-        }
-        func date(_ day: Int, hour: Int = 0) -> Date {
-            calendar.date(from: DateComponents(year: 2026, month: 10, day: day, hour: hour))!
-        }
-        for future in [false, true] {
-            for index in categories.indices {
-                let target = (future ? 28 : 25) + (index >= 2 ? 1 : 0)
-                let allDay = index == 4
-                let start = date(target, hour: allDay ? 0 : 9 + index % 2)
-                context.insert(PlanBlock(category: categories[index], title: definitions[index].0,
-                    startTime: start, endTime: allDay ? date(target + 1) : start.addingTimeInterval(3600),
-                    isAllDay: allDay, isImportant: true, isPublic: false))
-            }
-            let target = future ? 30 : 25
-            context.insert(PlanBlock(category: categories[1], title: "泊まりの研修", startTime: date(target, hour: 15),
-                endTime: date(target + 1, hour: 18), isImportant: true, isPublic: false))
-        }
-        let args = ProcessInfo.processInfo.arguments
-        let settings = UserSettings()
-        let themeIndex = args.firstIndex(of: "-LiminalogUITestTheme")
-        let theme = themeIndex.map { args[$0 + 1] } ?? "daybreak"
-        settings.themeName = theme
-        context.insert(settings)
-        let unlock = UnlockItem()
-        unlock.key = "theme.\(theme)"
-        unlock.targetID = theme
-        unlock.unlockedAt = Date()
-        context.insert(unlock)
-        try! context.save()
-    }
-    #endif
-
 }
 #endif

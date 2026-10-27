@@ -1,0 +1,89 @@
+{
+  "reference": "96de11a",
+  "files": [
+    {
+      "file": "Liminalog/Views/Calendar/CalendarView.swift",
+      "sha256": "2af1011d9bff57ea0bd346ae5d8a103304abe0aa25d3bf074eede302e611768a",
+      "matchesReference": true
+    },
+    {
+      "file": "Liminalog/Logic/CalendarMonthDrawerUITestFixture.swift",
+      "sha256": "24f265cc30aa580996b59bca33865ceaf637a9c5c944e697eb398a9bc98453a9",
+      "matchesReference": true
+    },
+    {
+      "file": "Liminalog/Extensions/Color+Hex.swift",
+      "sha256": "3d004d383cd4f35de39e1fd1389f75b1fcd38b2d548a3283816d68624e2d69af",
+      "matchesReference": true
+    },
+    {
+      "file": "Liminalog/Models/Category.swift",
+      "sha256": "580c476cc2c06e71f01b782b087ce02c4d16115cffaa766092ef23ae7b06ec8a",
+      "matchesReference": true
+    },
+    {
+      "file": "Liminalog/Design/LiminalTheme.swift",
+      "sha256": "5446e7458ddb5d81686b271c20b15ebcb796b9c745f45a8d30bbe90bbccf5334",
+      "matchesReference": true
+    },
+    {
+      "file": "Liminalog/Design/LiminalThemeDefinition.swift",
+      "sha256": "472081b3f8cc6d933fd011b5becf41d556cff7456ca64fa60fadb9bea1959411",
+      "matchesReference": true
+    }
+  ],
+  "debugBuild": "passed",
+  "releaseBuild": "passed",
+  "comparisonCodeAbsentInBothBuilds": true,
+  "verification": "source byte equality and visual inspection of Simulator captures; no new UI test run",
+  "device": "iPhone 17 / iOS 26.5 Simulator",
+  "physicalDeviceUpdated": false,
+  "captures": {
+    "47-calendar-colors-restored-aurora-light.png": {
+      "phase": "after",
+      "appearance": "light",
+      "pixels": [
+        1206,
+        2622
+      ],
+      "scale": 3,
+      "sha256": "28e5a93127751fa6e36f619f0d43b229410cba5810672b9bd25b9b011c4f10a8",
+      "bytes": 935461,
+      "test": "simctl/color-restoration/aurora",
+      "attachments": "/private/tmp/liminalog-color-restore-20261027/attachments/light",
+      "original": "47-calendar-colors-restored-aurora.png"
+    },
+    "47-calendar-colors-restored-dark.png": {
+      "phase": "after",
+      "appearance": "dark",
+      "pixels": [
+        1206,
+        2622
+      ],
+      "scale": 3,
+      "sha256": "c2921d6d0bc4210a1434275dbdf1dfc14f464383ee31683f464d0a12200fbcd2",
+      "bytes": 751129,
+      "test": "simctl/color-restoration/dusk",
+      "attachments": "/private/tmp/liminalog-color-restore-20261027/attachments/dark",
+      "original": "47-calendar-colors-restored-dusk.png"
+    },
+    "47-calendar-colors-restored-light.png": {
+      "phase": "after",
+      "appearance": "light",
+      "pixels": [
+        1206,
+        2622
+      ],
+      "scale": 3,
+      "sha256": "126ca625f2b076b9f29441a90d363e10837d34a8abb62ea25f437930c7f1879b",
+      "bytes": 846772,
+      "test": "simctl/color-restoration/daybreak",
+      "attachments": "/private/tmp/liminalog-color-restore-20261027/attachments/light",
+      "original": "47-calendar-colors-restored.png"
+    }
+  },
+  "previousScreenshotCount": 371,
+  "preservedPreviousScreenshotHashes": true,
+  "artifacts": "/private/tmp/liminalog-color-restore-20261027",
+  "archive": "artifacts/ui-polish-dark-qa-20261027/calendar-colors-restored.tar.gz"
+}

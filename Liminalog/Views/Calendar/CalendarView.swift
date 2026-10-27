@@ -4223,26 +4223,8 @@ private struct CalendarImportantPlanLabel: View {
             .offset(y: textVerticalOffset)
             .frame(maxWidth: .infinity, alignment: .leading)
             .frame(height: labelHeight)
-            .background {
-                #if DEBUG
-                if let opacity = comparisonDecorationOpacity {
-                    backgroundShape.overlay(borderShape)
-                        .compositingGroup()
-                        .opacity(opacity)
-                } else {
-                    backgroundShape
-                }
-                #else
-                backgroundShape
-                #endif
-            }
-            .overlay {
-                #if DEBUG
-                if comparisonDecorationOpacity == nil { borderShape }
-                #else
-                borderShape
-                #endif
-            }
+            .background(backgroundShape)
+            .overlay(borderShape)
             .padding(.horizontal, labelOuterInset)
             .padding(.leading, continuesFromPreviousDay ? -labelOuterInset : 0)
             .padding(.trailing, continuesToNextDay ? -labelOuterInset : 0)
@@ -4307,7 +4289,10 @@ private struct CalendarImportantPlanLabel: View {
     }
 
     private var timeColor: Color {
-        titleColor
+        if labelStyle == .background {
+            return .white
+        }
+        return color
     }
 
     private var backgroundFillColor: Color {
@@ -4334,22 +4319,8 @@ private struct CalendarImportantPlanLabel: View {
         )
     }
 
-    #if DEBUG
-    private var comparisonDecorationOpacity: Double? {
-        guard CalendarPastPlanComparison.isEnabled(in: colorScheme),
-              labelStyle == .background, isPastDimmed else { return nil }
-        return CalendarPastPlanComparison.decorationOpacity
-    }
-    #endif
-
     private var labelOpacity: Double {
-        #if DEBUG
-        if comparisonDecorationOpacity != nil { return 1 }
-        #endif
-        guard isPastDimmed else { return 1 }
-        if colorScheme == .dark { return 0.38 }
-        // White capsule text needs a stronger background than text-only labels.
-        return labelStyle == .background ? 0.65 : 0.45
+        isPastDimmed ? (colorScheme == .dark ? 0.38 : 0.45) : 1
     }
 
     private var isPastDimmed: Bool {
@@ -4395,19 +4366,12 @@ private struct CalendarImportantPlanLabel: View {
         configuration.titleFontSize
     }
 
-    private var appearanceDate: Date {
-        #if DEBUG
-        if CalendarPastPlanComparison.isEnabled(in: colorScheme) { return CalendarPastPlanComparison.referenceDate }
-        #endif
-        return Date()
-    }
-
     private var isPastPlan: Bool {
-        min(plan.endTime, dayEnd) <= appearanceDate
+        min(plan.endTime, dayEnd) <= Date()
     }
 
     private var shouldStrikePastPlan: Bool {
-        return isPastPlan && configuration.strikePastPlans
+        isPastPlan && configuration.strikePastPlans
     }
 
     private var dayStart: Date {
@@ -4459,38 +4423,20 @@ private struct CalendarMultiDayPlanBar: View {
                             .foregroundStyle(titleColor)
                             .monospacedDigit()
                             .fixedSize(horizontal: true, vertical: false)
-                            .strikethrough(shouldStrikePastPlan, color: titleColor)
+                            .strikethrough(isPastPlan && strikePastPlans, color: titleColor)
                     }
                     Text(plan.title)
                         .font(.system(size: displayTitleFontSize, weight: titleBold ? .bold : .regular))
                         .foregroundStyle(titleColor)
                         .lineLimit(1)
                         .fixedSize(horizontal: true, vertical: false)
-                        .strikethrough(shouldStrikePastPlan, color: titleColor)
+                        .strikethrough(isPastPlan && strikePastPlans, color: titleColor)
                         .offset(y: textVerticalOffset)
                 }
             }
             .clipped()
-            .background {
-                #if DEBUG
-                if let opacity = comparisonDecorationOpacity {
-                    backgroundShape.overlay(decorationOverlay)
-                        .compositingGroup()
-                        .opacity(opacity)
-                } else {
-                    backgroundShape
-                }
-                #else
-                backgroundShape
-                #endif
-            }
-            .overlay {
-                #if DEBUG
-                if comparisonDecorationOpacity == nil { decorationOverlay }
-                #else
-                decorationOverlay
-                #endif
-            }
+            .background(backgroundShape)
+            .overlay(decorationOverlay)
             .opacity(labelOpacity)
             .accessibilityLabel("\(plan.title) 複数日に跨る重要な予定")
     }
@@ -4563,26 +4509,8 @@ private struct CalendarMultiDayPlanBar: View {
         )
     }
 
-    #if DEBUG
-    private var comparisonDecorationOpacity: Double? {
-        guard CalendarPastPlanComparison.isEnabled(in: colorScheme),
-              labelStyle == .background, isPastDimmed else { return nil }
-        return CalendarPastPlanComparison.decorationOpacity
-    }
-    #endif
-
     private var labelOpacity: Double {
-        #if DEBUG
-        if comparisonDecorationOpacity != nil { return 1 }
-        #endif
-        guard isPastDimmed else { return 1 }
-        if colorScheme == .dark { return 0.38 }
-        // White capsule text needs a stronger background than text-only labels.
-        return labelStyle == .background ? 0.65 : 0.45
-    }
-
-    private var shouldStrikePastPlan: Bool {
-        return isPastPlan && strikePastPlans
+        isPastDimmed ? (colorScheme == .dark ? 0.38 : 0.45) : 1
     }
 
     private var isPastDimmed: Bool {
@@ -4605,15 +4533,8 @@ private struct CalendarMultiDayPlanBar: View {
         CalendarPlanTitleMetrics.clamped(titleFontSize)
     }
 
-    private var appearanceDate: Date {
-        #if DEBUG
-        if CalendarPastPlanComparison.isEnabled(in: colorScheme) { return CalendarPastPlanComparison.referenceDate }
-        #endif
-        return Date()
-    }
-
     private var isPastPlan: Bool {
-        plan.endTime <= appearanceDate
+        plan.endTime <= Date()
     }
 }
 

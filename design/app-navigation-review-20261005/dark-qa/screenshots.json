@@ -5192,5 +5192,47 @@
     "test": "simctl/daybreak/v0/font-6",
     "attachments": "/private/tmp/liminalog-past-opacity-20261027/direct-attachments",
     "original": "46-past-opacity-v0.png"
+  },
+  "47-calendar-colors-restored-aurora-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "28e5a93127751fa6e36f619f0d43b229410cba5810672b9bd25b9b011c4f10a8",
+    "bytes": 935461,
+    "test": "simctl/color-restoration/aurora",
+    "attachments": "/private/tmp/liminalog-color-restore-20261027/attachments/light",
+    "original": "47-calendar-colors-restored-aurora.png"
+  },
+  "47-calendar-colors-restored-dark.png": {
+    "phase": "after",
+    "appearance": "dark",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "c2921d6d0bc4210a1434275dbdf1dfc14f464383ee31683f464d0a12200fbcd2",
+    "bytes": 751129,
+    "test": "simctl/color-restoration/dusk",
+    "attachments": "/private/tmp/liminalog-color-restore-20261027/attachments/dark",
+    "original": "47-calendar-colors-restored-dusk.png"
+  },
+  "47-calendar-colors-restored-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "126ca625f2b076b9f29441a90d363e10837d34a8abb62ea25f437930c7f1879b",
+    "bytes": 846772,
+    "test": "simctl/color-restoration/daybreak",
+    "attachments": "/private/tmp/liminalog-color-restore-20261027/attachments/light",
+    "original": "47-calendar-colors-restored.png"
   }
 }
