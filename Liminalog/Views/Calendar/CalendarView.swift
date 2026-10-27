@@ -4425,23 +4425,16 @@ private struct CalendarMultiDayPlanBar: View {
 
     var body: some View {
         Color.clear
-            .overlay(alignment: showsPlanStartTime && !plan.isAllDay && roundsLeading ? .leading : .center) {
-                HStack(spacing: 1) {
-                    if showsPlanStartTime && !plan.isAllDay && roundsLeading {
-                        Text(plan.startTime.shortTime)
-                            .font(.system(size: max(4, displayTitleFontSize - 1), weight: .medium, design: .rounded))
-                            .foregroundStyle(titleColor)
-                            .monospacedDigit()
-                            .fixedSize(horizontal: true, vertical: false)
-                            .strikethrough(isPastPlan && strikePastPlans, color: titleColor)
-                    }
-                    Text(plan.title)
-                        .font(.system(size: displayTitleFontSize, weight: titleBold ? .bold : .regular))
-                        .foregroundStyle(titleColor)
-                        .lineLimit(1)
-                        .fixedSize(horizontal: true, vertical: false)
-                        .strikethrough(isPastPlan && strikePastPlans, color: titleColor)
-                        .offset(y: textVerticalOffset)
+            .overlay(alignment: .leading) {
+                // Center the title when it fits. A short segment, such as the part of a
+                // plan that wraps to the next week, starts it at the leading edge instead,
+                // so its beginning shows rather than only its middle.
+                ViewThatFits(in: .horizontal) {
+                    titleRow
+                        .padding(.leading, showsStartTime ? leadingTitleInset : 0)
+                        .frame(maxWidth: .infinity, alignment: showsStartTime ? .leading : .center)
+                    titleRow
+                        .padding(.leading, leadingTitleInset)
                 }
             }
             .clipped()
@@ -4449,6 +4442,34 @@ private struct CalendarMultiDayPlanBar: View {
             .overlay(decorationOverlay.opacity(capsuleOpacity))
             .opacity(labelOpacity)
             .accessibilityLabel("\(plan.title) 複数日に跨る重要な予定")
+    }
+
+    private var titleRow: some View {
+        HStack(spacing: 1) {
+            if showsStartTime {
+                Text(plan.startTime.shortTime)
+                    .font(.system(size: max(4, displayTitleFontSize - 1), weight: .medium, design: .rounded))
+                    .foregroundStyle(titleColor)
+                    .monospacedDigit()
+                    .fixedSize(horizontal: true, vertical: false)
+                    .strikethrough(isPastPlan && strikePastPlans, color: titleColor)
+            }
+            Text(plan.title)
+                .font(.system(size: displayTitleFontSize, weight: titleBold ? .bold : .regular))
+                .foregroundStyle(titleColor)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
+                .strikethrough(isPastPlan && strikePastPlans, color: titleColor)
+                .offset(y: textVerticalOffset)
+        }
+    }
+
+    private var showsStartTime: Bool {
+        showsPlanStartTime && !plan.isAllDay && roundsLeading
+    }
+
+    private var leadingTitleInset: CGFloat {
+        labelStyle == .background ? 1.5 : 0.5
     }
 
     @ViewBuilder

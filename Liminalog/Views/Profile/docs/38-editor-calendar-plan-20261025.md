@@ -729,3 +729,9 @@ V1とV2の未来は全5色が3.0以上（実測3.334〜3.414）。V2の過去・
 - 試作の途中で地と縁をまとめて薄める形（`compositingGroup`）も撮ったが、縁が弱くなり見た目が変わるので不採用。
 - 画像：[比較](../../../../design/app-navigation-review-20261005/dark-qa/51-past-text-opaque-sheet.png)／[3倍拡大](../../../../design/app-navigation-review-20261005/dark-qa/51-past-text-opaque-zoom.png)／[曙](../../../../design/app-navigation-review-20261005/dark-qa/51-past-text-opaque-light.png)／[極光](../../../../design/app-navigation-review-20261005/dark-qa/51-past-text-opaque-aurora-light.png)／[宵は変化なし](../../../../design/app-navigation-review-20261005/dark-qa/51-past-text-opaque-dusk-unchanged.png)。
 - **採用**（ユーザー「結構マシになったじゃん」）。Debug／Releaseビルド成功。実機への反映は未実施。
+
+## 20. 週で折り返した複数日の予定名が真ん中だけになる（2026-10-27 ユーザー指摘・実機の画像）
+- 症状：複数日の帯が週の端で折り返し、1マスだけの部分になると、中央揃えの予定名が両側にはみ出して切れ、真ん中だけが見える（例「休プロジェク」）。
+- 直し：`CalendarMultiDayPlanBar` の予定名は、**帯に収まるときは今どおり中央**（開始時刻を出すときは左）、**収まらないときだけ左寄せ**にして、右端で切る（1日の予定と同じ切れ方）。`ViewThatFits` で判定。左寄せのときは1日の予定と同じ内側の余白（塗り1.5pt／下線0.5pt）。
+- 撮影用データに折り返す複数日の予定を2件追加（17→18日「企画スプリント」、24→26日「連休プロジェクト」）。
+- 確認（Debug・iPhone 17 / iOS 26.5 Simulator・極光）：[9pt太字・下線](../../../../design/app-navigation-review-20261005/dark-qa/52-multiday-wrap-title-sheet-9pt.png)／[7.5pt 下線・塗り](../../../../design/app-navigation-review-20261005/dark-qa/52-multiday-wrap-title-sheet.png)。収まる帯（25〜26日、30〜31日、18〜19日）は今と同じ中央。

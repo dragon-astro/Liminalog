@@ -197,6 +197,8 @@ enum CalendarMonthDrawerUITestFixture {
             add("ライブ", 6, day: -4, hour: 19)
             add("掃除", 7, day: -3, hour: 10)
             add("旅行", 2, day: 3, hour: 0, allDayCount: 2)
+            add("連休プロジェクト", 2, day: -3, hour: 0, allDayCount: 3)
+            add("企画スプリント", 1, day: -10, hour: 0, allDayCount: 2)
             add("歯医者", 3, day: -13, hour: 11)
             add("読書会", 4, day: -16, hour: 14)
         }
