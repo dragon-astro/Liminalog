@@ -4223,8 +4223,8 @@ private struct CalendarImportantPlanLabel: View {
             .offset(y: textVerticalOffset)
             .frame(maxWidth: .infinity, alignment: .leading)
             .frame(height: labelHeight)
-            .background(backgroundShape)
-            .overlay(borderShape)
+            .background(backgroundShape.opacity(capsuleOpacity))
+            .overlay(borderShape.opacity(capsuleOpacity))
             .padding(.horizontal, labelOuterInset)
             .padding(.leading, continuesFromPreviousDay ? -labelOuterInset : 0)
             .padding(.trailing, continuesToNextDay ? -labelOuterInset : 0)
@@ -4320,7 +4320,17 @@ private struct CalendarImportantPlanLabel: View {
     }
 
     private var labelOpacity: Double {
-        isPastDimmed ? (colorScheme == .dark ? 0.38 : 0.45) : 1
+        isPastDimmed && !fadesCapsuleOnly ? (colorScheme == .dark ? 0.38 : 0.45) : 1
+    }
+
+    private var capsuleOpacity: Double {
+        isPastDimmed && fadesCapsuleOnly ? 0.45 : 1
+    }
+
+    /// Light themes fade only the capsule. Fading the white title as well lets the
+    /// capsule color show through it, tinting the text until it disappears.
+    private var fadesCapsuleOnly: Bool {
+        colorScheme == .light && labelStyle == .background
     }
 
     private var isPastDimmed: Bool {
@@ -4435,8 +4445,8 @@ private struct CalendarMultiDayPlanBar: View {
                 }
             }
             .clipped()
-            .background(backgroundShape)
-            .overlay(decorationOverlay)
+            .background(backgroundShape.opacity(capsuleOpacity))
+            .overlay(decorationOverlay.opacity(capsuleOpacity))
             .opacity(labelOpacity)
             .accessibilityLabel("\(plan.title) 複数日に跨る重要な予定")
     }
@@ -4510,7 +4520,17 @@ private struct CalendarMultiDayPlanBar: View {
     }
 
     private var labelOpacity: Double {
-        isPastDimmed ? (colorScheme == .dark ? 0.38 : 0.45) : 1
+        isPastDimmed && !fadesCapsuleOnly ? (colorScheme == .dark ? 0.38 : 0.45) : 1
+    }
+
+    private var capsuleOpacity: Double {
+        isPastDimmed && fadesCapsuleOnly ? 0.45 : 1
+    }
+
+    /// Light themes fade only the capsule. Fading the white title as well lets the
+    /// capsule color show through it, tinting the text until it disappears.
+    private var fadesCapsuleOnly: Bool {
+        colorScheme == .light && labelStyle == .background
     }
 
     private var isPastDimmed: Bool {

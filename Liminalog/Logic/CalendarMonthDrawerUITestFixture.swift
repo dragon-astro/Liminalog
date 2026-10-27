@@ -6,7 +6,8 @@ enum CalendarMonthDrawerUITestFixture {
     static let sourceID = UUID(uuidString: "00000000-0000-0000-0000-000000000101")!
     static var day: Date {
         let calendar = Calendar.current
-        if ProcessInfo.processInfo.arguments.contains("-LiminalogUITestMonthAppearance") {
+        if ProcessInfo.processInfo.arguments.contains("-LiminalogUITestMonthAppearance")
+            || ProcessInfo.processInfo.arguments.contains("-LiminalogUITestPastPalette") {
             return calendar.date(from: calendar.dateComponents([.year, .month], from: Date()))!
         }
         if ProcessInfo.processInfo.arguments.contains("-LiminalogUITestLockedDay") {
@@ -163,6 +164,41 @@ enum CalendarMonthDrawerUITestFixture {
                 plan.id = UUID(uuidString: "00000000-0000-0000-0000-00000000070\(offset + 1)")!
                 context.insert(plan)
             }
+        }
+        if ProcessInfo.processInfo.arguments.contains("-LiminalogUITestPastPalette") {
+            // The eight default category colors, the same plans before and after today.
+            let palette = [("勉強", "#2F80ED"), ("仕事", "#6C5CE7"), ("趣味", "#EB5757"), ("休憩", "#27AE60"),
+                ("睡眠", "#9B51E0"), ("移動", "#F2994A"), ("自由時間", "#F2C94C"), ("家事", "#56CCF2")]
+            let categories = palette.enumerated().map { index, entry in
+                Category(name: entry.0, colorHex: entry.1, icon: "circle.fill", sortOrder: index)
+            }
+            categories.forEach { context.insert($0) }
+            let today = calendar.startOfDay(for: Date())
+            func add(_ title: String, _ category: Int, day offset: Int, hour: Int, hours: Int = 1, allDayCount: Int? = nil) {
+                let target = calendar.date(byAdding: .day, value: offset, to: today)!
+                let start = allDayCount == nil ? calendar.date(byAdding: .hour, value: hour, to: target)! : target
+                let end = allDayCount.map { calendar.date(byAdding: .day, value: $0, to: target)! }
+                    ?? start.addingTimeInterval(TimeInterval(hours * 3600))
+                context.insert(PlanBlock(category: categories[category], title: title, startTime: start, endTime: end,
+                    isAllDay: allDayCount != nil, isImportant: true, isPublic: false))
+            }
+            for (offset, first) in [(-2, 0), (1, 0), (-1, 4), (2, 4)] {
+                let set = first == 0
+                    ? [("英語", 9), ("定例会議", 10), ("ギター", 13), ("散歩", 15)]
+                    : [("仮眠", 8), ("出張", 10), ("映画", 13), ("洗濯", 18)]
+                for (index, item) in set.enumerated() {
+                    add(item.0, first + index, day: offset, hour: item.1)
+                }
+            }
+            add("朝会", 1, day: 0, hour: 7)
+            add("復習", 0, day: 0, hour: 23)
+            add("帰省", 5, day: -9, hour: 0, allDayCount: 2)
+            add("研修", 1, day: -5, hour: 0, allDayCount: 1)
+            add("ライブ", 6, day: -4, hour: 19)
+            add("掃除", 7, day: -3, hour: 10)
+            add("旅行", 2, day: 3, hour: 0, allDayCount: 2)
+            add("歯医者", 3, day: -13, hour: 11)
+            add("読書会", 4, day: -16, hour: 14)
         }
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-LiminalogUITestEditingSamples") {
