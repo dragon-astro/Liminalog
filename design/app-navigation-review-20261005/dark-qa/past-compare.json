@@ -1,0 +1,2759 @@
+{
+  "schemaVersion": 1,
+  "scope": "DEBUG comparison only; production opacity/defaults unchanged",
+  "referenceDate": "2026-10-27T12:00:00+09:00",
+  "devices": [
+    "iPhone 17 / iOS 26.5",
+    "iPhone SE (3rd generation) / iOS 26.5"
+  ],
+  "futureTargetWhiteContrast": 3.35,
+  "defaultFontSize": 6,
+  "largeFontSize": 7.5,
+  "method": {
+    "colors": "Modal flat-fill RGB pixels, excluding neutral pixels and category hues outside ±24 degrees",
+    "contrast": "WCAG relative luminance in linear sRGB; white=(1,1,1); 1.05/(Y+0.05)",
+    "density": "(1-OKLab L_past)/(1-OKLab L_future); V2 target=.45/.50/.55",
+    "encodedSRGBDensity": "projection of white-minus-past on white-minus-future (reference alpha estimate)",
+    "border": "V2 past edge matches opaque fill; future edge and V1 edge use existing rendering",
+    "sources": [
+      "https://bottosson.github.io/posts/oklab/",
+      "https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html"
+    ]
+  },
+  "measurements": [
+    {
+      "theme": "daybreak",
+      "variant": "v0",
+      "category": "blue",
+      "label": "仕事",
+      "sourceHex": "#537BC5",
+      "futureHex": "#6F90CD",
+      "pastHex": "#A1B6DD",
+      "futureWhiteContrast": 3.2077,
+      "pastWhiteContrast": 2.0486,
+      "perceptualDensity": 0.6531,
+      "encodedSRGBDensity": 0.6564,
+      "sourceImage": "45-past-compare-v0-light.png",
+      "sample": {
+        "past": {
+          "regionPixels": [
+            15,
+            2055,
+            155,
+            2241
+          ],
+          "matchingFillPixels": 2728
+        },
+        "future": {
+          "regionPixels": [
+            533,
+            2055,
+            673,
+            2241
+          ],
+          "matchingFillPixels": 2723
+        }
+      }
+    },
+    {
+      "theme": "daybreak",
+      "variant": "v0",
+      "category": "purple",
+      "label": "読書",
+      "sourceHex": "#995DC4",
+      "futureHex": "#A977CC",
+      "pastHex": "#C7A6DC",
+      "futureWhiteContrast": 3.3884,
+      "pastWhiteContrast": 2.1177,
+      "perceptualDensity": 0.6548,
+      "encodedSRGBDensity": 0.6565,
+      "sourceImage": "45-past-compare-v0-light.png",
+      "sample": {
+        "past": {
+          "regionPixels": [
+            15,
+            2055,
+            155,
+            2241
+          ],
+          "matchingFillPixels": 4796
+        },
+        "future": {
+          "regionPixels": [
+            533,
+            2055,
+            673,
+            2241
+          ],
+          "matchingFillPixels": 2588
+        }
+      }
+    },
+    {
+      "theme": "daybreak",
+      "variant": "v0",
+      "category": "orange",
+      "label": "用事（買い物）",
+      "sourceHex": "#C37A42",
+      "futureHex": "#CD8F5F",
+      "pastHex": "#DEB595",
+      "futureWhiteContrast": 2.7308,
+      "pastWhiteContrast": 1.8835,
+      "perceptualDensity": 0.6637,
+      "encodedSRGBDensity": 0.6618,
+      "sourceImage": "45-past-compare-v0-light.png",
+      "sample": {
+        "past": {
+          "regionPixels": [
+            188,
+            2055,
+            327,
+            2241
+          ],
+          "matchingFillPixels": 2563
+        },
+        "future": {
+          "regionPixels": [
+            706,
+            2055,
+            846,
+            2241
+          ],
+          "matchingFillPixels": 2578
+        }
+      }
+    },
+    {
+      "theme": "daybreak",
+      "variant": "v0",
+      "category": "green",
+      "label": "運動",
+      "sourceHex": "#389D70",
+      "futureHex": "#58AC86",
+      "pastHex": "#92C8AE",
+      "futureWhiteContrast": 2.7414,
+      "pastWhiteContrast": 1.8927,
+      "perceptualDensity": 0.6647,
+      "encodedSRGBDensity": 0.659,
+      "sourceImage": "45-past-compare-v0-light.png",
+      "sample": {
+        "past": {
+          "regionPixels": [
+            188,
+            2055,
+            327,
+            2241
+          ],
+          "matchingFillPixels": 2571
+        },
+        "future": {
+          "regionPixels": [
+            706,
+            2055,
+            846,
+            2241
+          ],
+          "matchingFillPixels": 2591
+        }
+      }
+    },
+    {
+      "theme": "daybreak",
+      "variant": "v0",
+      "category": "pink",
+      "label": "休み",
+      "sourceHex": "#D96996",
+      "futureHex": "#DF81A6",
+      "pastHex": "#EAACC3",
+      "futureWhiteContrast": 2.6826,
+      "pastWhiteContrast": 1.8771,
+      "perceptualDensity": 0.671,
+      "encodedSRGBDensity": 0.6636,
+      "sourceImage": "45-past-compare-v0-light.png",
+      "sample": {
+        "past": {
+          "regionPixels": [
+            188,
+            2055,
+            327,
+            2241
+          ],
+          "matchingFillPixels": 2999
+        },
+        "future": {
+          "regionPixels": [
+            706,
+            2055,
+            846,
+            2241
+          ],
+          "matchingFillPixels": 3020
+        }
+      }
+    },
+    {
+      "theme": "daybreak",
+      "variant": "v1",
+      "category": "blue",
+      "label": "仕事",
+      "sourceHex": "#537BC5",
+      "futureHex": "#638CD7",
+      "pastHex": "#B1C4E8",
+      "futureWhiteContrast": 3.353,
+      "pastWhiteContrast": 1.7602,
+      "perceptualDensity": 0.5101,
+      "encodedSRGBDensity": 0.5075,
+      "sourceImage": "45-past-compare-v1-light.png",
+      "sample": {
+        "past": {
+          "regionPixels": [
+            15,
+            2055,
+            155,
+            2241
+          ],
+          "matchingFillPixels": 2673
+        },
+        "future": {
+          "regionPixels": [
+            533,
+            2055,
+            673,
+            2241
+          ],
+          "matchingFillPixels": 2723
+        }
+      }
+    },
+    {
+      "theme": "daybreak",
+      "variant": "v1",
+      "category": "purple",
+      "label": "読書",
+      "sourceHex": "#995DC4",
+      "futureHex": "#AD71DA",
+      "pastHex": "#D6B7E9",
+      "futureWhiteContrast": 3.4139,
+      "pastWhiteContrast": 1.7783,
+      "perceptualDensity": 0.5135,
+      "encodedSRGBDensity": 0.5096,
+      "sourceImage": "45-past-compare-v1-light.png",
+      "sample": {
+        "past": {
+          "regionPixels": [
+            15,
+            2055,
+            155,
+            2241
+          ],
+          "matchingFillPixels": 4604
+        },
+        "future": {
+          "regionPixels": [
+            533,
+            2055,
+            673,
+            2241
+          ],
+          "matchingFillPixels": 2588
+        }
+      }
+    },
+    {
+      "theme": "daybreak",
+      "variant": "v1",
+      "category": "orange",
+      "label": "用事（買い物）",
+      "sourceHex": "#C37A42",
+      "futureHex": "#C47B43",
+      "pastHex": "#E1BC9E",
+      "futureWhiteContrast": 3.3539,
+      "pastWhiteContrast": 1.7664,
+      "perceptualDensity": 0.5137,
+      "encodedSRGBDensity": 0.5129,
+      "sourceImage": "45-past-compare-v1-light.png",
+      "sample": {
+        "past": {
+          "regionPixels": [
+            188,
+            2055,
+            327,
+            2241
+          ],
+          "matchingFillPixels": 2503
+        },
+        "future": {
+          "regionPixels": [
+            706,
+            2055,
+            846,
+            2241
+          ],
+          "matchingFillPixels": 2578
+        }
+      }
+    },
+    {
+      "theme": "daybreak",
+      "variant": "v1",
+      "category": "green",
+      "label": "運動",
+      "sourceHex": "#389D70",
+      "futureHex": "#399E70",
+      "pastHex": "#9BCDB4",
+      "futureWhiteContrast": 3.334,
+      "pastWhiteContrast": 1.7819,
+      "perceptualDensity": 0.5214,
+      "encodedSRGBDensity": 0.5122,
+      "sourceImage": "45-past-compare-v1-light.png",
+      "sample": {
+        "past": {
+          "regionPixels": [
+            188,
+            2055,
+            327,
+            2241
+          ],
+          "matchingFillPixels": 2509
+        },
+        "future": {
+          "regionPixels": [
+            706,
+            2055,
+            846,
+            2241
+          ],
+          "matchingFillPixels": 2591
+        }
+      }
+    },
+    {
+      "theme": "daybreak",
+      "variant": "v1",
+      "category": "pink",
+      "label": "休み",
+      "sourceHex": "#D96996",
+      "futureHex": "#D76794",
+      "pastHex": "#EBB2C6",
+      "futureWhiteContrast": 3.3562,
+      "pastWhiteContrast": 1.7924,
+      "perceptualDensity": 0.5254,
+      "encodedSRGBDensity": 0.5146,
+      "sourceImage": "45-past-compare-v1-light.png",
+      "sample": {
+        "past": {
+          "regionPixels": [
+            188,
+            2055,
+            327,
+            2241
+          ],
+          "matchingFillPixels": 2984
+        },
+        "future": {
+          "regionPixels": [
+            706,
+            2055,
+            846,
+            2241
+          ],
+          "matchingFillPixels": 3017
+        }
+      }
+    },
+    {
+      "theme": "daybreak",
+      "variant": "v2-45",
+      "category": "blue",
+      "label": "仕事",
+      "sourceHex": "#537BC5",
+      "futureHex": "#638CD7",
+      "pastHex": "#AECBFF",
+      "futureWhiteContrast": 3.353,
+      "pastWhiteContrast": 1.6424,
+      "perceptualDensity": 0.4513,
+      "encodedSRGBDensity": 0.4754,
+      "sourceImage": "45-past-compare-v2-45-light.png",
+      "sample": {
+        "past": {
+          "regionPixels": [
+            15,
+            2055,
+            155,
+            2241
+          ],
+          "matchingFillPixels": 3506
+        },
+        "future": {
+          "regionPixels": [
+            533,
+            2055,
+            673,
+            2241
+          ],
+          "matchingFillPixels": 2723
+        }
+      }
+    },
+    {
+      "theme": "daybreak",
+      "variant": "v2-45",
+      "category": "purple",
+      "label": "読書",
+      "sourceHex": "#995DC4",
+      "futureHex": "#AD71DA",
+      "pastHex": "#E0BAFF",
+      "futureWhiteContrast": 3.4139,
+      "pastWhiteContrast": 1.6618,
+      "perceptualDensity": 0.4479,
+      "encodedSRGBDensity": 0.4367,
+      "sourceImage": "45-past-compare-v2-45-light.png",
+      "sample": {
+        "past": {
+          "regionPixels": [
+            15,
+            2055,
+            155,
+            2241
+          ],
+          "matchingFillPixels": 6262
+        },
+        "future": {
+          "regionPixels": [
+            533,
+            2055,
+            673,
+            2241
+          ],
+          "matchingFillPixels": 2588
+        }
+      }
+    },
+    {
+      "theme": "daybreak",
+      "variant": "v2-45",
+      "category": "orange",
+      "label": "用事（買い物）",
+      "sourceHex": "#C37A42",
+      "futureHex": "#C47B43",
+      "pastHex": "#F5BE98",
+      "futureWhiteContrast": 3.3539,
+      "pastWhiteContrast": 1.6534,
+      "perceptualDensity": 0.4508,
+      "encodedSRGBDensity": 0.5073,
+      "sourceImage": "45-past-compare-v2-45-light.png",
+      "sample": {
+        "past": {
+          "regionPixels": [
+            188,
+            2055,
+            327,
+            2241
+          ],
+          "matchingFillPixels": 3329
+        },
+        "future": {
+          "regionPixels": [
+            706,
+            2055,
+            846,
+            2241
+          ],
+          "matchingFillPixels": 2578
+        }
+      }
+    },
+    {
+      "theme": "daybreak",
+      "variant": "v2-45",
+      "category": "green",
+      "label": "運動",
+      "sourceHex": "#389D70",
+      "futureHex": "#399E70",
+      "pastHex": "#99D9B7",
+      "futureWhiteContrast": 3.334,
+      "pastWhiteContrast": 1.6199,
+      "perceptualDensity": 0.45,
+      "encodedSRGBDensity": 0.4949,
+      "sourceImage": "45-past-compare-v2-45-light.png",
+      "sample": {
+        "past": {
+          "regionPixels": [
+            188,
+            2055,
+            327,
+            2241
+          ],
+          "matchingFillPixels": 3337
+        },
+        "future": {
+          "regionPixels": [
+            706,
+            2055,
+            846,
+            2241
+          ],
+          "matchingFillPixels": 2591
+        }
+      }
+    },
+    {
+      "theme": "daybreak",
+      "variant": "v2-45",
+      "category": "pink",
+      "label": "休み",
+      "sourceHex": "#D96996",
+      "futureHex": "#D76794",
+      "pastHex": "#FFB4CE",
+      "futureWhiteContrast": 3.3562,
+      "pastWhiteContrast": 1.6572,
+      "perceptualDensity": 0.4481,
+      "encodedSRGBDensity": 0.4603,
+      "sourceImage": "45-past-compare-v2-45-light.png",
+      "sample": {
+        "past": {
+          "regionPixels": [
+            188,
+            2055,
+            327,
+            2241
+          ],
+          "matchingFillPixels": 3814
+        },
+        "future": {
+          "regionPixels": [
+            706,
+            2055,
+            846,
+            2241
+          ],
+          "matchingFillPixels": 3017
+        }
+      }
+    },
+    {
+      "theme": "daybreak",
+      "variant": "v2-50",
+      "category": "blue",
+      "label": "仕事",
+      "sourceHex": "#537BC5",
+      "futureHex": "#638CD7",
+      "pastHex": "#A6C5FD",
+      "futureWhiteContrast": 3.353,
+      "pastWhiteContrast": 1.7462,
+      "perceptualDensity": 0.5024,
+      "encodedSRGBDensity": 0.5269,
+      "sourceImage": "45-past-compare-v2-50-light.png",
+      "sample": {
+        "past": {
+          "regionPixels": [
+            15,
+            2055,
+            155,
+            2241
+          ],
+          "matchingFillPixels": 3506
+        },
+        "future": {
+          "regionPixels": [
+            533,
+            2055,
+            673,
+            2241
+          ],
+          "matchingFillPixels": 2723
+        }
+      }
+    },
+    {
+      "theme": "daybreak",
+      "variant": "v2-50",
+      "category": "purple",
+      "label": "読書",
+      "sourceHex": "#995DC4",
+      "futureHex": "#AD71DA",
+      "pastHex": "#DCB2FE",
+      "futureWhiteContrast": 3.4139,
+      "pastWhiteContrast": 1.7733,
+      "perceptualDensity": 0.5006,
+      "encodedSRGBDensity": 0.4898,
+      "sourceImage": "45-past-compare-v2-50-light.png",
+      "sample": {
+        "past": {
+          "regionPixels": [
+            15,
+            2055,
+            155,
+            2241
+          ],
+          "matchingFillPixels": 6262
+        },
+        "future": {
+          "regionPixels": [
+            533,
+            2055,
+            673,
+            2241
+          ],
+          "matchingFillPixels": 2588
+        }
+      }
+    },
+    {
+      "theme": "daybreak",
+      "variant": "v2-50",
+      "category": "orange",
+      "label": "用事（買い物）",
+      "sourceHex": "#C37A42",
+      "futureHex": "#C47B43",
+      "pastHex": "#EFB993",
+      "futureWhiteContrast": 3.3539,
+      "pastWhiteContrast": 1.7455,
+      "perceptualDensity": 0.4975,
+      "encodedSRGBDensity": 0.542,
+      "sourceImage": "45-past-compare-v2-50-light.png",
+      "sample": {
+        "past": {
+          "regionPixels": [
+            188,
+            2055,
+            327,
+            2241
+          ],
+          "matchingFillPixels": 3329
+        },
+        "future": {
+          "regionPixels": [
+            706,
+            2055,
+            846,
+            2241
+          ],
+          "matchingFillPixels": 2578
+        }
+      }
+    },
+    {
+      "theme": "daybreak",
+      "variant": "v2-50",
+      "category": "green",
+      "label": "運動",
+      "sourceHex": "#389D70",
+      "futureHex": "#399E70",
+      "pastHex": "#93D3B1",
+      "futureWhiteContrast": 3.334,
+      "pastWhiteContrast": 1.7223,
+      "perceptualDensity": 0.4998,
+      "encodedSRGBDensity": 0.5329,
+      "sourceImage": "45-past-compare-v2-50-light.png",
+      "sample": {
+        "past": {
+          "regionPixels": [
+            188,
+            2055,
+            327,
+            2241
+          ],
+          "matchingFillPixels": 3337
+        },
+        "future": {
+          "regionPixels": [
+            706,
+            2055,
+            846,
+            2241
+          ],
+          "matchingFillPixels": 2591
+        }
+      }
+    },
+    {
+      "theme": "daybreak",
+      "variant": "v2-50",
+      "category": "pink",
+      "label": "休み",
+      "sourceHex": "#D96996",
+      "futureHex": "#D76794",
+      "pastHex": "#FEABC9",
+      "futureWhiteContrast": 3.3562,
+      "pastWhiteContrast": 1.7673,
+      "perceptualDensity": 0.5005,
+      "encodedSRGBDensity": 0.5141,
+      "sourceImage": "45-past-compare-v2-50-light.png",
+      "sample": {
+        "past": {
+          "regionPixels": [
+            188,
+            2055,
+            327,
+            2241
+          ],
+          "matchingFillPixels": 3814
+        },
+        "future": {
+          "regionPixels": [
+            706,
+            2055,
+            846,
+            2241
+          ],
+          "matchingFillPixels": 3017
+        }
+      }
+    },
+    {
+      "theme": "daybreak",
+      "variant": "v2-55",
+      "category": "blue",
+      "label": "仕事",
+      "sourceHex": "#537BC5",
+      "futureHex": "#638CD7",
+      "pastHex": "#A1C0F7",
+      "futureWhiteContrast": 3.353,
+      "pastWhiteContrast": 1.8424,
+      "perceptualDensity": 0.5471,
+      "encodedSRGBDensity": 0.5676,
+      "sourceImage": "45-past-compare-v2-55-light.png",
+      "sample": {
+        "past": {
+          "regionPixels": [
+            15,
+            2055,
+            155,
+            2241
+          ],
+          "matchingFillPixels": 3506
+        },
+        "future": {
+          "regionPixels": [
+            533,
+            2055,
+            673,
+            2241
+          ],
+          "matchingFillPixels": 2723
+        }
+      }
+    },
+    {
+      "theme": "daybreak",
+      "variant": "v2-55",
+      "category": "purple",
+      "label": "読書",
+      "sourceHex": "#995DC4",
+      "futureHex": "#AD71DA",
+      "pastHex": "#D6ADF8",
+      "futureWhiteContrast": 3.4139,
+      "pastWhiteContrast": 1.8763,
+      "perceptualDensity": 0.5491,
+      "encodedSRGBDensity": 0.5402,
+      "sourceImage": "45-past-compare-v2-55-light.png",
+      "sample": {
+        "past": {
+          "regionPixels": [
+            15,
+            2055,
+            155,
+            2241
+          ],
+          "matchingFillPixels": 6262
+        },
+        "future": {
+          "regionPixels": [
+            533,
+            2055,
+            673,
+            2241
+          ],
+          "matchingFillPixels": 2588
+        }
+      }
+    },
+    {
+      "theme": "daybreak",
+      "variant": "v2-55",
+      "category": "orange",
+      "label": "用事（買い物）",
+      "sourceHex": "#C37A42",
+      "futureHex": "#C47B43",
+      "pastHex": "#E9B38D",
+      "futureWhiteContrast": 3.3539,
+      "pastWhiteContrast": 1.8588,
+      "perceptualDensity": 0.5504,
+      "encodedSRGBDensity": 0.5824,
+      "sourceImage": "45-past-compare-v2-55-light.png",
+      "sample": {
+        "past": {
+          "regionPixels": [
+            188,
+            2055,
+            327,
+            2241
+          ],
+          "matchingFillPixels": 3329
+        },
+        "future": {
+          "regionPixels": [
+            706,
+            2055,
+            846,
+            2241
+          ],
+          "matchingFillPixels": 2578
+        }
+      }
+    },
+    {
+      "theme": "daybreak",
+      "variant": "v2-55",
+      "category": "green",
+      "label": "運動",
+      "sourceHex": "#389D70",
+      "futureHex": "#399E70",
+      "pastHex": "#8DCDAB",
+      "futureWhiteContrast": 3.334,
+      "pastWhiteContrast": 1.8336,
+      "perceptualDensity": 0.5498,
+      "encodedSRGBDensity": 0.571,
+      "sourceImage": "45-past-compare-v2-55-light.png",
+      "sample": {
+        "past": {
+          "regionPixels": [
+            188,
+            2055,
+            327,
+            2241
+          ],
+          "matchingFillPixels": 3337
+        },
+        "future": {
+          "regionPixels": [
+            706,
+            2055,
+            846,
+            2241
+          ],
+          "matchingFillPixels": 2591
+        }
+      }
+    },
+    {
+      "theme": "daybreak",
+      "variant": "v2-55",
+      "category": "pink",
+      "label": "休み",
+      "sourceHex": "#D96996",
+      "futureHex": "#D76794",
+      "pastHex": "#F8A6C3",
+      "futureWhiteContrast": 3.3562,
+      "pastWhiteContrast": 1.8694,
+      "perceptualDensity": 0.5496,
+      "encodedSRGBDensity": 0.5595,
+      "sourceImage": "45-past-compare-v2-55-light.png",
+      "sample": {
+        "past": {
+          "regionPixels": [
+            188,
+            2055,
+            327,
+            2241
+          ],
+          "matchingFillPixels": 3814
+        },
+        "future": {
+          "regionPixels": [
+            706,
+            2055,
+            846,
+            2241
+          ],
+          "matchingFillPixels": 3017
+        }
+      }
+    },
+    {
+      "theme": "aurora",
+      "variant": "v0",
+      "category": "blue",
+      "label": "仕事",
+      "sourceHex": "#537BC5",
+      "futureHex": "#6D8FCD",
+      "pastHex": "#9CB5DC",
+      "futureWhiteContrast": 3.2504,
+      "pastWhiteContrast": 2.0882,
+      "perceptualDensity": 0.6637,
+      "encodedSRGBDensity": 0.6736,
+      "sourceImage": "45-past-compare-v0-aurora-light.png",
+      "sample": {
+        "past": {
+          "regionPixels": [
+            15,
+            2055,
+            155,
+            2241
+          ],
+          "matchingFillPixels": 2724
+        },
+        "future": {
+          "regionPixels": [
+            533,
+            2055,
+            673,
+            2241
+          ],
+          "matchingFillPixels": 2723
+        }
+      }
+    },
+    {
+      "theme": "aurora",
+      "variant": "v0",
+      "category": "purple",
+      "label": "読書",
+      "sourceHex": "#995DC4",
+      "futureHex": "#A876CC",
+      "pastHex": "#C2A5DC",
+      "futureWhiteContrast": 3.4267,
+      "pastWhiteContrast": 2.1629,
+      "perceptualDensity": 0.6679,
+      "encodedSRGBDensity": 0.6711,
+      "sourceImage": "45-past-compare-v0-aurora-light.png",
+      "sample": {
+        "past": {
+          "regionPixels": [
+            15,
+            2055,
+            155,
+            2241
+          ],
+          "matchingFillPixels": 4796
+        },
+        "future": {
+          "regionPixels": [
+            533,
+            2055,
+            673,
+            2241
+          ],
+          "matchingFillPixels": 2588
+        }
+      }
+    },
+    {
+      "theme": "aurora",
+      "variant": "v0",
+      "category": "orange",
+      "label": "用事（買い物）",
+      "sourceHex": "#C37A42",
+      "futureHex": "#CB8F5F",
+      "pastHex": "#D9B594",
+      "futureWhiteContrast": 2.751,
+      "pastWhiteContrast": 1.9113,
+      "perceptualDensity": 0.6754,
+      "encodedSRGBDensity": 0.6704,
+      "sourceImage": "45-past-compare-v0-aurora-light.png",
+      "sample": {
+        "past": {
+          "regionPixels": [
+            188,
+            2055,
+            327,
+            2241
+          ],
+          "matchingFillPixels": 2563
+        },
+        "future": {
+          "regionPixels": [
+            706,
+            2055,
+            846,
+            2241
+          ],
+          "matchingFillPixels": 2578
+        }
+      }
+    },
+    {
+      "theme": "aurora",
+      "variant": "v0",
+      "category": "green",
+      "label": "運動",
+      "sourceHex": "#389D70",
+      "futureHex": "#56AC86",
+      "pastHex": "#8DC8AE",
+      "futureWhiteContrast": 2.7484,
+      "pastWhiteContrast": 1.9081,
+      "perceptualDensity": 0.6721,
+      "encodedSRGBDensity": 0.6714,
+      "sourceImage": "45-past-compare-v0-aurora-light.png",
+      "sample": {
+        "past": {
+          "regionPixels": [
+            188,
+            2055,
+            327,
+            2241
+          ],
+          "matchingFillPixels": 2571
+        },
+        "future": {
+          "regionPixels": [
+            706,
+            2055,
+            846,
+            2241
+          ],
+          "matchingFillPixels": 2591
+        }
+      }
+    },
+    {
+      "theme": "aurora",
+      "variant": "v0",
+      "category": "pink",
+      "label": "休み",
+      "sourceHex": "#D96996",
+      "futureHex": "#DD80A6",
+      "pastHex": "#E5ABC2",
+      "futureWhiteContrast": 2.7228,
+      "pastWhiteContrast": 1.9203,
+      "perceptualDensity": 0.6865,
+      "encodedSRGBDensity": 0.6737,
+      "sourceImage": "45-past-compare-v0-aurora-light.png",
+      "sample": {
+        "past": {
+          "regionPixels": [
+            188,
+            2055,
+            327,
+            2241
+          ],
+          "matchingFillPixels": 2999
+        },
+        "future": {
+          "regionPixels": [
+            706,
+            2055,
+            846,
+            2241
+          ],
+          "matchingFillPixels": 3020
+        }
+      }
+    },
+    {
+      "theme": "aurora",
+      "variant": "v1",
+      "category": "blue",
+      "label": "仕事",
+      "sourceHex": "#537BC5",
+      "futureHex": "#638CD7",
+      "pastHex": "#ABC3E8",
+      "futureWhiteContrast": 3.353,
+      "pastWhiteContrast": 1.7944,
+      "perceptualDensity": 0.5276,
+      "encodedSRGBDensity": 0.5343,
+      "sourceImage": "45-past-compare-v1-aurora-light.png",
+      "sample": {
+        "past": {
+          "regionPixels": [
+            15,
+            2055,
+            155,
+            2241
+          ],
+          "matchingFillPixels": 2673
+        },
+        "future": {
+          "regionPixels": [
+            533,
+            2055,
+            673,
+            2241
+          ],
+          "matchingFillPixels": 2723
+        }
+      }
+    },
+    {
+      "theme": "aurora",
+      "variant": "v1",
+      "category": "purple",
+      "label": "読書",
+      "sourceHex": "#995DC4",
+      "futureHex": "#AD71DA",
+      "pastHex": "#D0B6E9",
+      "futureWhiteContrast": 3.4139,
+      "pastWhiteContrast": 1.8182,
+      "perceptualDensity": 0.5341,
+      "encodedSRGBDensity": 0.532,
+      "sourceImage": "45-past-compare-v1-aurora-light.png",
+      "sample": {
+        "past": {
+          "regionPixels": [
+            15,
+            2055,
+            155,
+            2241
+          ],
+          "matchingFillPixels": 4604
+        },
+        "future": {
+          "regionPixels": [
+            533,
+            2055,
+            673,
+            2241
+          ],
+          "matchingFillPixels": 2588
+        }
+      }
+    },
+    {
+      "theme": "aurora",
+      "variant": "v1",
+      "category": "orange",
+      "label": "用事（買い物）",
+      "sourceHex": "#C37A42",
+      "futureHex": "#C47B43",
+      "pastHex": "#DCBB9D",
+      "futureWhiteContrast": 3.3539,
+      "pastWhiteContrast": 1.8044,
+      "perceptualDensity": 0.5333,
+      "encodedSRGBDensity": 0.5238,
+      "sourceImage": "45-past-compare-v1-aurora-light.png",
+      "sample": {
+        "past": {
+          "regionPixels": [
+            188,
+            2055,
+            327,
+            2241
+          ],
+          "matchingFillPixels": 2503
+        },
+        "future": {
+          "regionPixels": [
+            706,
+            2055,
+            846,
+            2241
+          ],
+          "matchingFillPixels": 2578
+        }
+      }
+    },
+    {
+      "theme": "aurora",
+      "variant": "v1",
+      "category": "green",
+      "label": "運動",
+      "sourceHex": "#389D70",
+      "futureHex": "#399E70",
+      "pastHex": "#96CCB4",
+      "futureWhiteContrast": 3.334,
+      "pastWhiteContrast": 1.8114,
+      "perceptualDensity": 0.5355,
+      "encodedSRGBDensity": 0.528,
+      "sourceImage": "45-past-compare-v1-aurora-light.png",
+      "sample": {
+        "past": {
+          "regionPixels": [
+            188,
+            2055,
+            327,
+            2241
+          ],
+          "matchingFillPixels": 2509
+        },
+        "future": {
+          "regionPixels": [
+            706,
+            2055,
+            846,
+            2241
+          ],
+          "matchingFillPixels": 2591
+        }
+      }
+    },
+    {
+      "theme": "aurora",
+      "variant": "v1",
+      "category": "pink",
+      "label": "休み",
+      "sourceHex": "#D96996",
+      "futureHex": "#D76794",
+      "pastHex": "#E5B1C6",
+      "futureWhiteContrast": 3.3562,
+      "pastWhiteContrast": 1.8363,
+      "perceptualDensity": 0.5481,
+      "encodedSRGBDensity": 0.5254,
+      "sourceImage": "45-past-compare-v1-aurora-light.png",
+      "sample": {
+        "past": {
+          "regionPixels": [
+            188,
+            2055,
+            327,
+            2241
+          ],
+          "matchingFillPixels": 2984
+        },
+        "future": {
+          "regionPixels": [
+            706,
+            2055,
+            846,
+            2241
+          ],
+          "matchingFillPixels": 3017
+        }
+      }
+    },
+    {
+      "theme": "aurora",
+      "variant": "v2-45",
+      "category": "blue",
+      "label": "仕事",
+      "sourceHex": "#537BC5",
+      "futureHex": "#638CD7",
+      "pastHex": "#AECBFF",
+      "futureWhiteContrast": 3.353,
+      "pastWhiteContrast": 1.6424,
+      "perceptualDensity": 0.4513,
+      "encodedSRGBDensity": 0.4754,
+      "sourceImage": "45-past-compare-v2-45-aurora-light.png",
+      "sample": {
+        "past": {
+          "regionPixels": [
+            15,
+            2055,
+            155,
+            2241
+          ],
+          "matchingFillPixels": 3506
+        },
+        "future": {
+          "regionPixels": [
+            533,
+            2055,
+            673,
+            2241
+          ],
+          "matchingFillPixels": 2723
+        }
+      }
+    },
+    {
+      "theme": "aurora",
+      "variant": "v2-45",
+      "category": "purple",
+      "label": "読書",
+      "sourceHex": "#995DC4",
+      "futureHex": "#AD71DA",
+      "pastHex": "#E0BAFF",
+      "futureWhiteContrast": 3.4139,
+      "pastWhiteContrast": 1.6618,
+      "perceptualDensity": 0.4479,
+      "encodedSRGBDensity": 0.4367,
+      "sourceImage": "45-past-compare-v2-45-aurora-light.png",
+      "sample": {
+        "past": {
+          "regionPixels": [
+            15,
+            2055,
+            155,
+            2241
+          ],
+          "matchingFillPixels": 6262
+        },
+        "future": {
+          "regionPixels": [
+            533,
+            2055,
+            673,
+            2241
+          ],
+          "matchingFillPixels": 2588
+        }
+      }
+    },
+    {
+      "theme": "aurora",
+      "variant": "v2-45",
+      "category": "orange",
+      "label": "用事（買い物）",
+      "sourceHex": "#C37A42",
+      "futureHex": "#C47B43",
+      "pastHex": "#F5BE98",
+      "futureWhiteContrast": 3.3539,
+      "pastWhiteContrast": 1.6534,
+      "perceptualDensity": 0.4508,
+      "encodedSRGBDensity": 0.5073,
+      "sourceImage": "45-past-compare-v2-45-aurora-light.png",
+      "sample": {
+        "past": {
+          "regionPixels": [
+            188,
+            2055,
+            327,
+            2241
+          ],
+          "matchingFillPixels": 3329
+        },
+        "future": {
+          "regionPixels": [
+            706,
+            2055,
+            846,
+            2241
+          ],
+          "matchingFillPixels": 2578
+        }
+      }
+    },
+    {
+      "theme": "aurora",
+      "variant": "v2-45",
+      "category": "green",
+      "label": "運動",
+      "sourceHex": "#389D70",
+      "futureHex": "#399E70",
+      "pastHex": "#99D9B7",
+      "futureWhiteContrast": 3.334,
+      "pastWhiteContrast": 1.6199,
+      "perceptualDensity": 0.45,
+      "encodedSRGBDensity": 0.4949,
+      "sourceImage": "45-past-compare-v2-45-aurora-light.png",
+      "sample": {
+        "past": {
+          "regionPixels": [
+            188,
+            2055,
+            327,
+            2241
+          ],
+          "matchingFillPixels": 3337
+        },
+        "future": {
+          "regionPixels": [
+            706,
+            2055,
+            846,
+            2241
+          ],
+          "matchingFillPixels": 2591
+        }
+      }
+    },
+    {
+      "theme": "aurora",
+      "variant": "v2-45",
+      "category": "pink",
+      "label": "休み",
+      "sourceHex": "#D96996",
+      "futureHex": "#D76794",
+      "pastHex": "#FFB4CE",
+      "futureWhiteContrast": 3.3562,
+      "pastWhiteContrast": 1.6572,
+      "perceptualDensity": 0.4481,
+      "encodedSRGBDensity": 0.4603,
+      "sourceImage": "45-past-compare-v2-45-aurora-light.png",
+      "sample": {
+        "past": {
+          "regionPixels": [
+            188,
+            2055,
+            327,
+            2241
+          ],
+          "matchingFillPixels": 3814
+        },
+        "future": {
+          "regionPixels": [
+            706,
+            2055,
+            846,
+            2241
+          ],
+          "matchingFillPixels": 3017
+        }
+      }
+    },
+    {
+      "theme": "aurora",
+      "variant": "v2-50",
+      "category": "blue",
+      "label": "仕事",
+      "sourceHex": "#537BC5",
+      "futureHex": "#638CD7",
+      "pastHex": "#A6C5FD",
+      "futureWhiteContrast": 3.353,
+      "pastWhiteContrast": 1.7462,
+      "perceptualDensity": 0.5024,
+      "encodedSRGBDensity": 0.5269,
+      "sourceImage": "45-past-compare-v2-50-aurora-light.png",
+      "sample": {
+        "past": {
+          "regionPixels": [
+            15,
+            2055,
+            155,
+            2241
+          ],
+          "matchingFillPixels": 3506
+        },
+        "future": {
+          "regionPixels": [
+            533,
+            2055,
+            673,
+            2241
+          ],
+          "matchingFillPixels": 2723
+        }
+      }
+    },
+    {
+      "theme": "aurora",
+      "variant": "v2-50",
+      "category": "purple",
+      "label": "読書",
+      "sourceHex": "#995DC4",
+      "futureHex": "#AD71DA",
+      "pastHex": "#DCB2FE",
+      "futureWhiteContrast": 3.4139,
+      "pastWhiteContrast": 1.7733,
+      "perceptualDensity": 0.5006,
+      "encodedSRGBDensity": 0.4898,
+      "sourceImage": "45-past-compare-v2-50-aurora-light.png",
+      "sample": {
+        "past": {
+          "regionPixels": [
+            15,
+            2055,
+            155,
+            2241
+          ],
+          "matchingFillPixels": 6262
+        },
+        "future": {
+          "regionPixels": [
+            533,
+            2055,
+            673,
+            2241
+          ],
+          "matchingFillPixels": 2588
+        }
+      }
+    },
+    {
+      "theme": "aurora",
+      "variant": "v2-50",
+      "category": "orange",
+      "label": "用事（買い物）",
+      "sourceHex": "#C37A42",
+      "futureHex": "#C47B43",
+      "pastHex": "#EFB993",
+      "futureWhiteContrast": 3.3539,
+      "pastWhiteContrast": 1.7455,
+      "perceptualDensity": 0.4975,
+      "encodedSRGBDensity": 0.542,
+      "sourceImage": "45-past-compare-v2-50-aurora-light.png",
+      "sample": {
+        "past": {
+          "regionPixels": [
+            188,
+            2055,
+            327,
+            2241
+          ],
+          "matchingFillPixels": 3329
+        },
+        "future": {
+          "regionPixels": [
+            706,
+            2055,
+            846,
+            2241
+          ],
+          "matchingFillPixels": 2578
+        }
+      }
+    },
+    {
+      "theme": "aurora",
+      "variant": "v2-50",
+      "category": "green",
+      "label": "運動",
+      "sourceHex": "#389D70",
+      "futureHex": "#399E70",
+      "pastHex": "#93D3B1",
+      "futureWhiteContrast": 3.334,
+      "pastWhiteContrast": 1.7223,
+      "perceptualDensity": 0.4998,
+      "encodedSRGBDensity": 0.5329,
+      "sourceImage": "45-past-compare-v2-50-aurora-light.png",
+      "sample": {
+        "past": {
+          "regionPixels": [
+            188,
+            2055,
+            327,
+            2241
+          ],
+          "matchingFillPixels": 3337
+        },
+        "future": {
+          "regionPixels": [
+            706,
+            2055,
+            846,
+            2241
+          ],
+          "matchingFillPixels": 2591
+        }
+      }
+    },
+    {
+      "theme": "aurora",
+      "variant": "v2-50",
+      "category": "pink",
+      "label": "休み",
+      "sourceHex": "#D96996",
+      "futureHex": "#D76794",
+      "pastHex": "#FEABC9",
+      "futureWhiteContrast": 3.3562,
+      "pastWhiteContrast": 1.7673,
+      "perceptualDensity": 0.5005,
+      "encodedSRGBDensity": 0.5141,
+      "sourceImage": "45-past-compare-v2-50-aurora-light.png",
+      "sample": {
+        "past": {
+          "regionPixels": [
+            188,
+            2055,
+            327,
+            2241
+          ],
+          "matchingFillPixels": 3814
+        },
+        "future": {
+          "regionPixels": [
+            706,
+            2055,
+            846,
+            2241
+          ],
+          "matchingFillPixels": 3017
+        }
+      }
+    },
+    {
+      "theme": "aurora",
+      "variant": "v2-55",
+      "category": "blue",
+      "label": "仕事",
+      "sourceHex": "#537BC5",
+      "futureHex": "#638CD7",
+      "pastHex": "#A1C0F7",
+      "futureWhiteContrast": 3.353,
+      "pastWhiteContrast": 1.8424,
+      "perceptualDensity": 0.5471,
+      "encodedSRGBDensity": 0.5676,
+      "sourceImage": "45-past-compare-v2-55-aurora-light.png",
+      "sample": {
+        "past": {
+          "regionPixels": [
+            15,
+            2055,
+            155,
+            2241
+          ],
+          "matchingFillPixels": 3506
+        },
+        "future": {
+          "regionPixels": [
+            533,
+            2055,
+            673,
+            2241
+          ],
+          "matchingFillPixels": 2723
+        }
+      }
+    },
+    {
+      "theme": "aurora",
+      "variant": "v2-55",
+      "category": "purple",
+      "label": "読書",
+      "sourceHex": "#995DC4",
+      "futureHex": "#AD71DA",
+      "pastHex": "#D6ADF8",
+      "futureWhiteContrast": 3.4139,
+      "pastWhiteContrast": 1.8763,
+      "perceptualDensity": 0.5491,
+      "encodedSRGBDensity": 0.5402,
+      "sourceImage": "45-past-compare-v2-55-aurora-light.png",
+      "sample": {
+        "past": {
+          "regionPixels": [
+            15,
+            2055,
+            155,
+            2241
+          ],
+          "matchingFillPixels": 6262
+        },
+        "future": {
+          "regionPixels": [
+            533,
+            2055,
+            673,
+            2241
+          ],
+          "matchingFillPixels": 2588
+        }
+      }
+    },
+    {
+      "theme": "aurora",
+      "variant": "v2-55",
+      "category": "orange",
+      "label": "用事（買い物）",
+      "sourceHex": "#C37A42",
+      "futureHex": "#C47B43",
+      "pastHex": "#E9B38D",
+      "futureWhiteContrast": 3.3539,
+      "pastWhiteContrast": 1.8588,
+      "perceptualDensity": 0.5504,
+      "encodedSRGBDensity": 0.5824,
+      "sourceImage": "45-past-compare-v2-55-aurora-light.png",
+      "sample": {
+        "past": {
+          "regionPixels": [
+            188,
+            2055,
+            327,
+            2241
+          ],
+          "matchingFillPixels": 3329
+        },
+        "future": {
+          "regionPixels": [
+            706,
+            2055,
+            846,
+            2241
+          ],
+          "matchingFillPixels": 2578
+        }
+      }
+    },
+    {
+      "theme": "aurora",
+      "variant": "v2-55",
+      "category": "green",
+      "label": "運動",
+      "sourceHex": "#389D70",
+      "futureHex": "#399E70",
+      "pastHex": "#8DCDAB",
+      "futureWhiteContrast": 3.334,
+      "pastWhiteContrast": 1.8336,
+      "perceptualDensity": 0.5498,
+      "encodedSRGBDensity": 0.571,
+      "sourceImage": "45-past-compare-v2-55-aurora-light.png",
+      "sample": {
+        "past": {
+          "regionPixels": [
+            188,
+            2055,
+            327,
+            2241
+          ],
+          "matchingFillPixels": 3337
+        },
+        "future": {
+          "regionPixels": [
+            706,
+            2055,
+            846,
+            2241
+          ],
+          "matchingFillPixels": 2591
+        }
+      }
+    },
+    {
+      "theme": "aurora",
+      "variant": "v2-55",
+      "category": "pink",
+      "label": "休み",
+      "sourceHex": "#D96996",
+      "futureHex": "#D76794",
+      "pastHex": "#F8A6C3",
+      "futureWhiteContrast": 3.3562,
+      "pastWhiteContrast": 1.8694,
+      "perceptualDensity": 0.5496,
+      "encodedSRGBDensity": 0.5595,
+      "sourceImage": "45-past-compare-v2-55-aurora-light.png",
+      "sample": {
+        "past": {
+          "regionPixels": [
+            188,
+            2055,
+            327,
+            2241
+          ],
+          "matchingFillPixels": 3814
+        },
+        "future": {
+          "regionPixels": [
+            706,
+            2055,
+            846,
+            2241
+          ],
+          "matchingFillPixels": 3017
+        }
+      }
+    }
+  ],
+  "sheets": [
+    {
+      "file": "45-past-compare-sheet-daybreak.png",
+      "pixels": [
+        1455,
+        2010
+      ],
+      "sha256": "b9744cda0b72564b0aadb4907023be75211871851367bef8416c2347c3d4616a",
+      "crops": [
+        {
+          "source": "45-past-compare-v0-light.png",
+          "sourceBox": [
+            0,
+            1971,
+            1206,
+            2334
+          ],
+          "destination": [
+            225,
+            95
+          ],
+          "sourceSHA256": "11a4dcee5d02577f0c0b730b91a88d01ad26012b5d53bfb1f7a7eaac2ff8a031"
+        },
+        {
+          "source": "45-past-compare-v1-light.png",
+          "sourceBox": [
+            0,
+            1971,
+            1206,
+            2334
+          ],
+          "destination": [
+            225,
+            474
+          ],
+          "sourceSHA256": "ed33bac6606fb8616f33943ce085a85b6094db0db93865813222b5ff313d63bf"
+        },
+        {
+          "source": "45-past-compare-v2-45-light.png",
+          "sourceBox": [
+            0,
+            1971,
+            1206,
+            2334
+          ],
+          "destination": [
+            225,
+            853
+          ],
+          "sourceSHA256": "19ee93ac5f0ef4715a4acae1007aa54ebec64031c665f2895224ba932c9fad04"
+        },
+        {
+          "source": "45-past-compare-v2-50-light.png",
+          "sourceBox": [
+            0,
+            1971,
+            1206,
+            2334
+          ],
+          "destination": [
+            225,
+            1232
+          ],
+          "sourceSHA256": "e0c7d4f0a5ae0cb5b276cfb677e77d458c1af51f04376813af6e6eeed3bf51eb"
+        },
+        {
+          "source": "45-past-compare-v2-55-light.png",
+          "sourceBox": [
+            0,
+            1971,
+            1206,
+            2334
+          ],
+          "destination": [
+            225,
+            1611
+          ],
+          "sourceSHA256": "9d35b4d94671e33fdee1b2f539a1148a70a9ae981a2a141403057efde37e6e09"
+        }
+      ],
+      "resampled": false
+    },
+    {
+      "file": "45-past-compare-sheet-aurora.png",
+      "pixels": [
+        1455,
+        2010
+      ],
+      "sha256": "265f5af58dcf7e14404b0910a9bfab78e8941a893959bca839395db60a673eb7",
+      "crops": [
+        {
+          "source": "45-past-compare-v0-aurora-light.png",
+          "sourceBox": [
+            0,
+            1971,
+            1206,
+            2334
+          ],
+          "destination": [
+            225,
+            95
+          ],
+          "sourceSHA256": "192c5ea53d53d3c72ad49724257f4553545d327d3b75faade34d6f495d541912"
+        },
+        {
+          "source": "45-past-compare-v1-aurora-light.png",
+          "sourceBox": [
+            0,
+            1971,
+            1206,
+            2334
+          ],
+          "destination": [
+            225,
+            474
+          ],
+          "sourceSHA256": "7831086a08780a86375ea73ba399ec8c0fa955fbfdb160dbea1fea5cc10fce1e"
+        },
+        {
+          "source": "45-past-compare-v2-45-aurora-light.png",
+          "sourceBox": [
+            0,
+            1971,
+            1206,
+            2334
+          ],
+          "destination": [
+            225,
+            853
+          ],
+          "sourceSHA256": "67a1384eff3f1c536b84e0956cde8ac66fe95ba5ec04a026e839d2b1fefdb8c5"
+        },
+        {
+          "source": "45-past-compare-v2-50-aurora-light.png",
+          "sourceBox": [
+            0,
+            1971,
+            1206,
+            2334
+          ],
+          "destination": [
+            225,
+            1232
+          ],
+          "sourceSHA256": "dfd8d332349d2bcb6453c59716269f2d9b5ee5676396e00a2f80d1392f5e411d"
+        },
+        {
+          "source": "45-past-compare-v2-55-aurora-light.png",
+          "sourceBox": [
+            0,
+            1971,
+            1206,
+            2334
+          ],
+          "destination": [
+            225,
+            1611
+          ],
+          "sourceSHA256": "00b175491a337d5af9d15373ed0a1de0b1dbd05b0d8407201aacedf08ba044ce"
+        }
+      ],
+      "resampled": false
+    }
+  ],
+  "captureGeometry": {
+    "45-past-compare-v0": {
+      "variant": "v0",
+      "theme": "daybreak",
+      "fontSize": "6",
+      "cells": {
+        "25": [
+          0.0,
+          657,
+          56.666666666666664,
+          121
+        ],
+        "26": [
+          57.666666666666664,
+          657,
+          56.333333333333336,
+          121
+        ],
+        "27": [
+          115.0,
+          657,
+          56.666666666666664,
+          121
+        ],
+        "28": [
+          172.66666666666666,
+          657,
+          56.666666666666664,
+          121
+        ],
+        "29": [
+          230.33333333333334,
+          657,
+          56.666666666666664,
+          121
+        ],
+        "30": [
+          288.0,
+          657,
+          56.333333333333336,
+          121
+        ],
+        "31": [
+          345.3333333333333,
+          657,
+          56.666666666666664,
+          121
+        ]
+      },
+      "referenceDate": "2026-10-27T12:00:00+09:00",
+      "launchCommand": "/Users/ryu/Library/Developer/CoreSimulator/Devices/5DA1E432-0D01-42A6-8259-B59A9CEC7854/data/Containers/Bundle/Application/7C24C31C-1615-49E4-A644-0824F8F1F6C0/Liminalog.app/Liminalog -LiminalogMonthDrawerUITests -LiminalogPastPlanComparison v0 -LiminalogInitialRootTab calendar -LiminalogInitialCalendarMode month -LiminalogUITestTheme daybreak -calendar.filter.usesCustomCategories NO -calendarPlanTitleFontSize 6 -calendarShowsPlanStartTime YES -calendarDimPastPlans YES -calendarStrikePastPlans NO -calendarTimedPlanLabelStyle background -calendarAllDayPlanLabelStyle background -calendarMultiDayPlanLabelStyle background",
+      "geometrySource": "Pixel-verified calendar grid, not an accessibility frame"
+    },
+    "45-past-compare-v1": {
+      "variant": "v1",
+      "theme": "daybreak",
+      "fontSize": "6",
+      "cells": {
+        "25": [
+          0.0,
+          657,
+          56.666666666666664,
+          121
+        ],
+        "26": [
+          57.666666666666664,
+          657,
+          56.333333333333336,
+          121
+        ],
+        "27": [
+          115.0,
+          657,
+          56.666666666666664,
+          121
+        ],
+        "28": [
+          172.66666666666666,
+          657,
+          56.666666666666664,
+          121
+        ],
+        "29": [
+          230.33333333333334,
+          657,
+          56.666666666666664,
+          121
+        ],
+        "30": [
+          288.0,
+          657,
+          56.333333333333336,
+          121
+        ],
+        "31": [
+          345.3333333333333,
+          657,
+          56.666666666666664,
+          121
+        ]
+      },
+      "referenceDate": "2026-10-27T12:00:00+09:00",
+      "launchCommand": "/Users/ryu/Library/Developer/CoreSimulator/Devices/5DA1E432-0D01-42A6-8259-B59A9CEC7854/data/Containers/Bundle/Application/7C24C31C-1615-49E4-A644-0824F8F1F6C0/Liminalog.app/Liminalog -LiminalogMonthDrawerUITests -LiminalogPastPlanComparison v1 -LiminalogInitialRootTab calendar -LiminalogInitialCalendarMode month -LiminalogUITestTheme daybreak -calendar.filter.usesCustomCategories NO -calendarPlanTitleFontSize 6 -calendarShowsPlanStartTime YES -calendarDimPastPlans YES -calendarStrikePastPlans NO -calendarTimedPlanLabelStyle background -calendarAllDayPlanLabelStyle background -calendarMultiDayPlanLabelStyle background",
+      "geometrySource": "Pixel-verified calendar grid, not an accessibility frame"
+    },
+    "45-past-compare-v2-45": {
+      "variant": "v2-45",
+      "theme": "daybreak",
+      "fontSize": "6",
+      "cells": {
+        "25": [
+          0.0,
+          657,
+          56.666666666666664,
+          121
+        ],
+        "26": [
+          57.666666666666664,
+          657,
+          56.333333333333336,
+          121
+        ],
+        "27": [
+          115.0,
+          657,
+          56.666666666666664,
+          121
+        ],
+        "28": [
+          172.66666666666666,
+          657,
+          56.666666666666664,
+          121
+        ],
+        "29": [
+          230.33333333333334,
+          657,
+          56.666666666666664,
+          121
+        ],
+        "30": [
+          288.0,
+          657,
+          56.333333333333336,
+          121
+        ],
+        "31": [
+          345.3333333333333,
+          657,
+          56.666666666666664,
+          121
+        ]
+      },
+      "referenceDate": "2026-10-27T12:00:00+09:00",
+      "launchCommand": "/Users/ryu/Library/Developer/CoreSimulator/Devices/5DA1E432-0D01-42A6-8259-B59A9CEC7854/data/Containers/Bundle/Application/7C24C31C-1615-49E4-A644-0824F8F1F6C0/Liminalog.app/Liminalog -LiminalogMonthDrawerUITests -LiminalogPastPlanComparison v2-45 -LiminalogInitialRootTab calendar -LiminalogInitialCalendarMode month -LiminalogUITestTheme daybreak -calendar.filter.usesCustomCategories NO -calendarPlanTitleFontSize 6 -calendarShowsPlanStartTime YES -calendarDimPastPlans YES -calendarStrikePastPlans NO -calendarTimedPlanLabelStyle background -calendarAllDayPlanLabelStyle background -calendarMultiDayPlanLabelStyle background",
+      "geometrySource": "Pixel-verified calendar grid, not an accessibility frame"
+    },
+    "45-past-compare-v2-50": {
+      "variant": "v2-50",
+      "theme": "daybreak",
+      "fontSize": "6",
+      "cells": {
+        "25": [
+          0.0,
+          657,
+          56.666666666666664,
+          121
+        ],
+        "26": [
+          57.666666666666664,
+          657,
+          56.333333333333336,
+          121
+        ],
+        "27": [
+          115.0,
+          657,
+          56.666666666666664,
+          121
+        ],
+        "28": [
+          172.66666666666666,
+          657,
+          56.666666666666664,
+          121
+        ],
+        "29": [
+          230.33333333333334,
+          657,
+          56.666666666666664,
+          121
+        ],
+        "30": [
+          288.0,
+          657,
+          56.333333333333336,
+          121
+        ],
+        "31": [
+          345.3333333333333,
+          657,
+          56.666666666666664,
+          121
+        ]
+      },
+      "referenceDate": "2026-10-27T12:00:00+09:00",
+      "launchCommand": "/Users/ryu/Library/Developer/CoreSimulator/Devices/5DA1E432-0D01-42A6-8259-B59A9CEC7854/data/Containers/Bundle/Application/7C24C31C-1615-49E4-A644-0824F8F1F6C0/Liminalog.app/Liminalog -LiminalogMonthDrawerUITests -LiminalogPastPlanComparison v2-50 -LiminalogInitialRootTab calendar -LiminalogInitialCalendarMode month -LiminalogUITestTheme daybreak -calendar.filter.usesCustomCategories NO -calendarPlanTitleFontSize 6 -calendarShowsPlanStartTime YES -calendarDimPastPlans YES -calendarStrikePastPlans NO -calendarTimedPlanLabelStyle background -calendarAllDayPlanLabelStyle background -calendarMultiDayPlanLabelStyle background",
+      "geometrySource": "Pixel-verified calendar grid, not an accessibility frame"
+    },
+    "45-past-compare-v2-55": {
+      "variant": "v2-55",
+      "theme": "daybreak",
+      "fontSize": "6",
+      "cells": {
+        "25": [
+          0.0,
+          657,
+          56.666666666666664,
+          121
+        ],
+        "26": [
+          57.666666666666664,
+          657,
+          56.333333333333336,
+          121
+        ],
+        "27": [
+          115.0,
+          657,
+          56.666666666666664,
+          121
+        ],
+        "28": [
+          172.66666666666666,
+          657,
+          56.666666666666664,
+          121
+        ],
+        "29": [
+          230.33333333333334,
+          657,
+          56.666666666666664,
+          121
+        ],
+        "30": [
+          288.0,
+          657,
+          56.333333333333336,
+          121
+        ],
+        "31": [
+          345.3333333333333,
+          657,
+          56.666666666666664,
+          121
+        ]
+      },
+      "referenceDate": "2026-10-27T12:00:00+09:00",
+      "launchCommand": "/Users/ryu/Library/Developer/CoreSimulator/Devices/5DA1E432-0D01-42A6-8259-B59A9CEC7854/data/Containers/Bundle/Application/7C24C31C-1615-49E4-A644-0824F8F1F6C0/Liminalog.app/Liminalog -LiminalogMonthDrawerUITests -LiminalogPastPlanComparison v2-55 -LiminalogInitialRootTab calendar -LiminalogInitialCalendarMode month -LiminalogUITestTheme daybreak -calendar.filter.usesCustomCategories NO -calendarPlanTitleFontSize 6 -calendarShowsPlanStartTime YES -calendarDimPastPlans YES -calendarStrikePastPlans NO -calendarTimedPlanLabelStyle background -calendarAllDayPlanLabelStyle background -calendarMultiDayPlanLabelStyle background",
+      "geometrySource": "Pixel-verified calendar grid, not an accessibility frame"
+    },
+    "45-past-compare-v0-large": {
+      "variant": "v0",
+      "theme": "daybreak",
+      "fontSize": "7.5",
+      "cells": {
+        "25": [
+          0.0,
+          657,
+          56.666666666666664,
+          121
+        ],
+        "26": [
+          57.666666666666664,
+          657,
+          56.333333333333336,
+          121
+        ],
+        "27": [
+          115.0,
+          657,
+          56.666666666666664,
+          121
+        ],
+        "28": [
+          172.66666666666666,
+          657,
+          56.666666666666664,
+          121
+        ],
+        "29": [
+          230.33333333333334,
+          657,
+          56.666666666666664,
+          121
+        ],
+        "30": [
+          288.0,
+          657,
+          56.333333333333336,
+          121
+        ],
+        "31": [
+          345.3333333333333,
+          657,
+          56.666666666666664,
+          121
+        ]
+      },
+      "referenceDate": "2026-10-27T12:00:00+09:00",
+      "launchCommand": "/Users/ryu/Library/Developer/CoreSimulator/Devices/5DA1E432-0D01-42A6-8259-B59A9CEC7854/data/Containers/Bundle/Application/7C24C31C-1615-49E4-A644-0824F8F1F6C0/Liminalog.app/Liminalog -LiminalogMonthDrawerUITests -LiminalogPastPlanComparison v0 -LiminalogInitialRootTab calendar -LiminalogInitialCalendarMode month -LiminalogUITestTheme daybreak -calendar.filter.usesCustomCategories NO -calendarPlanTitleFontSize 7.5 -calendarShowsPlanStartTime YES -calendarDimPastPlans YES -calendarStrikePastPlans NO -calendarTimedPlanLabelStyle background -calendarAllDayPlanLabelStyle background -calendarMultiDayPlanLabelStyle background",
+      "geometrySource": "Pixel-verified calendar grid, not an accessibility frame"
+    },
+    "45-past-compare-v1-large": {
+      "variant": "v1",
+      "theme": "daybreak",
+      "fontSize": "7.5",
+      "cells": {
+        "25": [
+          0.0,
+          657,
+          56.666666666666664,
+          121
+        ],
+        "26": [
+          57.666666666666664,
+          657,
+          56.333333333333336,
+          121
+        ],
+        "27": [
+          115.0,
+          657,
+          56.666666666666664,
+          121
+        ],
+        "28": [
+          172.66666666666666,
+          657,
+          56.666666666666664,
+          121
+        ],
+        "29": [
+          230.33333333333334,
+          657,
+          56.666666666666664,
+          121
+        ],
+        "30": [
+          288.0,
+          657,
+          56.333333333333336,
+          121
+        ],
+        "31": [
+          345.3333333333333,
+          657,
+          56.666666666666664,
+          121
+        ]
+      },
+      "referenceDate": "2026-10-27T12:00:00+09:00",
+      "launchCommand": "/Users/ryu/Library/Developer/CoreSimulator/Devices/5DA1E432-0D01-42A6-8259-B59A9CEC7854/data/Containers/Bundle/Application/7C24C31C-1615-49E4-A644-0824F8F1F6C0/Liminalog.app/Liminalog -LiminalogMonthDrawerUITests -LiminalogPastPlanComparison v1 -LiminalogInitialRootTab calendar -LiminalogInitialCalendarMode month -LiminalogUITestTheme daybreak -calendar.filter.usesCustomCategories NO -calendarPlanTitleFontSize 7.5 -calendarShowsPlanStartTime YES -calendarDimPastPlans YES -calendarStrikePastPlans NO -calendarTimedPlanLabelStyle background -calendarAllDayPlanLabelStyle background -calendarMultiDayPlanLabelStyle background",
+      "geometrySource": "Pixel-verified calendar grid, not an accessibility frame"
+    },
+    "45-past-compare-v2-50-large": {
+      "variant": "v2-50",
+      "theme": "daybreak",
+      "fontSize": "7.5",
+      "cells": {
+        "25": [
+          0.0,
+          657,
+          56.666666666666664,
+          121
+        ],
+        "26": [
+          57.666666666666664,
+          657,
+          56.333333333333336,
+          121
+        ],
+        "27": [
+          115.0,
+          657,
+          56.666666666666664,
+          121
+        ],
+        "28": [
+          172.66666666666666,
+          657,
+          56.666666666666664,
+          121
+        ],
+        "29": [
+          230.33333333333334,
+          657,
+          56.666666666666664,
+          121
+        ],
+        "30": [
+          288.0,
+          657,
+          56.333333333333336,
+          121
+        ],
+        "31": [
+          345.3333333333333,
+          657,
+          56.666666666666664,
+          121
+        ]
+      },
+      "referenceDate": "2026-10-27T12:00:00+09:00",
+      "launchCommand": "/Users/ryu/Library/Developer/CoreSimulator/Devices/5DA1E432-0D01-42A6-8259-B59A9CEC7854/data/Containers/Bundle/Application/7C24C31C-1615-49E4-A644-0824F8F1F6C0/Liminalog.app/Liminalog -LiminalogMonthDrawerUITests -LiminalogPastPlanComparison v2-50 -LiminalogInitialRootTab calendar -LiminalogInitialCalendarMode month -LiminalogUITestTheme daybreak -calendar.filter.usesCustomCategories NO -calendarPlanTitleFontSize 7.5 -calendarShowsPlanStartTime YES -calendarDimPastPlans YES -calendarStrikePastPlans NO -calendarTimedPlanLabelStyle background -calendarAllDayPlanLabelStyle background -calendarMultiDayPlanLabelStyle background",
+      "geometrySource": "Pixel-verified calendar grid, not an accessibility frame"
+    },
+    "45-past-compare-v0-aurora": {
+      "variant": "v0",
+      "theme": "aurora",
+      "fontSize": "6",
+      "cells": {
+        "25": [
+          0.0,
+          657,
+          56.666666666666664,
+          121
+        ],
+        "26": [
+          57.666666666666664,
+          657,
+          56.333333333333336,
+          121
+        ],
+        "27": [
+          115.0,
+          657,
+          56.666666666666664,
+          121
+        ],
+        "28": [
+          172.66666666666666,
+          657,
+          56.666666666666664,
+          121
+        ],
+        "29": [
+          230.33333333333334,
+          657,
+          56.666666666666664,
+          121
+        ],
+        "30": [
+          288.0,
+          657,
+          56.333333333333336,
+          121
+        ],
+        "31": [
+          345.3333333333333,
+          657,
+          56.666666666666664,
+          121
+        ]
+      },
+      "referenceDate": "2026-10-27T12:00:00+09:00",
+      "launchCommand": "/Users/ryu/Library/Developer/CoreSimulator/Devices/5DA1E432-0D01-42A6-8259-B59A9CEC7854/data/Containers/Bundle/Application/7C24C31C-1615-49E4-A644-0824F8F1F6C0/Liminalog.app/Liminalog -LiminalogMonthDrawerUITests -LiminalogPastPlanComparison v0 -LiminalogInitialRootTab calendar -LiminalogInitialCalendarMode month -LiminalogUITestTheme aurora -calendar.filter.usesCustomCategories NO -calendarPlanTitleFontSize 6 -calendarShowsPlanStartTime YES -calendarDimPastPlans YES -calendarStrikePastPlans NO -calendarTimedPlanLabelStyle background -calendarAllDayPlanLabelStyle background -calendarMultiDayPlanLabelStyle background",
+      "geometrySource": "Pixel-verified calendar grid, not an accessibility frame"
+    },
+    "45-past-compare-v1-aurora": {
+      "variant": "v1",
+      "theme": "aurora",
+      "fontSize": "6",
+      "cells": {
+        "25": [
+          0.0,
+          657,
+          56.666666666666664,
+          121
+        ],
+        "26": [
+          57.666666666666664,
+          657,
+          56.333333333333336,
+          121
+        ],
+        "27": [
+          115.0,
+          657,
+          56.666666666666664,
+          121
+        ],
+        "28": [
+          172.66666666666666,
+          657,
+          56.666666666666664,
+          121
+        ],
+        "29": [
+          230.33333333333334,
+          657,
+          56.666666666666664,
+          121
+        ],
+        "30": [
+          288.0,
+          657,
+          56.333333333333336,
+          121
+        ],
+        "31": [
+          345.3333333333333,
+          657,
+          56.666666666666664,
+          121
+        ]
+      },
+      "referenceDate": "2026-10-27T12:00:00+09:00",
+      "launchCommand": "/Users/ryu/Library/Developer/CoreSimulator/Devices/5DA1E432-0D01-42A6-8259-B59A9CEC7854/data/Containers/Bundle/Application/7C24C31C-1615-49E4-A644-0824F8F1F6C0/Liminalog.app/Liminalog -LiminalogMonthDrawerUITests -LiminalogPastPlanComparison v1 -LiminalogInitialRootTab calendar -LiminalogInitialCalendarMode month -LiminalogUITestTheme aurora -calendar.filter.usesCustomCategories NO -calendarPlanTitleFontSize 6 -calendarShowsPlanStartTime YES -calendarDimPastPlans YES -calendarStrikePastPlans NO -calendarTimedPlanLabelStyle background -calendarAllDayPlanLabelStyle background -calendarMultiDayPlanLabelStyle background",
+      "geometrySource": "Pixel-verified calendar grid, not an accessibility frame"
+    },
+    "45-past-compare-v2-45-aurora": {
+      "variant": "v2-45",
+      "theme": "aurora",
+      "fontSize": "6",
+      "cells": {
+        "25": [
+          0.0,
+          657,
+          56.666666666666664,
+          121
+        ],
+        "26": [
+          57.666666666666664,
+          657,
+          56.333333333333336,
+          121
+        ],
+        "27": [
+          115.0,
+          657,
+          56.666666666666664,
+          121
+        ],
+        "28": [
+          172.66666666666666,
+          657,
+          56.666666666666664,
+          121
+        ],
+        "29": [
+          230.33333333333334,
+          657,
+          56.666666666666664,
+          121
+        ],
+        "30": [
+          288.0,
+          657,
+          56.333333333333336,
+          121
+        ],
+        "31": [
+          345.3333333333333,
+          657,
+          56.666666666666664,
+          121
+        ]
+      },
+      "referenceDate": "2026-10-27T12:00:00+09:00",
+      "launchCommand": "/Users/ryu/Library/Developer/CoreSimulator/Devices/5DA1E432-0D01-42A6-8259-B59A9CEC7854/data/Containers/Bundle/Application/7C24C31C-1615-49E4-A644-0824F8F1F6C0/Liminalog.app/Liminalog -LiminalogMonthDrawerUITests -LiminalogPastPlanComparison v2-45 -LiminalogInitialRootTab calendar -LiminalogInitialCalendarMode month -LiminalogUITestTheme aurora -calendar.filter.usesCustomCategories NO -calendarPlanTitleFontSize 6 -calendarShowsPlanStartTime YES -calendarDimPastPlans YES -calendarStrikePastPlans NO -calendarTimedPlanLabelStyle background -calendarAllDayPlanLabelStyle background -calendarMultiDayPlanLabelStyle background",
+      "geometrySource": "Pixel-verified calendar grid, not an accessibility frame"
+    },
+    "45-past-compare-v2-50-aurora": {
+      "variant": "v2-50",
+      "theme": "aurora",
+      "fontSize": "6",
+      "cells": {
+        "25": [
+          0.0,
+          657,
+          56.666666666666664,
+          121
+        ],
+        "26": [
+          57.666666666666664,
+          657,
+          56.333333333333336,
+          121
+        ],
+        "27": [
+          115.0,
+          657,
+          56.666666666666664,
+          121
+        ],
+        "28": [
+          172.66666666666666,
+          657,
+          56.666666666666664,
+          121
+        ],
+        "29": [
+          230.33333333333334,
+          657,
+          56.666666666666664,
+          121
+        ],
+        "30": [
+          288.0,
+          657,
+          56.333333333333336,
+          121
+        ],
+        "31": [
+          345.3333333333333,
+          657,
+          56.666666666666664,
+          121
+        ]
+      },
+      "referenceDate": "2026-10-27T12:00:00+09:00",
+      "launchCommand": "/Users/ryu/Library/Developer/CoreSimulator/Devices/5DA1E432-0D01-42A6-8259-B59A9CEC7854/data/Containers/Bundle/Application/7C24C31C-1615-49E4-A644-0824F8F1F6C0/Liminalog.app/Liminalog -LiminalogMonthDrawerUITests -LiminalogPastPlanComparison v2-50 -LiminalogInitialRootTab calendar -LiminalogInitialCalendarMode month -LiminalogUITestTheme aurora -calendar.filter.usesCustomCategories NO -calendarPlanTitleFontSize 6 -calendarShowsPlanStartTime YES -calendarDimPastPlans YES -calendarStrikePastPlans NO -calendarTimedPlanLabelStyle background -calendarAllDayPlanLabelStyle background -calendarMultiDayPlanLabelStyle background",
+      "geometrySource": "Pixel-verified calendar grid, not an accessibility frame"
+    },
+    "45-past-compare-v2-55-aurora": {
+      "variant": "v2-55",
+      "theme": "aurora",
+      "fontSize": "6",
+      "cells": {
+        "25": [
+          0.0,
+          657,
+          56.666666666666664,
+          121
+        ],
+        "26": [
+          57.666666666666664,
+          657,
+          56.333333333333336,
+          121
+        ],
+        "27": [
+          115.0,
+          657,
+          56.666666666666664,
+          121
+        ],
+        "28": [
+          172.66666666666666,
+          657,
+          56.666666666666664,
+          121
+        ],
+        "29": [
+          230.33333333333334,
+          657,
+          56.666666666666664,
+          121
+        ],
+        "30": [
+          288.0,
+          657,
+          56.333333333333336,
+          121
+        ],
+        "31": [
+          345.3333333333333,
+          657,
+          56.666666666666664,
+          121
+        ]
+      },
+      "referenceDate": "2026-10-27T12:00:00+09:00",
+      "launchCommand": "/Users/ryu/Library/Developer/CoreSimulator/Devices/5DA1E432-0D01-42A6-8259-B59A9CEC7854/data/Containers/Bundle/Application/7C24C31C-1615-49E4-A644-0824F8F1F6C0/Liminalog.app/Liminalog -LiminalogMonthDrawerUITests -LiminalogPastPlanComparison v2-55 -LiminalogInitialRootTab calendar -LiminalogInitialCalendarMode month -LiminalogUITestTheme aurora -calendar.filter.usesCustomCategories NO -calendarPlanTitleFontSize 6 -calendarShowsPlanStartTime YES -calendarDimPastPlans YES -calendarStrikePastPlans NO -calendarTimedPlanLabelStyle background -calendarAllDayPlanLabelStyle background -calendarMultiDayPlanLabelStyle background",
+      "geometrySource": "Pixel-verified calendar grid, not an accessibility frame"
+    },
+    "45-past-compare-v2-50-se": {
+      "cells": {
+        "25": [
+          0,
+          474,
+          52.5,
+          110
+        ],
+        "26": [
+          53.5,
+          474,
+          53,
+          110
+        ],
+        "27": [
+          107.5,
+          474,
+          52.5,
+          110
+        ],
+        "28": [
+          161,
+          474,
+          53,
+          110
+        ],
+        "29": [
+          215,
+          474,
+          52.5,
+          110
+        ],
+        "30": [
+          268.5,
+          474,
+          53,
+          110
+        ],
+        "31": [
+          322.5,
+          474,
+          52.5,
+          110
+        ]
+      },
+      "fontSize": "6",
+      "referenceDate": "2026-10-27T12:00:00+09:00",
+      "theme": "daybreak",
+      "variant": "v2-50"
+    }
+  },
+  "captureChecks": [
+    {
+      "image": "45-past-compare-v0-light.png",
+      "verifiedPastAndFutureCategories": [
+        "blue",
+        "purple",
+        "orange",
+        "green",
+        "pink"
+      ]
+    },
+    {
+      "image": "45-past-compare-v1-light.png",
+      "verifiedPastAndFutureCategories": [
+        "blue",
+        "purple",
+        "orange",
+        "green",
+        "pink"
+      ]
+    },
+    {
+      "image": "45-past-compare-v2-45-light.png",
+      "verifiedPastAndFutureCategories": [
+        "blue",
+        "purple",
+        "orange",
+        "green",
+        "pink"
+      ]
+    },
+    {
+      "image": "45-past-compare-v2-50-light.png",
+      "verifiedPastAndFutureCategories": [
+        "blue",
+        "purple",
+        "orange",
+        "green",
+        "pink"
+      ]
+    },
+    {
+      "image": "45-past-compare-v2-55-light.png",
+      "verifiedPastAndFutureCategories": [
+        "blue",
+        "purple",
+        "orange",
+        "green",
+        "pink"
+      ]
+    },
+    {
+      "image": "45-past-compare-v0-large-light.png",
+      "verifiedPastAndFutureCategories": [
+        "blue",
+        "purple",
+        "orange",
+        "green",
+        "pink"
+      ]
+    },
+    {
+      "image": "45-past-compare-v1-large-light.png",
+      "verifiedPastAndFutureCategories": [
+        "blue",
+        "purple",
+        "orange",
+        "green",
+        "pink"
+      ]
+    },
+    {
+      "image": "45-past-compare-v2-50-large-light.png",
+      "verifiedPastAndFutureCategories": [
+        "blue",
+        "purple",
+        "orange",
+        "green",
+        "pink"
+      ]
+    },
+    {
+      "image": "45-past-compare-v0-aurora-light.png",
+      "verifiedPastAndFutureCategories": [
+        "blue",
+        "purple",
+        "orange",
+        "green",
+        "pink"
+      ]
+    },
+    {
+      "image": "45-past-compare-v1-aurora-light.png",
+      "verifiedPastAndFutureCategories": [
+        "blue",
+        "purple",
+        "orange",
+        "green",
+        "pink"
+      ]
+    },
+    {
+      "image": "45-past-compare-v2-45-aurora-light.png",
+      "verifiedPastAndFutureCategories": [
+        "blue",
+        "purple",
+        "orange",
+        "green",
+        "pink"
+      ]
+    },
+    {
+      "image": "45-past-compare-v2-50-aurora-light.png",
+      "verifiedPastAndFutureCategories": [
+        "blue",
+        "purple",
+        "orange",
+        "green",
+        "pink"
+      ]
+    },
+    {
+      "image": "45-past-compare-v2-55-aurora-light.png",
+      "verifiedPastAndFutureCategories": [
+        "blue",
+        "purple",
+        "orange",
+        "green",
+        "pink"
+      ]
+    },
+    {
+      "image": "45-past-compare-v2-50-se-light.png",
+      "verifiedPastAndFutureCategories": [
+        "blue",
+        "purple",
+        "orange",
+        "green",
+        "pink"
+      ]
+    }
+  ]
+}

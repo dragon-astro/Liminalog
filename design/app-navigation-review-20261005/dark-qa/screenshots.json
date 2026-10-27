@@ -4870,5 +4870,201 @@
     "test": "CalendarMonthDrawerUITests/testPastCapsuleContrastAndDimSetting()",
     "attachments": "/private/tmp/liminalog-past-opacity-balance-20261027/se-light-attachments",
     "original": "2DBE632C-6389-477D-B349-D209F0498E11.png"
+  },
+  "45-past-compare-v0-aurora-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "192c5ea53d53d3c72ad49724257f4553545d327d3b75faade34d6f495d541912",
+    "bytes": 935638,
+    "test": "simctl/aurora/v0/font-6",
+    "attachments": "/private/tmp/liminalog-past-compare-20261027/direct-attachments",
+    "original": "45-past-compare-v0-aurora.png"
+  },
+  "45-past-compare-v0-large-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "7ea2e164f71290d9951e063d83d81970bf5e6cf1ff4358bc71f1529b89d8317f",
+    "bytes": 855059,
+    "test": "simctl/daybreak/v0/font-7.5",
+    "attachments": "/private/tmp/liminalog-past-compare-20261027/direct-attachments",
+    "original": "45-past-compare-v0-large.png"
+  },
+  "45-past-compare-v0-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "11a4dcee5d02577f0c0b730b91a88d01ad26012b5d53bfb1f7a7eaac2ff8a031",
+    "bytes": 848027,
+    "test": "simctl/daybreak/v0/font-6",
+    "attachments": "/private/tmp/liminalog-past-compare-20261027/direct-attachments",
+    "original": "45-past-compare-v0.png"
+  },
+  "45-past-compare-v1-aurora-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "7831086a08780a86375ea73ba399ec8c0fa955fbfdb160dbea1fea5cc10fce1e",
+    "bytes": 934848,
+    "test": "simctl/aurora/v1/font-6",
+    "attachments": "/private/tmp/liminalog-past-compare-20261027/direct-attachments",
+    "original": "45-past-compare-v1-aurora.png"
+  },
+  "45-past-compare-v1-large-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "b989c0d4fe1c7d62e3271a0a1564315391fd39cc595d6b63f05d8500cfb0b3cb",
+    "bytes": 853874,
+    "test": "simctl/daybreak/v1/font-7.5",
+    "attachments": "/private/tmp/liminalog-past-compare-20261027/direct-attachments",
+    "original": "45-past-compare-v1-large.png"
+  },
+  "45-past-compare-v1-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "ed33bac6606fb8616f33943ce085a85b6094db0db93865813222b5ff313d63bf",
+    "bytes": 846744,
+    "test": "simctl/daybreak/v1/font-6",
+    "attachments": "/private/tmp/liminalog-past-compare-20261027/direct-attachments",
+    "original": "45-past-compare-v1.png"
+  },
+  "45-past-compare-v2-45-aurora-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "67a1384eff3f1c536b84e0956cde8ac66fe95ba5ec04a026e839d2b1fefdb8c5",
+    "bytes": 932345,
+    "test": "simctl/aurora/v2-45/font-6",
+    "attachments": "/private/tmp/liminalog-past-compare-20261027/direct-attachments",
+    "original": "45-past-compare-v2-45-aurora.png"
+  },
+  "45-past-compare-v2-45-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "19ee93ac5f0ef4715a4acae1007aa54ebec64031c665f2895224ba932c9fad04",
+    "bytes": 844643,
+    "test": "simctl/daybreak/v2-45/font-6",
+    "attachments": "/private/tmp/liminalog-past-compare-20261027/direct-attachments",
+    "original": "45-past-compare-v2-45.png"
+  },
+  "45-past-compare-v2-50-aurora-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "dfd8d332349d2bcb6453c59716269f2d9b5ee5676396e00a2f80d1392f5e411d",
+    "bytes": 933128,
+    "test": "simctl/aurora/v2-50/font-6",
+    "attachments": "/private/tmp/liminalog-past-compare-20261027/direct-attachments",
+    "original": "45-past-compare-v2-50-aurora.png"
+  },
+  "45-past-compare-v2-50-large-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "fba6b07e63107df032c92a43980130691d5958053554962e0604f8fc32d1594f",
+    "bytes": 852501,
+    "test": "simctl/daybreak/v2-50/font-7.5",
+    "attachments": "/private/tmp/liminalog-past-compare-20261027/direct-attachments",
+    "original": "45-past-compare-v2-50-large.png"
+  },
+  "45-past-compare-v2-50-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "e0c7d4f0a5ae0cb5b276cfb677e77d458c1af51f04376813af6e6eeed3bf51eb",
+    "bytes": 845278,
+    "test": "simctl/daybreak/v2-50/font-6",
+    "attachments": "/private/tmp/liminalog-past-compare-20261027/direct-attachments",
+    "original": "45-past-compare-v2-50.png"
+  },
+  "45-past-compare-v2-50-se-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      750,
+      1334
+    ],
+    "scale": 2,
+    "sha256": "e98e1e5d21a7a323a5116760719bdf85dfb1d217ce5715e9315e71acd312be1e",
+    "bytes": 274078,
+    "test": "CalendarMonthDrawerUITests/testCapturePastPlanComparison()",
+    "attachments": "/private/tmp/liminalog-past-compare-20261027/se-a-attachments",
+    "original": "B85B3ACD-D396-4CF9-AE3A-895BB30AB14E.png"
+  },
+  "45-past-compare-v2-55-aurora-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "00b175491a337d5af9d15373ed0a1de0b1dbd05b0d8407201aacedf08ba044ce",
+    "bytes": 933369,
+    "test": "simctl/aurora/v2-55/font-6",
+    "attachments": "/private/tmp/liminalog-past-compare-20261027/direct-attachments",
+    "original": "45-past-compare-v2-55-aurora.png"
+  },
+  "45-past-compare-v2-55-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "9d35b4d94671e33fdee1b2f539a1148a70a9ae981a2a141403057efde37e6e09",
+    "bytes": 845610,
+    "test": "simctl/daybreak/v2-55/font-6",
+    "attachments": "/private/tmp/liminalog-past-compare-20261027/direct-attachments",
+    "original": "45-past-compare-v2-55.png"
   }
 }
