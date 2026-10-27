@@ -1,4 +1,4 @@
-"""Measure original Simulator PNGs and assemble native-size week crops (docs/38 §14).
+"""Measure original Simulator PNGs and assemble native-size week crops (docs/38 §16).
 
 Run after export_evidence.py, passing successful xcresult attachment directories.
 Requires Pillow. The full-screen PNGs are never modified or resampled.
@@ -14,7 +14,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 root = Path(__file__).resolve().parent
 index = json.loads((root / 'screenshots.json').read_text())
-variants = ['v0', 'v1', 'v2-45', 'v2-50', 'v2-55']
+variants = ['v0', 'past-55', 'past-50']
 categories = [
     ('blue', '仕事', '#537BC5', 220, 25, 28),
     ('purple', '読書', '#995DC4', 280, 25, 28),
@@ -27,7 +27,7 @@ for folder in map(Path, sys.argv[1:]):
     for test in json.loads((folder / 'manifest.json').read_text()):
         for attachment in test['attachments']:
             name = attachment.get('suggestedHumanReadableName', '').split('_0_')[0]
-            if name.startswith('45-past-compare-') and name.endswith('-geometry'):
+            if name.startswith('46-past-opacity-') and name.endswith('-geometry'):
                 metadata[name.removesuffix('-geometry')] = json.loads((folder / attachment['exportedFileName']).read_text())
 
 
@@ -69,7 +69,7 @@ def sample(im, cell, scale, hue):
 
 measurements = []
 geometry = {}
-assert len(metadata) == 14, 'Expected ten default, three 7.5pt and one SE capture'
+assert len(metadata) == 9, 'Expected six default and three 7.5pt captures'
 capture_checks = []
 for stem, meta in metadata.items():
     name = stem + '-light.png'
@@ -85,7 +85,7 @@ for stem, meta in metadata.items():
     capture_checks.append(dict(image=name, verifiedPastAndFutureCategories=checked))
 for theme in ('daybreak', 'aurora'):
     for variant in variants:
-        stem = '45-past-compare-' + variant + ('-aurora' if theme == 'aurora' else '')
+        stem = '46-past-opacity-' + variant + ('-aurora' if theme == 'aurora' else '')
         meta = metadata[stem]
         name = stem + '-light.png'
         im = Image.open(root / name).convert('RGB')
@@ -96,8 +96,10 @@ for theme in ('daybreak', 'aurora'):
             future, future_sample = sample(im, meta['cells'][str(future_day)], scale, hue)
             future_contrast = 1.05 / (luminance(future) + 0.05)
             past_contrast = 1.05 / (luminance(past) + 0.05)
-            if variant != 'v0':
-                assert future_contrast >= 3.0, (theme, variant, key, future_contrast)
+            baseline_name = '45-past-compare-v0' + ('-aurora' if theme == 'aurora' else '') + '-light.png'
+            baseline = Image.open(root / baseline_name).convert('RGB')
+            box = future_sample['regionPixels']
+            assert im.crop(box).tobytes() == baseline.crop(box).tobytes(), (theme, variant, key, 'future changed')
             density = (1 - lightness(past)) / (1 - lightness(future))
             # Also retain encoded-sRGB density for comparison to the reference's alpha estimate.
             fw = [255 - v for v in future]
@@ -109,13 +111,6 @@ for theme in ('daybreak', 'aurora'):
                 encodedSRGBDensity=round(srgb_density, 4), sourceImage=name,
                 sample=dict(past=past_sample, future=future_sample)))
 
-# V2 colors must be identical on the two differently tinted surfaces.
-for variant in variants[2:]:
-    for category, *_ in categories:
-        pair = [m for m in measurements if m['variant'] == variant and m['category'] == category]
-        assert len({m['pastHex'] for m in pair}) == 1, pair
-        assert len({m['futureHex'] for m in pair}) == 1, pair
-
 font_path = '/System/Library/Fonts/Hiragino Sans GB.ttc'
 font = ImageFont.truetype(font_path, 27)
 small = ImageFont.truetype(font_path, 18)
@@ -123,7 +118,7 @@ sheets = []
 for theme, title in [('daybreak', '曙'), ('aurora', '極光')]:
     crops = []
     for variant in variants:
-        stem = '45-past-compare-' + variant + ('-aurora' if theme == 'aurora' else '')
+        stem = '46-past-opacity-' + variant + ('-aurora' if theme == 'aurora' else '')
         name = stem + '-light.png'
         cells = metadata[stem]['cells']
         x, y, w, h = cells['25']
@@ -136,37 +131,36 @@ for theme, title in [('daybreak', '曙'), ('aurora', '極光')]:
     assert len({crop.size for _, _, _, crop in crops}) == 1
     left, top, gap = 225, 95, 16
     row_h = crops[0][3].height
-    sheet = Image.new('RGB', (left+1206+24, top+(row_h+gap)*5+20), '#F0F0F2')
+    sheet = Image.new('RGB', (left+1206+24, top+(row_h+gap)*len(variants)+20), '#F0F0F2')
     draw = ImageDraw.Draw(sheet)
-    draw.text((24, 18), title + '  過去と未来の比較', font=font, fill='#24242B')
+    draw.text((24, 18), title + '  元の予定の濃さを固定', font=font, fill='#24242B')
     draw.text((left, 57), '25・26日：過去　／　28-31日：未来　　文字6pt・原寸表示', font=small, fill='#52525A')
     crop_records = []
     for i, (variant, name, box, crop) in enumerate(crops):
         y = top+i*(row_h+gap)
-        draw.text((24, y+26), variant.upper(), font=font, fill='#24242B')
-        detail = {'v0': ['現行65%', '線なし'], 'v1': ['透過50%', '線あり'],
-                  'v2-45': ['淡色45%', '線あり'], 'v2-50': ['淡色50%', '線あり'],
-                  'v2-55': ['淡色55%', '線あり']}[variant]
+        label = {'v0': '現行', 'past-55': '背景55%', 'past-50': '背景50%'}[variant]
+        draw.text((24, y+26), label, font=font, fill='#24242B')
+        detail = ['全体65%', '白文字も透過'] if variant == 'v0' else ['背景のみ透過', '白文字は維持']
         for j, line in enumerate(detail):
             draw.text((24, y+72+j*30), line, font=small, fill='#52525A')
         sheet.paste(crop, (left, y))
         assert sheet.crop((left, y, left+crop.width, y+crop.height)).tobytes() == crop.tobytes()
         crop_records.append(dict(source=name, sourceBox=box, destination=[left, y], sourceSHA256=index[name]['sha256']))
-    name = '45-past-compare-sheet-' + theme + '.png'
+    name = '46-past-opacity-sheet-' + theme + '.png'
     sheet.save(root / name)
     sheets.append(dict(file=name, pixels=list(sheet.size), sha256=hashlib.sha256((root/name).read_bytes()).hexdigest(),
                        crops=crop_records, resampled=False))
 
 output = dict(schemaVersion=1, scope='DEBUG comparison only; production opacity/defaults unchanged',
-    referenceDate='2026-10-27T12:00:00+09:00', devices=['iPhone 17 / iOS 26.5', 'iPhone SE (3rd generation) / iOS 26.5'],
-    futureTargetWhiteContrast=3.35, defaultFontSize=6, largeFontSize=7.5,
+    referenceDate='2026-10-27T12:00:00+09:00', devices=['iPhone 17 / iOS 26.5'],
+    futurePixelsMatchOriginal=True, defaultFontSize=6, largeFontSize=7.5,
     method=dict(colors='Modal flat-fill RGB pixels, excluding neutral pixels and category hues outside ±24 degrees',
                 contrast='WCAG relative luminance in linear sRGB; white=(1,1,1); 1.05/(Y+0.05)',
-                density='(1-OKLab L_past)/(1-OKLab L_future); V2 target=.45/.50/.55',
+                density='(1-OKLab L_past)/(1-OKLab L_future); diagnostic only, no color conversion in app',
                 encodedSRGBDensity='projection of white-minus-past on white-minus-future (reference alpha estimate)',
-                border='V2 past edge matches opaque fill; future edge and V1 edge use existing rendering',
+                border='Past fill and edge composited together then faded; text remains white; future unchanged',
                 sources=['https://bottosson.github.io/posts/oklab/',
                          'https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html']),
     measurements=measurements, sheets=sheets, captureGeometry=metadata, captureChecks=capture_checks)
-(root / 'past-compare.json').write_text(json.dumps(output, ensure_ascii=False, indent=2)+'\n')
+(root / 'past-opacity-compare.json').write_text(json.dumps(output, ensure_ascii=False, indent=2)+'\n')
 print(f'{len(metadata)} captures; {len(measurements)} color measurements; {len(sheets)} original-pixel comparison sheets')

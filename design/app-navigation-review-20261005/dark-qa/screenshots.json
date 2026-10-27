@@ -5066,5 +5066,131 @@
     "test": "simctl/daybreak/v2-55/font-6",
     "attachments": "/private/tmp/liminalog-past-compare-20261027/direct-attachments",
     "original": "45-past-compare-v2-55.png"
+  },
+  "46-past-opacity-past-50-aurora-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "9f41e4859436f529aca5cb50ae3ed03182aad6ff2ac917032781f93218b437c6",
+    "bytes": 935661,
+    "test": "simctl/aurora/past-50/font-6",
+    "attachments": "/private/tmp/liminalog-past-opacity-20261027/direct-attachments",
+    "original": "46-past-opacity-past-50-aurora.png"
+  },
+  "46-past-opacity-past-50-large-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "7c5231ce45d24d883d6a499846fc8fb4d3408753977fc569a82d13962ed45971",
+    "bytes": 854423,
+    "test": "simctl/daybreak/past-50/font-7.5",
+    "attachments": "/private/tmp/liminalog-past-opacity-20261027/direct-attachments",
+    "original": "46-past-opacity-past-50-large.png"
+  },
+  "46-past-opacity-past-50-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "531be460ff42e11c6bf30188464d71f6fbaa3b228af580002628d5d63a0bbddb",
+    "bytes": 847497,
+    "test": "simctl/daybreak/past-50/font-6",
+    "attachments": "/private/tmp/liminalog-past-opacity-20261027/direct-attachments",
+    "original": "46-past-opacity-past-50.png"
+  },
+  "46-past-opacity-past-55-aurora-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "17fabf8bfc6248bfd6ebdc2e906c6001302233f311a881c336b940297e3b2a8a",
+    "bytes": 935989,
+    "test": "simctl/aurora/past-55/font-6",
+    "attachments": "/private/tmp/liminalog-past-opacity-20261027/direct-attachments",
+    "original": "46-past-opacity-past-55-aurora.png"
+  },
+  "46-past-opacity-past-55-large-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "539d30f0336248e946bc8ea57426d5df8e71fbbdc055a2015dbf3c8f2c5d4a21",
+    "bytes": 854704,
+    "test": "simctl/daybreak/past-55/font-7.5",
+    "attachments": "/private/tmp/liminalog-past-opacity-20261027/direct-attachments",
+    "original": "46-past-opacity-past-55-large.png"
+  },
+  "46-past-opacity-past-55-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "849074f832b80823097df17d4ef407433883245e9768fb6526e33a89f48f78a6",
+    "bytes": 847772,
+    "test": "simctl/daybreak/past-55/font-6",
+    "attachments": "/private/tmp/liminalog-past-opacity-20261027/direct-attachments",
+    "original": "46-past-opacity-past-55.png"
+  },
+  "46-past-opacity-v0-aurora-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "270d9e1768231ea39e5f7cb74fd9cb48b7befbe157bc731c270ade69a43939ce",
+    "bytes": 936332,
+    "test": "simctl/aurora/v0/font-6",
+    "attachments": "/private/tmp/liminalog-past-opacity-20261027/direct-attachments",
+    "original": "46-past-opacity-v0-aurora.png"
+  },
+  "46-past-opacity-v0-large-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "30d8da6a3c29bdd0f83c95bc9611e444077304ef605bbf1970e09f20a54f52f9",
+    "bytes": 855054,
+    "test": "simctl/daybreak/v0/font-7.5",
+    "attachments": "/private/tmp/liminalog-past-opacity-20261027/direct-attachments",
+    "original": "46-past-opacity-v0-large.png"
+  },
+  "46-past-opacity-v0-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "e7cdb471cf50b70ae233e1197781a3f5c2b2afe03c5e079b0d5d15f6033aeefc",
+    "bytes": 816714,
+    "test": "simctl/daybreak/v0/font-6",
+    "attachments": "/private/tmp/liminalog-past-opacity-20261027/direct-attachments",
+    "original": "46-past-opacity-v0.png"
   }
 }

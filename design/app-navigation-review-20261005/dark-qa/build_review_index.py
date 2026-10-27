@@ -177,16 +177,28 @@ for key, minutes in [('one', 1), ('five', 5), ('ten', 10), ('fifteen', 15), ('th
 for variant, label in [('v0', 'V0 現行・65%／線なし'), ('v1', 'V1 濃い未来＋過去を50%透過'),
                        ('v2-45', 'V2-45 澄んだ淡色45%'), ('v2-50', 'V2-50 澄んだ淡色50%'),
                        ('v2-55', 'V2-55 澄んだ淡色55%')]:
-    followup_labels['45-past-compare-' + variant] = '比較専用・' + label
+    followup_labels['45-past-compare-' + variant] = '旧案（不採用）・' + label
     if variant in ('v0', 'v1', 'v2-50'):
-        followup_labels['45-past-compare-' + variant + '-large'] = '比較専用・文字7.5・' + label
+        followup_labels['45-past-compare-' + variant + '-large'] = '旧案（不採用）・文字7.5・' + label
+for variant, label in [('v0', '現行・全体65%'), ('past-55', '過去の背景55%・白文字維持'), ('past-50', '過去の背景50%・白文字維持')]:
+    followup_labels['46-past-opacity-' + variant] = '元の予定は固定・' + label
+    followup_labels['46-past-opacity-' + variant + '-large'] = '文字7.5・' + label
 for stem, label in followup_labels.items():
     for suffix, device in [('', ''), ('-se', 'iPhone SE・'), ('-aurora', '極光・')]:
         labels[stem + suffix] = device + label
 
 body = []
+if (root / 'past-opacity-compare.json').exists():
+    body.append('<section id="46-past-opacity"><h2>46 元の予定の濃さを維持・過去の背景だけ透過</h2>'
+                '<p>現行65%／背景55%／背景50%の順。元の予定の色と濃さは同一。'
+                '背景だけを薄くし、白文字をそのままにする比較です。打ち消し線は変更なし。'
+                '<a href="past-opacity-compare.json">測定値と未来の画素一致確認</a></p>')
+    for theme, title in [('daybreak', '曙'), ('aurora', '極光')]:
+        name = '46-past-opacity-sheet-' + theme + '.png'
+        body.append(f'<h3>{title}</h3><a href="{name}"><img src="{name}" alt="{title}・元の濃さを固定した比較"></a>')
+    body.append('</section>')
 if (root / 'past-compare.json').exists():
-    body.append('<section id="45-past-compare"><h2>45 過去と未来の比較・製品には未適用</h2>'
+    body.append('<section id="45-past-compare"><h2>45 旧比較・元の予定を濃くする方針は不採用</h2>'
                 '<p>同じ週を原寸で切り出し、V0／V1／V2-45／V2-50／V2-55の順に配置。'
                 '左の25・26日が過去、右の28〜31日が未来です。各画像をクリックすると原寸。'
                 '<a href="past-compare.json">色とコントラストの測定値</a></p>')
@@ -210,7 +222,7 @@ for stem, label in labels.items():
 page = '''<!doctype html><html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Liminalog 画面証跡 — 2026-10-26</title><style>
 body{margin:24px auto;padding:0 24px;max-width:1320px;background:#eeeeef;color:#222;font:16px/1.7 system-ui,sans-serif}h1{font-size:24px}h2{font-size:19px;margin-top:36px}.pairs{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;align-items:start}figure{margin:0}figcaption{margin:0 0 8px}img{width:100%;height:auto;border:1px solid #bbb;border-radius:12px;background:#fff}section{border-top:1px solid #ccc;margin-top:28px}p{max-width:900px}a{color:inherit}
-</style><h1>ライト／ダーク画面の確認</h1><p>docs/37 §7・§12・§15・§17・§18・§22・§24・§25・§26・§27・§28 — iOS 26.5 / Debug。システム追従テーマ。iPhone 17は原寸1206×2622px（3x）、SEは750×1334px（2x）。PNGの加工なし。クリックで原寸。10・12・13は変更前後、その他は指定状態の画面記録です。15〜20はこれまでの繰り返し欄、21は下線タブ、22は間隔・開始日・終了を常時表示する構成です。23はメモ切替とカテゴリ横移動、24は開発サンプル、25は編集画面の仕上げ（印・しおり・その他・灰色の入力欄）、26は公開スイッチの文言と予定プリセット編集の並びをそろえた状態、27は先頭カードを1行にまとめた状態、28はSEで長い予定名を入力・修正した検証画面、29は先頭カードのアイコン間隔を少し詰めた状態、30は長い予定名を折り返して入力欄が縦に広がる状態、31はカテゴリ左端・ロック日のメモ追加・プリセットの印を直した状態です。32〜34はdocs/38の初回実装、32b・32c・33b・35〜37は追加仕様の実装後（2026-10-26）。38〜40はdocs/38 §8の日付選択・小さな表示修正・5段階スライダーです。41は「予定の入力」の図解付き吹き出し、42は文字色を変えた前案（撤回）、43は不透明度80%の前案、44は現行の不透明度65%、45はdocs/38 §14の5案比較（製品には未適用）です。以前の画像は比較用にそのまま残しています。</p>
+</style><h1>ライト／ダーク画面の確認</h1><p>docs/37 §7・§12・§15・§17・§18・§22・§24・§25・§26・§27・§28 — iOS 26.5 / Debug。システム追従テーマ。iPhone 17は原寸1206×2622px（3x）、SEは750×1334px（2x）。PNGの加工なし。クリックで原寸。10・12・13は変更前後、その他は指定状態の画面記録です。15〜20はこれまでの繰り返し欄、21は下線タブ、22は間隔・開始日・終了を常時表示する構成です。23はメモ切替とカテゴリ横移動、24は開発サンプル、25は編集画面の仕上げ（印・しおり・その他・灰色の入力欄）、26は公開スイッチの文言と予定プリセット編集の並びをそろえた状態、27は先頭カードを1行にまとめた状態、28はSEで長い予定名を入力・修正した検証画面、29は先頭カードのアイコン間隔を少し詰めた状態、30は長い予定名を折り返して入力欄が縦に広がる状態、31はカテゴリ左端・ロック日のメモ追加・プリセットの印を直した状態です。32〜34はdocs/38の初回実装、32b・32c・33b・35〜37は追加仕様の実装後（2026-10-26）。38〜40はdocs/38 §8の日付選択・小さな表示修正・5段階スライダーです。41は「予定の入力」の図解付き吹き出し、42は文字色を変えた前案（撤回）、43は不透明度80%の前案、44は現行の不透明度65%、45は元の予定を濃くする旧比較（不採用）、46は元の濃さを固定した過去の透過度比較です。以前の画像は比較用にそのまま残しています。</p>
 '''
 (root / 'index.html').write_text(page + '\n'.join(body) + '</html>\n')
 print(f'Indexed {len(images)} screenshots')

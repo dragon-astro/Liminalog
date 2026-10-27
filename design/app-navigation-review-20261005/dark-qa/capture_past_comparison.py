@@ -1,4 +1,4 @@
-"""Capture docs/38 §14 on the dedicated iPhone 17 Simulator via explicit launch args.
+"""Capture docs/38 §16 on the dedicated iPhone 17 Simulator via explicit launch args.
 
 Usage: python3 capture_past_comparison.py OUTPUT_DIR [daybreak|aurora]
 Install the Debug app first. Does not operate on the user's Simulator or physical device.
@@ -21,11 +21,11 @@ if (output/'manifest.json').exists():
     manifest = json.loads((output/'manifest.json').read_text())
 subprocess.run(['xcrun', 'simctl', 'ui', device, 'appearance', 'light'], check=True)
 for theme in themes:
-    cases = [(variant, '6') for variant in ['v0', 'v1', 'v2-45', 'v2-50', 'v2-55']]
+    cases = [(variant, '6') for variant in ['v0', 'past-55', 'past-50']]
     if theme == 'daybreak':
-        cases += [(variant, '7.5') for variant in ['v0', 'v1', 'v2-50']]
+        cases += [(variant, '7.5') for variant in ['v0', 'past-55', 'past-50']]
     for variant, font in cases:
-        stem = '45-past-compare-' + variant + ('-large' if font == '7.5' else '') + ('-aurora' if theme == 'aurora' else '')
+        stem = '46-past-opacity-' + variant + ('-large' if font == '7.5' else '') + ('-aurora' if theme == 'aurora' else '')
         arguments = ['-LiminalogMonthDrawerUITests', '-LiminalogPastPlanComparison', variant,
             '-LiminalogInitialRootTab', 'calendar', '-LiminalogInitialCalendarMode', 'month',
             '-LiminalogUITestTheme', theme, '-calendar.filter.usesCustomCategories', 'NO',
