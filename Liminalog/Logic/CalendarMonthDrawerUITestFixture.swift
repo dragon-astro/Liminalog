@@ -21,7 +21,8 @@ enum CalendarMonthDrawerUITestFixture {
         let calendar = Calendar.current
         let longNote = ProcessInfo.processInfo.arguments.contains("-LiminalogUITestLongNote")
         let memoFixture = ProcessInfo.processInfo.arguments.contains("-LiminalogUITestPlanMemos")
-        let work = memoFixture ? Category(name: "仕事", colorHex: "#537BC5", icon: "laptopcomputer") : nil
+        // Keep the familiar work category identical to the app's default palette.
+        let work = memoFixture ? Category(name: "仕事", colorHex: "#6C5CE7", icon: "laptopcomputer") : nil
         let errands = memoFixture ? Category(name: "用事", colorHex: "#C37A42", icon: "shippingbox") : nil
         if let work { context.insert(work) }
         if let errands { context.insert(errands) }
@@ -100,7 +101,7 @@ enum CalendarMonthDrawerUITestFixture {
             context.insert(chapter)
         }
         if ProcessInfo.processInfo.arguments.contains("-LiminalogUITestTemplateReplacement") {
-            let work = Category(name: "仕事", colorHex: "#7E57C2", icon: "laptopcomputer")
+            let work = Category(name: "仕事", colorHex: "#6C5CE7", icon: "laptopcomputer")
             let rest = Category(name: "休息", colorHex: "#2E9B71", icon: "cup.and.saucer.fill")
             let meeting = Category(name: "交流", colorHex: "#E58A36", icon: "person.2.fill")
             let outing = Category(name: "外出", colorHex: "#3287D1", icon: "figure.walk")
@@ -137,7 +138,7 @@ enum CalendarMonthDrawerUITestFixture {
             UserDefaults.standard.set(false, forKey: "calendarShowsPlanStartTime")
             UserDefaults.standard.set(false, forKey: "calendarStrikePastPlans")
             UserDefaults.standard.set(true, forKey: "calendarDimPastPlans")
-            let category = work ?? Category(name: "仕事", colorHex: "#537BC5", icon: "laptopcomputer")
+            let category = work ?? Category(name: "仕事", colorHex: "#6C5CE7", icon: "laptopcomputer")
             if work == nil { context.insert(category) }
             for (index, offset) in [-2, 1, 10, 20, 27, 32].enumerated() {
                 let target = calendar.date(byAdding: .day, value: offset, to: day)!

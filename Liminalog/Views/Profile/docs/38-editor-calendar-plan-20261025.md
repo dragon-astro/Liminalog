@@ -661,3 +661,15 @@ V1とV2の未来は全5色が3.0以上（実測3.334〜3.414）。V2の過去・
 - 専用iPhone 17 / iOS 26.5 Simulatorで曙・極光・宵を直接起動して撮影。時刻あり・終日・複数日の過去予定と未来予定を確認。今回は操作のUIテストや実機への再インストールは行っていない。
 - 復元後の画面：[曙](../../../../design/app-navigation-review-20261005/dark-qa/47-calendar-colors-restored-light.png)／[極光](../../../../design/app-navigation-review-20261005/dark-qa/47-calendar-colors-restored-aurora-light.png)／[宵](../../../../design/app-navigation-review-20261005/dark-qa/47-calendar-colors-restored-dark.png)。既存371枚の索引・PNGを維持し、3枚追加で374枚。
 - ログ・元画像・起動引数・照合結果は `/private/tmp/liminalog-color-restore-20261027/`、保存アーカイブは `artifacts/ui-polish-dark-qa-20261027/calendar-colors-restored.tar.gz`。
+
+## 18. 実機の保存色とSimulatorの検証データを照合（2026-10-27）
+
+ユーザーから「元の色とくすんだ色が混ざる。仕事は紫では」と指摘。実機での確認として調査を始めたが、ユーザーは後で「色が残っているのはSimulatorだったかも」と訂正した。実機への反映漏れだけを原因と断定しない。
+
+- 実機の保存データを読み取り確認。標準8カテゴリすべて初期色と一致し、「仕事」は **`#6C5CE7`（紫）**。予定の参照先にも別色の仕事はなかった。`96de11a` と製品の描画・カテゴリ・テーマ経路6ファイルの完全一致を再確認した。
+- 前回は実機へ復元版を入れていなかったため、署名を検証した通常Releaseを今回更新し、テスト引数なしで起動。更新前後のカテゴリID・色と予定のカテゴリ参照が一致。ユーザーから「入れ直したら元に戻った」と返答。その後のSimulatorへの訂正も含めて記録する。実機の月間画面は独立撮影していない。
+- 起動中のユーザー用Simulatorは `-LiminalogUITestPlanMemos` のin-memory検証データを使用。その「仕事」は **`#537BC5`（青）**で、標準カテゴリの紫とは異なっていた。インストール済み実行ファイルも薄字変更前の10月21日版だった。47番までの青い仕事はこの検証データであり、製品の初期色を示していない。
+- 検証データ内の仕事3か所（メモ・置換・月間表示）だけを標準の紫に統一。製品の保存色や描画方法、独自カテゴリの色は変えていない。
+- Debug build成功。専用iPhone 17で薄字オフの時刻あり・終日・複数日カプセルを直接撮影し、紫を確認（UIテストの実行ではない）。[48番の画像](../../../../design/app-navigation-review-20261005/dark-qa/48-calendar-work-default-color-light.png)。既存374枚は索引・PNGのハッシュを維持、計375枚。
+- ユーザー用Simulatorは予定編集途中だったため、入力の破棄と更新について明示的な了承を得てから更新。元と同じ起動引数で正常起動を確認した。
+- [検証記録](../../../../design/app-navigation-review-20261005/dark-qa/calendar-color-device-followup.json)。画像・ビルドログの保存先は `artifacts/ui-polish-dark-qa-20261027/calendar-work-default-color.tar.gz`。実機から読み取ったDBと設定ファイルは一時フォルダのみで、リポジトリ・アーカイブには含めない。

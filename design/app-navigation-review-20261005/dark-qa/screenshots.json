@@ -5234,5 +5234,19 @@
     "test": "simctl/color-restoration/daybreak",
     "attachments": "/private/tmp/liminalog-color-restore-20261027/attachments/light",
     "original": "47-calendar-colors-restored.png"
+  },
+  "48-calendar-work-default-color-light.png": {
+    "phase": "after",
+    "appearance": "light",
+    "pixels": [
+      1206,
+      2622
+    ],
+    "scale": 3,
+    "sha256": "92ae4dcc025daf161025a56463951253faa3b84b85d6b53a7b965bcd5247e456",
+    "bytes": 850971,
+    "test": "simctl/fixture-work-default-color",
+    "attachments": "/private/tmp/liminalog-device-colors-20261027.Sd99vq/attachments",
+    "original": "48-calendar-work-default-color.png"
   }
 }

@@ -1,0 +1,60 @@
+{
+  "source_revision": "f2b0ee867704b0c0670a4616264cbefa408d7402",
+  "baseline": "96de11a",
+  "source_files_match_baseline": {
+    "Liminalog/Views/Calendar/CalendarView.swift": true,
+    "Liminalog/Extensions/Color+Hex.swift": true,
+    "Liminalog/Models/Category.swift": true,
+    "Liminalog/Stores/CategoryStore.swift": true,
+    "Liminalog/Design/LiminalTheme.swift": true,
+    "Liminalog/Design/LiminalThemeDefinition.swift": true
+  },
+  "stored_categories_before": [
+    {
+      "name": "勉強",
+      "colorHex": "#2F80ED"
+    },
+    {
+      "name": "仕事",
+      "colorHex": "#6C5CE7"
+    },
+    {
+      "name": "趣味",
+      "colorHex": "#EB5757"
+    },
+    {
+      "name": "休憩",
+      "colorHex": "#27AE60"
+    },
+    {
+      "name": "睡眠",
+      "colorHex": "#9B51E0"
+    },
+    {
+      "name": "移動",
+      "colorHex": "#F2994A"
+    },
+    {
+      "name": "自由時間",
+      "colorHex": "#F2C94C"
+    },
+    {
+      "name": "家事",
+      "colorHex": "#56CCF2"
+    }
+  ],
+  "release_binary_sha256": "82528a5725c8349f267eb82eb9202e6caa96563b267175275e5b253744095717",
+  "install_success": "success",
+  "launch_success": "success",
+  "device_calendar_visual_check": "User reported colors restored after install, then clarified wrong-color observation may have been Simulator. Physical calendar not independently photographed.",
+  "saved_categories_unchanged": true,
+  "plan_category_links_unchanged": true,
+  "device_user_feedback": "Reinstall restored colors; user clarified original wrong-color observation may have been Simulator.",
+  "simulator_cause": "The running user Simulator used in-memory PlanMemos UI fixture: work #537BC5 instead of default #6C5CE7. Its installed executable predated dimming changes.",
+  "fixture_work_color": "#6C5CE7",
+  "fixture_color_sites_updated": 3,
+  "simulator_debug_build": "passed",
+  "dedicated_simulator_visual_check": "Passed: timed, all-day and multi-day capsules purple with dimming disabled; direct simctl capture, not UI test.",
+  "user_simulator_updated": "Installed and restarted with original launch arguments after explicit user approval to discard editor draft.",
+  "simulator_capture_sha256": "92ae4dcc025daf161025a56463951253faa3b84b85d6b53a7b965bcd5247e456"
+}
