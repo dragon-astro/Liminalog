@@ -1,0 +1,48 @@
+{
+  "date": "2026-11-02",
+  "action": "Replace a verified duplicate archive with its unique remainder and a reconstruction manifest",
+  "removedArchive": "artifacts/ui-polish-dark-qa-20261026/settings-followup-simulator.tar.gz",
+  "removedArchiveSHA256": "bcbc0832e0831c438f153d22918d0640adc366707ea58e57b6fe6a844b208663",
+  "sharedArchive": "artifacts/ui-polish-dark-qa-20261026/settings-followup.tar.gz",
+  "sharedArchiveSHA256": "3bba24f6cba43d9e3338e7b3de4e91883a2eb8b88a01c653e4d5d62cb7498c8b",
+  "uniqueArchive": "artifacts/ui-polish-dark-qa-20261026/settings-followup-simulator-unique.tar.gz",
+  "uniqueArchiveSHA256": "08f59e60270abc374b50af416b8fd7fa3c6dd4072c921cfcacbe023f91c44a82",
+  "originalFileCount": 1653,
+  "sharedFileCount": 1647,
+  "uniqueFiles": {
+    "design/app-navigation-review-20261005/dark-qa/settings-followup-verification.json": {
+      "bytes": 4519,
+      "sha256": "536b4e814db11fce564bcad643cbc5c3f13f5d8ab5347f677739e1be566c5553"
+    },
+    "Liminalog/AI_TASKS.md": {
+      "bytes": 493126,
+      "sha256": "8e57164114f706f391a1a882e73ba29f3ba6ff2402bee216e9723ee83af4a4f4"
+    },
+    "Liminalog/Views/Profile/docs/38-editor-calendar-plan-20261025.md": {
+      "bytes": 61387,
+      "sha256": "2ec6e78d8eaa3412f757a18f9352645d8861d4a9ca9a5d3f8af3d71ff648c834"
+    },
+    "LiminalogUITests/CalendarMonthDrawerUITests.swift": {
+      "bytes": 209379,
+      "sha256": "93af2244243268191350bf75eda4fda04b2ee164f2cf2f0a8897833af997f797"
+    },
+    "verification/archive_evidence.py": {
+      "bytes": 1449,
+      "sha256": "b05a6c1143dcd786bb00720bff6cfdf8464330233f95e10058a0082deb8df57e"
+    },
+    "verification/changes.patch": {
+      "bytes": 96715,
+      "sha256": "921f69fb90dd6c946d1cbf5cc6352965356291eb0f87a5c8da5a9f4453915123"
+    }
+  },
+  "archiveBytesBefore": 522632138,
+  "archiveBytesAfter": 339792,
+  "netBytesFreed": 522292346,
+  "verification": "Every original file is recoverable with its original SHA-256 and size; shared archive unchanged",
+  "screenshotFilesDeleted": 0,
+  "productAssetsChanged": false,
+  "status": "passed",
+  "rawEvidencePath": "/private/tmp/liminalog-evidence-cleanup-20261102.hQILAs",
+  "rawEvidenceExpiresOn": "2026-11-16",
+  "exportCheck": "PASS: first export, identical re-export without copy, existing index preservation, minimum-number selection"
+}
